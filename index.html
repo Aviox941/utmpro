@@ -8047,10 +8047,10 @@ const idToDelete = deletingCasoId;
 localStorage.removeItem(getCasoKey(idToDelete));
 const idx = getCasosIndex().filter(c => c.id !== idToDelete);
 saveCasosIndex(idx);
-localStorage.removeItem('pension_utm_last_caso');
 // Si era el activo, cambiar al primero disponible o limpiar
 if (activeCasoId === idToDelete) {
 activeCasoId = null;
+localStorage.removeItem('pension_utm_last_caso');
 if (idx.length > 0) switchCaso(idx[idx.length - 1].id);
 else { resetAllSilent(); updateActiveCasoBadge(); }
 }
@@ -8199,9 +8199,9 @@ function eliminarPerfil(id) {
   localStorage.removeItem(getCasoKey(id));
   let idx = getCasosIndex().filter(c => c.id !== id);
   saveCasosIndex(idx);
-  localStorage.removeItem('pension_utm_last_caso');
   if (activeCasoId === id) {
     activeCasoId = null;
+    localStorage.removeItem('pension_utm_last_caso');
     resetAllSilent();
     updateActiveCasoBadge();
   } else {
@@ -9694,7 +9694,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
       // ── FIN DIAGNÓSTICO ──
       await sbLoadCasos();
     }
-  } else if (event === 'SIGNED_OUT') {
+  } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
     sbAccessToken = null;
     showLoginScreen();
@@ -9705,11 +9705,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
 const _origSaveCurrentCasoNow = saveCurrentCasoNow;
 window.saveCurrentCasoNow = function() {
   _origSaveCurrentCasoNow();   // escribe en localStorage de forma síncrona
-  // Subir a Supabase en background (fire-and-forget, no bloquea la UI)
-  if (activeCasoId && sbCurrentUser) {
-    const idToSave = activeCasoId;
-    setTimeout(() => sbSaveCaso(idToSave), 0);
-  }
+  // sbSaveCaso ya se llama desde saveSession con debounce — no duplicar aquí
 };
 
 // ── Parchear crearCaso para sincronizar el nuevo caso ──
