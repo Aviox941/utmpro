@@ -1,10 +1,11 @@
 const CACHE_NAME = 'pension-utm-v9';
+const BASE = '/utmpro';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  BASE + '/',
+  BASE + '/index.html',
+  BASE + '/manifest.json',
+  BASE + '/icon-192.png',
+  BASE + '/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
@@ -23,11 +24,8 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Red primero, caché como fallback
 self.addEventListener('fetch', e => {
-  // Solo interceptar mismo origen
-  if (!e.request.url.startsWith(self.location.origin)) return;
-
+  if (!e.request.url.includes(self.location.origin)) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {

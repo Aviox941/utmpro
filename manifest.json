@@ -2,20 +2,21 @@
   "name": "Pensión UTM Pro",
   "short_name": "Pensión UTM",
   "description": "Calculadora de pensiones alimenticias con UTM y tasas CMF",
-  "start_url": "/",
+  "start_url": "/utmpro/",
+  "scope": "/utmpro/",
   "display": "standalone",
   "background_color": "#f5f6f8",
   "theme_color": "#f5f6f8",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/utmpro/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/utmpro/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
