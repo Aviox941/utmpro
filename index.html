@@ -9539,11 +9539,12 @@ async function sbSignOut() {
     dbg('SIGNOUT: ' + e.message + ', recargando igual');
   }
   dbg('SIGNOUT: limpiando sesion y recargando');
-  // Borrar TODAS las claves relacionadas con la sesión de Supabase
+  // Borrar TODAS las claves de sesión de Supabase
   const keysToDelete = Object.keys(localStorage).filter(k =>
     k === 'pension_utm_auth' ||
+    k === 'sb-pipfpwpkzjajgmwcdrsv-auth-token' ||
     k.startsWith('sb-') ||
-    k.includes('supabase.auth') ||
+    k.includes('supabase') ||
     k.includes('auth-token')
   );
   keysToDelete.forEach(k => localStorage.removeItem(k));
