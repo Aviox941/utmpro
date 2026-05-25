@@ -335,6 +335,7 @@
    transition: transform var(--transition-slow);
    display: flex; flex-direction: column; overflow: hidden;
    box-shadow: 4px 0 24px rgba(0,0,0,0.10);
+   padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   #sidebar.open { transform: translateX(0); }
 
@@ -3752,10 +3753,7 @@
       <button onclick="showResetConfirm()" class="header-icon-btn header-icon-btn--danger" title="Limpiar">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
       </button>
-      <button onclick="sbSignOut()" class="header-icon-btn header-icon-btn--danger" title="Cerrar sesión" style="opacity:0.7;">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
-        <span class="text-[6.5px] font-bold leading-none tracking-widest" style="color:inherit;opacity:0.85">SALIR</span>
-      </button>
+
     </div>
 
   </div>
@@ -8029,9 +8027,12 @@ if (!nombre || !renamingCasoId) return;
 const idx = getCasosIndex();
 const caso = idx.find(c => c.id === renamingCasoId);
 if (caso) { caso.nombre = nombre; saveCasosIndex(idx); }
+const idRenaming = renamingCasoId;
 hideRenameCasoModal();
 updateActiveCasoBadge();
 renderCasosList();
+// Sincronizar nombre en Supabase
+if (typeof sbSaveCaso === 'function' && sbCurrentUser) setTimeout(() => sbSaveCaso(idRenaming), 0);
 }
 // Eliminar
 function showDeleteCasoModal(id, nombre) {
@@ -8042,18 +8043,22 @@ document.getElementById('deleteCasoModal').classList.replace('hidden','flex'); l
 function hideDeleteCasoModal() { document.getElementById('deleteCasoModal').classList.replace('flex','hidden'); unlockBody(); deletingCasoId = null; }
 function confirmarDelete() {
 if (!deletingCasoId) return;
-localStorage.removeItem(getCasoKey(deletingCasoId));
-const idx = getCasosIndex().filter(c => c.id !== deletingCasoId);
+const idToDelete = deletingCasoId;
+localStorage.removeItem(getCasoKey(idToDelete));
+const idx = getCasosIndex().filter(c => c.id !== idToDelete);
 saveCasosIndex(idx);
+localStorage.removeItem('pension_utm_last_caso');
 // Si era el activo, cambiar al primero disponible o limpiar
-if (activeCasoId === deletingCasoId) {
+if (activeCasoId === idToDelete) {
 activeCasoId = null;
-if (idx.length > 0) switchCaso(idx[0].id);
+if (idx.length > 0) switchCaso(idx[idx.length - 1].id);
 else { resetAllSilent(); updateActiveCasoBadge(); }
 }
 hideDeleteCasoModal();
 renderCasosList();
 updateActiveCasoBadge();
+// Eliminar en Supabase
+if (typeof sbDeleteCaso === 'function') sbDeleteCaso(idToDelete);
 }
 // ============================================================
 // FIN SISTEMA DE CASOS
@@ -8148,11 +8153,7 @@ function renderProfileList() {
     row.appendChild(del);
     // Click to select
     row.addEventListener('click', () => {
-      if (activeCasoId) saveCurrentCasoNow();
-      activeCasoId = c.id;
-      const raw = localStorage.getItem(getCasoKey(c.id));
-      if (raw) { try { applySession(JSON.parse(raw)); } catch(e) {} }
-      updateActiveCasoBadge();
+      switchCaso(c.id);
       closeProfileModal();
     });
     container.appendChild(row);
@@ -8174,6 +8175,8 @@ function crearPerfil() {
   renderCasosList();
   closeProfileModal();
   requestAnimationFrame(() => document.getElementById('app-container').classList.add('app-ready'));
+  // Subir a Supabase
+  if (typeof sbSaveCaso === 'function' && sbCurrentUser) setTimeout(() => sbSaveCaso(id), 800);
 }
 function confirmarEliminarCaso(id, nombre) {
   const modal = document.getElementById('confirmDeleteModal');
@@ -8196,6 +8199,7 @@ function eliminarPerfil(id) {
   localStorage.removeItem(getCasoKey(id));
   let idx = getCasosIndex().filter(c => c.id !== id);
   saveCasosIndex(idx);
+  localStorage.removeItem('pension_utm_last_caso');
   if (activeCasoId === id) {
     activeCasoId = null;
     resetAllSilent();
@@ -8205,6 +8209,8 @@ function eliminarPerfil(id) {
   }
   renderCasosList();
   renderProfileList();
+  // Eliminar en Supabase
+  if (typeof sbDeleteCaso === 'function') sbDeleteCaso(id);
 }
 // ============================================================
 // MODAL RESUMEN — vista completa equivalente al PDF
@@ -9073,7 +9079,7 @@ if (sbCurrentUser) {
     });
     // Prefer fetch with keepalive (supported in modern browsers), fallback to sendBeacon
     const url = SB_URL + '/rest/v1/casos?on_conflict=id';
-    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbCurrentUser.access_token || SB_KEY), 'Prefer': 'resolution=merge-duplicates' };
+    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'resolution=merge-duplicates' };
     if (navigator.sendBeacon) {
       const blob = new Blob([body], { type: 'application/json' });
       // sendBeacon no soporta headers custom — usar fetch keepalive en su lugar
@@ -9181,9 +9187,7 @@ if (sbCurrentUser) {
     <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Correo</p>
     <p class="text-[12px] font-black text-white" id="userProfileEmailDetail">—</p>
    </div>
-   <button onclick="sbSignOut(); cerrarUserProfile();" class="btn-base w-full" style="background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.2)">
-    Cerrar sesión
-   </button>
+
   </div>
  </div>
 </div>
@@ -9292,6 +9296,7 @@ const SB_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
 
 // ── Leer caché de UTM desde Supabase ──
 async function sbGetUtmCache() {
+  if (!sbCurrentUser) return null; // sin sesión no tiene caso consultar
   try {
     const { data, error } = await sb.from('cmf_cache')
       .select('payload, updated_at')
@@ -9309,6 +9314,7 @@ async function sbGetUtmCache() {
 
 // ── Escribir caché de UTM en Supabase ──
 async function sbSetUtmCache(valoresNuevos) {
+  if (!sbCurrentUser) return;
   try {
     const { error } = await sb.from('cmf_cache').upsert({
       id: 'utm',
@@ -9322,6 +9328,7 @@ async function sbSetUtmCache(valoresNuevos) {
 
 // ── Leer caché de Tasas desde Supabase ──
 async function sbGetTasasCache() {
+  if (!sbCurrentUser) return null; // sin sesión no tiene caso consultar
   try {
     const { data, error } = await sb.from('cmf_cache')
       .select('payload, updated_at')
@@ -9338,6 +9345,7 @@ async function sbGetTasasCache() {
 
 // ── Escribir caché de Tasas en Supabase ──
 async function sbSetTasasCache(snapshot) {
+  if (!sbCurrentUser) return;
   try {
     const { error } = await sb.from('cmf_cache').upsert({
       id: 'tasas',
@@ -9354,9 +9362,18 @@ async function sbSetTasasCache(snapshot) {
 // ══════════════════════════════════════════════════════════
 const SB_URL  = 'https://pipfpwpkzjajgmwcdrsv.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w';
-const sb      = supabase.createClient(SB_URL, SB_KEY);
+const sb      = supabase.createClient(SB_URL, SB_KEY, {
+  auth: {
+    persistSession: true,
+    storageKey: 'pension_utm_auth',
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    detectSessionInUrl: false
+  }
+});
 
 let sbCurrentUser = null;
+let sbAccessToken = null;
 let sbAuthTab = 'login';
 
 // ── Mostrar / ocultar pantalla de login ──
@@ -9524,12 +9541,10 @@ async function sbSignOut() {
   dbg('SIGNOUT: limpiando sesion y recargando');
   // Borrar la sesión de Supabase del localStorage manualmente
   // para que no se restaure al recargar
-  Object.keys(localStorage).forEach(k => {
-    if (k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token')) {
-      localStorage.removeItem(k);
-    }
-  });
-  // Borrar también sessionStorage por las dudas
+  // Borrar solo la sesión de auth (la storageKey configurada)
+  localStorage.removeItem('pension_utm_auth');
+  // Borrar claves legacy de Supabase por si acaso
+  Object.keys(localStorage).filter(k => k.startsWith('sb-') && k.includes('auth-token')).forEach(k => localStorage.removeItem(k));
   try { sessionStorage.clear(); } catch(e) {}
   window.location.reload();
 }
@@ -9645,36 +9660,13 @@ async function sbSaveCaso(id) {
 async function sbDeleteCaso(id) {
   if (!sbCurrentUser || !id) return;
   try {
-    // 1. Eliminar en Supabase
     const { error } = await sb
       .from('casos')
       .delete()
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id);
-    if (error) {
-      console.error('DELETE ERROR:', error);
-      return;
-    }
-    // 2. Eliminar del localStorage
-    localStorage.removeItem(CASO_DATA_PREFIX + id);
-    // 3. Eliminar del índice local
-    const idx = getCasosIndex().filter(c => c.id !== id);
-    saveCasosIndex(idx);
-    // 4. Si era el caso activo, limpiar selección
-    if (activeCasoId === id) {
-      activeCasoId = null;
-      localStorage.removeItem('pension_utm_last_caso');
-    }
-    // 5. Refrescar UI
-    renderCasosList();
-    // 6. Cambiar automáticamente a otro caso
-    if (idx.length > 0) {
-      switchCaso(idx[idx.length - 1].id);
-    } else {
-      clearAll(false);
-      updateActiveCasoBadge();
-    }
-    console.log('■ Caso eliminado');
+    if (error) console.error('DELETE ERROR:', error);
+    else console.log('■ Caso eliminado en Supabase:', id);
   } catch(e) {
     console.error('DELETE EXCEPTION:', e);
   }
@@ -9686,6 +9678,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
     sbCurrentUser = session.user;
+    sbAccessToken = session.access_token || null;
     const email = session.user.email || '—';
     const emailEl = document.getElementById('sidebarUserEmail');
     if (emailEl) emailEl.textContent = email;
@@ -9701,8 +9694,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
       // ── FIN DIAGNÓSTICO ──
       await sbLoadCasos();
     }
-  } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+  } else if (event === 'SIGNED_OUT') {
     sbCurrentUser = null;
+    sbAccessToken = null;
     showLoginScreen();
   }
 });
@@ -9725,13 +9719,6 @@ window.crearCaso = function() {
   // Esperar 800ms para que saveSession() (debounce 600ms) haya escrito en localStorage
   if (sbCurrentUser) setTimeout(() => { if (activeCasoId) sbSaveCaso(activeCasoId); }, 800);
 };
-
-// ── Parchear eliminación de caso para borrar en Supabase ──
-// (hook sobre el botón de eliminar existente)
-document.addEventListener('click', e => {
-  const btn = e.target.closest('[data-delete-caso]');
-  if (btn) sbDeleteCaso(btn.dataset.deleteCaso);
-});
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
 setInterval(async () => {

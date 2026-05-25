@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pension-utm-v9';
+const CACHE_NAME = 'pension-utm-v10';
 const BASE = '/utmpro';
 const ASSETS = [
   BASE + '/',
