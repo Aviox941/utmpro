@@ -1,10 +1,12 @@
-const CACHE_NAME = 'pension-utm-v1';
+const CACHE_NAME = 'pension-utm-v9';
 const ASSETS = [
   '/',
-  '/index.html'
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png'
 ];
 
-// Instalar y cachear el HTML principal
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
@@ -12,7 +14,6 @@ self.addEventListener('install', e => {
   self.skipWaiting();
 });
 
-// Activar y limpiar caches viejos
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -22,15 +23,14 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Estrategia: red primero, caché como fallback
+// Red primero, caché como fallback
 self.addEventListener('fetch', e => {
-  // Solo interceptar peticiones al mismo origen
+  // Solo interceptar mismo origen
   if (!e.request.url.startsWith(self.location.origin)) return;
 
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        // Guardar copia fresca en caché
         const copy = res.clone();
         caches.open(CACHE_NAME).then(cache => cache.put(e.request, copy));
         return res;
