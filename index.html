@@ -9644,7 +9644,40 @@ async function sbSaveCaso(id) {
 // ── Eliminar un caso en Supabase ──
 async function sbDeleteCaso(id) {
   if (!sbCurrentUser || !id) return;
-  try { await sb.from('casos').delete().eq('id', id); } catch(e) {}
+  try {
+    // 1. Eliminar en Supabase
+    const { error } = await sb
+      .from('casos')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', sbCurrentUser.id);
+    if (error) {
+      console.error('DELETE ERROR:', error);
+      return;
+    }
+    // 2. Eliminar del localStorage
+    localStorage.removeItem(CASO_DATA_PREFIX + id);
+    // 3. Eliminar del índice local
+    const idx = getCasosIndex().filter(c => c.id !== id);
+    saveCasosIndex(idx);
+    // 4. Si era el caso activo, limpiar selección
+    if (activeCasoId === id) {
+      activeCasoId = null;
+      localStorage.removeItem('pension_utm_last_caso');
+    }
+    // 5. Refrescar UI
+    renderCasosList();
+    // 6. Cambiar automáticamente a otro caso
+    if (idx.length > 0) {
+      switchCaso(idx[idx.length - 1].id);
+    } else {
+      clearAll(false);
+      updateActiveCasoBadge();
+    }
+    console.log('■ Caso eliminado');
+  } catch(e) {
+    console.error('DELETE EXCEPTION:', e);
+  }
 }
 
 // ── Escuchar cambios de autenticación ──
@@ -9653,8 +9686,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
     sbCurrentUser = session.user;
+    const email = session.user.email || '—';
     const emailEl = document.getElementById('sidebarUserEmail');
-    if (emailEl) emailEl.textContent = session.user.email;
+    if (emailEl) emailEl.textContent = email;
+    const profileEmailEl = document.getElementById('userProfileEmailDetail');
+    if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // ── DIAGNÓSTICO RÁPIDO (siempre visible) ──
