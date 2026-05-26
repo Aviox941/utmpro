@@ -3214,6 +3214,10 @@
 <body style="background:#f5f6f8;">
 <!-- Bloquea cualquier flash: oculta el app-container hasta que el login resuelva -->
 <style>#app-container,#desktop-layout{visibility:hidden}body.auth-ready #app-container,body.auth-ready #desktop-layout{visibility:visible}</style>
+<script>
+// Safety: si en 3s Supabase no respondió, mostrar la app igual
+setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
+</script>
  <div id="saveToast">✓ Sesión guardada</div>
  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
  <div id="newCasoModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
