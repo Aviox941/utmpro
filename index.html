@@ -9864,7 +9864,12 @@ function sbStartRealtime() {
     })
     .subscribe(status => {
       dbg('REALTIME status: ' + status);
-      if (status === 'CHANNEL_ERROR') dbg('REALTIME: ⚠️ Verifica que la tabla casos tenga Replication activada en Supabase');
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        dbg('REALTIME: ⚠️ ' + status + ' — reintentando en 5s...');
+        setTimeout(() => {
+          if (sbCurrentUser) sbStartRealtime();
+        }, 5000);
+      }
       if (status === 'SUBSCRIBED') dbg('REALTIME: ✅ Escuchando cambios en tiempo real');
     });
 }
