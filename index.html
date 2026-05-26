@@ -4,7 +4,7 @@
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v72 · REFACTOR ETAPA 3.1</title>
- <link rel="manifest" href="/utmpro/manifest.json">
+ <link rel="manifest" href="manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -219,6 +219,8 @@
    background-color: var(--color-bg-app);
    color: var(--color-text-primary);
    font-family: var(--font-main);
+   /* Bloquear pull-to-refresh en Android Chrome */
+   overscroll-behavior-y: none;
   }
 
   /* --- Utilidad: ocultar scrollbar (no-scrollbar) --- */
@@ -3121,51 +3123,97 @@
      FIN COMPACTACIÓN FINAL v6.1
      ============================================================ */
 
+  /* ============================================================
+     SIDEBAR PERSISTENTE EN DESKTOP — Parte 1
+     En pantallas ≥ 1024px el sidebar coexiste con la interfaz
+     como un panel lateral fijo. No se usa overlay.
+     ============================================================ */
+
+  @media (min-width: 768px) {
+
+    /* ── Wrapper raíz: flex row, ocupa todo el viewport ── */
+    #desktop-layout {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      min-height: 100vh;
+      background: #e8eaf0;
+    }
+
+    /* ── Sidebar: sticky panel izquierdo ── */
+    #sidebar {
+      position: sticky !important;
+      top: 0 !important;
+      left: auto !important;
+      bottom: auto !important;
+      transform: none !important;
+      width: 220px !important;
+      min-width: 220px !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      max-height: 100vh !important;
+      max-height: 100dvh !important;
+      flex-shrink: 0;
+      box-shadow: 1px 0 0 rgba(0,0,0,0.07), 4px 0 20px rgba(0,0,0,0.06) !important;
+      border-right: 1px solid rgba(0,0,0,0.08) !important;
+      z-index: 10 !important;
+      transition: none !important;
+      overflow: hidden !important;
+    }
+
+    /* Siempre visible en desktop, ignorar clase .open */
+    #sidebar { display: flex !important; flex-direction: column !important; }
+    /* Lista de casos: ocupa todo el espacio disponible y scrollea */
+    #casosList { flex: 1 !important; overflow-y: auto !important; }
+
+    /* ── Overlay: nunca visible en desktop ── */
+    #sidebarOverlay {
+      display: none !important;
+    }
+
+    /* ── Botón hamburguesa: oculto cuando sidebar es persistente ── */
+    button[onclick="openSidebar()"] {
+      display: none !important;
+    }
+
+    /* ── App-container: ocupa el resto del ancho ── */
+    #app-container {
+      flex: 1 !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-left: 1px solid rgba(0,0,0,0.06) !important;
+    }
+
+    /* Header pegado al tope */
+    #app-container > header {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 20 !important;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    #sidebar {
+      width: 260px !important;
+      min-width: 260px !important;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    #sidebar {
+      width: 280px !important;
+      min-width: 280px !important;
+    }
+  }
+
  </style>
 </head>
 <body>
  <div id="saveToast">✓ Sesión guardada</div>
  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
- <div id="sidebar">
- <div class="px-5 pt-6 pb-4 border-b border-black/7 flex-shrink-0">
- <div class="flex items-center justify-between mb-4">
- <div class="flex items-center gap-2">
- <div class="bg-[#2563eb] p-1.5 rounded-lg">
- <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L4 6v2c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-3z"/></svg>
- </div>
- <div>
- <p class="text-[9px] font-bold text-[#3b82f6] uppercase leading-none">Liquidación Pro</p>
- <p class="text-xs font-bold text-[#1a1d2e] leading-tight">Casos</p>
- </div>
- </div>
- <button onclick="closeSidebar()" class="text-[#8e97b0] hover:text-[#1a1d2e] p-1 rounded-lg transition-colors">
- <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
- </button>
- </div>
- <button onclick="showNewCasoModal()" class="btn-base btn-primary btn-full gap-2">
- <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
- Nuevo Caso
- </button>
- </div>
- <div class="flex-1 overflow-y-auto px-3 py-3 no-scrollbar" id="casosList"></div>
- <div class="px-4 pb-5 pt-3 border-t border-black/7 flex-shrink-0">
-  <!-- Usuario activo -->
-  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,0.03);margin-bottom:8px;">
-    <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6b4faa,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <svg width="14" height="14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    </div>
-    <div style="flex:1;min-width:0;">
-      <p style="font-size:8px;font-weight:700;color:#8e97b0;text-transform:uppercase;letter-spacing:0.08em;line-height:1;">Sesión activa</p>
-      <p id="sidebarUserEmail" style="font-size:10px;font-weight:700;color:#1a1d2e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></p>
-    </div>
-  </div>
-  <!-- Botón cerrar sesión -->
-  <button onclick="sbSignOut()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:11px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);color:#dc2626;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(220,38,38,0.12)'" onmouseout="this.style.background='rgba(220,38,38,0.06)'">
-    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
-    Cerrar sesión
-  </button>
- </div>
- </div>
  <div id="newCasoModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
   <div class="card-modal" style="max-width:28rem;width:100%;">
    <!-- Header -->
@@ -3716,12 +3764,53 @@
     </div>
   </div>
  </div>
- <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
+ <div id="desktop-layout">
+ <div id="sidebar">
+ <div class="px-5 pt-6 pb-4 border-b border-black/7 flex-shrink-0">
+ <div class="flex items-center justify-between mb-4">
+ <div class="flex items-center gap-2">
+ <div class="bg-[#2563eb] p-1.5 rounded-lg">
+ <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3L4 6v2c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-3z"/></svg>
+ </div>
+ <div>
+ <p class="text-[9px] font-bold text-[#3b82f6] uppercase leading-none">Liquidación Pro</p>
+ <p class="text-xs font-bold text-[#1a1d2e] leading-tight">Casos</p>
+ </div>
+ </div>
+ <button onclick="closeSidebar()" class="text-[#8e97b0] hover:text-[#1a1d2e] p-1 rounded-lg transition-colors">
+ <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+ </button>
+ </div>
+ <button onclick="showNewCasoModal()" class="btn-base btn-primary btn-full gap-2">
+ <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+ Nuevo Caso
+ </button>
+ </div>
+ <div class="flex-1 overflow-y-auto px-3 py-3 no-scrollbar" id="casosList"></div>
+ <div class="px-4 pb-5 pt-3 border-t border-black/7 flex-shrink-0">
+  <!-- Usuario activo -->
+  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,0.03);margin-bottom:8px;">
+    <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6b4faa,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="14" height="14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <p style="font-size:8px;font-weight:700;color:#8e97b0;text-transform:uppercase;letter-spacing:0.08em;line-height:1;">Sesión activa</p>
+      <p id="sidebarUserEmail" style="font-size:10px;font-weight:700;color:#1a1d2e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></p>
+    </div>
+  </div>
+  <!-- Botón cerrar sesión -->
+  <button onclick="sbSignOut()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:11px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);color:#dc2626;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(220,38,38,0.12)'" onmouseout="this.style.background='rgba(220,38,38,0.06)'">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
+    Cerrar sesión
+  </button>
+ </div>
+ </div>
+<div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
  <header>
   <!-- Fila principal de controles -->
   <div class="header-row-main">
 
-    <!-- Menú hamburguesa + perfil fijos a la izquierda -->
+    <!-- Menú hamburguesa + correo del usuario fijos a la izquierda -->
     <div class="flex items-center gap-2 flex-shrink-0">
       <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Casos">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -3730,12 +3819,14 @@
         <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
         </svg>
-        <span id="activeCasoNombreHeader" class="text-[9px] font-black text-[#93c5fd] leading-none max-w-[120px] truncate">Sin perfil</span>
+        <span id="activeCasoNombreHeader" class="text-[9px] font-black text-[#93c5fd] leading-none max-w-[120px] truncate">Sin sesión</span>
       </div>
     </div>
 
-    <!-- Espacio flexible central -->
-    <div class="flex-1"></div>
+    <!-- Nombre del caso centrado -->
+    <div class="flex-1 flex items-center justify-center">
+      <span id="headerCasoNombre" style="font-size:11px;font-weight:700;color:#1a1d2e;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;line-height:1.2;"></span>
+    </div>
 
     <!-- Botones de acción: VER, PDF, Reset -->
     <div class="flex-shrink-0 flex items-center gap-1.5">
@@ -7132,7 +7223,7 @@ updateUtmEquivChip();
 if (!skipCalculate) calculate();
 }
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/utmpro/sw.js')
+  navigator.serviceWorker.register('sw.js')
     .then(reg => console.log('SW registrado:', reg.scope))
     .catch(err => console.warn('SW error:', err));
 }
@@ -7512,14 +7603,19 @@ function getCasoKey(id) { return CASO_DATA_PREFIX + id; }
 function getInitials(name) {
 return name.trim().split(/\s+/).slice(0,2).map(w => w[0].toUpperCase()).join('');
 }
+function isDesktop() {
+  return window.innerWidth >= 768;
+}
 function openSidebar() {
-renderCasosList();
-document.getElementById('sidebar').classList.add('open');
-document.getElementById('sidebarOverlay').classList.add('open');
+  renderCasosList();
+  if (isDesktop()) return; // En desktop el sidebar siempre está visible
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
 }
 function closeSidebar() {
-document.getElementById('sidebar').classList.remove('open');
-document.getElementById('sidebarOverlay').classList.remove('open');
+  if (isDesktop()) return; // En desktop no se cierra
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
 }
 function renderCasosList() {
 const casos = getCasosIndex();
@@ -7589,15 +7685,20 @@ renderCasosList();
 closeSidebar();
 }
 function updateActiveCasoBadge() {
-const span = document.getElementById('activeCasoNombreHeader');
-if (!span) return;
-if (!activeCasoId) {
-  span.innerText = 'Sin perfil';
-  return;
-}
-const casos = getCasosIndex();
-const caso = casos.find(c => c.id === activeCasoId);
-span.innerText = caso ? caso.nombre : 'Sin perfil';
+  const span = document.getElementById('activeCasoNombreHeader');
+  const centerSpan = document.getElementById('headerCasoNombre');
+  // Mostrar correo del usuario en el badge izquierdo
+  if (span) {
+    const email = (sbCurrentUser && sbCurrentUser.email) ? sbCurrentUser.email : 'Sin sesión';
+    span.innerText = email;
+  }
+  // Mostrar nombre del caso en el centro del header
+  if (centerSpan) {
+    if (!activeCasoId) { centerSpan.innerText = ''; return; }
+    const casos = getCasosIndex();
+    const caso = casos.find(c => c.id === activeCasoId);
+    centerSpan.innerText = caso ? caso.nombre : '';
+  }
 }
 // Guardar sincrónicamente el caso activo (sin debounce)
 function saveCurrentCasoNow() {
@@ -9053,6 +9154,8 @@ fetchMinimumSalary();
 hideLoadingBar();
 handleCalculationModeChange();
 initCollapsibles();
+// En desktop el sidebar es siempre visible — poblar lista aunque no haya caso activo aún
+if (isDesktop()) renderCasosList();
 // NO restaurar casos aquí — onAuthStateChange → sbLoadCasos() es la fuente de verdad.
 // Si Supabase confirma sesión activa, sbLoadCasos() carga y restaura todo.
 // Si no hay sesión, onAuthStateChange muestra el login.
@@ -9378,10 +9481,7 @@ let sbAuthTab = 'login';
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
-  // Cerrar sidebar y cualquier modal que pueda tapar el login
-  try { closeSidebar(); } catch(e) {}
   try { unlockBody(); } catch(e) {}
-  // Asegurar que loginScreen quede encima de todo
   const ls = document.getElementById('loginScreen');
   ls.style.display = 'block';
   ls.style.zIndex = '99999';
@@ -9516,39 +9616,36 @@ async function sbSubmit() {
 // ── Cerrar sesión ──
 async function sbSignOut() {
   dbg('SIGNOUT: iniciando...');
-  // Cerrar sidebar primero para evitar que tape la pantalla de login
-  try { closeSidebar(); } catch(e) {}
-  // Intentar guardar con timeout 3s — no bloquear el logout si Supabase no responde
-  if (activeCasoId && sbCurrentUser) {
-    try {
-      await Promise.race([
-        sbSaveCaso(activeCasoId),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 1000))
-      ]);
-    } catch(e) { dbg('SIGNOUT: save omitido (' + e.message + '), continuando...'); }
-  }
-  dbg('SIGNOUT: llamando sb.auth.signOut()');
-  // signOut con timeout de 2s — si se cuelga, recargar igual
+
+  // 1. Limpiar localStorage PRIMERO — funciona aunque Supabase no responda
+  try {
+    const keysToDelete = Object.keys(localStorage).filter(k =>
+      k === 'pension_utm_auth' ||
+      k.startsWith('sb-') ||
+      k.includes('supabase') ||
+      k.includes('auth-token')
+    );
+    keysToDelete.forEach(k => localStorage.removeItem(k));
+  } catch(e) {}
+  try { sessionStorage.clear(); } catch(e) {}
+
+  // 2. Limpiar estado local
+  sbCurrentUser = null;
+  sbAccessToken = null;
+  activeCasoId = null;
+
+  // 3. Mostrar pantalla de login de inmediato (no esperar a Supabase)
+  try { showLoginScreen(); } catch(e) {}
+
+  // 4. Intentar signOut en Supabase en background (máx 2s), pero no bloquear
   try {
     await Promise.race([
       sb.auth.signOut(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error('signout timeout')), 1000))
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000))
     ]);
-    dbg('SIGNOUT: signOut OK');
-  } catch(e) {
-    dbg('SIGNOUT: ' + e.message + ', recargando igual');
-  }
-  dbg('SIGNOUT: limpiando sesion y recargando');
-  // Borrar TODAS las claves de sesión de Supabase
-  const keysToDelete = Object.keys(localStorage).filter(k =>
-    k === 'pension_utm_auth' ||
-    k === 'sb-pipfpwpkzjajgmwcdrsv-auth-token' ||
-    k.startsWith('sb-') ||
-    k.includes('supabase') ||
-    k.includes('auth-token')
-  );
-  keysToDelete.forEach(k => localStorage.removeItem(k));
-  try { sessionStorage.clear(); } catch(e) {}
+  } catch(e) { dbg('SIGNOUT: sb.auth.signOut falló: ' + e.message); }
+
+  // 5. Recargar para limpiar cualquier estado en memoria
   window.location.reload();
 }
 
@@ -9677,6 +9774,7 @@ async function sbDeleteCaso(id) {
 
 // ── Escuchar cambios de autenticación ──
 sb.auth.onAuthStateChange(async (event, session) => {
+  if (window._markAuthResolved) window._markAuthResolved();
   dbg("AUTH: "+event+" user="+(session?.user?.id?.slice(0,6)||"none"));
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
@@ -9685,6 +9783,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
     const email = session.user.email || '—';
     const emailEl = document.getElementById('sidebarUserEmail');
     if (emailEl) emailEl.textContent = email;
+    // Actualizar badge de correo en el header principal
+    const headerEmailSpan = document.getElementById('activeCasoNombreHeader');
+    if (headerEmailSpan) headerEmailSpan.innerText = email;
     const profileEmailEl = document.getElementById('userProfileEmailDetail');
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
@@ -9729,11 +9830,52 @@ setInterval(async () => {
 // ── El estado inicial lo maneja onAuthStateChange con el evento INITIAL_SESSION.
 // No se necesita getSession() manual — evita el race condition que mostraba
 // el login brevemente aunque hubiera sesión activa guardada. ──
+
+// ── Safety timeout: si Supabase no responde en 5s, mostrar login ──
+// Cubre el caso de archivo local (content://) o sin conexión donde
+// onAuthStateChange nunca dispara y la pantalla queda en blanco.
+(function() {
+  var authResolved = false;
+  var origOnAuth = sb.auth.onAuthStateChange;
+  // Marcar como resuelto cuando dispare cualquier evento
+  window._markAuthResolved = function() { authResolved = true; };
+  setTimeout(function() {
+    if (!authResolved) {
+      console.warn('Supabase auth timeout — mostrando login por seguridad');
+      showLoginScreen();
+    }
+  }, 5000);
+})();
 </script>
 
 
 <script>
 function dbg(msg) { /* debug desactivado */ }
 </script>
+
+<script>
+// ── Bloquear pull-to-refresh en iOS Safari ──────────────────────────────────
+// overscroll-behavior-y:none cubre Android Chrome; este listener cubre iOS.
+// Solo se bloquea cuando el documento está en el tope (scrollY === 0) y
+// el gesto va hacia abajo, que es exactamente cuando ocurre el refresh.
+// No afecta el scroll normal de la página ni de los modales.
+(function() {
+  var lastY = 0;
+  document.addEventListener('touchstart', function(e) {
+    lastY = e.touches[0].clientY;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    var y = e.touches[0].clientY;
+    var goingDown = y > lastY;
+    // Bloquear solo si estamos en el tope Y el gesto es hacia abajo
+    if (goingDown && window.scrollY === 0) {
+      e.preventDefault();
+    }
+    lastY = y;
+  }, { passive: false });
+})();
+</script>
+</div><!-- /#desktop-layout -->
 </body>
 </html>
