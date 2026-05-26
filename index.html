@@ -9582,20 +9582,30 @@ async function sbSubmit() {
   const btn = document.getElementById('authBtn');
   btn.textContent = '...'; btn.disabled = true;
   sbHideMsg();
+  // Asegurar que el flag de cierre de sesión esté limpio antes de intentar login
+  window._signingOut = false;
+  // Safety: si en 10s no responde, rehabilitar el botón
+  const safetyTimer = setTimeout(() => {
+    btn.textContent = 'Iniciar sesión'; btn.disabled = false;
+    sbShowMsg('Tiempo de espera agotado. Intenta de nuevo.');
+  }, 10000);
   try {
     let result;
     if (sbAuthTab === 'login') {
       result = await sb.auth.signInWithPassword({ email, password });
     } else {
       result = await sb.auth.signUp({ email, password });
+      clearTimeout(safetyTimer);
       if (!result.error && result.data?.user?.identities?.length === 0) {
         sbShowMsg('Este correo ya está registrado. Inicia sesión.'); btn.textContent = 'Crear cuenta'; btn.disabled = false; return;
       }
       if (!result.error) { sbShowMsg('Cuenta creada. Revisa tu correo para confirmarla.', false); btn.textContent = 'Crear cuenta'; btn.disabled = false; return; }
     }
+    clearTimeout(safetyTimer);
     if (result.error) { sbShowMsg(result.error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : result.error.message); btn.textContent = sbAuthTab === 'login' ? 'Iniciar sesión' : 'Crear cuenta'; btn.disabled = false; return; }
     // Éxito login — onAuthStateChange se encarga del resto
   } catch(e) {
+    clearTimeout(safetyTimer);
     sbShowMsg('Error de conexión. Intenta de nuevo.');
     btn.textContent = sbAuthTab === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
     btn.disabled = false;
@@ -9886,6 +9896,8 @@ async function sbSaveCaso(id) {
     }, { onConflict: 'id' });
     if (error) {
       dbg('❌ SAVE ERROR: ' + error.code + ' — ' + error.message);
+      // Mostrar error visible si falla Supabase
+      showSyncToast('⚠️ Error al guardar: ' + (error.message || error.code));
     } else {
       dbg('✅ SAVE OK: caso ' + id.slice(0,8));
       window._lastSavedId = id;
@@ -9922,6 +9934,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     return;
   }
   if (event === 'SIGNED_OUT') window._signingOut = false;
+  if (session?.user) window._signingOut = false;
 
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
