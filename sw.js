@@ -1,24 +1,22 @@
-// ============================================================
-// sw.js — Service Worker · Pensión UTM Liquidación Pro
-// Estrategia: Cache First para assets estáticos,
-//             Network First para API CMF/Supabase
-// ============================================================
+// ── Pensión UTM Pro — Service Worker ────────────────────────────────────────
+// Estrategia: Cache-first para assets estáticos, Network-first para Supabase.
+// El HTML siempre se busca en red primero para recibir actualizaciones.
 
-const CACHE_NAME = 'pension-utm-v1';
-const CACHE_STATIC = 'pension-utm-static-v1';
-const CACHE_FONTS  = 'pension-utm-fonts-v1';
+const CACHE_NAME = 'pension-utm-v73';
 
-// Assets que se pre-cachean al instalar el SW
-const STATIC_ASSETS = [
-  './',
+// Assets que se cachean en la instalación
+const PRECACHE_ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
 ];
 
-// Dominios externos que se cachean con estrategia Cache First (sin expiración corta)
-const CACHEABLE_ORIGINS = [
+// Dominios que van directo a red (Supabase, CMF, fuentes, CDN)
+const NETWORK_ONLY_ORIGINS = [
+  'supabase.co',
+  'supabase.in',
+  'cmfchile.cl',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'cdn.tailwindcss.com',
@@ -26,106 +24,70 @@ const CACHEABLE_ORIGINS = [
   'cdn.jsdelivr.net'
 ];
 
-// Dominios que SIEMPRE van a red (APIs de datos)
-const NETWORK_ONLY_ORIGINS = [
-  'api.cmfchile.cl',
-  'supabase.co',
-  'supabase.io'
-];
-
-// ─── INSTALL ──────────────────────────────────────────────
+// ── Instalación: pre-cachear assets esenciales ───────────────────────────────
 self.addEventListener('install', event => {
-  console.log('[SW] Instalando…');
   event.waitUntil(
-    caches.open(CACHE_STATIC)
-      .then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(PRECACHE_ASSETS))
       .then(() => self.skipWaiting())
-      .catch(err => console.warn('[SW] Error en pre-cache:', err))
   );
 });
 
-// ─── ACTIVATE ─────────────────────────────────────────────
+// ── Activación: limpiar cachés viejas ────────────────────────────────────────
 self.addEventListener('activate', event => {
-  console.log('[SW] Activando…');
-  const validCaches = [CACHE_NAME, CACHE_STATIC, CACHE_FONTS];
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => !validCaches.includes(key))
-          .map(key => {
-            console.log('[SW] Eliminando caché obsoleto:', key);
-            return caches.delete(key);
-          })
+          .filter(key => key !== CACHE_NAME)
+          .map(key => caches.delete(key))
       )
     ).then(() => self.clients.claim())
   );
 });
 
-// ─── FETCH ────────────────────────────────────────────────
+// ── Fetch: estrategia según origen ──────────────────────────────────────────
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  const url = new URL(request.url);
+  const url = new URL(event.request.url);
 
-  // Solo interceptar GET
-  if (request.method !== 'GET') return;
-
-  // APIs de datos → siempre red, sin cachear
-  if (NETWORK_ONLY_ORIGINS.some(o => url.hostname.includes(o))) {
-    event.respondWith(fetch(request));
+  // 1. Siempre red para dominios externos (Supabase, CMF, CDN, fuentes)
+  const isNetworkOnly = NETWORK_ONLY_ORIGINS.some(origin =>
+    url.hostname.includes(origin)
+  );
+  if (isNetworkOnly) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
-  // Fuentes y CDNs externos → Cache First
-  if (CACHEABLE_ORIGINS.some(o => url.hostname.includes(o))) {
-    event.respondWith(cacheFirst(request, CACHE_FONTS));
+  // 2. Solo GET se cachea
+  if (event.request.method !== 'GET') {
+    event.respondWith(fetch(event.request));
     return;
   }
 
-  // Assets locales (index, manifest, iconos) → Cache First con fallback a red
-  if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(request, CACHE_STATIC));
+  // 3. HTML: Network-first — siempre intenta traer la versión más nueva
+  if (url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
-  // Resto → red directa
-  event.respondWith(fetch(request));
-});
-
-// ─── ESTRATEGIAS ──────────────────────────────────────────
-
-/**
- * Cache First: devuelve desde caché si existe,
- * si no va a red y guarda la respuesta.
- */
-async function cacheFirst(request, cacheName) {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-
-  try {
-    const response = await fetch(request);
-    if (response && response.status === 200 && response.type !== 'opaque') {
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (err) {
-    console.warn('[SW] Sin red y sin caché para:', request.url);
-    // Fallback offline: devuelve index.html para navegación
-    if (request.destination === 'document') {
-      return caches.match('./index.html');
-    }
-    throw err;
-  }
-}
-
-// ─── MENSAJES DESDE LA APP ────────────────────────────────
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
-    console.log('[SW] Caché limpiado por solicitud de la app');
-  }
+  // 4. Resto (iconos, manifest): Cache-first
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        return response;
+      });
+    })
+  );
 });

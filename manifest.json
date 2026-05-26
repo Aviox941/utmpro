@@ -1,14 +1,13 @@
 {
-  "name": "Pensión UTM - Liquidación Pro",
+  "name": "Pensión UTM Pro",
   "short_name": "Pensión UTM",
-  "description": "Calculadora de liquidación de pensiones en UTM con intereses y mora",
+  "description": "Liquidación de pensión alimenticia con tasas CMF históricas",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f5f6f8",
-  "theme_color": "#f5f6f8",
-  "lang": "es",
+  "theme_color": "#2563eb",
+  "lang": "es-CL",
   "icons": [
     {
       "src": "icon-192.png",
@@ -22,7 +21,5 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ],
-  "categories": ["finance", "utilities"],
-  "screenshots": []
+  ]
 }

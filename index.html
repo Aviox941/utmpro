@@ -3,7 +3,7 @@
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v72 · REFACTOR ETAPA 3.1</title>
+ <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3211,7 +3211,9 @@
 
  </style>
 </head>
-<body>
+<body style="background:#f5f6f8;">
+<!-- Bloquea cualquier flash: oculta el app-container hasta que el login resuelva -->
+<style>#app-container,#desktop-layout{visibility:hidden}body.auth-ready #app-container,body.auth-ready #desktop-layout{visibility:visible}</style>
  <div id="saveToast">✓ Sesión guardada</div>
  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
  <div id="newCasoModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
@@ -3823,13 +3825,8 @@
       </div>
     </div>
 
-    <!-- Nombre del caso centrado -->
-    <div class="flex-1 flex items-center justify-center">
-      <span id="headerCasoNombre" style="font-size:11px;font-weight:700;color:#1a1d2e;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;line-height:1.2;"></span>
-    </div>
-
     <!-- Botones de acción: VER, PDF, Reset -->
-    <div class="flex-shrink-0 flex items-center gap-1.5">
+    <div class="flex-shrink-0 flex items-center gap-1.5" style="margin-left:auto;">
       <div id="saveIndicator" class="hidden"><div id="saveTime"></div></div>
       <button onclick="showResumenModal()" class="header-icon-btn" title="Ver resumen detallado">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -3876,14 +3873,16 @@
         <span id="utmProxMes" class="utm-val-month">—</span>
       </div>
     </div>
-    <div class="utm-card-premium utm-card-premium--secondary" style="min-width:80px;">
-      <span class="utm-card-label">Tasas CMF</span>
-      <div class="utm-card-value-row">
-        <span id="cmfTasasStatus" class="utm-val-month" style="font-size:9px;color:rgba(255,255,255,0.4);">Actualizando…</span>
+    <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+      <span class="utm-card-label">Caso activo</span>
+      <div class="utm-card-value-row" style="margin-top:2px;">
+        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
       </div>
     </div>
   </div>
 </header>
+<!-- cmfTasasStatus: elemento fantasma para compatibilidad JS (no visible) -->
+<span id="cmfTasasStatus" style="display:none;"></span>
  <main class="px-4 md:px-6 lg:px-8 mt-4 md:mt-6 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
       <!-- ── Hero: dos tarjetas separadas ── -->
@@ -4624,73 +4623,6 @@
 // Detección automática de categoría según modalidad y monto.
 // ============================================================
 
-// Cat. 1.a — No reajustable < 90 días, ≤ 5.000 UF (pesos, monto pequeño)
-// Cat. 1.a — No reajustable < 90 días, ≤ 5.000 UF (pesos, mora corta)
-const TIC_1A = {
-2014:[0.2066,0.207,0.2062,0.2078,0.205,0.2074,0.2082,0.209,0.2064,0.2062,0.2096,0.2116],
-2015:[0.2132,0.2078,0.2072,0.2058,0.1978,0.1976,0.1938,0.1998,0.2006,0.2038,0.1998,0.2056],
-2016:[0.2046,0.2086,0.214,0.2108,0.2102,0.2144,0.2098,0.2062,0.2098,0.2098,0.2128,0.2198],
-2017:[0.2194,0.2292,0.2277,0.2324,0.2348,0.2488,0.2486,0.2583,0.2396,0.2334,0.2384,0.2314],
-2018:[0.2368,0.2306,0.2322,0.2222,0.2162,0.2144,0.2108,0.2152,0.2122,0.209,0.2098,0.2136],
-2019:[0.1992,0.2034,0.1956,0.1938,0.1972,0.202,0.1996,0.2074,0.2028,0.2074,0.2114,0.2186],
-2020:[0.214,0.217,0.2184,0.2264,0.2248,0.2352,0.2376,0.2336,0.2242,0.2162,0.1982,0.1946],
-2021:[0.1916,0.1968,0.188,0.1891,0.194,0.1992,0.1982,0.21,0.2184,0.239,0.2636,0.2916],
-2022:[0.2954,0.3388,0.3212,0.3406,0.3872,0.4076,0.4242,0.4302,0.4462,0.4576,0.4646,0.4662],
-2023:[0.4344,0.4052,0.4176,0.415,0.4192,0.4208,0.4442,0.4412,0.4516,0.463,0.454,0.4392],
-2024:[0.4282,0.4134,0.4074,0.4042,0.3862,0.3772,0.3652,0.3502,0.3384,0.332,0.323,0.3272],
-2025:[0.3206,0.3084,0.3334,0.323,0.3216,0.3122,0.311,0.3196,0.3184,0.329,0.3266,0.3274],
-2026:[0.3146,0.3324,0.3268,0.3422,0.3508,null,null,null,null,null,null,null],
-};
-
-const TMC_1A = {
-2014:[0.3099,0.3105,0.3093,0.3117,0.3075,0.3111,0.3123,0.3135,0.3096,0.3093,0.3144,0.3174],
-2015:[0.3198,0.3117,0.3108,0.3087,0.2967,0.2964,0.2907,0.2997,0.3009,0.3057,0.2997,0.3084],
-2016:[0.3069,0.3129,0.321,0.3162,0.3153,0.3216,0.3147,0.3093,0.3147,0.3147,0.3192,0.3297],
-2017:[0.3291,0.3438,0.3416,0.3486,0.3522,0.3732,0.3729,0.3874,0.3594,0.3501,0.3576,0.3471],
-2018:[0.3552,0.3459,0.3483,0.3333,0.3243,0.3216,0.3162,0.3228,0.3183,0.3135,0.3147,0.3204],
-2019:[0.2988,0.3051,0.2934,0.2907,0.2958,0.303,0.2994,0.3111,0.3042,0.3111,0.3171,0.3279],
-2020:[0.321,0.3255,0.3276,0.3396,0.3372,0.3528,0.3564,0.3504,0.3363,0.3243,0.2973,0.2919],
-2021:[0.2874,0.2952,0.282,0.2836,0.291,0.2988,0.2973,0.315,0.3276,0.3585,0.3954,0.4374],
-2022:[0.4431,0.5082,0.4818,0.5109,0.5808,0.6114,0.6363,0.6453,0.6693,0.6864,0.6969,0.6993],
-2023:[0.6516,0.6078,0.6264,0.6225,0.6288,0.6312,0.6663,0.6618,0.6774,0.6945,0.681,0.6588],
-2024:[0.6423,0.6201,0.6111,0.6063,0.5793,0.5658,0.5478,0.5253,0.5076,0.498,0.4845,0.4908],
-2025:[0.4809,0.4626,0.5001,0.4845,0.4824,0.4683,0.4665,0.4794,0.4776,0.4935,0.4899,0.4911],
-2026:[0.4719,0.4986,0.4902,0.5133,0.5262,null,null,null,null,null,null,null],
-};
-
-// Cat. 1.b — No reajustable < 90 días, > 5.000 UF (pesos, monto grande)
-const TIC_1B = {
-2014:[0.071,0.07,0.0712,0.0666,0.067,0.064,0.0696,0.0678,0.06,0.0576,0.0576,0.0564],
-2015:[0.0578,0.054,0.0574,0.0584,0.058,0.0618,0.0576,0.0568,0.0542,0.0534,0.0566,0.0522],
-2016:[0.0528,0.0526,0.0554,0.0548,0.0574,0.0546,0.0546,0.0542,0.0526,0.0546,0.052,0.051],
-2017:[0.0532,0.0536,0.0538,0.05,0.049,0.0458,0.0458,0.0421,0.0416,0.0397,0.0377,0.0389],
-2018:[0.0432,0.0416,0.042,0.0426,0.04,0.046,0.0444,0.0438,0.0438,0.0434,0.0456,0.0448],
-2019:[0.0442,0.043,0.0464,0.0446,0.0484,0.0466,0.0482,0.046,0.0454,0.0398,0.0442,0.0464],
-2020:[0.0454,0.0408,0.0341,0.0397,0.0428,0.0424,0.0428,0.0454,0.0397,0.0361,0.0428,0.0406],
-2021:[0.0334,0.0343,0.0391,0.0328,0.0328,0.0326,0.0361,0.0362,0.0381,0.0456,0.0552,0.0602],
-2022:[0.0648,0.0686,0.082,0.0902,0.1014,0.1046,0.114,0.1244,0.1354,0.1298,0.1412,0.1388],
-2023:[0.1484,0.1508,0.1558,0.1462,0.1394,0.1442,0.1508,0.1378,0.128,0.1204,0.1108,0.1062],
-2024:[0.1058,0.0998,0.0932,0.0878,0.0824,0.0798,0.0724,0.0736,0.0718,0.0696,0.07,0.0754],
-2025:[0.0678,0.0674,0.0718,0.0668,0.0676,0.0676,0.0646,0.0648,0.0634,0.0626,0.0612,0.0672],
-2026:[0.0622,0.0608,0.058,0.0562,0.0586,null,null,null,null,null,null,null],
-};
-
-const TMC_1B = {
-2014:[0.1065,0.105,0.1068,0.0999,0.1005,0.096,0.1044,0.1017,0.09,0.0864,0.0864,0.0846],
-2015:[0.0867,0.081,0.0861,0.0876,0.087,0.0927,0.0864,0.0852,0.0813,0.0801,0.0849,0.0783],
-2016:[0.0792,0.0789,0.0831,0.0822,0.0861,0.0819,0.0819,0.0813,0.0789,0.0819,0.078,0.0765],
-2017:[0.0798,0.0804,0.0807,0.075,0.0735,0.0687,0.0687,0.0631,0.0624,0.0597,0.0577,0.0589],
-2018:[0.0648,0.0624,0.063,0.0639,0.06,0.069,0.0666,0.0657,0.0657,0.0651,0.0684,0.0672],
-2019:[0.0663,0.0645,0.0696,0.0669,0.0726,0.0699,0.0723,0.069,0.0681,0.0598,0.0663,0.0696],
-2020:[0.0681,0.0612,0.0541,0.0597,0.0642,0.0636,0.0642,0.0681,0.0597,0.0561,0.0642,0.0609],
-2021:[0.0534,0.0543,0.0591,0.0528,0.0528,0.0526,0.0561,0.0562,0.0581,0.0684,0.0828,0.0903],
-2022:[0.0972,0.1029,0.123,0.1353,0.1521,0.1569,0.171,0.1866,0.2031,0.1947,0.2118,0.2082],
-2023:[0.2226,0.2262,0.2337,0.2193,0.2091,0.2163,0.2262,0.2067,0.192,0.1806,0.1662,0.1593],
-2024:[0.1587,0.1497,0.1398,0.1317,0.1236,0.1197,0.1086,0.1104,0.1077,0.1044,0.105,0.1131],
-2025:[0.1017,0.1011,0.1077,0.1002,0.1014,0.1014,0.0969,0.0972,0.0951,0.0939,0.0918,0.1008],
-2026:[0.0933,0.0912,0.087,0.0843,0.0879,null,null,null,null,null,null,null],
-};
-
 // Cat. 3.a — Reajustable en MN, < 1 año (UTM, mora corta)
 const TIC_3A = {
 2014:[0.0412,0.0336,0.0362,0.0233,0.0264,0.0219,0.0311,0.0369,0.0296,0.0198,0.0223,0.0291],
@@ -4760,44 +4692,30 @@ const TMC_3B = {
 
 
 // ============================================================
-// DETECCIÓN AUTOMÁTICA DE CATEGORÍA CMF
-// Reglas según normativa CMF para pensiones alimenticias:
-//   Modo pesos (no reajustable):
-//     cuota ≤ 5.000 UF del período → Cat. 1.a
-//     cuota >  5.000 UF del período → Cat. 1.b
-//   Modo UTM (reajustable):
-//     mora < 365 días               → Cat. 3.a
-//     mora ≥ 365 días               → Cat. 3.b
+// DETECCIÓN DE TASA CMF PARA TRIBUNALES DE FAMILIA
+// ============================================================
+// CAMBIO JUDICIAL (Art. 19 Ley 14.908 — Obligación de Orden Público):
+//   Toda pensión alimenticia es una obligación reajustable (expresada en UTM),
+//   SIN IMPORTAR si el usuario ingresó el monto en pesos, % sueldo o UTM.
+//   Los Tribunales de Familia NO aplican tasas comerciales (Cat. 1.a / 1.b).
+//   Solo se diferencia el TRAMO TEMPORAL de la operación reajustable:
+//     mora < 365 días  → Cat. 3.a (Reajustable, operación menor a 1 año)
+//     mora ≥ 365 días  → Cat. 3.b (Reajustable, operación mayor a 1 año)
+//
+//   Parámetros modoEsPesos, capitalCLP y utmPeriodo se conservan para
+//   compatibilidad de firma, pero ya NO condicionan la categoría.
 // ============================================================
 function detectarCategoria(modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
-  if (modoEsPesos) {
-    // Convertir capital a UF usando proxy: 1 UF ≈ 37.2 × UTM (relación estable)
-    // En producción se puede usar la UF real del período; aquí usamos UTM como referencia.
-    // 5.000 UF ≈ 5000 × 37.2 × (UTM / 37.2) → umbral en CLP: 5000 × UFperiodo
-    // Aproximación práctica: 5.000 UF ≈ 185.000.000 CLP (valor orientativo 2024-2025)
-    // Mejor: usar la relación UTM: 5.000 UF ÷ (1 UF/UTM) = 5000 × ~37.2 UTM = ~186.000 UTM
-    // Como el sistema usa UTM, convertimos: 5.000 UF = 186.000 UTM aprox.
-    // Umbral en CLP = 186.000 × utmPeriodo
-    const umbralCLP = 186000 * (utmPeriodo || 1);
-    return capitalCLP <= umbralCLP ? '1a' : '1b';
-  } else {
-    // FIX Bug 2: La categoría 3.a / 3.b debe determinarse con los días de mora
-    // reales de la cuota (calculados ANTES de llamar a esta función).
-    // Se usa diasMora >= 0 con default 0 para cuotas sin mora (no 999),
-    // evitando que cuotas recién vencidas sean clasificadas erróneamente como 3.b.
-    // Reajustable (UTM): tramo por días de mora al momento de la liquidación
-    return (diasMora !== undefined && diasMora >= 365) ? '3b' : '3a';
-  }
+  // Siempre reajustable: solo diferenciamos por tramo temporal (3.a / 3.b).
+  return (diasMora !== undefined && diasMora >= 365) ? '3b' : '3a';
 }
 
-// Retorna { ticTabla, tmcTabla, categoriaLabel } según categoría
+// Retorna { tic, tmc, label } según categoría — solo reajustables (3.a / 3.b)
 function getTablasCategoria(cat) {
   switch(cat) {
-    case '1a': return { tic: TIC_1A, tmc: TMC_1A, label: 'Cat. 1.a' };
-    case '1b': return { tic: TIC_1B, tmc: TMC_1B, label: 'Cat. 1.b' };
     case '3a': return { tic: TIC_3A, tmc: TMC_3A, label: 'Cat. 3.a' };
     case '3b': return { tic: TIC_3B, tmc: TMC_3B, label: 'Cat. 3.b' };
-    default:   return { tic: TIC_1A, tmc: TMC_1A, label: 'Cat. 1.a' };
+    default:   return { tic: TIC_3A, tmc: TMC_3A, label: 'Cat. 3.a' }; // fallback siempre reajustable
   }
 }
 
@@ -4810,9 +4728,9 @@ return Math.min(Math.max(raw, 0), 11);
 }
 
 // ============================================================
-// getTasaAnualInfo — ahora con detección de categoría
-// Parámetros extra: modoEsPesos, capitalCLP, utmPeriodo, diasMora
-// Si no se pasan, se mantiene compatibilidad con Cat. 1.a por defecto.
+// getTasaAnualInfo — siempre usa tasa reajustable (Cat. 3.a / 3.b)
+// modoEsPesos/capitalCLP/utmPeriodo se conservan en firma por
+// compatibilidad, pero la categoría se determina solo por diasMora.
 // ============================================================
 function getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
   const m = _normalizarMes(month);
@@ -4867,9 +4785,12 @@ return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 function calcularInteres(capital, tasaMensual, diasMora) {
 // NOTA: los valores TIC/TMC en tabla están como decimal anual (ej: 0.0783 = 7.83% anual).
-// Fórmula: Capital × (tasaAnual / 12 / 30) × días de mora (interés simple diario, base 30 días)
+// Fórmula JUDICIAL (SITFA / Art. 19 Ley 14.908):
+//   Capital × (tasaAnual / 365) × días de mora (interés simple diario, base 365 días)
+// BASE 360 (12/30) fue reemplazada por BASE 365 según estándar judicial chileno.
+// Ref: Manual Técnico SITFA — "La base anual es 365 días (no 360)."
 if (diasMora <= 0 || capital <= 0) return 0;
-return capital * (tasaMensual / 12 / 30) * diasMora;
+return capital * (tasaMensual / 365) * diasMora;
 }
 function getDiaVencimiento() {
 const raw = parseInt(document.getElementById('diaVencimiento')?.value);
@@ -5095,21 +5016,22 @@ try {
 renderUtmTicker();
 }
 async function fetchTasasCMF() {
-  // Tipos CMF necesarios para pensiones alimenticias
-  // TIP (TIC): 21=Cat.3a, 24=Cat.3b, 26=Cat.1a, 25=Cat.1b
-  // TMC:       21=Cat.3a, 24=Cat.3b, 26=Cat.1a, 25=Cat.1b
+  // JUDICIAL (Art. 19 Ley 14.908): solo se necesitan tasas REAJUSTABLES.
+  // Tipos CMF reajustables: 21 = Cat. 3.a (<1 año), 24 = Cat. 3.b (≥1 año).
+  // Los tipos 25 (Cat. 1.b) y 26 (Cat. 1.a) son tasas comerciales de consumo
+  // y NO se usan en liquidaciones de pensiones alimenticias.
   const CMF_KEY = 'ab35052100de900ef5d4ee73030e1a56f3a27f13';
   const TASAS_CACHE_KEY = 'cmf_tasas_cache_v1';
   const TASAS_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
   const TIPO_MAP = {
-    tip: { 21: TIC_3A, 24: TIC_3B, 26: TIC_1A, 25: TIC_1B },
-    tmc: { 21: TMC_3A, 24: TMC_3B, 26: TMC_1A, 25: TMC_1B },
+    tip: { 21: TIC_3A, 24: TIC_3B },
+    tmc: { 21: TMC_3A, 24: TMC_3B },
   };
   const NOMBRE_MAP = {
-    tip: { 21: 'TIC_3A', 24: 'TIC_3B', 26: 'TIC_1A', 25: 'TIC_1B' },
-    tmc: { 21: 'TMC_3A', 24: 'TMC_3B', 26: 'TMC_1A', 25: 'TMC_1B' },
+    tip: { 21: 'TIC_3A', 24: 'TIC_3B' },
+    tmc: { 21: 'TMC_3A', 24: 'TMC_3B' },
   };
-  const tablasPorNombre = { TIC_3A, TIC_3B, TIC_1A, TIC_1B, TMC_3A, TMC_3B, TMC_1A, TMC_1B };
+  const tablasPorNombre = { TIC_3A, TIC_3B, TMC_3A, TMC_3B };
 
   // ── CACHÉ: localStorage primero, luego Supabase, luego API CMF ──
 
@@ -5160,7 +5082,7 @@ async function fetchTasasCMF() {
   // 3. Sin caché → llamar API CMF y actualizar Supabase para todos
 
   // Detectar qué años/meses tienen null en alguna tabla
-  const tablasConNull = [TIC_3A, TIC_3B, TMC_3A, TMC_3B, TIC_1A, TIC_1B, TMC_1A, TMC_1B];
+  const tablasConNull = [TIC_3A, TIC_3B, TMC_3A, TMC_3B]; // solo reajustables
   const aniosConNull = new Set();
   tablasConNull.forEach(t => {
     Object.entries(t).forEach(([y, meses]) => {
@@ -5355,7 +5277,7 @@ function showHelpModal(tipo) {
     title.textContent = 'TIC al mes del cálculo';
     body.innerHTML =
       blk('📌 ¿Qué es?', 'Por defecto, cada cuota usa la <span class="text-white font-bold">TIC histórica del mes en que venció</span>. Al activar esta opción, todas las cuotas usarán la <span class="text-white font-bold">TIC del mes actual</span> del cálculo, sin importar cuándo vencieron.') +
-      blk('⚙️ ¿Cómo afecta el cálculo?', 'En lugar de aplicar la tasa del mes de vencimiento de cada cuota, se aplica una sola tasa — la vigente hoy — a toda la deuda. Los días de mora y la categoría (3.a / 3.b) se mantienen por cuota.') +
+      blk('⚙️ ¿Cómo afecta el cálculo?', 'En lugar de aplicar la tasa del mes de vencimiento de cada cuota, se aplica una sola tasa — la vigente hoy — a toda la deuda. Los días de mora se mantienen por cuota.') +
       blk('📅 ¿Cuándo se usa?', 'Algunos tribunales o receptores judiciales aplican la TIC del mes del cálculo a toda la deuda en lugar de la tasa histórica por cuota. Activa esta opción si ese es el criterio requerido en tu causa.') +
       blk('⚠️ Diferencia práctica', 'En períodos de tasas altas, usar la TIC actual puede resultar en un monto mayor o menor que la tasa histórica por cuota, dependiendo de la tendencia. La opción desactivada (por defecto) es la técnicamente correcta según la Ley 18.010.');
   } else if (tipo === 'diaVenc') {
@@ -5554,7 +5476,7 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
       const utmMes = (utmData.find(d => d.y === curAnio && d.monthIdx === curMes) || {v:1}).v;
       const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, montoCLP, utmMes, diasMoraTotal);
       if (tasaInfo.esAproximada) hayTasaAproximada = true;
-      const intTramo = montoCLP * (tasaInfo.valor / 12 / 30) * diasTramo;
+      const intTramo = montoCLP * (tasaInfo.valor / 365) * diasTramo; // Base 365 — estándar judicial SITFA
       interesTotal += intTramo;
       diasMoraTotal += diasTramo;
       sumaPonderada += tasaInfo.valor * diasTramo;
@@ -6284,7 +6206,7 @@ const base = useIMM
 : (parseInt((document.getElementById('salaryAmount').value || '').replace(/\./g, '')) || 0);
 cuotaMensualCLP = base * (porcentaje / 100);
 cuotaMensualUTM = cuotaMensualCLP / utmActual;
-modoEsPesos = true; // FIX: % sueldo es monto en pesos → Cat. 1.a/1.b, no 3.a/3.b
+modoEsPesos = true; // % sueldo es monto en pesos, pero sigue usando tasa reajustable (Cat. 3.a/3.b)
 }
 return { cuotaMensualCLP, cuotaMensualUTM, modoEsPesos };
 }
@@ -6358,7 +6280,7 @@ const tasaMes = usarTicActual ? hoy.getMonth() : item.monthIdx;
 const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, modoEsPesosEfectivo, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
 const tasaHistorica = _tasaInfo.valor;
 const tasaEsAproximada = _tasaInfo.esAproximada;
-const categoriaDetectada = _tasaInfo.categoriaLabel;
+const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
 const tasaBase = tasaHistorica;
 // Ley 14.908 Art. 14: el recargo 50% sobre TIC aplica solo cuando la mora supera 1 año (365 días).
 const recargoAplica = aplicarRecargo && diasMora >= 365;
@@ -6373,7 +6295,7 @@ cap: capNeto, capOriginal: montoPesosMes, pagoParcial: pagoParcialMes,
 tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
 mora: diasMora, inte: interesMes,
 sub: capNeto + interesMes, year: item.y, isDebt: false,
-capUTM: capNeto / item.v, usarMaxima: false, ticActual: usarTicActual, categoria: categoriaDetectada
+capUTM: capNeto / item.v, usarMaxima: false, ticActual: usarTicActual
 });
 });
 }
@@ -6412,7 +6334,6 @@ const modoEsPesosDeudaHist = false; // debt.utm existe siempre; no hay deuda his
 const _tasaInfoH = getTasaAnualInfo(tasaAnioH, tasaMesH, false, modoEsPesosDeudaHist, capitalPesosMes, item.v, diasMora);
 const tasaHistorica = _tasaInfoH.valor;
 const tasaEsAproximada = _tasaInfoH.esAproximada;
-const categoriaDetectadaH = _tasaInfoH.categoriaLabel;
 const tasaBaseHist = tasaHistorica;
 // Ley 14.908 Art. 14: recargo 50% solo cuando mora supera 365 días.
 const recargoAplicaH = aplicarRecargo && diasMora >= 365;
@@ -6423,7 +6344,7 @@ interesesPesosTotal += interesPesosMes;
 detalles.push({
 id: `h${hIdx}-${i}`, periodo: `HIST ${item.m} ${item.y}`, utmVal: item.v,
 cap: capitalPesosMes, tasa: tasaAnual, tasaBase: tasaBaseHist, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada, mora: diasMora, inte: interesPesosMes,
-sub: capitalPesosMes + interesPesosMes, year: item.y, isDebt: true, usarMaxima: false, categoria: categoriaDetectadaH
+sub: capitalPesosMes + interesPesosMes, year: item.y, isDebt: true, usarMaxima: false
 });
 }
 });
@@ -6722,12 +6643,6 @@ const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 <p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚖️ Abono imputado: -${format((d.intImputado||0)+(d.capImputado||0))}</p>
 </div>`
 : '';
-const tramoLabel = d.mora > 365
-  ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#c05000' : '#1d4ed8'}">📅 Mora ≥ 1 año</p>`
-  : `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#92400e' : '#0369a1'}">📅 Mora &lt; 1 año</p>`;
-const catBadge = d.categoria
-  ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#92400e' : '#1e40af'}">📊 ${d.categoria}</p>`
-  : '';
 const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
 ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">⚖ +50% ley</p>`
 : (d.usarMaxima ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">📊 Tasa máx.</p>` : '');
@@ -6751,7 +6666,7 @@ card.innerHTML = `
   </div>
 </div>
 <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
-  ${tramoLabel}${catBadge}${recargoBadge}
+  ${recargoBadge}
 </div>
 ${parcialDetalle}${abonoDetalle}`;
 list.appendChild(card);
@@ -6771,13 +6686,12 @@ document.getElementById('modalContent').innerHTML = `
 ${d.pagoParcial > 0 ? `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(d.pagoParcial)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(d.capOriginalBruto ?? capOriginalModal)}</span><span class='text-[9px] font-bold'>${((d.capOriginalBruto ?? capOriginalModal) / d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
 ${d.isConsolidada ? `
 <div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
-<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual <span style="color:#94a3b8;font-size:9px">(${(d.tasa / 12 * 100).toFixed(3)}% mens.)</span></span></div>
+<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 ` : `
-<div class="flex justify-between border-b pb-2 text-slate-500"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor m\xc3\xa1s cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual <span style="color:#94a3b8;font-size:9px">(${((d.tasaHist ?? d.tasa) / 12 * 100).toFixed(3)}% mens.)</span></span></div>
+<div class="flex justify-between border-b pb-2 text-slate-500"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual</span></div>
 <div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual${d.tasaBase && d.tasa > d.tasaBase ? ' <span style=\"color:#f59e0b;font-size:9px\">(+50% Ley 14.908)</span>' : ''}</span></div>
 `}
-<div class="flex justify-between border-b pb-2"><span>Días de Mora</span><span class="font-bold">${d.mora} días ${d.mora > 365 ? '<span style="color:#fb923c;font-size:9px">(Tramo ≥ 1 año)</span>' : '<span style="color:#67e8f9;font-size:9px">(Tramo &lt; 1 año)</span>'}</span></div>
-${d.categoria ? `<div class="flex justify-between border-b pb-2 text-[#93c5fd]"><span>Categoría CMF detectada</span><span class="font-bold">${d.categoria}</span></div>` : ''}
+<div class="flex justify-between border-b pb-2"><span>Días de Mora</span><span class="font-bold">${d.mora} días</span></div>
 <div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#9b79d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
 ${hayAbono ? `
 <div class="bg-[#3b82f6]/08 border border-white/7 rounded-xl p-2 my-2 space-y-1">
@@ -7246,10 +7160,10 @@ const fechaDoc = new Date().toLocaleDateString('es-CL');
 const usarTicActualPDF = document.getElementById('ticActual')?.checked || false;
 const aplicarRecargoPDF = document.getElementById('recargoLey')?.checked || false;
 const tasaLabel = usarTicActualPDF
-  ? 'Tasa Corriente (mes del cálculo)'
+  ? 'Tasa Interés Corriente para Op. Reajustables (CMF) — interés simple diario base 365 días (Art. 19 Ley 14.908)'
   : aplicarRecargoPDF
-    ? 'Tasa Corriente histórica +50% Ley 14.908'
-    : 'Tasa Corriente histórica por cuota';
+    ? 'Tasa Corriente histórica +50% Ley 14.908 — interés simple diario base 365 días (Art. 19 Ley 14.908)'
+    : 'Tasa Corriente histórica por cuota (CMF) — interés simple diario base 365 días (Art. 19 Ley 14.908)';
 const pensiones = lastCalculationData.filter(d => !d.isDebt);
 const historicas = lastCalculationData.filter(d => d.isDebt);
 const totalCapPesos = lastCalculationData.reduce((s,d) => s + (d.capOriginalBruto??d.cap), 0);
@@ -7420,6 +7334,7 @@ margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;
 // Nota legal: imputación cronológica correcta (Art. 1595 CC)
+checkPage(22);
 doc.setFillColor(235, 242, 252);
 doc.rect(MARGIN, y, CONTENT_W, 14, 'F');
 doc.setDrawColor(37, 99, 155);
@@ -7437,6 +7352,45 @@ doc.setFontSize(6);
 doc.text(`Intereses pagados: ${fmt(intImputadoPDF)}   |   Capital pagado: ${fmt(capImputadoPDF)}`, MARGIN + 5, y + 9.5);
 doc.text('Cada abono se imputó primero a intereses devengados a su fecha, luego a capital, en orden cronológico.', MARGIN + 5, y + 13);
 y += 20;
+// ── Tabla de desglose por abono (Intereses cubiertos vs Capital rebajado) ──
+if (imputacionPDF.detalleImputacion && imputacionPDF.detalleImputacion.length > 0) {
+  checkPage(40);
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(18, 38, 71);
+  doc.text('DESGLOSE DE IMPUTACIÓN POR ABONO (Art. 1595 CC)', MARGIN, y);
+  y += 4;
+  const desgloseRows = imputacionPDF.detalleImputacion.map((imp, i) => {
+    const intCubierto = imp.porCuota.filter(p => p.tipo === 'interés').reduce((s, p) => s + p.monto, 0);
+    const capRebajado = imp.porCuota.filter(p => p.tipo === 'capital' || p.tipo === 'capital anticipado').reduce((s, p) => s + p.monto, 0);
+    const remanenteSinAplicar = imp.monto - intCubierto - capRebajado;
+    return [
+      i + 1,
+      imp.fecha,
+      fmt(imp.monto),
+      fmt(Math.round(intCubierto)),
+      fmt(Math.round(capRebajado)),
+      remanenteSinAplicar > 1 ? fmt(Math.round(remanenteSinAplicar)) : '—'
+    ];
+  });
+  doc.autoTable({
+    startY: y,
+    head: [['N°', 'Fecha Abono', 'Monto Total', 'Intereses Cubiertos', 'Capital Rebajado', 'Sin Aplicar']],
+    body: desgloseRows,
+    theme: 'grid',
+    headStyles: { fillColor: [18, 52, 110], textColor: [255, 255, 255], fontSize: 6.5, fontStyle: 'bold', halign: 'center' },
+    styles: { fontSize: 6.5, cellPadding: 2, textColor: [15, 23, 42], halign: 'right' },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 10 },
+      1: { halign: 'center', cellWidth: 22 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 36 },
+      4: { cellWidth: 34 },
+      5: { cellWidth: 30 }
+    },
+    margin: { left: MARGIN, right: MARGIN }, tableWidth: CONTENT_W
+  });
+  y = doc.lastAutoTable.finalY + 6;
+}
 }
 if (pagosParciales.length > 0) {
 seccion('PAGOS PARCIALES POR MES (descontados del capital)', [124,58,237]);
@@ -7498,6 +7452,13 @@ filasDesglose.push([
 ''
 ]);
 }
+// Fila de TOTAL FINAL
+filasDesglose.push([
+'TOTAL ADEUDADO (saldo neto a la fecha)',
+fmt(Math.round(totalFinalReal)),
+totalFinalRealUTM.toFixed(4) + ' UTM',
+''
+]);
 const idxSubtotal = 2;
 const idxLast = filasDesglose.length - 1;
 const filasDesgloseClean = filasDesglose.map(f => [f[0], f[1], f[2]]);
@@ -7519,8 +7480,13 @@ if (data.row.index === idxSubtotal) {
 doc.setFillColor(241, 245, 249);
 doc.setFont('helvetica', 'bold');
 }
-if (data.row.index === idxLast && totalAbonosCLP > 0) {
+if (data.row.index === idxLast - 1 && totalAbonosCLP > 0) {
 doc.setFillColor(239, 246, 255);
+}
+if (data.row.index === idxLast) {
+doc.setFillColor(18, 38, 71);
+doc.setTextColor(255, 255, 255);
+doc.setFont('helvetica', 'bold');
 }
 },
 margin: { left: MARGIN, right: MARGIN }, tableWidth: CONTENT_W
@@ -7541,6 +7507,24 @@ const notaUTM = 'UTM de referencia: ' + (utmHoyMes?.m || '') + ' ' + (utmHoyMes?
 doc.text(notaUTM, PAGE_W / 2, y + 32, { align: 'center' });
 y += 38;
 checkPage(40);
+// Nota de validación de saldo
+if (totalAbonosCLP > 0) {
+  checkPage(14);
+  doc.setFillColor(240, 253, 244);
+  doc.rect(MARGIN, y, CONTENT_W, 12, 'F');
+  doc.setDrawColor(21, 128, 61);
+  doc.setLineWidth(0.4);
+  doc.rect(MARGIN, y, CONTENT_W, 12, 'S');
+  doc.setFillColor(21, 128, 61);
+  doc.rect(MARGIN, y, 2.5, 12, 'F');
+  doc.setTextColor(20, 83, 45);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text('✓ Verificación de saldo:', MARGIN + 5, y + 4.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.text('(Σ Capitales originales − Abonos al capital) + Σ Intereses no cubiertos = ' + fmt(Math.round(totalFinalReal)), MARGIN + 5, y + 9);
+  y += 16;
+}
 // Disclaimer detallado
 const disclaimerParrafos = [
   'AVISO LEGAL Y LIMITACION DE RESPONSABILIDAD',
@@ -8470,9 +8454,6 @@ function buildResumenContent() {
       const row = document.createElement('div');
       row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-sky-50 active:opacity-70 transition-colors';
       row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${rowIndex%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
-      const tramoTag = d.mora > 365
-        ? `<span style="color:#ea580c;font-size:7px;white-space:nowrap;margin-left:2px">≥1a</span>`
-        : `<span style="color:#0891b2;font-size:7px;white-space:nowrap;margin-left:2px"><1a</span>`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
       row.innerHTML = `
@@ -8480,7 +8461,7 @@ function buildResumenContent() {
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
         <span style="color:#334155">${fmt(cap0)}</span>
         <span style="color:#64748b">${d.mora}</span>
-        <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}${tramoTag}</span>
+        <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
         <span class="text-right" style="color:#0369a1">${fmt(int0)}</span>
         <span class="text-right font-black" style="color:#0f172a">${fmt(cap0+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
@@ -9309,7 +9290,7 @@ if (sbCurrentUser) {
 <!-- ══════════════════════════════════════════════════════════
      PANTALLA DE LOGIN — SUPABASE AUTH
      ══════════════════════════════════════════════════════════ -->
-<div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:9999;background:#f5f6f8;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+<div id="loginScreen" style="display:block;position:fixed;inset:0;z-index:9999;background:#f5f6f8;overflow-y:auto;-webkit-overflow-scrolling:touch;">
  <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:60px 16px 24px;">
   <div style="width:100%;max-width:360px;">
    <!-- Logo -->
@@ -9482,6 +9463,7 @@ let sbAuthTab = 'login';
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
   try { unlockBody(); } catch(e) {}
+  document.body.classList.add('auth-ready');
   const ls = document.getElementById('loginScreen');
   ls.style.display = 'block';
   ls.style.zIndex = '99999';
@@ -9495,7 +9477,10 @@ function showLoginScreen() {
   } catch(e) {}
 }
 function hideLoginScreen() {
+  document.body.classList.add('auth-ready');
   document.getElementById('loginScreen').style.display = 'none';
+  // Asegurar que el body no quede bloqueado después del login
+  try { unlockBody(); } catch(e) {}
 }
 
 // ── Cambiar tab login/registro ──
@@ -9617,7 +9602,21 @@ async function sbSubmit() {
 async function sbSignOut() {
   dbg('SIGNOUT: iniciando...');
 
-  // 1. Limpiar localStorage PRIMERO — funciona aunque Supabase no responda
+  // Marcar que estamos en proceso de cierre — bloquea cualquier
+  // INITIAL_SESSION que Supabase pueda disparar durante el reload.
+  window._signingOut = true;
+
+  // 1. Mostrar login de inmediato, antes de cualquier async
+  try { showLoginScreen(); } catch(e) {}
+
+  // 2. Limpiar estado local
+  sbCurrentUser = null;
+  sbAccessToken = null;
+  activeCasoId = null;
+
+  // 3. Limpiar tokens del storage ANTES de llamar a signOut
+  //    para que si onAuthStateChange dispara durante signOut
+  //    no encuentre credenciales y no intente restaurar sesión.
   try {
     const keysToDelete = Object.keys(localStorage).filter(k =>
       k === 'pension_utm_auth' ||
@@ -9629,15 +9628,8 @@ async function sbSignOut() {
   } catch(e) {}
   try { sessionStorage.clear(); } catch(e) {}
 
-  // 2. Limpiar estado local
-  sbCurrentUser = null;
-  sbAccessToken = null;
-  activeCasoId = null;
-
-  // 3. Mostrar pantalla de login de inmediato (no esperar a Supabase)
-  try { showLoginScreen(); } catch(e) {}
-
-  // 4. Intentar signOut en Supabase en background (máx 2s), pero no bloquear
+  // 4. Llamar signOut en Supabase (máx 2s) — onAuthStateChange
+  //    disparará SIGNED_OUT, pero _signingOut lo neutraliza.
   try {
     await Promise.race([
       sb.auth.signOut(),
@@ -9645,8 +9637,9 @@ async function sbSignOut() {
     ]);
   } catch(e) { dbg('SIGNOUT: sb.auth.signOut falló: ' + e.message); }
 
-  // 5. Recargar para limpiar cualquier estado en memoria
-  window.location.reload();
+  // NO hacer reload() — el login ya está visible y el estado está limpio.
+  // El reload causaba el flash: Supabase leía el token en memoria y
+  // disparaba INITIAL_SESSION con sesión válida antes del SIGNED_OUT real.
 }
 
 // ── Cargar casos desde Supabase al localStorage ──
@@ -9776,6 +9769,15 @@ async function sbDeleteCaso(id) {
 sb.auth.onAuthStateChange(async (event, session) => {
   if (window._markAuthResolved) window._markAuthResolved();
   dbg("AUTH: "+event+" user="+(session?.user?.id?.slice(0,6)||"none"));
+
+  // Si estamos en proceso de cierre de sesión, ignorar cualquier
+  // evento que no sea SIGNED_OUT para evitar el flash de re-login.
+  if (window._signingOut && event !== 'SIGNED_OUT') {
+    dbg("AUTH: ignorado durante signOut (" + event + ")");
+    return;
+  }
+  if (event === 'SIGNED_OUT') window._signingOut = false;
+
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
     sbCurrentUser = session.user;
@@ -9831,20 +9833,12 @@ setInterval(async () => {
 // No se necesita getSession() manual — evita el race condition que mostraba
 // el login brevemente aunque hubiera sesión activa guardada. ──
 
-// ── Safety timeout: si Supabase no responde en 5s, mostrar login ──
-// Cubre el caso de archivo local (content://) o sin conexión donde
-// onAuthStateChange nunca dispara y la pantalla queda en blanco.
+// ── El login se muestra por defecto desde el HTML (display:block).
+// onAuthStateChange → hideLoginScreen() lo oculta si hay sesión válida.
+// Ya no se necesita safety timeout: el usuario siempre ve el login
+// mientras Supabase resuelve, y nunca ve un flash de app sin autenticar.
 (function() {
-  var authResolved = false;
-  var origOnAuth = sb.auth.onAuthStateChange;
-  // Marcar como resuelto cuando dispare cualquier evento
-  window._markAuthResolved = function() { authResolved = true; };
-  setTimeout(function() {
-    if (!authResolved) {
-      console.warn('Supabase auth timeout — mostrando login por seguridad');
-      showLoginScreen();
-    }
-  }, 5000);
+  window._markAuthResolved = function() {}; // stub para compatibilidad
 })();
 </script>
 
@@ -9856,11 +9850,31 @@ function dbg(msg) { /* debug desactivado */ }
 <script>
 // ── Bloquear pull-to-refresh en iOS Safari ──────────────────────────────────
 // overscroll-behavior-y:none cubre Android Chrome; este listener cubre iOS.
-// Solo se bloquea cuando el documento está en el tope (scrollY === 0) y
-// el gesto va hacia abajo, que es exactamente cuando ocurre el refresh.
-// No afecta el scroll normal de la página ni de los modales.
+// Solo bloquea pull-to-refresh. No interfiere con el scroll de modales.
 (function() {
   var lastY = 0;
+
+  // Sube por el árbol DOM buscando un contenedor scrollable o un modal.
+  function isInsideScrollableOrModal(el) {
+    while (el && el !== document.body) {
+      // Modal overlay o panel → dejar pasar siempre
+      if (el.id === 'fichaModal' || el.id === 'loginScreen' ||
+          el.classList.contains('modal-overlay') ||
+          el.classList.contains('modal-panel') ||
+          el.classList.contains('modal-scroll') ||
+          el.classList.contains('card-modal__body')) {
+        return true;
+      }
+      // Contenedor con overflow scroll que tiene contenido desbordante
+      var oy = window.getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) {
+        return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
   document.addEventListener('touchstart', function(e) {
     lastY = e.touches[0].clientY;
   }, { passive: true });
@@ -9868,11 +9882,17 @@ function dbg(msg) { /* debug desactivado */ }
   document.addEventListener('touchmove', function(e) {
     var y = e.touches[0].clientY;
     var goingDown = y > lastY;
-    // Bloquear solo si estamos en el tope Y el gesto es hacia abajo
+    lastY = y;
+
+    // Si hay un modal activo (lockBody → position:fixed → scrollY siempre 0)
+    // o si el toque es dentro de un modal/scrollable, no bloquear.
+    if (document.body.classList.contains('modal-open')) return;
+    if (isInsideScrollableOrModal(e.target)) return;
+
+    // Bloquear pull-to-refresh solo en el tope de la página principal
     if (goingDown && window.scrollY === 0) {
       e.preventDefault();
     }
-    lastY = y;
   }, { passive: false });
 })();
 </script>
