@@ -6488,7 +6488,8 @@ function imputarAbonosArt1595(detalles, abonos) {
   return { saldoFinal, totalAbonado, interesesPagados, capitalPagado, detalleImputacion, cuotasResultado: cuotas };
 }
 function calculate() {
-if (!validateDates()) return;
+if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
+dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len=' + utmData.length + ' utm=' + (document.getElementById('utmAmount').value||'?'));
 const hoy = new Date();
 hoy.setHours(0, 0, 0, 0);
 const aplicarRecargo = document.getElementById('recargoLey').checked;
@@ -9885,25 +9886,29 @@ async function sbSaveCaso(id) {
       data = raw ? JSON.parse(raw) : {};
     }
     const now = new Date().toISOString();
-    dbg('SAVE: intentando upsert caso ' + id.slice(0,8));
-    const { error } = await sb.from('casos').upsert({
+    const payload = {
       id,
       user_id:  sbCurrentUser.id,
       nombre:   meta.nombre || 'Sin nombre',
       meta:     { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
       data,
-      saved_at: meta.savedAt || now
-    }, { onConflict: 'id' });
+      saved_at: now
+    };
+    dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id.slice(0,8));
+    const { error } = await sb.from('casos').upsert(payload, { onConflict: 'id' });
     if (error) {
-      dbg('❌ SAVE ERROR: ' + error.code + ' — ' + error.message);
-      // Mostrar error visible si falla Supabase
-      showSyncToast('⚠️ Error al guardar: ' + (error.message || error.code));
+      const msg = '❌ SAVE: ' + error.code + ' — ' + error.message + ' | hint: ' + (error.hint||'—') + ' | details: ' + (error.details||'—');
+      dbg(msg);
+      showSyncToast('⚠️ ' + error.code + ': ' + error.message);
     } else {
       dbg('✅ SAVE OK: caso ' + id.slice(0,8));
       window._lastSavedId = id;
       window._lastSavedAt = Date.now();
     }
-  } catch(e) { dbg('❌ SAVE EXCEPTION: ' + e.message); }
+  } catch(e) {
+    dbg('❌ SAVE EXCEPTION: ' + e.message);
+    showSyncToast('⚠️ Error: ' + e.message);
+  }
 }
 
 // ── Eliminar un caso en Supabase ──
@@ -10003,7 +10008,33 @@ setInterval(async () => {
 
 
 <script>
-function dbg(msg) { /* debug desactivado */ }
+function dbg(msg) {
+  console.log('[DBG]', msg);
+  // Panel debug temporal — toca 5 veces el header para abrir/cerrar
+  let p = document.getElementById('_dbgPanel');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = '_dbgPanel';
+    p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
+      'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
+      'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
+    document.body.appendChild(p);
+    // Abrir con 5 taps en el header
+    let taps = 0, tapTimer;
+    document.querySelector('header')?.addEventListener('click', () => {
+      taps++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { taps = 0; }, 1500);
+      if (taps >= 5) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; taps = 0; }
+    });
+  }
+  const line = document.createElement('div');
+  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  if (msg.includes('❌') || msg.includes('ERROR')) line.style.color = '#f87171';
+  if (msg.includes('✅')) line.style.color = '#4ade80';
+  p.appendChild(line);
+  p.scrollTop = p.scrollHeight;
+}
 </script>
 
 <script>
