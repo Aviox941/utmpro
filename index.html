@@ -9704,7 +9704,41 @@ async function sbLoadCasos() {
     });
     renderCasosList();
     if (idx.length === 0) {
-      // Usuario sin casos: mostrar modal de bienvenida
+      // Supabase vacío — verificar si hay casos en localStorage para migrar
+      const localIdx = (() => {
+        try { return JSON.parse(localStorage.getItem(CASOS_INDEX_KEY + '_local_backup') || localStorage.getItem(CASOS_INDEX_KEY) || '[]'); } catch(e) { return []; }
+      })();
+      // Filtrar solo los que tienen datos reales en localStorage
+      const casosLocales = localIdx.filter(c => {
+        const raw = localStorage.getItem(CASO_DATA_PREFIX + c.id);
+        return raw && raw.length > 10;
+      });
+      if (casosLocales.length > 0) {
+        dbg('LOAD: Supabase vacío pero hay ' + casosLocales.length + ' casos locales — migrando...');
+        // Subir todos en paralelo
+        await Promise.all(casosLocales.map(c => sbSaveCaso(c.id)));
+        dbg('LOAD: migración completada, recargando desde Supabase...');
+        // Recargar para confirmar que quedaron guardados
+        const { data: data2 } = await sb.from('casos')
+          .select('*')
+          .eq('user_id', sbCurrentUser.id)
+          .order('created_at', { ascending: true });
+        if (data2 && data2.length > 0) {
+          const idx2 = data2.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
+          localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx2));
+          data2.forEach(row => {
+            if (row.data && Object.keys(row.data).length > 0)
+              localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(row.data));
+          });
+          renderCasosList();
+          const lastId = localStorage.getItem('pension_utm_last_caso');
+          const targetId = (lastId && idx2.find(c => c.id === lastId)) ? lastId : idx2[idx2.length - 1].id;
+          switchCaso(targetId);
+          showSyncToast('☁️ Datos migrados a la nube correctamente');
+          return;
+        }
+      }
+      // Realmente no hay casos — mostrar modal de bienvenida
       openProfileModal();
       return;
     }
@@ -9811,7 +9845,7 @@ function stopRealtime() {
 }
 
 // Toast discreto de sincronización
-function showSyncToast() {
+function showSyncToast(msg) {
   let t = document.getElementById('syncToast');
   if (!t) {
     t = document.createElement('div');
@@ -9822,7 +9856,7 @@ function showSyncToast() {
       'box-shadow:0 2px 8px rgba(0,0,0,0.25)';
     document.body.appendChild(t);
   }
-  t.textContent = '🔄 Sincronizado desde otro dispositivo';
+  t.textContent = msg || '🔄 Sincronizado desde otro dispositivo';
   t.style.opacity = '1';
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
