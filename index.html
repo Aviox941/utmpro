@@ -9799,9 +9799,8 @@ function sbStartRealtime() {
     .on('postgres_changes', {
       event: '*',           // INSERT, UPDATE, DELETE
       schema: 'public',
-      table: 'casos'
-      // Sin filtro — filtramos en cliente para evitar CHANNEL_ERROR
-      // (requiere REPLICA IDENTITY FULL que no todos los planes soportan)
+      table: 'casos',
+      filter: 'user_id=eq.' + sbCurrentUser.id
     }, payload => {
       const ev   = payload.eventType;  // INSERT | UPDATE | DELETE
       const row  = payload.new || {};
@@ -9820,7 +9819,7 @@ function sbStartRealtime() {
         return;
       }
 
-      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6));
+      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6) + ' keys=' + Object.keys(row.data || {}).length + ' abonos=' + (row.data?.abonos?.length ?? '?'));
 
       if (ev === 'DELETE') {
         // El caso fue eliminado en otro dispositivo
