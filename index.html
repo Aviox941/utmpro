@@ -7658,7 +7658,7 @@ if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
 const raw = localStorage.getItem(getCasoKey(id));
-dbg('SWITCH: id='+id.slice(0,6)+' localLen='+(raw?raw.length:0));
+dbg('SWITCH: id='+id.slice(0,12)+' localLen='+(raw?raw.length:0));
 if (raw) {
 try {
 const s = JSON.parse(raw);
@@ -9604,7 +9604,8 @@ async function sbSubmit() {
     }
     clearTimeout(safetyTimer);
     if (result.error) { sbShowMsg(result.error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : result.error.message); btn.textContent = sbAuthTab === 'login' ? 'Iniciar sesión' : 'Crear cuenta'; btn.disabled = false; return; }
-    // Éxito login — onAuthStateChange se encarga del resto
+    // Éxito login — resetear _signingOut para que onAuthStateChange procese SIGNED_IN
+    window._signingOut = false;
   } catch(e) {
     clearTimeout(safetyTimer);
     sbShowMsg('Error de conexión. Intenta de nuevo.');
@@ -9697,19 +9698,30 @@ async function sbLoadCasos() {
     // Si localStorage tiene una versión MÁS RECIENTE que Supabase (guardado por beforeunload
     // que no alcanzó a sincronizar), conservar la versión local.
     rows.forEach(row => {
-      const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 0
+      const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5
         ? row.data : null;
-      // Supabase es la fuente de verdad al iniciar sesión.
-      // Solo conservar local si el caso NO existe en Supabase (ej: guardado offline pendiente de sync).
       if (sbPayload) {
-        localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
-        dbg('LOAD: caso ' + row.id.slice(0,6) + ' restaurado desde Supabase');
+        // Verificar que haya al menos un campo de datos real (no solo metadatos)
+        const hasRealData = sbPayload.utmAmount !== undefined || sbPayload.clpAmount !== undefined || sbPayload.calculationMode !== undefined;
+        if (hasRealData) {
+          localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
+          dbg('LOAD: caso ' + row.id + ' restaurado desde Supabase (' + Object.keys(sbPayload).length + ' keys)');
+        } else {
+          dbg('LOAD: caso ' + row.id + ' tiene ' + Object.keys(sbPayload).length + ' keys pero sin campos válidos — conservando local');
+          const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
+          if (localRaw && localRaw.length > 50 && sbCurrentUser) {
+            dbg('LOAD: subiendo datos locales a Supabase para ' + row.id);
+            sbSaveCaso(row.id);
+          }
+        }
       } else {
-        // Sin datos en Supabase — conservar local y subir en background
+        // Sin datos suficientes en Supabase — conservar local y subir
         const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
-        if (localRaw && sbCurrentUser) {
-          dbg('LOAD: caso ' + row.id.slice(0,6) + ' solo en local, subiendo a Supabase');
+        if (localRaw && localRaw.length > 50 && sbCurrentUser) {
+          dbg('LOAD: caso ' + row.id + ' tiene datos locales, subiendo a Supabase...');
           sbSaveCaso(row.id);
+        } else {
+          dbg('LOAD: caso ' + row.id + ' sin datos en Supabase ni localStorage');
         }
       }
     });
@@ -9774,7 +9786,8 @@ async function sbLoadCasos() {
 let _realtimeChannel = null;
 
 function sbStartRealtime() {
-  if (!sbCurrentUser) return;
+  if (!sbCurrentUser) { dbg("REALTIME: sin usuario, abortando"); return; }
+  dbg("REALTIME: iniciando canal para " + sbCurrentUser.id.slice(0,8));
   // Evitar canales duplicados
   if (_realtimeChannel) {
     sb.removeChannel(_realtimeChannel);
@@ -9786,14 +9799,18 @@ function sbStartRealtime() {
     .on('postgres_changes', {
       event: '*',           // INSERT, UPDATE, DELETE
       schema: 'public',
-      table: 'casos',
-      filter: 'user_id=eq.' + sbCurrentUser.id
+      table: 'casos'
+      // Sin filtro — filtramos en cliente para evitar CHANNEL_ERROR
+      // (requiere REPLICA IDENTITY FULL que no todos los planes soportan)
     }, payload => {
       const ev   = payload.eventType;  // INSERT | UPDATE | DELETE
       const row  = payload.new || {};
       const oldR = payload.old || {};
       const id   = row.id || oldR.id;
       if (!id) return;
+      // Filtrar por user_id en el cliente
+      const rowUserId = row.user_id || oldR.user_id;
+      if (rowUserId && rowUserId !== sbCurrentUser.id) return;
 
       // Ignorar si el cambio lo hizo este mismo dispositivo
       // (sbSaveCaso acaba de guardar, el echo llegaría en ~200ms)
@@ -9821,8 +9838,11 @@ function sbStartRealtime() {
       }
 
       // INSERT o UPDATE: actualizar datos en localStorage y UI
-      if (row.data && typeof row.data === 'object') {
+      if (row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5) {
         localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(row.data));
+        dbg('REALTIME: datos del caso ' + id.slice(0,6) + ' actualizados (' + Object.keys(row.data).length + ' keys)');
+      } else {
+        dbg('REALTIME: datos insuficientes en payload (' + Object.keys(row.data||{}).length + ' keys), ignorando escritura en localStorage');
       }
       // Actualizar índice de casos
       const idx = getCasosIndex();
@@ -9845,6 +9865,8 @@ function sbStartRealtime() {
     })
     .subscribe(status => {
       dbg('REALTIME status: ' + status);
+      if (status === 'CHANNEL_ERROR') dbg('REALTIME: ⚠️ Verifica que la tabla casos tenga Replication activada en Supabase');
+      if (status === 'SUBSCRIBED') dbg('REALTIME: ✅ Escuchando cambios en tiempo real');
     });
 }
 
@@ -9880,7 +9902,26 @@ async function sbSaveCaso(id) {
     const meta = idx.find(c => c.id === id) || {};
     let data;
     if (id === activeCasoId) {
-      data = buildSession();
+      // Preferir localStorage si tiene datos válidos (más de 5 keys).
+      // buildSession() lee del DOM — si applySession() aún no corrió,
+      // el DOM puede estar vacío y se guardarían campos en cero/vacío.
+      const rawLocal = localStorage.getItem(CASO_DATA_PREFIX + id);
+      const localParsed = rawLocal ? (() => { try { return JSON.parse(rawLocal); } catch(e) { return null; } })() : null;
+      if (localParsed && typeof localParsed === 'object' && Object.keys(localParsed).length > 5) {
+        // Verificar que el DOM también tenga datos (applySession ya corrió)
+        const domUtm = document.getElementById('utmAmount')?.value;
+        const domClp = document.getElementById('clpAmount')?.value;
+        if (domUtm || domClp) {
+          // DOM tiene datos — buildSession es confiable
+          data = buildSession();
+        } else {
+          // DOM vacío — usar localStorage para no sobreescribir con ceros
+          dbg('SAVE: DOM vacío, usando localStorage para ' + id.slice(0,8));
+          data = localParsed;
+        }
+      } else {
+        data = buildSession();
+      }
     } else {
       const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
       data = raw ? JSON.parse(raw) : {};
@@ -9894,7 +9935,7 @@ async function sbSaveCaso(id) {
       data,
       saved_at: now
     };
-    dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id.slice(0,8));
+    dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
     const { error } = await sb.from('casos').upsert(payload, { onConflict: 'id' });
     if (error) {
       const msg = '❌ SAVE: ' + error.code + ' — ' + error.message + ' | hint: ' + (error.hint||'—') + ' | details: ' + (error.details||'—');
@@ -9932,9 +9973,10 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (window._markAuthResolved) window._markAuthResolved();
   dbg("AUTH: "+event+" user="+(session?.user?.id?.slice(0,6)||"none"));
 
-  // Si estamos en proceso de cierre de sesión, ignorar cualquier
-  // evento que no sea SIGNED_OUT para evitar el flash de re-login.
-  if (window._signingOut && event !== 'SIGNED_OUT') {
+  // Si estamos en proceso de cierre de sesión, ignorar eventos intermedios
+  // EXCEPTO SIGNED_IN con sesión válida (ocurre cuando signOut hizo timeout
+  // y el usuario volvió a iniciar sesión).
+  if (window._signingOut && event !== 'SIGNED_OUT' && !(event === 'SIGNED_IN' && session?.user)) {
     dbg("AUTH: ignorado durante signOut (" + event + ")");
     return;
   }
@@ -9962,7 +10004,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
       dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
       // ── FIN DIAGNÓSTICO ──
       await sbLoadCasos();
+      dbg("AUTH: llamando sbStartRealtime...");
       sbStartRealtime();
+      dbg("AUTH: sbStartRealtime() ya fue llamado");
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
@@ -10010,7 +10054,6 @@ setInterval(async () => {
 <script>
 function dbg(msg) {
   console.log('[DBG]', msg);
-  // Panel debug temporal — toca 5 veces el header para abrir/cerrar
   let p = document.getElementById('_dbgPanel');
   if (!p) {
     p = document.createElement('div');
@@ -10018,8 +10061,21 @@ function dbg(msg) {
     p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
       'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
       'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
+    // Botón exportar localStorage
+    const expBtn = document.createElement('button');
+    expBtn.textContent = '📤 EXPORTAR DATOS';
+    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
+    expBtn.onclick = () => {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
+      const dump = {};
+      keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
+      const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
+    };
+    p.appendChild(expBtn);
     document.body.appendChild(p);
-    // Abrir con 5 taps en el header
     let taps = 0, tapTimer;
     document.querySelector('header')?.addEventListener('click', () => {
       taps++;
