@@ -9605,6 +9605,7 @@ async function sbSignOut() {
   // Marcar que estamos en proceso de cierre — bloquea cualquier
   // INITIAL_SESSION que Supabase pueda disparar durante el reload.
   window._signingOut = true;
+  stopRealtime();
 
   // 1. Mostrar login de inmediato, antes de cualquier async
   try { showLoginScreen(); } catch(e) {}
@@ -9718,7 +9719,111 @@ async function sbLoadCasos() {
   } catch(e) { dbg('LOAD EXCEPTION: '+e.message); }
 }
 
-// ── Guardar un caso en Supabase ──
+// ── Sincronización en tiempo real entre dispositivos ──────────────────────
+// Cuando otro dispositivo guarda un caso, Supabase notifica a este cliente
+// y recarga solo el caso modificado sin resetear toda la UI.
+let _realtimeChannel = null;
+
+function sbStartRealtime() {
+  if (!sbCurrentUser) return;
+  // Evitar canales duplicados
+  if (_realtimeChannel) {
+    sb.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+
+  _realtimeChannel = sb
+    .channel('casos-sync-' + sbCurrentUser.id)
+    .on('postgres_changes', {
+      event: '*',           // INSERT, UPDATE, DELETE
+      schema: 'public',
+      table: 'casos',
+      filter: 'user_id=eq.' + sbCurrentUser.id
+    }, payload => {
+      const ev   = payload.eventType;  // INSERT | UPDATE | DELETE
+      const row  = payload.new || {};
+      const oldR = payload.old || {};
+      const id   = row.id || oldR.id;
+      if (!id) return;
+
+      // Ignorar si el cambio lo hizo este mismo dispositivo
+      // (sbSaveCaso acaba de guardar, el echo llegaría en ~200ms)
+      if (window._lastSavedId === id && window._lastSavedAt &&
+          Date.now() - window._lastSavedAt < 3000) {
+        dbg('REALTIME: ignorando eco propio para ' + id.slice(0,6));
+        return;
+      }
+
+      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6));
+
+      if (ev === 'DELETE') {
+        // El caso fue eliminado en otro dispositivo
+        const idx = getCasosIndex().filter(c => c.id !== id);
+        localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
+        localStorage.removeItem(CASO_DATA_PREFIX + id);
+        if (activeCasoId === id) {
+          // El caso activo fue borrado — cambiar al primero disponible
+          if (idx.length > 0) switchCaso(idx[0].id);
+          else openProfileModal();
+        } else {
+          renderCasosList();
+        }
+        return;
+      }
+
+      // INSERT o UPDATE: actualizar datos en localStorage y UI
+      if (row.data && typeof row.data === 'object') {
+        localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(row.data));
+      }
+      // Actualizar índice de casos
+      const idx = getCasosIndex();
+      const existing = idx.findIndex(c => c.id === id);
+      const newMeta = { ...(row.meta || {}), id, savedAt: row.saved_at };
+      if (existing >= 0) idx[existing] = newMeta;
+      else idx.push(newMeta);
+      localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
+
+      // Si es el caso activo, recargar silenciosamente
+      if (activeCasoId === id) {
+        dbg('REALTIME: recargando caso activo desde otro dispositivo');
+        switchCaso(id);
+      } else {
+        renderCasosList();
+      }
+
+      // Toast informativo (discreto, esquina inferior)
+      showSyncToast();
+    })
+    .subscribe(status => {
+      dbg('REALTIME status: ' + status);
+    });
+}
+
+function stopRealtime() {
+  if (_realtimeChannel) {
+    sb.removeChannel(_realtimeChannel);
+    _realtimeChannel = null;
+  }
+}
+
+// Toast discreto de sincronización
+function showSyncToast() {
+  let t = document.getElementById('syncToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'syncToast';
+    t.style.cssText = 'position:fixed;bottom:72px;left:50%;transform:translateX(-50%);' +
+      'background:#1e3a5f;color:#fff;font-size:11px;padding:6px 14px;border-radius:20px;' +
+      'z-index:9998;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,0.25)';
+    document.body.appendChild(t);
+  }
+  t.textContent = '🔄 Sincronizado desde otro dispositivo';
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
 async function sbSaveCaso(id) {
   if (!sbCurrentUser || !id) return;
   try {
@@ -9745,6 +9850,8 @@ async function sbSaveCaso(id) {
       dbg('❌ SAVE ERROR: ' + error.code + ' — ' + error.message);
     } else {
       dbg('✅ SAVE OK: caso ' + id.slice(0,8));
+      window._lastSavedId = id;
+      window._lastSavedAt = Date.now();
     }
   } catch(e) { dbg('❌ SAVE EXCEPTION: ' + e.message); }
 }
@@ -9799,6 +9906,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
       dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
       // ── FIN DIAGNÓSTICO ──
       await sbLoadCasos();
+      sbStartRealtime();
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
