@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
+ <meta name="app-version" content="1.0.1">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="manifest.json">
@@ -16,6 +17,19 @@
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+ <script>
+ // ── Auto-actualización: fuerza recarga si la versión cambió ──
+ (function() {
+   const CURRENT = document.querySelector('meta[name="app-version"]')?.content || '1.0.0';
+   const STORED  = localStorage.getItem('_appVersion');
+   if (STORED && STORED !== CURRENT) {
+     localStorage.setItem('_appVersion', CURRENT);
+     location.reload(true);
+     return;
+   }
+   localStorage.setItem('_appVersion', CURRENT);
+ })();
+ </script>
 
  <!-- ============================================================
       ETAPA 1 DE REFACTORIZACIÓN — SEPARACIÓN UI / LÓGICA
@@ -9859,7 +9873,7 @@ function sbStartRealtime() {
         return;
       }
 
-      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6) + ' keys=' + Object.keys(row.data || {}).length + ' abonos=' + (row.data?.abonos?.length ?? '?'));
+      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6));
 
       if (ev === 'DELETE') {
         // El caso fue eliminado en otro dispositivo
@@ -9867,7 +9881,6 @@ function sbStartRealtime() {
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
         localStorage.removeItem(CASO_DATA_PREFIX + id);
         if (activeCasoId === id) {
-          // El caso activo fue borrado — cambiar al primero disponible
           if (idx.length > 0) switchCaso(idx[0].id);
           else openProfileModal();
         } else {
@@ -9876,39 +9889,41 @@ function sbStartRealtime() {
         return;
       }
 
-      // INSERT o UPDATE: actualizar datos en localStorage y UI
-      if (row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5) {
-        localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(row.data));
-        dbg('REALTIME: datos del caso ' + id.slice(0,6) + ' actualizados (' + Object.keys(row.data).length + ' keys)');
-      } else {
-        dbg('REALTIME: datos insuficientes en payload (' + Object.keys(row.data||{}).length + ' keys), ignorando escritura en localStorage');
-      }
-      // Actualizar índice de casos
-      const idx = getCasosIndex();
-      const existing = idx.findIndex(c => c.id === id);
-      const newMeta = { ...(row.meta || {}), id, savedAt: row.saved_at };
-      if (existing >= 0) idx[existing] = newMeta;
-      else idx.push(newMeta);
-      localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
+      // INSERT o UPDATE: siempre hacer fetch directo a Supabase
+      // para evitar el límite de 256 KB del payload de Realtime
+      dbg('REALTIME: fetching caso ' + id.slice(0,6) + ' desde Supabase...');
+      sb.from('casos').select('*').eq('id', id).single().then(({ data: freshRow, error }) => {
+        if (error || !freshRow) {
+          dbg('REALTIME: ❌ fetch error — ' + (error?.message || 'sin datos'));
+          return;
+        }
+        if (freshRow.data && typeof freshRow.data === 'object' && Object.keys(freshRow.data).length > 5) {
+          localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(freshRow.data));
+          dbg('REALTIME: ✅ caso ' + id.slice(0,6) + ' actualizado (' + Object.keys(freshRow.data).length + ' keys)');
+        }
+        const idx = getCasosIndex();
+        const existing = idx.findIndex(c => c.id === id);
+        const newMeta = { ...(freshRow.meta || {}), id, savedAt: freshRow.saved_at };
+        if (existing >= 0) idx[existing] = newMeta;
+        else idx.push(newMeta);
+        localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
 
-      // Si es el caso activo, recargar silenciosamente
-      if (activeCasoId === id) {
-        dbg('REALTIME: recargando caso activo desde otro dispositivo');
-        switchCaso(id);
-      } else {
-        renderCasosList();
-      }
-
-      // Toast informativo (discreto, esquina inferior)
-      showSyncToast();
+        if (activeCasoId === id) {
+          dbg('REALTIME: recargando caso activo desde otro dispositivo');
+          switchCaso(id);
+        } else {
+          renderCasosList();
+        }
+        showSyncToast();
+      });
     })
     .subscribe(status => {
       dbg('REALTIME status: ' + status);
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        dbg('REALTIME: ⚠️ ' + status + ' — reintentando en 5s...');
+        dbg('REALTIME: ⚠️ ' + status + ' — reintentando en 15s...');
         setTimeout(() => {
           if (sbCurrentUser) sbStartRealtime();
-        }, 5000);
+        }, 15000);
       }
       if (status === 'SUBSCRIBED') dbg('REALTIME: ✅ Escuchando cambios en tiempo real');
     });
