@@ -10142,15 +10142,45 @@ async function sbSaveCaso(id) {
       saved_at: now
     };
     dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
-    const { error } = await sb.from('casos').upsert(payload, { onConflict: 'id' });
-    if (error) {
-      const msg = '❌ SAVE: ' + error.code + ' — ' + error.message + ' | hint: ' + (error.hint||'—') + ' | details: ' + (error.details||'—');
-      dbg(msg);
-      showSyncToast('⚠️ ' + error.code + ': ' + error.message);
-    } else {
-      dbg('✅ SAVE OK: caso ' + id.slice(0,8));
+    // ── Safe upsert: nunca resetear deleted_at ──────────────────────────────
+    // Un upsert normal sin deleted_at puede sobrescribir el soft-delete si llega
+    // después del UPDATE de sbDeleteCaso (race condition debounce vs. delete).
+    // Solución: UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
+    const updatePayload = { nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at };
+    const { data: updData, error: updError } = await sb
+      .from('casos')
+      .update(updatePayload)
+      .eq('id', id)
+      .eq('user_id', sbCurrentUser.id)
+      .is('deleted_at', null)
+      .select('id');
+    if (updError) {
+      dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message);
+      showSyncToast('⚠️ ' + updError.code + ': ' + updError.message);
+    } else if (updData && updData.length > 0) {
+      // UPDATE exitoso: el registro existía y no estaba eliminado
+      dbg('✅ SAVE UPDATE OK: caso ' + id.slice(0,8));
       window._lastSavedId = id;
       window._lastSavedAt = Date.now();
+    } else {
+      // 0 filas actualizadas → el registro no existe aún: intentar INSERT
+      // Guard post-await: verificar que no fue eliminado en el intervalo
+      if (_deletedCasoIds.has(id)) {
+        dbg('SAVE: ⛔ caso eliminado antes del INSERT — abortando');
+      } else {
+        const { error: insError } = await sb.from('casos').insert(payload);
+        if (insError && insError.code === '23505') {
+          // Conflict PK: el registro existe con deleted_at != null → fue eliminado, no re-subir
+          dbg('SAVE: ⛔ INSERT 23505 — caso ya existe eliminado en Supabase, abortando');
+        } else if (insError) {
+          dbg('❌ SAVE INSERT: ' + insError.code + ' — ' + insError.message);
+          showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
+        } else {
+          dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
+          window._lastSavedId = id;
+          window._lastSavedAt = Date.now();
+        }
+      }
     }
   } catch(e) {
     dbg('❌ SAVE EXCEPTION: ' + e.message);
