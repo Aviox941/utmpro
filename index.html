@@ -9868,7 +9868,7 @@ function sbStartRealtime() {
       // Ignorar si el cambio lo hizo este mismo dispositivo
       // (sbSaveCaso acaba de guardar, el echo llegaría en ~200ms)
       if (window._lastSavedId === id && window._lastSavedAt &&
-          Date.now() - window._lastSavedAt < 3000) {
+          Date.now() - window._lastSavedAt < 800) {
         dbg('REALTIME: ignorando eco propio para ' + id.slice(0,6));
         return;
       }
@@ -9904,7 +9904,6 @@ function sbStartRealtime() {
         const idx = getCasosIndex();
         const existing = idx.findIndex(c => c.id === id);
         const newMeta = { ...(freshRow.meta || {}), id, savedAt: freshRow.saved_at };
-        dbg('REALTIME: meta.nombre=' + (newMeta.nombre || 'VACÍO') + ' existing=' + existing);
         if (existing >= 0) idx[existing] = newMeta;
         else idx.push(newMeta);
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
@@ -9914,8 +9913,8 @@ function sbStartRealtime() {
           switchCaso(id);
         } else {
           renderCasosList();
-          showSyncToast();
         }
+        showSyncToast();
       });
     })
     .subscribe(status => {
