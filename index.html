@@ -9861,12 +9861,7 @@ function sbStartRealtime() {
       const oldR = payload.old || {};
       const id   = row.id || oldR.id;
       if (!id) return;
-      // Filtrar por user_id en el cliente
-      const rowUserId = row.user_id || oldR.user_id;
-      if (rowUserId && rowUserId !== sbCurrentUser.id) return;
-
-      // Ignorar si el cambio lo hizo este mismo dispositivo
-      // (sbSaveCaso acaba de guardar, el echo llegaría en ~200ms)
+      // Ignorar eco propio (el mismo dispositivo acaba de guardar este caso)
       if (window._lastSavedId === id && window._lastSavedAt &&
           Date.now() - window._lastSavedAt < 800) {
         dbg('REALTIME: ignorando eco propio para ' + id.slice(0,6));
