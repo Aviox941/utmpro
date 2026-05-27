@@ -9780,8 +9780,21 @@ async function sbLoadCasos() {
       .order('created_at', { ascending: true });
     if (error) { dbg('LOAD ERROR: '+JSON.stringify(error)); return; }
     const rows = data || [];
-    dbg('LOAD: '+rows.length+' casos. keys='+(rows[0]?.data?Object.keys(rows[0].data).length:0));
+    dbg('LOAD: '+rows.length+' casos desde Supabase.');
     const idx = rows.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
+
+    // ── Limpiar localStorage de casos que Supabase ya no tiene ──
+    // Esto evita que casos eliminados desde otro dispositivo (o eliminados y
+    // luego la migración los re-sube) queden como "fantasmas" en local.
+    const sbIds = new Set(rows.map(r => r.id));
+    const localIdx = getCasosIndex();
+    localIdx.forEach(lc => {
+      if (!sbIds.has(lc.id)) {
+        dbg('LOAD: 🗑️ eliminando caso local huérfano: ' + lc.id.slice(0,8) + ' (no existe en Supabase)');
+        localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
+      }
+    });
+
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
     // Escribir datos de cada caso en localStorage ANTES de llamar switchCaso.
     // Si localStorage tiene una versión MÁS RECIENTE que Supabase (guardado por beforeunload
@@ -9831,41 +9844,43 @@ async function sbLoadCasos() {
     });
     renderCasosList();
     if (idx.length === 0) {
-      // Supabase vacío — verificar si hay casos en localStorage para migrar
-      const localIdx = (() => {
-        try { return JSON.parse(localStorage.getItem(CASOS_INDEX_KEY + '_local_backup') || localStorage.getItem(CASOS_INDEX_KEY) || '[]'); } catch(e) { return []; }
-      })();
-      // Filtrar solo los que tienen datos reales en localStorage
-      const casosLocales = localIdx.filter(c => {
-        const raw = localStorage.getItem(CASO_DATA_PREFIX + c.id);
-        return raw && raw.length > 10;
-      });
-      if (casosLocales.length > 0) {
-        dbg('LOAD: Supabase vacío pero hay ' + casosLocales.length + ' casos locales — migrando...');
-        // Subir todos en paralelo
-        await Promise.all(casosLocales.map(c => sbSaveCaso(c.id)));
-        dbg('LOAD: migración completada, recargando desde Supabase...');
-        // Recargar para confirmar que quedaron guardados
-        const { data: data2 } = await sb.from('casos')
-          .select('*')
-          .eq('user_id', sbCurrentUser.id)
-          .order('created_at', { ascending: true });
-        if (data2 && data2.length > 0) {
-          const idx2 = data2.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
-          localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx2));
-          data2.forEach(row => {
-            if (row.data && Object.keys(row.data).length > 0)
-              localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(row.data));
-          });
-          renderCasosList();
-          const lastId = localStorage.getItem('pension_utm_last_caso');
-          const targetId = (lastId && idx2.find(c => c.id === lastId)) ? lastId : idx2[idx2.length - 1].id;
-          switchCaso(targetId);
-          showSyncToast('☁️ Datos migrados a la nube correctamente');
-          return;
+      // Supabase devuelve 0 casos.
+      // IMPORTANTE: solo migrar desde localStorage la PRIMERA vez (cuenta nueva).
+      // Si el usuario eliminó todos sus casos, Supabase devuelve 0 y eso es correcto.
+      // No re-subir casos locales o los eliminados reaparecerían.
+      if (!window._migracionHecha) {
+        window._migracionHecha = true;
+        const localIdx = (() => {
+          try { return JSON.parse(localStorage.getItem(CASOS_INDEX_KEY) || '[]'); } catch(e) { return []; }
+        })();
+        const casosLocales = localIdx.filter(c => {
+          const raw = localStorage.getItem(CASO_DATA_PREFIX + c.id);
+          return raw && raw.length > 10;
+        });
+        if (casosLocales.length > 0) {
+          dbg('LOAD: primera sesión — migrando ' + casosLocales.length + ' casos locales...');
+          await Promise.all(casosLocales.map(c => sbSaveCaso(c.id)));
+          const { data: data2 } = await sb.from('casos')
+            .select('*')
+            .eq('user_id', sbCurrentUser.id)
+            .order('created_at', { ascending: true });
+          if (data2 && data2.length > 0) {
+            const idx2 = data2.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
+            localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx2));
+            data2.forEach(row => {
+              if (row.data && Object.keys(row.data).length > 0)
+                localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(row.data));
+            });
+            renderCasosList();
+            const lastId = localStorage.getItem('pension_utm_last_caso');
+            const targetId = (lastId && idx2.find(c => c.id === lastId)) ? lastId : idx2[idx2.length - 1].id;
+            switchCaso(targetId);
+            showSyncToast('☁️ Datos migrados correctamente');
+            return;
+          }
         }
       }
-      // Realmente no hay casos — mostrar modal de bienvenida
+      // Sin casos — mostrar modal de bienvenida
       openProfileModal();
       return;
     }
@@ -10069,16 +10084,26 @@ async function sbSaveCaso(id) {
 // ── Eliminar un caso en Supabase ──
 async function sbDeleteCaso(id) {
   if (!sbCurrentUser || !id) return;
+  dbg('DELETE: eliminando caso ' + id.slice(0,8) + ' de Supabase...');
+  // También limpiar localStorage inmediatamente (por si acaso quedó algo)
+  localStorage.removeItem(CASO_DATA_PREFIX + id);
   try {
-    const { error } = await sb
+    const { error, data } = await sb
       .from('casos')
       .delete()
       .eq('id', id)
-      .eq('user_id', sbCurrentUser.id);
-    if (error) console.error('DELETE ERROR:', error);
-    else console.log('■ Caso eliminado en Supabase:', id);
+      .eq('user_id', sbCurrentUser.id)
+      .select();
+    if (error) {
+      dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
+    } else {
+      dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' eliminado de Supabase');
+      // Asegurar que el índice local tampoco lo tenga
+      const idx = getCasosIndex().filter(c => c.id !== id);
+      saveCasosIndex(idx);
+    }
   } catch(e) {
-    console.error('DELETE EXCEPTION:', e);
+    dbg('❌ DELETE EXCEPTION: ' + e.message);
   }
 }
 
