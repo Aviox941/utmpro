@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="1.0.1">
+ <meta name="app-version" content="2.0527.1832">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9414,21 +9414,28 @@ document.addEventListener('visibilitychange', () => {
      <!-- Password -->
      <div style="margin-bottom:14px;">
       <label style="display:block;font-size:9px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Contraseña</label>
-      <input id="authPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="current-password"
-       style="width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;color:#1a1d2e;background:#f8fafc;box-sizing:border-box;outline:none;transition:border-color .2s"
-       onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
-       onkeydown="if(event.key==='Enter') sbSubmit()">
+      <div style="position:relative;">
+       <input id="authPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="current-password"
+        style="width:100%;padding:11px 44px 11px 14px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;color:#1a1d2e;background:#f8fafc;box-sizing:border-box;outline:none;transition:border-color .2s"
+        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
+        onkeydown="if(event.key==='Enter') sbSubmit()">
+       <button type="button" onclick="togglePasswordVisibility('authPassword','eyeAuth')"
+        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:#94a3b8;line-height:0;">
+        <svg id="eyeAuth" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+       </button>
+      </div>
      </div>
      <!-- Botón Iniciar sesión -->
      <button id="authBtn" onclick="sbSubmit()"
       style="width:100%;padding:13px;border-radius:12px;background:#2563eb;color:white;font-size:13px;font-weight:900;border:none;cursor:pointer;transition:opacity .2s;margin-bottom:10px;">
       Iniciar sesión
      </button>
-     <!-- Botón Magic Link -->
-     <button id="magicLinkBtn" onclick="sbMagicLink()"
-      style="width:100%;padding:12px;border-radius:12px;background:#f0f9ff;color:#0369a1;font-size:12px;font-weight:800;border:1.5px solid #bae6fd;cursor:pointer;transition:opacity .2s;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
-      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-      Entrar sin contraseña (Magic Link)
+     <!-- Botón Huella / Biometría -->
+     <button id="biometricBtn" onclick="sbBiometricLogin()" style="display:none;width:100%;padding:12px;border-radius:12px;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:800;border:1.5px solid #bbf7d0;cursor:pointer;transition:opacity .2s;margin-bottom:10px;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Entrar con huella digital
      </button>
      <!-- Divisor -->
      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -9448,10 +9455,18 @@ document.addEventListener('visibilitychange', () => {
        style="width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;color:#1a1d2e;background:#f8fafc;box-sizing:border-box;outline:none;margin-bottom:10px;"
        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
        onkeydown="if(event.key==='Enter') sbRegister()">
-      <input id="regPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
-       style="width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;color:#1a1d2e;background:#f8fafc;box-sizing:border-box;outline:none;margin-bottom:10px;"
-       onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
-       onkeydown="if(event.key==='Enter') sbRegister()">
+      <div style="position:relative;margin-bottom:10px;">
+       <input id="regPassword" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
+        style="width:100%;padding:11px 44px 11px 14px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);font-size:13px;font-weight:600;color:#1a1d2e;background:#f8fafc;box-sizing:border-box;outline:none;"
+        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
+        onkeydown="if(event.key==='Enter') sbRegister()">
+       <button type="button" onclick="togglePasswordVisibility('regPassword','eyeReg')"
+        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;color:#94a3b8;line-height:0;">
+        <svg id="eyeReg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+       </button>
+      </div>
       <button id="regBtn" onclick="sbRegister()"
        style="width:100%;padding:12px;border-radius:12px;background:#2563eb;color:white;font-size:12px;font-weight:900;border:none;cursor:pointer;box-sizing:border-box;">
        Crear cuenta
@@ -9460,6 +9475,13 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1832</p>
+  <script>
+   (function(){
+     var v = document.querySelector('meta[name="app-version"]');
+     if (v) document.getElementById('appVersionLabel').textContent = 'v' + v.content;
+   })();
+  </script>
   </div>
  </div>
 </div>
@@ -9617,6 +9639,8 @@ function showLoginScreen() {
     document.getElementById('authBtn').disabled = false;
     document.getElementById('authBtn').textContent = 'Iniciar sesión';
   } catch(e) {}
+  // Mostrar botón huella si hay credencial guardada en este dispositivo
+  setTimeout(sbCheckBiometricBtn, 500);
 }
 function hideLoginScreen() {
   document.body.classList.add('auth-ready');
@@ -9682,37 +9706,125 @@ async function sbRegister() {
   }
 }
 
-// ── Magic Link ──
-async function sbMagicLink() {
-  const email = document.getElementById('authEmail').value.trim();
-  if (!email) { sbShowMsg('Ingresa tu correo electrónico.'); return; }
-  const btn = document.getElementById('magicLinkBtn');
-  btn.textContent = 'Enviando...'; btn.disabled = true;
-  sbHideMsg();
+
+// ── Login / Registro ──
+
+function togglePasswordVisibility(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  icon.innerHTML = show
+    ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+    : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+}
+
+
+// ── WebAuthn / Huella digital ──────────────────────────────────────────────
+const WA_CRED_KEY = 'wa_credential_id';
+const WA_EMAIL_KEY = 'wa_email';
+
+function waSupported() {
+  return window.PublicKeyCredential &&
+         typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function';
+}
+
+async function waPlatformAvailable() {
+  if (!waSupported()) return false;
+  try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch(e) { return false; }
+}
+
+function waB64url(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function waFromB64url(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
+}
+
+// Llamar después de login exitoso con contraseña para ofrecer huella
+async function waOfferEnroll(email) {
+  if (!await waPlatformAvailable()) return;
+  if (localStorage.getItem(WA_CRED_KEY)) return; // ya enrollado
+  // Preguntar al usuario
+  setTimeout(async () => {
+    if (!confirm('¿Deseas activar el acceso con huella digital para ingresar más rápido?')) return;
+    await waEnroll(email);
+  }, 800);
+}
+
+async function waEnroll(email) {
   try {
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: true }
-    });
-    if (error) {
-      sbShowMsg(error.message);
-      btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Entrar sin contraseña (Magic Link)';
-      btn.disabled = false;
-    } else {
-      sbShowMsg('✉️ Revisa tu correo — te enviamos un link para entrar.', false);
-      btn.textContent = 'Link enviado ✓';
-      btn.style.background = '#f0fdf4';
-      btn.style.color = '#16a34a';
-      btn.style.borderColor = '#bbf7d0';
-    }
+    const userId = crypto.getRandomValues(new Uint8Array(16));
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: 'LiquidaciónPro', id: location.hostname },
+      user: { id: userId, name: email, displayName: email },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+      timeout: 60000
+    }});
+    localStorage.setItem(WA_CRED_KEY, waB64url(cred.rawId));
+    localStorage.setItem(WA_EMAIL_KEY, email);
+    dbg('WEBAUTHN: huella registrada');
+    // Mostrar botón de huella
+    sbCheckBiometricBtn();
   } catch(e) {
-    sbShowMsg('Error de conexión. Intenta de nuevo.');
-    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> Entrar sin contraseña (Magic Link)';
-    btn.disabled = false;
+    dbg('WEBAUTHN: enroll cancelado — ' + e.message);
   }
 }
 
-// ── Login / Registro ──
+async function sbBiometricLogin() {
+  const credId = localStorage.getItem(WA_CRED_KEY);
+  const email  = localStorage.getItem(WA_EMAIL_KEY);
+  if (!credId || !email) return;
+  const btn = document.getElementById('biometricBtn');
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    await navigator.credentials.get({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: waFromB64url(credId) }],
+      userVerification: 'required',
+      timeout: 60000
+    }});
+    // Huella verificada → intentar refrescar sesión existente (no requiere correo)
+    dbg('WEBAUTHN: huella verificada, refrescando sesión...');
+    const { data: refreshData, error: refreshError } = await sb.auth.refreshSession();
+    if (!refreshError && refreshData?.session) {
+      dbg('WEBAUTHN: ✅ sesión refrescada sin contraseña');
+      // onAuthStateChange manejará el SIGNED_IN
+    } else {
+      // Sesión expirada: pedir contraseña una vez (el navegador la autocompletará)
+      dbg('WEBAUTHN: sesión expirada, autocompletando contraseña...');
+      sbShowMsg('Huella verificada ✅ — ingresa tu contraseña (el navegador la recordará).', false);
+      document.getElementById('authEmail').value = email;
+      setTimeout(() => document.getElementById('authPassword').focus(), 300);
+    }
+  } catch(e) {
+    dbg('WEBAUTHN: huella fallida — ' + e.message);
+    sbShowMsg('Huella no reconocida. Usa tu contraseña.');
+  } finally {
+    btn.textContent = 'Entrar con huella digital'; btn.disabled = false;
+  }
+}
+
+async function sbCheckBiometricBtn() {
+  const credId = localStorage.getItem(WA_CRED_KEY);
+  const btn = document.getElementById('biometricBtn');
+  if (!btn) return;
+  if (credId && await waPlatformAvailable()) {
+    btn.style.display = 'flex';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+
 async function sbSubmit() {
   const email    = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -9743,6 +9855,8 @@ async function sbSubmit() {
     if (result.error) { sbShowMsg(result.error.message === 'Invalid login credentials' ? 'Correo o contraseña incorrectos.' : result.error.message); btn.textContent = sbAuthTab === 'login' ? 'Iniciar sesión' : 'Crear cuenta'; btn.disabled = false; return; }
     // Éxito login — resetear _signingOut para que onAuthStateChange procese SIGNED_IN
     window._signingOut = false;
+    // Ofrecer huella si el dispositivo lo soporta y no está enrollado
+    waOfferEnroll(email);
   } catch(e) {
     clearTimeout(safetyTimer);
     sbShowMsg('Error de conexión. Intenta de nuevo.');
@@ -10364,7 +10478,7 @@ function sbSaveCasoNuevo(id, intentos) {
     }
     return;
   }
-  const raw = localStorage.getItem('pension_utm_caso_' + id);
+  const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
   const parsed = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return null; } })() : null;
   const tieneData = parsed && Object.keys(parsed).length > 5;
   if (!tieneData) {
@@ -10456,6 +10570,9 @@ window._keepAliveInterval = setInterval(async () => {
     }
   }, { passive: false });
 })();
+
+// Verificar botón huella al cargar la página
+window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
 </script>
 </div><!-- /#desktop-layout -->
 </body>
