@@ -9904,6 +9904,7 @@ function sbStartRealtime() {
         const idx = getCasosIndex();
         const existing = idx.findIndex(c => c.id === id);
         const newMeta = { ...(freshRow.meta || {}), id, savedAt: freshRow.saved_at };
+        dbg('REALTIME: meta.nombre=' + (newMeta.nombre || 'VACÍO') + ' existing=' + existing);
         if (existing >= 0) idx[existing] = newMeta;
         else idx.push(newMeta);
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
@@ -9913,8 +9914,8 @@ function sbStartRealtime() {
           switchCaso(id);
         } else {
           renderCasosList();
+          showSyncToast();
         }
-        showSyncToast();
       });
     })
     .subscribe(status => {
