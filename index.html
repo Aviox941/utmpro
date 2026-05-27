@@ -24,7 +24,7 @@
    const STORED  = localStorage.getItem('_appVersion');
    if (STORED && STORED !== CURRENT) {
      localStorage.setItem('_appVersion', CURRENT);
-     location.reload(true);
+     location.reload();
      return;
    }
    localStorage.setItem('_appVersion', CURRENT);
@@ -278,7 +278,7 @@
   }
   input:checked + .slider { background-color: var(--color-accent); }
   input:checked + .slider:before { transform: translateX(20px); }
-  .switch-orange input:checked + .slider { background-color: var(--color-accent); }
+  .switch-orange input:checked + .slider { background-color: var(--color-orange); }
 
   /* --- Componente: Tabs de año (year-tab) --- */
   /* Futuro: /components/ui/Tabs.js → <YearTab /> */
@@ -356,7 +356,7 @@
   #sidebar.open { transform: translateX(0); }
 
   .caso-item {
-   display: flex; align-items: center; gap-10px;
+   display: flex; align-items: center; gap: 10px;
    padding: 10px 14px;
    border-radius: var(--radius-md);
    cursor: pointer;
@@ -592,7 +592,9 @@
    padding: 0.5rem;
    border-radius: var(--radius-2xl);           /* rounded-2xl */
    border: 1px solid transparent;
-   space-y: 0.75rem;
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;                               /* reemplaza space-y (no es CSS válido) */
    transition: border-color var(--transition-base);
   }
 
@@ -5601,7 +5603,7 @@ function addAbono() {
 const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempAbonoMes').value;
 const anio = document.getElementById('tempAbonoAnio').value;
-if (amount <= 0 || !mes || !anio) return;
+if (amount <= 0 || !mes || !anio || anio.length !== 4) return;
 const date = anio + '-' + mes;
 abonos.push({ amount, date });
 document.getElementById('tempAbonoClp').value = '';
@@ -5634,7 +5636,7 @@ const periodoLabel = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct
 const div = document.createElement('div');
 div.className = 'abono-item animate-fadeIn';
 div.style.borderColor = '#7dd3fc';
-div.innerHTML = `<div class="text-[10px] font-black"><span class="text-[#93c5fd] font-black">${periodoLabel}</span><span class="mx-1 text-slate-300">|</span><span class="text-white font-black">${format(a.amount)}</span><span class="ml-1 text-[9px] text-[#93c5fd] font-bold">${utmEquiv} UTM</span></div><button onclick="removeAbono(${i})" class="text-red-500 font-bold px-2">×</button>`;
+div.innerHTML = `<div class="text-[10px] font-black"><span class="text-[#93c5fd] font-black">${periodoLabel}</span><span class="mx-1 text-slate-300">|</span><span class="font-black" style="color:var(--color-text-primary)">${format(a.amount)}</span><span class="ml-1 text-[9px] text-[#93c5fd] font-bold">${utmEquiv} UTM</span></div><button onclick="removeAbono(${i})" class="text-red-500 font-bold px-2">×</button>`;
 container.appendChild(div);
 });
 }
@@ -6233,10 +6235,14 @@ const errorEl = document.getElementById('dateError');
 const vStart = startIndex !== -1 ? startIndex : calcStartIndex;
 const vEnd   = endIndex   !== -1 ? endIndex   : calcEndIndex;
 if (vStart !== -1 && vEnd !== -1 && vStart > vEnd) {
+// El orden se normaliza internamente con Math.min/max en calculatePensiones,
+// pero mostramos aviso para que el usuario corrija la selección visualmente.
 errorEl.classList.remove('hidden');
-return false;
+// No bloqueamos el cálculo — los datos son válidos aunque el orden esté invertido.
 }
+else {
 errorEl.classList.add('hidden');
+}
 return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
@@ -6836,7 +6842,7 @@ btn.style.background = '';
 btn.style.boxShadow = '';
 }
 }
-function calendarAction() {
+async function calendarAction() {
 if (calendarMode === 'start' || calendarMode === 'end') {
 closeCalendar();
 updateLabels();
@@ -6851,13 +6857,14 @@ closeCalendar();
 const mes = document.getElementById('tempParcialMes').value;
 const anio = document.getElementById('tempParcialAnio').value;
 const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
-if (mes && anio && amount > 0) { addPagoParcial(); }
+if (mes && anio && amount > 0) { await addPagoParcial(); }
 closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
+const modoActual = calendarMode;
 tryRegisterHistorical();
 closeCalendar();
 saveSession();
-if (calendarMode === 'histStart') updateUtmPeriodChips();
+updateUtmPeriodChips();
 } else if (calendarMode === 'consolidadaFecha') {
 const _mes = document.getElementById('consolidadaFechaMes').value;
 const _anio = document.getElementById('consolidadaFechaAnio').value;
@@ -9774,23 +9781,36 @@ async function sbLoadCasos() {
   // ── FIN DIAGNÓSTICO ──
 
   try {
+    // Solo cargar casos NO eliminados (soft delete: deleted_at IS NULL)
     const { data, error } = await sb.from('casos')
       .select('*')
       .eq('user_id', sbCurrentUser.id)
+      .is('deleted_at', null)
       .order('created_at', { ascending: true });
     if (error) { dbg('LOAD ERROR: '+JSON.stringify(error)); return; }
     const rows = data || [];
     dbg('LOAD: '+rows.length+' casos desde Supabase.');
     const idx = rows.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
 
-    // ── Limpiar localStorage de casos que Supabase ya no tiene ──
-    // Esto evita que casos eliminados desde otro dispositivo (o eliminados y
-    // luego la migración los re-sube) queden como "fantasmas" en local.
+    // ── Limpiar localStorage de casos que Supabase ya no tiene o están eliminados ──
+    // Cubre dos casos: (1) casos que nunca existieron en SB, (2) soft-deleted en otro dispositivo.
+    // Para los tombstones: consultar también los deleted_at recientes para purgar locales.
     const sbIds = new Set(rows.map(r => r.id));
+    // Obtener IDs eliminados recientemente (últimos 30 días) para purgar locales
+    const { data: deletedRows } = await sb.from('casos')
+      .select('id, deleted_at')
+      .eq('user_id', sbCurrentUser.id)
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+    const deletedIds = new Set((deletedRows || []).map(r => r.id));
     const localIdx = getCasosIndex();
     localIdx.forEach(lc => {
       if (!sbIds.has(lc.id)) {
-        dbg('LOAD: 🗑️ eliminando caso local huérfano: ' + lc.id.slice(0,8) + ' (no existe en Supabase)');
+        if (deletedIds.has(lc.id)) {
+          dbg('LOAD: 🗑️ eliminando caso local con tombstone: ' + lc.id.slice(0,8));
+        } else {
+          dbg('LOAD: 🗑️ eliminando caso local huérfano: ' + lc.id.slice(0,8) + ' (no existe en Supabase)');
+        }
         localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
       }
     });
@@ -9936,8 +9956,9 @@ function sbStartRealtime() {
 
       dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6));
 
-      if (ev === 'DELETE') {
-        // El caso fue eliminado en otro dispositivo
+      // Soft delete: un UPDATE con deleted_at != null equivale a un DELETE
+      if (ev === 'DELETE' || (ev === 'UPDATE' && row.deleted_at)) {
+        dbg('REALTIME: caso ' + id.slice(0,6) + ' eliminado en otro dispositivo');
         const idx = getCasosIndex().filter(c => c.id !== id);
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
         localStorage.removeItem(CASO_DATA_PREFIX + id);
@@ -9947,6 +9968,7 @@ function sbStartRealtime() {
         } else {
           renderCasosList();
         }
+        showSyncToast('🗑️ Caso eliminado desde otro dispositivo');
         return;
       }
 
@@ -10022,6 +10044,13 @@ function showSyncToast(msg) {
 async function sbSaveCaso(id) {
   if (!sbCurrentUser || !id) return;
   try {
+    // Verificar que el caso no esté marcado como eliminado antes de subir
+    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).single();
+    if (existing?.deleted_at) {
+      dbg('SAVE: ⚠️ caso ' + id.slice(0,8) + ' marcado como eliminado — no se re-sube');
+      localStorage.removeItem(CASO_DATA_PREFIX + id);
+      return;
+    }
     const idx  = getCasosIndex();
     const meta = idx.find(c => c.id === id) || {};
     let data;
@@ -10081,26 +10110,27 @@ async function sbSaveCaso(id) {
   }
 }
 
-// ── Eliminar un caso en Supabase ──
+// ── Eliminar un caso en Supabase (soft delete con deleted_at) ──
+// En lugar de borrar físicamente el registro, se marca con deleted_at.
+// Esto permite que todos los dispositivos detecten la eliminación aunque
+// no hayan estado conectados en el momento del borrado (evita resurrecciones).
 async function sbDeleteCaso(id) {
   if (!sbCurrentUser || !id) return;
-  dbg('DELETE: eliminando caso ' + id.slice(0,8) + ' de Supabase...');
-  // También limpiar localStorage inmediatamente (por si acaso quedó algo)
+  dbg('DELETE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
+  // Limpiar localStorage inmediatamente en este dispositivo
   localStorage.removeItem(CASO_DATA_PREFIX + id);
+  const idx = getCasosIndex().filter(c => c.id !== id);
+  saveCasosIndex(idx);
   try {
-    const { error, data } = await sb
+    const { error } = await sb
       .from('casos')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', sbCurrentUser.id)
-      .select();
+      .eq('user_id', sbCurrentUser.id);
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
     } else {
-      dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' eliminado de Supabase');
-      // Asegurar que el índice local tampoco lo tenga
-      const idx = getCasosIndex().filter(c => c.id !== id);
-      saveCasosIndex(idx);
+      dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
     }
   } catch(e) {
     dbg('❌ DELETE EXCEPTION: ' + e.message);
@@ -10164,6 +10194,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
     sbAccessToken = null;
+    // Cancelar keep-alive para no acumular intervalos entre sesiones
+    if (window._keepAliveInterval) {
+      clearInterval(window._keepAliveInterval);
+      window._keepAliveInterval = null;
+    }
     showLoginScreen();
   }
 });
@@ -10192,7 +10227,17 @@ window.crearCaso = function() {
 function sbSaveCasoNuevo(id, intentos) {
   intentos = intentos || 0;
   if (!sbCurrentUser || !id) return;
-  if (intentos > 10) { dbg('CREAR: ⚠️ máx intentos alcanzado para ' + id.slice(0,8)); return; }
+  if (intentos > 10) {
+    dbg('CREAR: ⚠️ máx intentos alcanzado para ' + id.slice(0,8));
+    // Notificar al usuario que la sincronización falló (no quedó silencioso)
+    const toast = document.getElementById('saveToast');
+    if (toast) {
+      toast.textContent = '⚠️ No se pudo sincronizar el caso. Revisa tu conexión.';
+      toast.classList.add('show');
+      setTimeout(() => { toast.classList.remove('show'); toast.textContent = ''; }, 4000);
+    }
+    return;
+  }
   const raw = localStorage.getItem('pension_utm_caso_' + id);
   const parsed = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return null; } })() : null;
   const tieneData = parsed && Object.keys(parsed).length > 5;
@@ -10207,7 +10252,8 @@ function sbSaveCasoNuevo(id, intentos) {
 }
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
-setInterval(async () => {
+// Se guarda la referencia para poder cancelarlo al hacer sign-out.
+window._keepAliveInterval = setInterval(async () => {
   if (sbCurrentUser) {
     await sb.from('casos').select('id').limit(1);
   }
