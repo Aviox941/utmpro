@@ -9584,6 +9584,9 @@ const sb      = supabase.createClient(SB_URL, SB_KEY, {
 
 let sbCurrentUser = null;
 let sbAccessToken = null;
+// IDs eliminados localmente pero cuyo UPDATE en Supabase aún puede estar en vuelo.
+// Permite bloquear sbSaveCaso de forma síncrona, sin esperar la red.
+const _deletedCasoIds = new Set();
 let sbAuthTab = 'login';
 let _realtimeStarted = false; // guard: evita canal Realtime duplicado
 let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SESSION + SIGNED_IN
@@ -10074,6 +10077,17 @@ function showSyncToast(msg) {
 
 async function sbSaveCaso(id) {
   if (!sbCurrentUser || !id) return;
+  // Guard síncrono: si el ID ya fue eliminado localmente, no re-subir aunque el UPDATE
+  // en Supabase aún esté en vuelo (evita la condición de carrera debounce vs. delete).
+  if (_deletedCasoIds.has(id)) {
+    dbg('SAVE: ⛔ caso ' + id.slice(0,8) + ' en cola de eliminación — abortando save');
+    return;
+  }
+  // Guard síncrono adicional: si el caso ya no está en el índice local, fue eliminado
+  if (!getCasosIndex().find(c => c.id === id)) {
+    dbg('SAVE: ⛔ caso ' + id.slice(0,8) + ' no está en índice local — abortando save');
+    return;
+  }
   try {
     // Verificar que el caso no esté marcado como eliminado antes de subir.
     // Usamos maybeSingle() en lugar de single() para que no lance error si el caso
@@ -10151,6 +10165,8 @@ async function sbSaveCaso(id) {
 async function sbDeleteCaso(id) {
   if (!sbCurrentUser || !id) return;
   dbg('DELETE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
+  // Registrar eliminación ANTES de cualquier await para bloquear sbSaveCaso sincrónicamente
+  _deletedCasoIds.add(id);
   // Limpiar localStorage inmediatamente en este dispositivo
   localStorage.removeItem(CASO_DATA_PREFIX + id);
   const idx = getCasosIndex().filter(c => c.id !== id);
@@ -10163,6 +10179,7 @@ async function sbDeleteCaso(id) {
       .eq('user_id', sbCurrentUser.id);
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
+      // No limpiar el Set: el caso sigue "eliminado" localmente aunque Supabase fallara
     } else {
       dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
     }
@@ -10261,6 +10278,11 @@ window.crearCaso = function() {
 function sbSaveCasoNuevo(id, intentos) {
   intentos = intentos || 0;
   if (!sbCurrentUser || !id) return;
+  // Guard: si el caso fue eliminado antes de terminar de subirse, abortar todos los reintentos
+  if (_deletedCasoIds.has(id) || !getCasosIndex().find(c => c.id === id)) {
+    dbg('CREAR: ⛔ caso ' + id.slice(0,8) + ' eliminado — abortando upload');
+    return;
+  }
   if (intentos > 10) {
     dbg('CREAR: ⚠️ máx intentos alcanzado para ' + id.slice(0,8));
     // Notificar al usuario que la sincronización falló (no quedó silencioso)
