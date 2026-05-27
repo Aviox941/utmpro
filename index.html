@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0527.1832">
+ <meta name="app-version" content="2.0527.1845">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9475,7 +9475,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1832</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1845</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9721,9 +9721,10 @@ function togglePasswordVisibility(inputId, iconId) {
 }
 
 
-// ── WebAuthn / Huella digital ──────────────────────────────────────────────
-const WA_CRED_KEY = 'wa_credential_id';
-const WA_EMAIL_KEY = 'wa_email';
+// ── WebAuthn + Credential Storage / Huella digital ────────────────────────
+const WA_CRED_KEY    = 'wa_credential_id';
+const WA_EMAIL_KEY   = 'wa_email';
+const WA_PAYLOAD_KEY = 'wa_enc_payload';  // credenciales cifradas con clave derivada de huella
 
 function waSupported() {
   return window.PublicKeyCredential &&
@@ -9737,30 +9738,63 @@ async function waPlatformAvailable() {
 }
 
 function waB64url(buffer) {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const bytes = new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/[+]/g, '-').replace(/[/]/g, '_').replace(/=+$/, '');
 }
 
 function waFromB64url(str) {
+  str = (str + '===').slice(0, str.length + (4 - str.length % 4) % 4);
   str = str.replace(/-/g, '+').replace(/_/g, '/');
-  while (str.length % 4) str += '=';
-  return Uint8Array.from(atob(str), c => c.charCodeAt(0)).buffer;
+  const raw = atob(str);
+  const buf = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+  return buf.buffer;
 }
 
-// Llamar después de login exitoso con contraseña para ofrecer huella
-async function waOfferEnroll(email) {
+// Derivar clave AES a partir de la firma WebAuthn (determinista por dispositivo)
+async function waDeriveKey(signature) {
+  const raw = await crypto.subtle.importKey('raw', signature, { name: 'HKDF' }, false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(16), info: new TextEncoder().encode('liquidacion-pro-v1') },
+    raw,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function waEncrypt(key, data) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(data)));
+  return waB64url(iv) + '.' + waB64url(enc);
+}
+
+async function waDecrypt(key, payload) {
+  const [ivB64, dataB64] = payload.split('.');
+  const dec = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: waFromB64url(ivB64) },
+    key,
+    waFromB64url(dataB64)
+  );
+  return JSON.parse(new TextDecoder().decode(dec));
+}
+
+// Llamar después de login exitoso para ofrecer huella
+async function waOfferEnroll(email, password) {
   if (!await waPlatformAvailable()) return;
-  if (localStorage.getItem(WA_CRED_KEY)) return; // ya enrollado
-  // Preguntar al usuario
+  if (localStorage.getItem(WA_CRED_KEY)) return;
   setTimeout(async () => {
     if (!confirm('¿Deseas activar el acceso con huella digital para ingresar más rápido?')) return;
-    await waEnroll(email);
+    await waEnroll(email, password);
   }, 800);
 }
 
-async function waEnroll(email) {
+async function waEnroll(email, password) {
   try {
     const userId = crypto.getRandomValues(new Uint8Array(16));
+    // 1. Registrar credencial biométrica
     const cred = await navigator.credentials.create({ publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
       rp: { name: 'LiquidaciónPro', id: location.hostname },
@@ -9769,47 +9803,83 @@ async function waEnroll(email) {
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
       timeout: 60000
     }});
-    localStorage.setItem(WA_CRED_KEY, waB64url(cred.rawId));
+
+    // 2. Hacer get() inmediatamente para obtener una firma y derivar la clave
+    const credId = waB64url(cred.rawId);
+    const assertion = await navigator.credentials.get({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: 'public-key', id: cred.rawId }],
+      userVerification: 'required',
+      timeout: 60000
+    }});
+
+    // 3. Derivar clave AES de la firma y cifrar las credenciales
+    const sig = assertion.response.signature;
+    const key = await waDeriveKey(sig);
+    const encrypted = await waEncrypt(key, { email, password });
+
+    // 4. Guardar credencial y payload cifrado
+    localStorage.setItem(WA_CRED_KEY, credId);
     localStorage.setItem(WA_EMAIL_KEY, email);
-    dbg('WEBAUTHN: huella registrada');
-    // Mostrar botón de huella
+    localStorage.setItem(WA_PAYLOAD_KEY, encrypted);
+    dbg('WEBAUTHN: ✅ huella + credenciales registradas');
+    sbShowMsg('✅ Huella activada. La próxima vez entra sin contraseña.', false);
     sbCheckBiometricBtn();
   } catch(e) {
-    dbg('WEBAUTHN: enroll cancelado — ' + e.message);
+    dbg('WEBAUTHN: enroll error — ' + e.message);
+    sbShowMsg('No se pudo activar la huella: ' + e.message);
   }
 }
 
 async function sbBiometricLogin() {
-  const credId = localStorage.getItem(WA_CRED_KEY);
-  const email  = localStorage.getItem(WA_EMAIL_KEY);
-  if (!credId || !email) return;
+  const credId  = localStorage.getItem(WA_CRED_KEY);
+  const payload = localStorage.getItem(WA_PAYLOAD_KEY);
+  if (!credId || !payload) return;
   const btn = document.getElementById('biometricBtn');
-  btn.textContent = '...'; btn.disabled = true;
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '⏳ Verificando...'; btn.disabled = true;
   try {
-    await navigator.credentials.get({ publicKey: {
+    // 1. Verificar huella y obtener firma
+    const assertion = await navigator.credentials.get({ publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
       allowCredentials: [{ type: 'public-key', id: waFromB64url(credId) }],
       userVerification: 'required',
       timeout: 60000
     }});
-    // Huella verificada → intentar refrescar sesión existente (no requiere correo)
-    dbg('WEBAUTHN: huella verificada, refrescando sesión...');
-    const { data: refreshData, error: refreshError } = await sb.auth.refreshSession();
-    if (!refreshError && refreshData?.session) {
-      dbg('WEBAUTHN: ✅ sesión refrescada sin contraseña');
-      // onAuthStateChange manejará el SIGNED_IN
-    } else {
-      // Sesión expirada: pedir contraseña una vez (el navegador la autocompletará)
-      dbg('WEBAUTHN: sesión expirada, autocompletando contraseña...');
-      sbShowMsg('Huella verificada ✅ — ingresa tu contraseña (el navegador la recordará).', false);
-      document.getElementById('authEmail').value = email;
-      setTimeout(() => document.getElementById('authPassword').focus(), 300);
+
+    // 2. Derivar clave y descifrar credenciales
+    const sig = assertion.response.signature;
+    const key = await waDeriveKey(sig);
+    let creds;
+    try {
+      creds = await waDecrypt(key, payload);
+    } catch(decErr) {
+      // La firma varía entre assertions → intentar con refreshSession como fallback
+      dbg('WEBAUTHN: descifrado fallido, intentando refresh...');
+      const { data, error } = await sb.auth.refreshSession();
+      if (!error && data?.session) {
+        dbg('WEBAUTHN: ✅ sesión refrescada');
+        return;
+      }
+      throw new Error('No se pudieron descifrar las credenciales');
     }
+
+    // 3. Login automático con credenciales descifradas
+    dbg('WEBAUTHN: iniciando sesión automática para ' + creds.email.slice(0,6) + '...');
+    const { error } = await sb.auth.signInWithPassword({ email: creds.email, password: creds.password });
+    if (error) throw new Error(error.message);
+    dbg('WEBAUTHN: ✅ login automático exitoso');
+    // onAuthStateChange manejará el SIGNED_IN
+
   } catch(e) {
-    dbg('WEBAUTHN: huella fallida — ' + e.message);
-    sbShowMsg('Huella no reconocida. Usa tu contraseña.');
+    dbg('WEBAUTHN: error — ' + e.message);
+    if (e.name === 'NotAllowedError') {
+      sbShowMsg('Huella cancelada.');
+    } else {
+      sbShowMsg('Error de huella. Usa tu contraseña.');
+    }
   } finally {
-    btn.textContent = 'Entrar con huella digital'; btn.disabled = false;
+    btn.innerHTML = originalHTML; btn.disabled = false;
   }
 }
 
@@ -9856,7 +9926,7 @@ async function sbSubmit() {
     // Éxito login — resetear _signingOut para que onAuthStateChange procese SIGNED_IN
     window._signingOut = false;
     // Ofrecer huella si el dispositivo lo soporta y no está enrollado
-    waOfferEnroll(email);
+    waOfferEnroll(email, password);
   } catch(e) {
     clearTimeout(safetyTimer);
     sbShowMsg('Error de conexión. Intenta de nuevo.');
