@@ -5,7 +5,7 @@
  <meta name="app-version" content="1.0.1">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
- <link rel="manifest" href="manifest.json">
+ <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -7163,9 +7163,21 @@ updateUtmEquivChip();
 if (!skipCalculate) calculate();
 }
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js')
-    .then(reg => console.log('SW registrado:', reg.scope))
-    .catch(err => console.warn('SW error:', err));
+  // Limpiar SWs de versiones anteriores con scope incorrecto
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => {
+      if (!reg.scope.includes('/utmpro/')) {
+        reg.unregister().then(() => console.log('[SW] Huérfano desregistrado:', reg.scope));
+      }
+    });
+  });
+
+  navigator.serviceWorker.register('/utmpro/sw.js', { scope: '/utmpro/' })
+    .then(reg => {
+      console.log('[SW] Registrado:', reg.scope);
+      if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    })
+    .catch(err => console.warn('[SW] Error:', err));
 }
 async function generarPDF() {
 if (typeof window.jspdf === 'undefined') {

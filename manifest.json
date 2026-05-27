@@ -1,8 +1,9 @@
 {
   "name": "Pensión UTM Pro",
   "short_name": "Pensión UTM",
-  "description": "Liquidación de pensión alimenticia con tasas CMF históricas",
-  "start_url": "./index.html",
+  "description": "Liquidación de pensiones alimenticias en UTM — Chile",
+  "start_url": "/utmpro/",
+  "scope": "/utmpro/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f5f6f8",
@@ -10,13 +11,13 @@
   "lang": "es-CL",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/utmpro/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/utmpro/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
