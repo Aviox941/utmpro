@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0527.1845">
+ <meta name="app-version" content="2.0527.1851">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9475,7 +9475,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1845</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1851</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9753,16 +9753,20 @@ function waFromB64url(str) {
   return buf.buffer;
 }
 
-// Derivar clave AES a partir de la firma WebAuthn (determinista por dispositivo)
-async function waDeriveKey(signature) {
-  const raw = await crypto.subtle.importKey('raw', signature, { name: 'HKDF' }, false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(16), info: new TextEncoder().encode('liquidacion-pro-v1') },
-    raw,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
+// Generar clave AES aleatoria y cifrar/descifrar credenciales
+// La huella actúa como portero: si pasa, se usa la clave guardada en localStorage
+const WA_AES_KEY = 'wa_aes_key';
+
+async function waGetOrCreateAesKey() {
+  const stored = localStorage.getItem(WA_AES_KEY);
+  if (stored) {
+    const raw = waFromB64url(stored);
+    return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+  }
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  const exported = await crypto.subtle.exportKey('raw', key);
+  localStorage.setItem(WA_AES_KEY, waB64url(exported));
+  return key;
 }
 
 async function waEncrypt(key, data) {
@@ -9784,9 +9788,14 @@ async function waDecrypt(key, payload) {
 // Llamar después de login exitoso para ofrecer huella
 async function waOfferEnroll(email, password) {
   if (!await waPlatformAvailable()) return;
-  if (localStorage.getItem(WA_CRED_KEY)) return;
+  // Si ya hay credencial guardada, no volver a preguntar
+  if (localStorage.getItem(WA_CRED_KEY) && localStorage.getItem(WA_PAYLOAD_KEY)) return;
   setTimeout(async () => {
     if (!confirm('¿Deseas activar el acceso con huella digital para ingresar más rápido?')) return;
+    // Limpiar credencial anterior si existe (pudo quedar de versión vieja)
+    localStorage.removeItem(WA_CRED_KEY);
+    localStorage.removeItem(WA_PAYLOAD_KEY);
+    localStorage.removeItem(WA_AES_KEY);
     await waEnroll(email, password);
   }, 800);
 }
@@ -9804,18 +9813,9 @@ async function waEnroll(email, password) {
       timeout: 60000
     }});
 
-    // 2. Hacer get() inmediatamente para obtener una firma y derivar la clave
+    // 2. Generar/obtener clave AES y cifrar credenciales
     const credId = waB64url(cred.rawId);
-    const assertion = await navigator.credentials.get({ publicKey: {
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
-      allowCredentials: [{ type: 'public-key', id: cred.rawId }],
-      userVerification: 'required',
-      timeout: 60000
-    }});
-
-    // 3. Derivar clave AES de la firma y cifrar las credenciales
-    const sig = assertion.response.signature;
-    const key = await waDeriveKey(sig);
+    const key = await waGetOrCreateAesKey();
     const encrypted = await waEncrypt(key, { email, password });
 
     // 4. Guardar credencial y payload cifrado
@@ -9847,22 +9847,10 @@ async function sbBiometricLogin() {
       timeout: 60000
     }});
 
-    // 2. Derivar clave y descifrar credenciales
-    const sig = assertion.response.signature;
-    const key = await waDeriveKey(sig);
-    let creds;
-    try {
-      creds = await waDecrypt(key, payload);
-    } catch(decErr) {
-      // La firma varía entre assertions → intentar con refreshSession como fallback
-      dbg('WEBAUTHN: descifrado fallido, intentando refresh...');
-      const { data, error } = await sb.auth.refreshSession();
-      if (!error && data?.session) {
-        dbg('WEBAUTHN: ✅ sesión refrescada');
-        return;
-      }
-      throw new Error('No se pudieron descifrar las credenciales');
-    }
+    // 2. Huella verificada → usar clave AES guardada para descifrar credenciales
+    dbg('WEBAUTHN: huella OK, recuperando credenciales...');
+    const key = await waGetOrCreateAesKey();
+    const creds = await waDecrypt(key, payload);
 
     // 3. Login automático con credenciales descifradas
     dbg('WEBAUTHN: iniciando sesión automática para ' + creds.email.slice(0,6) + '...');
