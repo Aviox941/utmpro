@@ -9374,6 +9374,46 @@ if (sbCurrentUser) {
 
 <script>
 
+// ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
+function dbg(msg) {
+  console.log('[DBG]', msg);
+  let p = document.getElementById('_dbgPanel');
+  if (!p) {
+    p = document.createElement('div');
+    p.id = '_dbgPanel';
+    p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
+      'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
+      'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
+    const expBtn = document.createElement('button');
+    expBtn.textContent = '📤 EXPORTAR DATOS';
+    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
+    expBtn.onclick = () => {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
+      const dump = {};
+      keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
+      const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
+    };
+    p.appendChild(expBtn);
+    document.body.appendChild(p);
+    let taps = 0, tapTimer;
+    document.querySelector('header')?.addEventListener('click', () => {
+      taps++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { taps = 0; }, 1500);
+      if (taps >= 5) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; taps = 0; }
+    });
+  }
+  const line = document.createElement('div');
+  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  if (msg.includes('❌') || msg.includes('ERROR')) line.style.color = '#f87171';
+  if (msg.includes('✅')) line.style.color = '#4ade80';
+  p.appendChild(line);
+  p.scrollTop = p.scrollHeight;
+}
+
 // ══════════════════════════════════════════════════════════
 // SUPABASE CACHE — UTM Y TASAS CMF
 // Lógica: Supabase es la fuente centralizada. Si los datos
@@ -10055,47 +10095,7 @@ setInterval(async () => {
 </script>
 
 
-<script>
-function dbg(msg) {
-  console.log('[DBG]', msg);
-  let p = document.getElementById('_dbgPanel');
-  if (!p) {
-    p = document.createElement('div');
-    p.id = '_dbgPanel';
-    p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
-      'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
-      'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
-    // Botón exportar localStorage
-    const expBtn = document.createElement('button');
-    expBtn.textContent = '📤 EXPORTAR DATOS';
-    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
-    expBtn.onclick = () => {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
-      const dump = {};
-      keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
-      const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
-    };
-    p.appendChild(expBtn);
-    document.body.appendChild(p);
-    let taps = 0, tapTimer;
-    document.querySelector('header')?.addEventListener('click', () => {
-      taps++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { taps = 0; }, 1500);
-      if (taps >= 5) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; taps = 0; }
-    });
-  }
-  const line = document.createElement('div');
-  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-  if (msg.includes('❌') || msg.includes('ERROR')) line.style.color = '#f87171';
-  if (msg.includes('✅')) line.style.color = '#4ade80';
-  p.appendChild(line);
-  p.scrollTop = p.scrollHeight;
-}
-</script>
+
 
 <script>
 // ── Bloquear pull-to-refresh en iOS Safari ──────────────────────────────────
