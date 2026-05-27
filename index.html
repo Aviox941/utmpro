@@ -4871,7 +4871,11 @@ const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
 if (c) { c.savedAt = session.savedAt; saveCasosIndex(idx); }
 // ── Sincronizar con Supabase tras cada guardado local ──
-if (typeof sbSaveCaso === 'function' && sbCurrentUser) sbSaveCaso(activeCasoId);
+// Guard: no re-subir si el caso fue eliminado en esta sesión
+if (typeof sbSaveCaso === 'function' && sbCurrentUser &&
+    typeof _deletedCasoIds !== 'undefined' && !_deletedCasoIds.has(activeCasoId)) {
+  sbSaveCaso(activeCasoId);
+}
 }
 showSaveToast();
 updateSaveIndicator(session.savedAt);
@@ -9205,7 +9209,7 @@ saveCurrentCasoNow();
 localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // 2. Subir a Supabase via sendBeacon (funciona aunque la página se cierre)
 // sendBeacon no puede hacer upsert directo, usamos el REST API de Supabase
-if (sbCurrentUser) {
+if (sbCurrentUser && !_deletedCasoIds.has(activeCasoId)) {
   try {
     const idx   = getCasosIndex();
     const meta  = idx.find(c => c.id === activeCasoId) || {};
@@ -9218,14 +9222,11 @@ if (sbCurrentUser) {
       data,
       saved_at: new Date().toISOString()
     });
-    // Prefer fetch with keepalive (supported in modern browsers), fallback to sendBeacon
-    const url = SB_URL + '/rest/v1/casos?on_conflict=id';
-    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'resolution=merge-duplicates' };
-    if (navigator.sendBeacon) {
-      const blob = new Blob([body], { type: 'application/json' });
-      // sendBeacon no soporta headers custom — usar fetch keepalive en su lugar
-    }
-    fetch(url, { method: 'POST', headers, body, keepalive: true }).catch(() => {});
+    // Usar PATCH con filtro deleted_at=is.null para nunca resetear un soft-delete
+    const url = SB_URL + '/rest/v1/casos?id=eq.' + activeCasoId + '&deleted_at=is.null';
+    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'return=minimal' };
+    const patchBody = JSON.stringify({ nombre: meta.nombre || 'Sin nombre', meta: { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad }, data, saved_at: new Date().toISOString() });
+    fetch(url, { method: 'PATCH', headers, body: patchBody, keepalive: true }).catch(() => {});
   } catch(e) {}
 }
 });
@@ -9236,6 +9237,16 @@ if (sbCurrentUser) {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'hidden') return;
   if (!activeCasoId || !sbCurrentUser) return;
+  // Guard: no re-subir casos que ya fueron eliminados en esta sesión
+  if (_deletedCasoIds.has(activeCasoId)) {
+    dbg('VISIBILITY: caso ' + activeCasoId.slice(0,8) + ' eliminado — skip save');
+    return;
+  }
+  // Guard adicional: verificar que el caso aún está en el índice local
+  if (!getCasosIndex().find(c => c.id === activeCasoId)) {
+    dbg('VISIBILITY: caso ' + activeCasoId.slice(0,8) + ' no está en índice — skip save');
+    return;
+  }
   try {
     // 1. Guardar en localStorage de forma síncrona
     saveCurrentCasoNow();
@@ -9252,9 +9263,9 @@ document.addEventListener('visibilitychange', () => {
       data,
       saved_at: new Date().toISOString()
     });
-    const url     = SB_URL + '/rest/v1/casos?on_conflict=id';
-    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'resolution=merge-duplicates' };
-    fetch(url, { method: 'POST', headers, body, keepalive: true }).catch(() => {});
+    const url     = SB_URL + '/rest/v1/casos?id=eq.' + activeCasoId + '&deleted_at=is.null';
+    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'return=minimal' };
+    fetch(url, { method: 'PATCH', headers, body: JSON.stringify({ nombre: meta.nombre || 'Sin nombre', meta: JSON.parse(body).meta, data, saved_at: new Date().toISOString() }), keepalive: true }).catch(() => {});
     dbg('VISIBILITY: guardado en background al pasar a segundo plano');
   } catch(e) { dbg('VISIBILITY ERROR: ' + e.message); }
 });</script>
@@ -9884,11 +9895,16 @@ async function sbLoadCasos() {
         dbg('LOAD: ✅ caso ' + row.id.slice(0,8) + ' restaurado desde Supabase (' + Object.keys(sbPayload).length + ' keys)');
       } else if (localIsNewer && localParsed && Object.keys(localParsed).length > 5) {
         // localStorage es más reciente → subir a Supabase para sincronizar otros dispositivos
-        dbg('LOAD: ⬆️ caso ' + row.id.slice(0,8) + ' local más reciente — subiendo a Supabase...');
-        if (sbCurrentUser) sbSaveCaso(row.id);
+        // Guard: no re-subir si fue eliminado en esta sesión
+        if (_deletedCasoIds.has(row.id)) {
+          dbg('LOAD: ⛔ caso ' + row.id.slice(0,8) + ' en cola de eliminación — skip re-upload');
+        } else {
+          dbg('LOAD: ⬆️ caso ' + row.id.slice(0,8) + ' local más reciente — subiendo a Supabase...');
+          if (sbCurrentUser) sbSaveCaso(row.id);
+        }
       } else if (!hasRealData) {
         // Supabase sin datos válidos → conservar local y subir si existe
-        if (localRaw && localRaw.length > 50 && sbCurrentUser) {
+        if (localRaw && localRaw.length > 50 && sbCurrentUser && !_deletedCasoIds.has(row.id)) {
           dbg('LOAD: ⬆️ caso ' + row.id.slice(0,8) + ' Supabase vacío — subiendo local...');
           sbSaveCaso(row.id);
         } else {
@@ -10008,10 +10024,28 @@ function sbStartRealtime() {
 
       // INSERT o UPDATE: siempre hacer fetch directo a Supabase
       // para evitar el límite de 256 KB del payload de Realtime
+      // Guard: si el caso fue eliminado localmente, ignorar el eco aunque llegue tarde
+      if (_deletedCasoIds.has(id)) {
+        dbg('REALTIME: ⛔ ignorando UPDATE/INSERT de caso eliminado ' + id.slice(0,6));
+        return;
+      }
       dbg('REALTIME: fetching caso ' + id.slice(0,6) + ' desde Supabase...');
       sb.from('casos').select('*').eq('id', id).single().then(({ data: freshRow, error }) => {
         if (error || !freshRow) {
           dbg('REALTIME: ❌ fetch error — ' + (error?.message || 'sin datos'));
+          return;
+        }
+        // Si Supabase devuelve el caso con deleted_at != null, tratarlo como eliminado
+        if (freshRow.deleted_at) {
+          dbg('REALTIME: caso ' + id.slice(0,6) + ' tiene deleted_at — tratando como eliminado');
+          _deletedCasoIds.add(id);
+          const idx = getCasosIndex().filter(c => c.id !== id);
+          localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
+          localStorage.removeItem(CASO_DATA_PREFIX + id);
+          if (activeCasoId === id) {
+            if (idx.length > 0) switchCaso(idx[0].id);
+            else openProfileModal();
+          } else { renderCasosList(); }
           return;
         }
         if (freshRow.data && typeof freshRow.data === 'object' && Object.keys(freshRow.data).length > 5) {
@@ -10197,6 +10231,12 @@ async function sbDeleteCaso(id) {
   dbg('DELETE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
   // Registrar eliminación ANTES de cualquier await para bloquear sbSaveCaso sincrónicamente
   _deletedCasoIds.add(id);
+  // Cancelar el debounce de saveSession si está pendiente para este caso
+  // (evita que un guardado automático en vuelo llegue después del delete)
+  if (id === activeCasoId && typeof saveTimeout !== 'undefined') {
+    clearTimeout(saveTimeout);
+    dbg('DELETE: saveTimeout cancelado para ' + id.slice(0,8));
+  }
   // Limpiar localStorage inmediatamente en este dispositivo
   localStorage.removeItem(CASO_DATA_PREFIX + id);
   const idx = getCasosIndex().filter(c => c.id !== id);
@@ -10330,7 +10370,14 @@ function sbSaveCasoNuevo(id, intentos) {
   if (!tieneData) {
     // localStorage aún no tiene datos — reintentar en 400ms
     dbg('CREAR: esperando localStorage para ' + id.slice(0,8) + ' (intento ' + (intentos+1) + ')');
-    setTimeout(() => sbSaveCasoNuevo(id, intentos + 1), 400);
+    setTimeout(() => {
+      // Re-verificar en cada reintento: el caso puede haber sido eliminado mientras esperábamos
+      if (_deletedCasoIds.has(id) || !getCasosIndex().find(c => c.id === id)) {
+        dbg('CREAR: ⛔ caso ' + id.slice(0,8) + ' eliminado durante reintento — abortando');
+        return;
+      }
+      sbSaveCasoNuevo(id, intentos + 1);
+    }, 400);
     return;
   }
   dbg('CREAR: ✅ localStorage listo, subiendo a Supabase: ' + id.slice(0,8));
