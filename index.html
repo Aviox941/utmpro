@@ -9518,6 +9518,7 @@ const sb      = supabase.createClient(SB_URL, SB_KEY, {
 let sbCurrentUser = null;
 let sbAccessToken = null;
 let sbAuthTab = 'login';
+let _realtimeStarted = false; // guard: evita doble arranque de Realtime por INITIAL_SESSION + SIGNED_IN
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -9671,6 +9672,9 @@ async function sbSubmit() {
 // ── Cerrar sesión ──
 async function sbSignOut() {
   dbg('SIGNOUT: iniciando...');
+
+  // Resetear guard de Realtime para que el próximo login lo reinicie correctamente
+  _realtimeStarted = false;
 
   // Marcar que estamos en proceso de cierre — bloquea cualquier
   // INITIAL_SESSION que Supabase pueda disparar durante el reload.
@@ -9862,8 +9866,9 @@ function sbStartRealtime() {
       const id   = row.id || oldR.id;
       if (!id) return;
       // Ignorar eco propio (el mismo dispositivo acaba de guardar este caso)
+      // Ventana ampliada a 5000ms: Supabase puede tardar más de 800ms en notificar
       if (window._lastSavedId === id && window._lastSavedAt &&
-          Date.now() - window._lastSavedAt < 800) {
+          Date.now() - window._lastSavedAt < 5000) {
         dbg('REALTIME: ignorando eco propio para ' + id.slice(0,6));
         return;
       }
@@ -9904,8 +9909,12 @@ function sbStartRealtime() {
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
 
         if (activeCasoId === id) {
-          dbg('REALTIME: recargando caso activo desde otro dispositivo');
-          switchCaso(id);
+          // FIX: NO llamar switchCaso cuando el caso ya está activo.
+          // switchCaso resetea toda la UI (cierra sidebars, modales, etc.).
+          // Solo actualizamos los datos en memoria y refrescamos elementos pasivos.
+          dbg('REALTIME: datos del caso activo actualizados en background (sin resetear UI)');
+          updateActiveCasoBadge();
+          renderCasosList();
         } else {
           renderCasosList();
         }
@@ -10051,16 +10060,21 @@ sb.auth.onAuthStateChange(async (event, session) => {
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
-      // ── DIAGNÓSTICO RÁPIDO (siempre visible) ──
-      const r1 = await sb.from('cmf_cache').select('id').limit(1);
-      dbg('CMF: ' + (r1.error ? '❌ '+r1.error.code+' '+r1.error.message : '✅ OK '+JSON.stringify(r1.data)));
-      const r2 = await sb.from('casos').select('id').limit(1);
-      dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
-      // ── FIN DIAGNÓSTICO ──
-      await sbLoadCasos();
-      dbg("AUTH: llamando sbStartRealtime...");
-      sbStartRealtime();
-      dbg("AUTH: sbStartRealtime() ya fue llamado");
+      if (!_realtimeStarted) {
+        _realtimeStarted = true;
+        // ── DIAGNÓSTICO RÁPIDO (siempre visible) ──
+        const r1 = await sb.from('cmf_cache').select('id').limit(1);
+        dbg('CMF: ' + (r1.error ? '❌ '+r1.error.code+' '+r1.error.message : '✅ OK '+JSON.stringify(r1.data)));
+        const r2 = await sb.from('casos').select('id').limit(1);
+        dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
+        // ── FIN DIAGNÓSTICO ──
+        await sbLoadCasos();
+        dbg("AUTH: llamando sbStartRealtime...");
+        sbStartRealtime();
+        dbg("AUTH: sbStartRealtime() ya fue llamado");
+      } else {
+        dbg("AUTH: " + event + " ignorado — Realtime ya iniciado (evitando doble arranque)");
+      }
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
