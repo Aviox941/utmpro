@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0527.1851">
+ <meta name="app-version" content="2.0527.1904">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7641,6 +7641,7 @@ try { return JSON.parse(localStorage.getItem(CASOS_INDEX_KEY)) || []; }
 catch(e) { return []; }
 }
 function saveCasosIndex(idx) {
+dbg('IDX WRITE: ' + idx.length + ' casos → ' + idx.map(c=>c.nombre||c.id.slice(0,6)).join(', '));
 localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
 }
 function getCasoKey(id) { return CASO_DATA_PREFIX + id; }
@@ -7664,6 +7665,7 @@ function closeSidebar() {
 }
 function renderCasosList() {
 const casos = getCasosIndex();
+dbg('RENDER: ' + casos.length + ' casos → ' + casos.map(c=>c.nombre||c.id.slice(0,6)).join(', '));
 const container = document.getElementById('casosList');
 container.innerHTML = '';
 if (casos.length === 0) {
@@ -9475,7 +9477,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1851</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1904</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
