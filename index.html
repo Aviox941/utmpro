@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0527.1904">
+ <meta name="app-version" content="2.0527.1919">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9477,7 +9477,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1904</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1919</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -10416,14 +10416,29 @@ async function sbDeleteCaso(id) {
   const idx = getCasosIndex().filter(c => c.id !== id);
   saveCasosIndex(idx);
   try {
-    const { error } = await sb
+    const { data: delData, error } = await sb
       .from('casos')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', sbCurrentUser.id);
+      .eq('user_id', sbCurrentUser.id)
+      .select('id');
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
-      // No limpiar el Set: el caso sigue "eliminado" localmente aunque Supabase fallara
+    } else if (!delData || delData.length === 0) {
+      dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — verificando si existe en Supabase...');
+      // Intentar sin filtro user_id por si hay mismatch
+      const { data: d2, error: e2 } = await sb
+        .from('casos')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('id');
+      if (e2) {
+        dbg('❌ DELETE retry ERROR: ' + e2.code + ' — ' + e2.message);
+      } else if (!d2 || d2.length === 0) {
+        dbg('⚠️ DELETE retry: 0 filas — el ID no existe en Supabase: ' + id);
+      } else {
+        dbg('✅ DELETE retry OK: caso ' + id.slice(0,8) + ' eliminado (sin filtro user_id)');
+      }
     } else {
       dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
     }
