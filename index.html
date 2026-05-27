@@ -2211,6 +2211,24 @@
     .dh-body      { padding: 12px !important; }
     #mainInputs   { gap: 12px !important; }
   }
+  /* Asegurar que en tablets (768-1023px) el sidebar mobile funcione correctamente */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    #sidebar {
+      position: fixed !important;
+      transform: translateX(-100%) !important;
+      transition: transform var(--transition-slow) !important;
+      width: 280px !important;
+      z-index: 310 !important;
+    }
+    #sidebar.open { transform: translateX(0) !important; }
+    #sidebarOverlay { display: block !important; }
+    button[onclick="openSidebar()"] { display: flex !important; }
+    #desktop-layout { display: block !important; }
+    #app-container {
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+  }
   @media (min-width: 1024px) {
     .card-section { padding: 0.75rem !important; }
     .card-base    { padding: 0.75rem !important; }
@@ -3145,7 +3163,7 @@
      como un panel lateral fijo. No se usa overlay.
      ============================================================ */
 
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
 
     /* ── Wrapper raíz: flex row, ocupa todo el viewport ── */
     #desktop-layout {
@@ -7623,16 +7641,17 @@ localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
 }
 function getCasoKey(id) { return CASO_DATA_PREFIX + id; }
 function getInitials(name) {
-return name.trim().split(/\s+/).slice(0,2).map(w => w[0].toUpperCase()).join('');
+if (!name || !name.trim()) return '?';
+return name.trim().split(/\s+/).slice(0,2).map(w => w[0] ? w[0].toUpperCase() : '').join('') || '?';
 }
 function isDesktop() {
-  return window.innerWidth >= 768;
+  return window.innerWidth >= 1024;
 }
 function openSidebar() {
-  renderCasosList();
   if (isDesktop()) return; // En desktop el sidebar siempre está visible
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('sidebarOverlay').classList.add('open');
+  try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
 }
 function closeSidebar() {
   if (isDesktop()) return; // En desktop no se cierra
