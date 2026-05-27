@@ -1,0 +1,34 @@
+name: Bump version on deploy
+
+on:
+  push:
+    paths: ['index.html']
+    branches: ['main']
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bump app-version meta tag
+        run: |
+          python3 -c "
+import re, datetime
+with open('index.html', 'r', encoding='utf-8') as f:
+    html = f.read()
+v = datetime.datetime.now().strftime('%Y.%m%d.%H%M')
+html = re.sub(r'(<meta name=\"app-version\" content=\")[^\"]*\"', rf'\g<1>{v}\"', html)
+with open('index.html', 'w', encoding='utf-8') as f:
+    f.write(html)
+print('Version bumped to', v)
+"
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --staged --quiet && exit 0
+          git commit -m "chore: bump version $(date +%Y.%m%d.%H%M)"
+          git push
