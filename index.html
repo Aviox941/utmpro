@@ -8279,8 +8279,8 @@ function crearPerfil() {
   renderCasosList();
   closeProfileModal();
   requestAnimationFrame(() => document.getElementById('app-container').classList.add('app-ready'));
-  // Subir a Supabase
-  if (typeof sbSaveCaso === 'function' && sbCurrentUser) setTimeout(() => sbSaveCaso(id), 800);
+  // Subir a Supabase con reintentos hasta que localStorage tenga datos
+  if (typeof sbSaveCasoNuevo === 'function' && sbCurrentUser) setTimeout(() => sbSaveCasoNuevo(id), 700);
 }
 function confirmarEliminarCaso(id, nombre) {
   const modal = document.getElementById('confirmDeleteModal');
@@ -9190,6 +9190,35 @@ if (sbCurrentUser) {
     fetch(url, { method: 'POST', headers, body, keepalive: true }).catch(() => {});
   } catch(e) {}
 }
+});
+
+// ── Guardar cuando la app pasa a segundo plano (iOS/Android) ──────────────
+// En móvil, beforeunload muchas veces NO se dispara al cambiar de app.
+// visibilitychange → 'hidden' es el evento más confiable en mobile.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden') return;
+  if (!activeCasoId || !sbCurrentUser) return;
+  try {
+    // 1. Guardar en localStorage de forma síncrona
+    saveCurrentCasoNow();
+    localStorage.setItem('pension_utm_last_caso', activeCasoId);
+    // 2. Subir a Supabase con fetch keepalive (sobrevive al cierre de pestaña)
+    const idx  = getCasosIndex();
+    const meta = idx.find(c => c.id === activeCasoId) || {};
+    const data = buildSession();
+    const body = JSON.stringify({
+      id:       activeCasoId,
+      user_id:  sbCurrentUser.id,
+      nombre:   meta.nombre || 'Sin nombre',
+      meta:     { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
+      data,
+      saved_at: new Date().toISOString()
+    });
+    const url     = SB_URL + '/rest/v1/casos?on_conflict=id';
+    const headers = { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (sbAccessToken || SB_KEY), 'Prefer': 'resolution=merge-duplicates' };
+    fetch(url, { method: 'POST', headers, body, keepalive: true }).catch(() => {});
+    dbg('VISIBILITY: guardado en background al pasar a segundo plano');
+  } catch(e) { dbg('VISIBILITY ERROR: ' + e.message); }
 });</script>
 <!-- ══════════════════════════════════════════════════════════
      MODAL SELECTOR DE PERFIL
@@ -9518,7 +9547,8 @@ const sb      = supabase.createClient(SB_URL, SB_KEY, {
 let sbCurrentUser = null;
 let sbAccessToken = null;
 let sbAuthTab = 'login';
-let _realtimeStarted = false; // guard: evita doble arranque de Realtime por INITIAL_SESSION + SIGNED_IN
+let _realtimeStarted = false; // guard: evita canal Realtime duplicado
+let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SESSION + SIGNED_IN
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -9673,8 +9703,9 @@ async function sbSubmit() {
 async function sbSignOut() {
   dbg('SIGNOUT: iniciando...');
 
-  // Resetear guard de Realtime para que el próximo login lo reinicie correctamente
+  // Resetear guards para que el próximo login arranque limpio
   _realtimeStarted = false;
+  _casosLoaded = false;
 
   // Marcar que estamos en proceso de cierre — bloquea cualquier
   // INITIAL_SESSION que Supabase pueda disparar durante el reload.
@@ -9758,28 +9789,43 @@ async function sbLoadCasos() {
     rows.forEach(row => {
       const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5
         ? row.data : null;
-      if (sbPayload) {
-        // Verificar que haya al menos un campo de datos real (no solo metadatos)
-        const hasRealData = sbPayload.utmAmount !== undefined || sbPayload.clpAmount !== undefined || sbPayload.calculationMode !== undefined;
-        if (hasRealData) {
-          localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
-          dbg('LOAD: caso ' + row.id + ' restaurado desde Supabase (' + Object.keys(sbPayload).length + ' keys)');
-        } else {
-          dbg('LOAD: caso ' + row.id + ' tiene ' + Object.keys(sbPayload).length + ' keys pero sin campos válidos — conservando local');
-          const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
-          if (localRaw && localRaw.length > 50 && sbCurrentUser) {
-            dbg('LOAD: subiendo datos locales a Supabase para ' + row.id);
-            sbSaveCaso(row.id);
-          }
-        }
-      } else {
-        // Sin datos suficientes en Supabase — conservar local y subir
-        const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
+      const hasRealData = sbPayload && (
+        sbPayload.utmAmount !== undefined ||
+        sbPayload.clpAmount !== undefined ||
+        sbPayload.calculationMode !== undefined
+      );
+
+      // ── Resolución de conflictos por timestamp ──
+      // Comparar saved_at de Supabase vs savedAt del localStorage local.
+      // Gana siempre la versión más reciente. Si no hay fecha local, gana Supabase.
+      // Si no hay datos en Supabase, gana el local y se sube.
+      const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
+      const localParsed = localRaw ? (() => { try { return JSON.parse(localRaw); } catch(e) { return null; } })() : null;
+      const sbTime   = row.saved_at ? new Date(row.saved_at).getTime() : 0;
+      const localTime = localParsed?.savedAt ? new Date(localParsed.savedAt).getTime() : 0;
+      const sbIsNewer   = sbTime >= localTime;
+      const localIsNewer = localTime > sbTime;
+
+      dbg('LOAD: caso ' + row.id.slice(0,8) +
+        ' sb=' + (row.saved_at ? row.saved_at.slice(11,19) : 'none') +
+        ' local=' + (localParsed?.savedAt ? localParsed.savedAt.slice(11,19) : 'none') +
+        ' → gana ' + (localIsNewer ? 'LOCAL' : 'SUPABASE'));
+
+      if (hasRealData && sbIsNewer) {
+        // Supabase tiene datos válidos y más recientes → restaurar en localStorage
+        localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
+        dbg('LOAD: ✅ caso ' + row.id.slice(0,8) + ' restaurado desde Supabase (' + Object.keys(sbPayload).length + ' keys)');
+      } else if (localIsNewer && localParsed && Object.keys(localParsed).length > 5) {
+        // localStorage es más reciente → subir a Supabase para sincronizar otros dispositivos
+        dbg('LOAD: ⬆️ caso ' + row.id.slice(0,8) + ' local más reciente — subiendo a Supabase...');
+        if (sbCurrentUser) sbSaveCaso(row.id);
+      } else if (!hasRealData) {
+        // Supabase sin datos válidos → conservar local y subir si existe
         if (localRaw && localRaw.length > 50 && sbCurrentUser) {
-          dbg('LOAD: caso ' + row.id + ' tiene datos locales, subiendo a Supabase...');
+          dbg('LOAD: ⬆️ caso ' + row.id.slice(0,8) + ' Supabase vacío — subiendo local...');
           sbSaveCaso(row.id);
         } else {
-          dbg('LOAD: caso ' + row.id + ' sin datos en Supabase ni localStorage');
+          dbg('LOAD: caso ' + row.id.slice(0,8) + ' sin datos en Supabase ni localStorage');
         }
       }
     });
@@ -9986,10 +10032,15 @@ async function sbSaveCaso(id) {
         data = buildSession();
       }
     } else {
+      // Caso no activo: leer datos del localStorage
       const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
-      data = raw ? JSON.parse(raw) : {};
+      data = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return {}; } })() : {};
     }
+    // Preservar el savedAt original si ya existe en los datos,
+    // para que la comparación de timestamps en sbLoadCasos sea correcta.
+    // Solo se actualiza saved_at en el payload de Supabase (columna del server).
     const now = new Date().toISOString();
+    if (!data.savedAt) data.savedAt = now; // asegurar que el campo existe en data
     const payload = {
       id,
       user_id:  sbCurrentUser.id,
@@ -10060,8 +10111,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
-      if (!_realtimeStarted) {
-        _realtimeStarted = true;
+      // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
+      // En TOKEN_REFRESHED u otros eventos repetidos, evitar recargar innecesariamente.
+      const shouldLoad = event === 'SIGNED_IN' || !_casosLoaded;
+      if (shouldLoad) {
+        _casosLoaded = true;
         // ── DIAGNÓSTICO RÁPIDO (siempre visible) ──
         const r1 = await sb.from('cmf_cache').select('id').limit(1);
         dbg('CMF: ' + (r1.error ? '❌ '+r1.error.code+' '+r1.error.message : '✅ OK '+JSON.stringify(r1.data)));
@@ -10069,11 +10123,17 @@ sb.auth.onAuthStateChange(async (event, session) => {
         dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
         // ── FIN DIAGNÓSTICO ──
         await sbLoadCasos();
+      } else {
+        dbg("AUTH: " + event + " — casos ya cargados, omitiendo sbLoadCasos");
+      }
+      // Realtime: arrancar solo una vez por sesión
+      if (!_realtimeStarted) {
+        _realtimeStarted = true;
         dbg("AUTH: llamando sbStartRealtime...");
         sbStartRealtime();
         dbg("AUTH: sbStartRealtime() ya fue llamado");
       } else {
-        dbg("AUTH: " + event + " ignorado — Realtime ya iniciado (evitando doble arranque)");
+        dbg("AUTH: Realtime ya activo, no se reinicia");
       }
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
@@ -10094,9 +10154,32 @@ window.saveCurrentCasoNow = function() {
 const _origCrearCaso = crearCaso;
 window.crearCaso = function() {
   _origCrearCaso();
-  // Esperar 800ms para que saveSession() (debounce 600ms) haya escrito en localStorage
-  if (sbCurrentUser) setTimeout(() => { if (activeCasoId) sbSaveCaso(activeCasoId); }, 800);
+  // Subir a Supabase: esperar 1500ms para que switchCaso + applySession + saveSession (600ms debounce)
+  // hayan terminado de escribir en localStorage antes de leer con sbSaveCaso.
+  if (sbCurrentUser) setTimeout(() => {
+    if (activeCasoId) sbSaveCasoNuevo(activeCasoId);
+  }, 700);
 };
+
+// ── Guardar caso nuevo con reintentos hasta que localStorage tenga datos ──
+// Resuelve el race condition donde sbSaveCaso corre antes de que saveSession
+// haya terminado de escribir en localStorage (debounce 600ms + switchCaso).
+function sbSaveCasoNuevo(id, intentos) {
+  intentos = intentos || 0;
+  if (!sbCurrentUser || !id) return;
+  if (intentos > 10) { dbg('CREAR: ⚠️ máx intentos alcanzado para ' + id.slice(0,8)); return; }
+  const raw = localStorage.getItem('pension_utm_caso_' + id);
+  const parsed = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return null; } })() : null;
+  const tieneData = parsed && Object.keys(parsed).length > 5;
+  if (!tieneData) {
+    // localStorage aún no tiene datos — reintentar en 400ms
+    dbg('CREAR: esperando localStorage para ' + id.slice(0,8) + ' (intento ' + (intentos+1) + ')');
+    setTimeout(() => sbSaveCasoNuevo(id, intentos + 1), 400);
+    return;
+  }
+  dbg('CREAR: ✅ localStorage listo, subiendo a Supabase: ' + id.slice(0,8));
+  sbSaveCaso(id);
+}
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
 setInterval(async () => {
