@@ -10044,13 +10044,16 @@ function showSyncToast(msg) {
 async function sbSaveCaso(id) {
   if (!sbCurrentUser || !id) return;
   try {
-    // Verificar que el caso no esté marcado como eliminado antes de subir
-    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).single();
+    // Verificar que el caso no esté marcado como eliminado antes de subir.
+    // Usamos maybeSingle() en lugar de single() para que no lance error si el caso
+    // no existe aún en Supabase (casos nuevos que aún no se han subido).
+    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).maybeSingle();
     if (existing?.deleted_at) {
       dbg('SAVE: ⚠️ caso ' + id.slice(0,8) + ' marcado como eliminado — no se re-sube');
       localStorage.removeItem(CASO_DATA_PREFIX + id);
       return;
     }
+    // existing === null → caso nuevo, proceder con el upsert normalmente
     const idx  = getCasosIndex();
     const meta = idx.find(c => c.id === id) || {};
     let data;
