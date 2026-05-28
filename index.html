@@ -4869,14 +4869,14 @@ localStorage.setItem(key, JSON.stringify(session));
 if (activeCasoId) {
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.savedAt = session.savedAt; saveCasosIndex(idx); }
+if (c) { c.saved_at = new Date().toISOString(); c.updated_at_local = Date.now(); c.sync_status = 'synced'; saveCasosIndex(idx); }
 // ── Encolar sincronización con Supabase (Etapa 1 — cola única) ──
 if (typeof queueSave === 'function' && sbCurrentUser) {
   queueSave(activeCasoId);
 }
 }
 showSaveToast();
-updateSaveIndicator(session.savedAt);
+updateSaveIndicator(session.saved_at);
 } catch(e) { console.warn('No se pudo guardar sesión', e); }
 }, 2000);
 }
@@ -4887,7 +4887,7 @@ const raw = localStorage.getItem(SESSION_KEY);
 if (!raw) return false;
 const s = JSON.parse(raw);
 applySession(s);
-updateSaveIndicator(s.savedAt);
+updateSaveIndicator(s.saved_at);
 return true;
 } catch(e) {
 console.warn('No se pudo cargar sesión', e);
@@ -6109,7 +6109,7 @@ if (activeCasoId) {
 localStorage.removeItem(getCasoKey(activeCasoId));
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.savedAt = null; saveCasosIndex(idx); }
+if (c) { c.saved_at = null; c.sync_status = 'pending_create'; saveCasosIndex(idx); }
 } else {
 localStorage.removeItem(SESSION_KEY);
 }
@@ -7686,7 +7686,7 @@ pNombre.className = 'text-[11px] font-black text-white truncate';
 pNombre.textContent = c.nombre;
 const pFecha = document.createElement('p');
 pFecha.className = 'text-[9px] text-slate-500 font-bold truncate';
-pFecha.textContent = c.savedAt ? new Date(c.savedAt).toLocaleDateString('es-CL') : 'Sin guardar';
+pFecha.textContent = c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : 'Sin guardar';
 info.appendChild(pNombre);
 info.appendChild(pFecha);
 // Botón ficha (único icono visible)
@@ -7718,7 +7718,7 @@ dbg('SWITCH: id='+id.slice(0,12)+' localLen='+(raw?raw.length:0));
 if (raw) {
 try {
 const s = JSON.parse(raw);
-dbg('SWITCH: applySession savedAt='+(s.savedAt||'?').slice(0,19));
+dbg('SWITCH: applySession saved_at='+(s.saved_at||'?').slice(0,19));
 applySession(s);
 } catch(e) { dbg('SWITCH PARSE ERROR: '+e.message); }
 } else {
@@ -7750,12 +7750,12 @@ function saveCurrentCasoNow() {
 if (!activeCasoId) return;
 const session = buildSession();
 const now = new Date().toISOString();
-session.savedAt = now;
+session.saved_at = now;
 localStorage.setItem(getCasoKey(activeCasoId), JSON.stringify(session));
 // Actualizar timestamp en el índice
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.savedAt = now; saveCasosIndex(idx); }
+if (c) { c.saved_at = now; c.updated_at_local = Date.now(); saveCasosIndex(idx); }
 }
 function buildSession() {
 return {
@@ -7774,7 +7774,7 @@ startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension,
 histMode, consolidadaData,
-savedAt: new Date().toISOString()
+saved_at: new Date().toISOString()
 };
 }
 
@@ -7897,8 +7897,8 @@ renderPeriodosPension();
 recalcCalcRange();
 handleCalculationModeChange();
 updateLabels();
-if (s.savedAt) {
-updateSaveIndicator(s.savedAt);
+if (s.saved_at) {
+updateSaveIndicator(s.saved_at);
 document.getElementById('saveIndicator').classList.remove('hidden');
 } else {
 document.getElementById('saveIndicator').classList.add('hidden');
@@ -8011,7 +8011,11 @@ function crearCaso() {
     diaPago:         (document.getElementById('newCasoDiaPago')?.value || '').trim(),
     fechaInicioPago: (document.getElementById('newCasoFechaInicio')?.value || '').trim(),
     reajustabilidad: (document.getElementById('newCasoReajuste')?.value || '').trim(),
-    savedAt: null
+    sync_status: 'pending_create',
+    version: 1,
+    created_at_local: Date.now(),
+    updated_at_local: Date.now(),
+    saved_at: null
   });
   saveCasosIndex(idx);
   hideNewCasoModal();
@@ -8036,7 +8040,7 @@ function openFichaModal(id) {
   _fichaSetText('fichaVista-tribunal', c.tribunal || '');
   _fichaRowVisible('fichaVista-tribunalRow', !!c.tribunal);
   _fichaSetText('fichaVista-estado', estadoLabels[c.estado] || '🟢 Activo');
-  _fichaSetText('fichaVista-fecha', c.savedAt ? new Date(c.savedAt).toLocaleDateString('es-CL', {day:'2-digit',month:'long',year:'numeric'}) : 'No guardado aún');
+  _fichaSetText('fichaVista-fecha', c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL', {day:'2-digit',month:'long',year:'numeric'}) : 'No guardado aún');
   // Partes
   const hasAlim = !!(c.alimentante);
   const hasAlimario = !!(c.alimentario);
@@ -9593,8 +9597,15 @@ let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SES
 
 // ── Cola única de sincronización (declarada aquí para que esté disponible
 //    antes de sbLoadCasos, sbDeleteCaso y cualquier otro llamador) ──
-const _syncQueue = [];
+// La cola se persiste en localStorage para sobrevivir cierres inesperados (Android)
+let _syncQueue = (() => {
+  try { return JSON.parse(localStorage.getItem('sync_queue') || '[]'); } catch(e) { return []; }
+})();
 let _syncRunning = false;
+
+function _persistSyncQueue() {
+  try { localStorage.setItem('sync_queue', JSON.stringify(_syncQueue)); } catch(e) {}
+}
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -9907,6 +9918,7 @@ async function sbSignOut() {
   _syncQueue.length = 0;
   _syncRunning = false;
   _deletedCasoIds.clear();
+  try { localStorage.removeItem('sync_queue'); } catch(e) {}
   dbg('SIGNOUT: cola y guards de sincronización vaciados');
 
   // Marcar que estamos en proceso de cierre — bloquea cualquier
@@ -9955,6 +9967,18 @@ async function sbLoadCasos() {
   if (!sbCurrentUser) return;
   dbg("LOAD: iniciando query Supabase");
 
+  // ── Reintentar deletes pendientes de sesiones anteriores (Fix 7) ──
+  try {
+    const pendingDels = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
+    if (pendingDels.length > 0) {
+      dbg('LOAD: reintentando ' + pendingDels.length + ' delete(s) pendiente(s)');
+      pendingDels.forEach(id => {
+        _deletedCasoIds.add(id);
+        queueDelete(id);
+      });
+    }
+  } catch(e) { dbg('LOAD: error leyendo pending_deletes: ' + e.message); }
+
   // ── DIAGNÓSTICO: probar acceso a cmf_cache y casos ──
   try {
     const testCmf = await sb.from('cmf_cache').select('id,updated_at').limit(2);
@@ -9985,7 +10009,7 @@ async function sbLoadCasos() {
     if (error) { dbg('LOAD ERROR: '+JSON.stringify(error)); return; }
     const rows = data || [];
     dbg('LOAD: '+rows.length+' casos desde Supabase.');
-    const idx = rows.map(row => ({ ...(row.meta || {}), id: row.id, savedAt: row.saved_at }));
+    const idx = rows.map(row => ({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at }));
 
     // ── Purgar casos locales que Supabase ya no tiene o están eliminados ──
     // Incluye soft-deletes recientes (últimos 30 días) de otros dispositivos.
@@ -9999,9 +10023,17 @@ async function sbLoadCasos() {
     const localIdx = getCasosIndex();
     localIdx.forEach(lc => {
       if (!sbIds.has(lc.id)) {
-        dbg('LOAD: 🗑️ purgando caso local ' + lc.id.slice(0,8) +
-          (deletedIds.has(lc.id) ? ' (tombstone)' : ' (huérfano)'));
-        localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
+        const createdAt = lc.created_at_local || 0;
+        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
+        if (isRecent && !deletedIds.has(lc.id)) {
+          dbg('LOAD: ⏳ rescatando caso huérfano reciente ' + lc.id.slice(0,8) + ' — reintentando subida');
+          idx.push(lc);
+          queueSave(lc.id);
+        } else {
+          dbg('LOAD: 🗑️ purgando caso local ' + lc.id.slice(0,8) +
+            (deletedIds.has(lc.id) ? ' (tombstone)' : ' (huérfano)'));
+          localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
+        }
       }
     });
 
@@ -10057,12 +10089,12 @@ async function sbLoadCasos() {
 // y recarga solo el caso modificado sin resetear toda la UI.
 let _realtimeChannel = null;
 
-function sbStartRealtime() {
+async function sbStartRealtime() {
   if (!sbCurrentUser) { dbg("REALTIME: sin usuario, abortando"); return; }
   dbg("REALTIME: iniciando canal para " + sbCurrentUser.id.slice(0,8));
   // Evitar canales duplicados
   if (_realtimeChannel) {
-    sb.removeChannel(_realtimeChannel);
+    await sb.removeChannel(_realtimeChannel);
     _realtimeChannel = null;
   }
 
@@ -10113,7 +10145,7 @@ function sbStartRealtime() {
         return;
       }
       dbg('REALTIME: fetching caso ' + id.slice(0,6) + ' desde Supabase...');
-      sb.from('casos').select('*').eq('id', id).single().then(({ data: freshRow, error }) => {
+      sb.from('casos').select('*').eq('id', id).eq('user_id', sbCurrentUser.id).single().then(({ data: freshRow, error }) => {
         if (error || !freshRow) {
           dbg('REALTIME: ❌ fetch error — ' + (error?.message || 'sin datos'));
           return;
@@ -10132,12 +10164,20 @@ function sbStartRealtime() {
           return;
         }
         if (freshRow.data && typeof freshRow.data === 'object' && Object.keys(freshRow.data).length > 5) {
+          // Validar versión: ignorar eventos más viejos que la copia local (Fix 9)
+          const localMeta = getCasosIndex().find(c => c.id === id);
+          const incomingVersion = freshRow.meta?.version || 1;
+          const localVersion = localMeta?.version || 1;
+          if (incomingVersion < localVersion) {
+            dbg('REALTIME: ⏭️ ignorando evento viejo — incoming v' + incomingVersion + ' < local v' + localVersion);
+            return;
+          }
           localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(freshRow.data));
           dbg('REALTIME: ✅ caso ' + id.slice(0,6) + ' actualizado (' + Object.keys(freshRow.data).length + ' keys)');
         }
         const idx = getCasosIndex();
         const existing = idx.findIndex(c => c.id === id);
-        const newMeta = { ...(freshRow.meta || {}), id, savedAt: freshRow.saved_at };
+        const newMeta = { ...(freshRow.meta || {}), id, saved_at: freshRow.saved_at };
         if (existing >= 0) idx[existing] = newMeta;
         else idx.push(newMeta);
         localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
@@ -10167,9 +10207,9 @@ function sbStartRealtime() {
     });
 }
 
-function stopRealtime() {
+async function stopRealtime() {
   if (_realtimeChannel) {
-    sb.removeChannel(_realtimeChannel);
+    await sb.removeChannel(_realtimeChannel);
     _realtimeChannel = null;
   }
 }
@@ -10209,7 +10249,7 @@ async function sbSaveCaso(id) {
     // Verificar que el caso no esté marcado como eliminado antes de subir.
     // Usamos maybeSingle() en lugar de single() para que no lance error si el caso
     // no existe aún en Supabase (casos nuevos que aún no se han subido).
-    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).maybeSingle();
+    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).eq('user_id', sbCurrentUser.id).maybeSingle();
     if (existing?.deleted_at) {
       dbg('SAVE: ⚠️ caso ' + id.slice(0,8) + ' marcado como eliminado — no se re-sube');
       localStorage.removeItem(CASO_DATA_PREFIX + id);
@@ -10245,11 +10285,7 @@ async function sbSaveCaso(id) {
       const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
       data = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return {}; } })() : {};
     }
-    // Preservar el savedAt original si ya existe en los datos,
-    // para que la comparación de timestamps en sbLoadCasos sea correcta.
-    // Solo se actualiza saved_at en el payload de Supabase (columna del server).
-    const now = new Date().toISOString();
-    if (!data.savedAt) data.savedAt = now; // asegurar que el campo existe en data
+    // saved_at es la única fuente de verdad para timestamps
     const payload = {
       id,
       user_id:  sbCurrentUser.id,
@@ -10263,20 +10299,33 @@ async function sbSaveCaso(id) {
     // Un upsert normal sin deleted_at puede sobrescribir el soft-delete si llega
     // después del UPDATE de sbDeleteCaso (race condition debounce vs. delete).
     // Solución: UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
-    const updatePayload = { nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at };
+    // El campo version se incrementa en el servidor para evitar conflictos multi-dispositivo.
+    const updatePayload = {
+      nombre: payload.nombre,
+      meta: payload.meta,
+      data: payload.data,
+      saved_at: payload.saved_at
+    };
     const { data: updData, error: updError } = await sb
       .from('casos')
       .update(updatePayload)
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
       .is('deleted_at', null)
-      .select('id');
+      .select('id, version');
     if (updError) {
       dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message);
       showSyncToast('⚠️ ' + updError.code + ': ' + updError.message);
     } else if (updData && updData.length > 0) {
       // UPDATE exitoso: el registro existía y no estaba eliminado
       dbg('✅ SAVE UPDATE OK: caso ' + id.slice(0,8));
+      // Sincronizar versión devuelta por el servidor al índice local
+      const serverVersion = updData[0]?.version;
+      if (serverVersion) {
+        const idxV = getCasosIndex();
+        const cV = idxV.find(x => x.id === id);
+        if (cV) { cV.version = serverVersion; saveCasosIndex(idxV); }
+      }
       window._lastSavedId = id;
       window._lastSavedAt = Date.now();
     } else {
@@ -10285,7 +10334,7 @@ async function sbSaveCaso(id) {
       if (_deletedCasoIds.has(id)) {
         dbg('SAVE: ⛔ caso eliminado antes del INSERT — abortando');
       } else {
-        const { error: insError } = await sb.from('casos').insert(payload);
+        const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id, version');
         if (insError && insError.code === '23505') {
           // Conflict PK: el registro existe con deleted_at != null → fue eliminado, no re-subir
           dbg('SAVE: ⛔ INSERT 23505 — caso ya existe eliminado en Supabase, abortando');
@@ -10294,6 +10343,13 @@ async function sbSaveCaso(id) {
           showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
         } else {
           dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
+          // Sincronizar versión del servidor al índice local
+          const insVersion = insData?.[0]?.version;
+          if (insVersion) {
+            const idxI = getCasosIndex();
+            const cI = idxI.find(x => x.id === id);
+            if (cI) { cI.version = insVersion; saveCasosIndex(idxI); }
+          }
           window._lastSavedId = id;
           window._lastSavedAt = Date.now();
         }
@@ -10312,6 +10368,15 @@ async function sbDeleteCaso(id) {
 
   // Registrar eliminación ANTES de cualquier await (bloquea sbSaveCaso sincrónicamente)
   _deletedCasoIds.add(id);
+
+  // Persistir delete para reintentos automáticos tras cierre inesperado
+  try {
+    let pendingDels = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
+    if (!pendingDels.includes(id)) {
+      pendingDels.push(id);
+      localStorage.setItem('pending_deletes', JSON.stringify(pendingDels));
+    }
+  } catch(e) {}
 
   // Cancelar el debounce de saveSession si está pendiente para este caso
   if (id === activeCasoId && typeof saveTimeout !== 'undefined') {
@@ -10342,21 +10407,15 @@ async function _sbDeleteCasoCore(id) {
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
     } else if (!delData || delData.length === 0) {
-      dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — verificando sin filtro user_id...');
-      const { data: d2, error: e2 } = await sb
-        .from('casos')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id)
-        .select('id');
-      if (e2) {
-        dbg('❌ DELETE retry ERROR: ' + e2.code + ' — ' + e2.message);
-      } else if (!d2 || d2.length === 0) {
-        dbg('⚠️ DELETE retry: 0 filas — el ID no existe en Supabase: ' + id);
-      } else {
-        dbg('✅ DELETE retry OK: caso ' + id.slice(0,8) + ' eliminado (sin filtro user_id)');
-      }
+      dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — el caso puede no existir aún en Supabase');
+      // No reintentar sin user_id: viola RLS y puede afectar registros ajenos
     } else {
       dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
+      // Limpiar de pending_deletes persistente
+      try {
+        const pd = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
+        localStorage.setItem('pending_deletes', JSON.stringify(pd.filter(x => x !== id)));
+      } catch(e) {}
     }
   } catch(e) {
     dbg('❌ DELETE EXCEPTION: ' + e.message);
@@ -10452,6 +10511,7 @@ function queueSave(id) {
     _syncQueue.push(op);
     dbg('QUEUE: SAVE encolado para ' + id.slice(0,8) + ' (cola: ' + _syncQueue.length + ')');
   }
+  _persistSyncQueue();
   _processQueue();
 }
 
@@ -10466,6 +10526,7 @@ function queueDelete(id) {
   if (_syncQueue.length < before) dbg('QUEUE: SAVE(s) cancelados por DELETE de ' + id.slice(0,8));
   _syncQueue.push({ type: 'DELETE', id, timestamp: Date.now() });
   dbg('QUEUE: DELETE encolado para ' + id.slice(0,8) + ' (cola: ' + _syncQueue.length + ')');
+  _persistSyncQueue();
   _processQueue();
 }
 
@@ -10473,17 +10534,48 @@ function queueDelete(id) {
 async function _processQueue() {
   if (_syncRunning || _syncQueue.length === 0) return;
   _syncRunning = true;
+
   while (_syncQueue.length > 0) {
-    const op = _syncQueue.shift();
+    // 1. LEER el primer elemento SIN quitarlo — si el proceso muere aqui,
+    //    la operacion sigue persistida y se reintentara al reiniciar.
+    const op = _syncQueue[0];
     dbg('QUEUE: procesando ' + op.type + ' para ' + op.id.slice(0,8));
+
     try {
       if (op.type === 'SAVE') {
         await sbSaveCaso(op.id);
+        // Exito: actualizar sync_status en el indice local
+        const idx2 = getCasosIndex();
+        const c2 = idx2.find(x => x.id === op.id);
+        if (c2) { c2.sync_status = 'synced'; saveCasosIndex(idx2); }
       } else if (op.type === 'DELETE') {
         await _sbDeleteCasoCore(op.id);
       }
+
+      // 2. EXITO: recien ahora eliminamos de la cola y persistimos
+      _syncQueue.shift();
+      _persistSyncQueue();
+
     } catch(e) {
-      dbg('QUEUE: ❌ error procesando ' + op.type + ' ' + op.id.slice(0,8) + ': ' + e.message);
+      dbg('QUEUE: error procesando ' + op.type + ' ' + op.id.slice(0,8) + ': ' + e.message);
+
+      // 3. FALLO: incrementar retryCount en el elemento [0] y persistir
+      _syncQueue[0].retryCount = (_syncQueue[0].retryCount || 0) + 1;
+      _persistSyncQueue();
+
+      if (_syncQueue[0].retryCount <= 5) {
+        const retryDelay = Math.min(30000, 1000 * Math.pow(2, _syncQueue[0].retryCount));
+        dbg('QUEUE: reintentando ' + op.type + ' en ' + retryDelay + 'ms (intento ' + _syncQueue[0].retryCount + ')');
+        setTimeout(() => {
+          _syncRunning = false;
+          _processQueue();
+        }, retryDelay);
+      } else {
+        dbg('QUEUE: agoto reintentos — descartando ' + op.type + ' ' + op.id.slice(0,8));
+        _syncQueue.shift();
+        _persistSyncQueue();
+      }
+      return; // salir del while; el setTimeout o el descarte cerraron el ciclo
     }
   }
   _syncRunning = false;
