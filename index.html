@@ -10052,7 +10052,6 @@ async function sbLoadCasos() {
     const { data, error } = await sb.from('casos')
       .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
       .eq('user_id', sbCurrentUser.id)
-      .is('deleted_at', null)
       .order('created_at', { ascending: true });
     if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); return; }
     const rows = data || [];
@@ -10210,16 +10209,9 @@ async function sbSaveCaso(id) {
     return;
   }
   try {
-    // Verificar que el caso no esté marcado como eliminado antes de subir.
-    // Usamos maybeSingle() en lugar de single() para que no lance error si el caso
-    // no existe aún en Supabase (casos nuevos que aún no se han subido).
-    const { data: existing } = await sb.from('casos').select('deleted_at').eq('id', id).eq('user_id', sbCurrentUser.id).maybeSingle();
-    if (existing?.deleted_at) {
-      dbg('SAVE: ⚠️ caso ' + id.slice(0,8) + ' marcado como eliminado — no se re-sube');
-      localStorage.removeItem(CASO_DATA_PREFIX + id);
-      return;
-    }
-    // existing === null → caso nuevo, proceder con el upsert normalmente
+    // Verificar si el caso ya existe en Supabase (para decidir UPDATE vs INSERT)
+    const { data: existing } = await sb.from('casos').select('id').eq('id', id).eq('user_id', sbCurrentUser.id).maybeSingle();
+    // existing === null → caso nuevo, proceder con INSERT
     const idx  = getCasosIndex();
     const meta = idx.find(c => c.id === id) || {};
     let data;
@@ -10259,7 +10251,7 @@ async function sbSaveCaso(id) {
       data,
       saved_at:   now,
       created_at: now
-      // updated_at y version omitidos — columnas no existen aún en Supabase
+      // updated_at, version y deleted_at omitidos — no se usan con DELETE real
     };
     // Actualizar saved_at en el índice local
     const metaIdx = getCasosIndex();
@@ -10281,7 +10273,6 @@ async function sbSaveCaso(id) {
       .update(updatePayload)
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
-      .is('deleted_at', null)
       .select('id');
     console.log('[DIAG] UPDATE RESULT:', updData);
     console.log('[DIAG] UPDATE ERROR:', updError);
@@ -10373,21 +10364,23 @@ async function _sbDeleteCasoCore(id) {
   if (!sbCurrentUser || !id) return;
   dbg('DELETE CORE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
   try {
+    // DELETE real — usa la política owner_delete de RLS (más simple que soft-delete con deleted_at)
+    console.log('[DIAG DELETE] user_id:', sbCurrentUser.id, '| caso:', id);
     const { data: delData, error } = await sb
       .from('casos')
-      .update({ deleted_at: new Date().toISOString() })
+      .delete()
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
       .select('id');
+    console.log('[DIAG DELETE] RESULT:', delData, '| ERROR:', error);
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
-      // BUG 3 FIX: lanzar para que _processQueue reintente en lugar de descartar
+      showSyncToast('⚠️ DELETE ' + error.code + ': ' + error.message);
       throw new Error('DELETE Supabase error: ' + error.code + ' — ' + error.message);
     } else if (!delData || delData.length === 0) {
-      dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — el caso puede no existir aún en Supabase');
-      // 0 filas = el caso nunca llegó a Supabase (solo existía local): OK, no reintentar
+      dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — el caso no existía en Supabase (solo era local), OK');
     } else {
-      dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
+      dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' eliminado de Supabase');
       // Limpiar de pending_deletes persistente
       try {
         const pd = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
