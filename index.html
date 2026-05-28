@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1820">
+ <meta name="app-version" content="2.0528.1830">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7722,6 +7722,9 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
+// Limpiar siempre antes de cargar el nuevo caso
+// Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
+resetAllSilent();
 const raw = localStorage.getItem(getCasoKey(id));
 dbg('SWITCH: id='+id.slice(0,12)+' localLen='+(raw?raw.length:0));
 if (raw) {
@@ -7731,8 +7734,7 @@ dbg('SWITCH: applySession saved_at='+(s.saved_at||'?').slice(0,19));
 applySession(s);
 } catch(e) { dbg('SWITCH PARSE ERROR: '+e.message); }
 } else {
-dbg('SWITCH: SIN DATOS localStorage');
-resetAllSilent();
+dbg('SWITCH: SIN DATOS localStorage — caso nuevo o sin datos locales');
 }
 updateActiveCasoBadge();
 renderCasosList();
@@ -9464,7 +9466,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1545</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1830</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
