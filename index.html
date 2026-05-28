@@ -9500,6 +9500,40 @@ function dbg(msg) {
       a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
     };
     p.appendChild(expBtn);
+
+    // ── Botón RESET COLA DE SYNC ──
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = '🔄 RESET COLA SYNC';
+    resetBtn.style.cssText = 'position:sticky;top:0;background:#dc2626;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
+    resetBtn.onclick = () => {
+      const antes = _syncQueue.length;
+      _syncQueue.length = 0;
+      _syncRunning = false;
+      try { localStorage.removeItem('sync_queue'); } catch(e) {}
+      dbg('🔄 RESET MANUAL: cola vaciada (' + antes + ' ops). Reintentando...');
+      // Disparar SAVE del caso activo inmediatamente
+      if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
+        setTimeout(() => { queueSave(activeCasoId); }, 300);
+      }
+    };
+    p.appendChild(resetBtn);
+
+    // ── Botón ESTADO SYNC ──
+    const statusBtn = document.createElement('button');
+    statusBtn.textContent = '📊 ESTADO';
+    statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
+    statusBtn.onclick = () => {
+      dbg('📊 ESTADO — cola: ' + _syncQueue.length + ' ops | running: ' + _syncRunning +
+          ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
+          ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
+      _syncQueue.forEach((op, i) => {
+        dbg('  [' + i + '] ' + op.type + ' ' + op.id.slice(0,8) + ' retry=' + (op.retryCount||0));
+      });
+    };
+    p.appendChild(statusBtn);
+
     document.body.appendChild(p);
     let taps = 0, tapTimer;
     document.querySelector('header')?.addEventListener('click', () => {
@@ -9619,7 +9653,13 @@ let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SES
 // La cola se restaura desde localStorage pero NO se procesa hasta tener sesión activa.
 // Llamar _processQueue sin sbCurrentUser deja _syncRunning=true para siempre → bloquea el login.
 let _syncQueue = (() => {
-  try { return JSON.parse(localStorage.getItem('sync_queue') || '[]'); } catch(e) { return []; }
+  try {
+    const q = JSON.parse(localStorage.getItem('sync_queue') || '[]');
+    // Resetear retryCount al restaurar — los reintentos de sesiones anteriores
+    // no deben bloquear el procesamiento en la sesión nueva.
+    q.forEach(op => { op.retryCount = 0; });
+    return q;
+  } catch(e) { return []; }
 })();
 let _syncRunning = false;
 
@@ -10392,6 +10432,14 @@ sb.auth.onAuthStateChange(async (event, session) => {
       // En TOKEN_REFRESHED u otros eventos repetidos, evitar recargar innecesariamente.
       const shouldLoad = event === 'SIGNED_IN' || !_casosLoaded;
       if (shouldLoad) {
+        // En SIGNED_IN (login manual), limpiar cola de sesión anterior y resetear _syncRunning.
+        // Evita que ops zombi de otra sesión bloqueen indefinidamente el procesamiento.
+        if (event === 'SIGNED_IN') {
+          _syncQueue.length = 0;
+          _syncRunning = false;
+          try { localStorage.removeItem('sync_queue'); } catch(e) {}
+          dbg('AUTH: SIGNED_IN — cola de sync limpiada para sesión nueva');
+        }
         _casosLoaded = true;
         await sbLoadCasos();
       } else {
@@ -10460,13 +10508,21 @@ function queueDelete(id) {
 async function _processQueue() {
   // Guard: nunca procesar sin sesion activa — deja _syncRunning=true y bloquea el login
   if (!sbCurrentUser) { dbg('QUEUE: sin usuario — procesamiento diferido'); return; }
-  if (_syncRunning || _syncQueue.length === 0) return;
+  if (_syncRunning) { dbg('QUEUE: _syncRunning=true — ya hay una operacion en curso, esperando'); return; }
+  if (_syncQueue.length === 0) return;
   _syncRunning = true;
 
   while (_syncQueue.length > 0) {
     // 1. LEER el primer elemento SIN quitarlo — si el proceso muere aqui,
     //    la operacion sigue persistida y se reintentara al reiniciar.
     const op = _syncQueue[0];
+    // Descartar ops zombi que llegaron con retryCount agotado (restauradas de localStorage)
+    if ((op.retryCount || 0) > 5) {
+      dbg('QUEUE: ⚠️ op zombi con retryCount=' + op.retryCount + ' — descartando ' + op.type + ' ' + op.id.slice(0,8));
+      _syncQueue.shift();
+      _persistSyncQueue();
+      continue;
+    }
     dbg('QUEUE: procesando ' + op.type + ' para ' + op.id.slice(0,8));
 
     try {
@@ -10532,6 +10588,17 @@ window.crearCaso = function() {
   if (sbCurrentUser) setTimeout(() => {
     if (activeCasoId) queueSave(activeCasoId);
   }, 800);
+};
+
+// ── Herramienta de emergencia: limpiar cola bloqueada desde consola ──
+// Uso: window._resetSyncQueue() en DevTools si la cola queda atascada
+window._resetSyncQueue = function() {
+  const antes = _syncQueue.length;
+  _syncQueue.length = 0;
+  _syncRunning = false;
+  try { localStorage.removeItem('sync_queue'); } catch(e) {}
+  console.log('[RESET] Cola vaciada (' + antes + ' ops). _syncRunning=false. Puedes re-intentar guardando.');
+  dbg('RESET: cola vaciada manualmente (' + antes + ' ops)');
 };
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
