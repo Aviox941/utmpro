@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1810">
+ <meta name="app-version" content="2.0528.1820">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8346,8 +8346,8 @@ function confirmarEliminarCaso(id, nombre) {
   const modal = document.getElementById('confirmDeleteModal');
   document.getElementById('confirmDeleteNombre').textContent = nombre;
   document.getElementById('confirmDeleteBtn').onclick = () => {
-    eliminarPerfil(id);
     cerrarConfirmDelete();
+    setTimeout(() => eliminarPerfil(id), 300);
   };
   modal.classList.add('modal-showing');
   requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('modal-visible')));
