@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1600">
+ <meta name="app-version" content="2.0528.1620">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -10350,12 +10350,18 @@ async function sbDeleteCaso(id) {
 // Lógica async real del DELETE — llamada por _processQueue
 async function _sbDeleteCasoCore(id) {
   if (!sbCurrentUser || !id) return;
+  // No intentar DELETE si el id no es UUID válido — evita timeouts innecesarios
+  const _isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  if (!_isUUID) {
+    dbg('DELETE CORE: id ' + id.slice(0,8) + ' no es UUID — omitiendo query a Supabase');
+    return;
+  }
   dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + '...');
   try {
     // DELETE real — usa la política owner_delete de RLS
     dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));
-    const _deletePromise = sb.from('casos').delete().eq('id', id).eq('user_id', sbCurrentUser.id).select('id');
-    const _timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DELETE timeout 10s')), 10000));
+    const _deletePromise = sb.from('casos').delete().eq('id', id).select('id');
+    const _timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DELETE timeout 30s')), 30000));
     const { data: delData, error } = await Promise.race([_deletePromise, _timeoutPromise]);
     dbg('[DIAG DELETE] RESULT=' + JSON.stringify(delData) + ' ERROR=' + (error ? error.code + ' ' + error.message : 'null'));
     if (error) {
