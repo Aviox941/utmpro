@@ -10247,7 +10247,7 @@ async function sbSaveCaso(id) {
     if (metaEntry) { metaEntry.saved_at = now; saveCasosIndex(metaIdx); }
     dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
     // ── DIAGNÓSTICO UPDATE ──────────────────────────────────────────────────
-    console.log('[DIAG] SAVE inicio — user_id:', payload.user_id, '| caso:', id.slice(0,8), '| saved_at:', payload.saved_at);
+    dbg('[DIAG] SAVE inicio user_id=' + payload.user_id + ' caso=' + id.slice(0,8));
     // ── Safe upsert: nunca resetear deleted_at ──────────────────────────────
     // UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
     const updatePayload = {
@@ -10262,8 +10262,8 @@ async function sbSaveCaso(id) {
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
       .select('id');
-    console.log('[DIAG] UPDATE RESULT:', updData);
-    console.log('[DIAG] UPDATE ERROR:', updError);
+    dbg('[DIAG] UPDATE RESULT: ' + JSON.stringify(updData));
+    dbg('[DIAG] UPDATE ERROR: ' + (updError ? updError.code + ' ' + updError.message : 'null'));
     if (updError) {
       dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message);
       showSyncToast('⚠️ ' + updError.code + ': ' + updError.message);
@@ -10281,16 +10281,16 @@ async function sbSaveCaso(id) {
       } else {
         // ── DIAGNÓSTICO: verificar sesión real en Supabase justo antes del INSERT ──
         const { data: authCheck } = await sb.auth.getUser();
-        console.log('[DIAG] AUTH antes de INSERT:', authCheck?.user ? '✅ ' + authCheck.user.id.slice(0,8) : '❌ sin usuario');
-        console.log('[DIAG] PAYLOAD:', JSON.stringify({ id: payload.id, user_id: payload.user_id, nombre: payload.nombre, saved_at: payload.saved_at, data_keys: Object.keys(payload.data||{}).length }));
+        dbg('[DIAG] AUTH: ' + (authCheck?.user ? '✅ ' + authCheck.user.id.slice(0,8) : '❌ sin usuario'));
+        dbg('[DIAG] PAYLOAD id=' + payload.id.slice(0,8) + ' user_id=' + payload.user_id + ' nombre=' + payload.nombre);
         if (!authCheck?.user) {
           dbg('SAVE: ⛔ INSERT abortado — getUser() null (sesión no activa en Supabase)');
-          console.warn('[DIAG] INSERT cancelado: sbCurrentUser existe pero getUser() devolvió null');
+          dbg('[DIAG] ⚠️ INSERT cancelado: sbCurrentUser existe pero getUser() devolvió null');
           throw new Error('auth/no-user: getUser() null antes de INSERT');
         }
         const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id');
-        console.log('[DIAG] INSERT RESULT:', insData);
-        console.log('[DIAG] INSERT ERROR:', insError);
+        dbg('[DIAG] INSERT RESULT: ' + JSON.stringify(insData));
+        dbg('[DIAG] INSERT ERROR: ' + (insError ? insError.code + ' ' + insError.message : 'null'));
         if (insError && insError.code === '23505') {
           // Conflict PK: el registro existe con deleted_at != null → fue eliminado, no re-subir
           dbg('SAVE: ⛔ INSERT 23505 — caso ya existe eliminado en Supabase, abortando');
@@ -10353,14 +10353,14 @@ async function _sbDeleteCasoCore(id) {
   dbg('DELETE CORE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
   try {
     // DELETE real — usa la política owner_delete de RLS (más simple que soft-delete con deleted_at)
-    console.log('[DIAG DELETE] user_id:', sbCurrentUser.id, '| caso:', id);
+    dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id + ' caso=' + id.slice(0,8));
     const { data: delData, error } = await sb
       .from('casos')
       .delete()
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
       .select('id');
-    console.log('[DIAG DELETE] RESULT:', delData, '| ERROR:', error);
+    dbg('[DIAG DELETE] RESULT=' + JSON.stringify(delData) + ' ERROR=' + (error ? error.code + ' ' + error.message : 'null'));
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
       showSyncToast('⚠️ DELETE ' + error.code + ': ' + error.message);
