@@ -9598,6 +9598,8 @@ let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SES
 // ── Cola única de sincronización (declarada aquí para que esté disponible
 //    antes de sbLoadCasos, sbDeleteCaso y cualquier otro llamador) ──
 // La cola se persiste en localStorage para sobrevivir cierres inesperados (Android)
+// La cola se restaura desde localStorage pero NO se procesa hasta tener sesión activa.
+// Llamar _processQueue sin sbCurrentUser deja _syncRunning=true para siempre → bloquea el login.
 let _syncQueue = (() => {
   try { return JSON.parse(localStorage.getItem('sync_queue') || '[]'); } catch(e) { return []; }
 })();
@@ -10470,8 +10472,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
       if (!_realtimeStarted) {
         _realtimeStarted = true;
         dbg("AUTH: llamando sbStartRealtime...");
-        sbStartRealtime();
-        dbg("AUTH: sbStartRealtime() ya fue llamado");
+        await sbStartRealtime();
+        dbg("AUTH: sbStartRealtime() completado");
       } else {
         dbg("AUTH: Realtime ya activo, no se reinicia");
       }
@@ -10518,6 +10520,8 @@ function queueSave(id) {
 // Agregar un DELETE y cancelar cualquier SAVE pendiente del mismo id
 function queueDelete(id) {
   if (!id) return;
+  // No encolar si no hay sesion — _processQueue quedaria bloqueado sin poder ejecutar
+  if (!sbCurrentUser) { dbg('QUEUE: queueDelete diferido (sin usuario) para ' + (id||'').slice(0,8)); return; }
   // Cancelar SAVEs pendientes del mismo id
   const before = _syncQueue.length;
   for (let i = _syncQueue.length - 1; i >= 0; i--) {
@@ -10532,6 +10536,8 @@ function queueDelete(id) {
 
 // Procesa una operación a la vez; espera respuesta antes de continuar
 async function _processQueue() {
+  // Guard: nunca procesar sin sesion activa — deja _syncRunning=true y bloquea el login
+  if (!sbCurrentUser) { dbg('QUEUE: sin usuario — procesamiento diferido'); return; }
   if (_syncRunning || _syncQueue.length === 0) return;
   _syncRunning = true;
 
