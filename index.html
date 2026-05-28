@@ -4864,12 +4864,16 @@ clearTimeout(saveTimeout);
 saveTimeout = setTimeout(() => {
 try {
 const session = buildSession();
+// BUG 2 FIX: estampar updated_at en el objeto para LAST WRITE WINS
+const _saveNow = new Date().toISOString();
+session.saved_at   = _saveNow;
+session.updated_at = _saveNow;
 const key = activeCasoId ? getCasoKey(activeCasoId) : SESSION_KEY;
 localStorage.setItem(key, JSON.stringify(session));
 if (activeCasoId) {
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.saved_at = new Date().toISOString(); c.updated_at_local = Date.now(); c.sync_status = 'synced'; saveCasosIndex(idx); }
+if (c) { c.saved_at = _saveNow; c.updated_at = _saveNow; c.updated_at_local = Date.now(); c.sync_status = 'pending'; saveCasosIndex(idx); }
 // ── Encolar sincronización con Supabase (Etapa 1 — cola única) ──
 if (typeof queueSave === 'function' && sbCurrentUser) {
   queueSave(activeCasoId);
@@ -7750,12 +7754,13 @@ function saveCurrentCasoNow() {
 if (!activeCasoId) return;
 const session = buildSession();
 const now = new Date().toISOString();
-session.saved_at = now;
+session.saved_at   = now;
+session.updated_at = now; // PASO 9: timestamp para LAST WRITE WINS
 localStorage.setItem(getCasoKey(activeCasoId), JSON.stringify(session));
 // Actualizar timestamp en el índice
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.saved_at = now; c.updated_at_local = Date.now(); saveCasosIndex(idx); }
+if (c) { c.saved_at = now; c.updated_at = now; c.updated_at_local = Date.now(); saveCasosIndex(idx); }
 }
 function buildSession() {
 return {
@@ -7773,8 +7778,9 @@ diaVencimiento: document.getElementById('diaVencimiento')?.value || '5',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension,
-histMode, consolidadaData,
-saved_at: new Date().toISOString()
+histMode, consolidadaData
+// BUG 5 FIX: saved_at y updated_at los estampa el llamador (saveSession / saveCurrentCasoNow)
+// para garantizar que objeto e índice tengan el mismo timestamp exacto.
 };
 }
 
@@ -8312,8 +8318,13 @@ function crearPerfil() {
   const nombre = document.getElementById('profileNameInput').value.trim();
   if (!nombre) return;
   const id = 'caso_' + Date.now();
+  const now = new Date().toISOString();
   const idx = getCasosIndex();
-  idx.push({ id, nombre, created: Date.now() });
+  // BUG 6 FIX: incluir created_at_local, updated_at y sync_status
+  // para que sbLoadCasos pueda rescatar este caso si queda huérfano.
+  idx.push({ id, nombre, created: Date.now(), created_at_local: Date.now(),
+             updated_at_local: Date.now(), saved_at: null,
+             sync_status: 'pending_create', version: 1 });
   saveCasosIndex(idx);
   // Save current state then switch to new empty caso
   if (activeCasoId) saveCurrentCasoNow();
@@ -8345,9 +8356,14 @@ function cerrarConfirmDelete() {
   unlockBody();
 }
 function eliminarPerfil(id) {
-  localStorage.removeItem(getCasoKey(id));
-  let idx = getCasosIndex().filter(c => c.id !== id);
-  saveCasosIndex(idx);
+  // BUG 7 FIX: cancelar debounce pendiente ANTES de cualquier limpieza,
+  // para evitar que un autosave rezagado re-suba datos ya eliminados.
+  if (id === activeCasoId && typeof saveTimeout !== 'undefined') {
+    clearTimeout(saveTimeout);
+    dbg('eliminarPerfil: saveTimeout cancelado para ' + id.slice(0,8));
+  }
+  // Delegar limpieza local + Supabase + bloqueo de futuros saves a sbDeleteCaso
+  if (typeof sbDeleteCaso === 'function') sbDeleteCaso(id);
   if (activeCasoId === id) {
     activeCasoId = null;
     localStorage.removeItem('pension_utm_last_caso');
@@ -8358,8 +8374,6 @@ function eliminarPerfil(id) {
   }
   renderCasosList();
   renderProfileList();
-  // Eliminar en Supabase
-  if (typeof sbDeleteCaso === 'function') sbDeleteCaso(id);
 }
 // ============================================================
 // MODAL RESUMEN — vista completa equivalente al PDF
@@ -9592,7 +9606,7 @@ let sbAccessToken = null;
 // Permite bloquear sbSaveCaso de forma síncrona, sin esperar la red.
 const _deletedCasoIds = new Set();
 let sbAuthTab = 'login';
-let _realtimeStarted = false; // guard: evita canal Realtime duplicado
+// _realtimeStarted eliminado — realtime desactivado
 let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SESSION + SIGNED_IN
 
 // ── Cola única de sincronización (declarada aquí para que esté disponible
@@ -9913,7 +9927,7 @@ async function sbSignOut() {
   dbg('SIGNOUT: iniciando...');
 
   // Resetear guards para que el próximo login arranque limpio
-  _realtimeStarted = false;
+  // _realtimeStarted eliminado — realtime desactivado
   _casosLoaded = false;
 
   // Vaciar la cola de sincronización para que no procese operaciones sin usuario
@@ -9965,84 +9979,57 @@ async function sbSignOut() {
 }
 
 // ── Cargar casos desde Supabase al localStorage ──
+// PASO 6 REFACTORIZACIÓN: Snapshot sync simple al abrir la app.
+// Estrategia LAST WRITE WINS comparando updated_at / saved_at.
+// Después de cargar, la app trabaja 100% local. No hay realtime.
 async function sbLoadCasos() {
   if (!sbCurrentUser) return;
-  dbg("LOAD: iniciando query Supabase");
+  dbg("LOAD: iniciando snapshot sync desde Supabase");
 
-  // ── Reintentar deletes pendientes de sesiones anteriores (Fix 7) ──
+  // ── Reintentar deletes pendientes de sesiones anteriores ──
   try {
     const pendingDels = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
     if (pendingDels.length > 0) {
       dbg('LOAD: reintentando ' + pendingDels.length + ' delete(s) pendiente(s)');
       pendingDels.forEach(id => {
         _deletedCasoIds.add(id);
-        queueDelete(id);
+        // BUG 4 FIX: verificar sbCurrentUser antes de encolar para evitar pérdida silenciosa
+        if (sbCurrentUser) {
+          queueDelete(id);
+        } else {
+          dbg('LOAD: ⚠️ pending_delete ' + id.slice(0,8) + ' diferido — sin usuario activo');
+        }
       });
     }
   } catch(e) { dbg('LOAD: error leyendo pending_deletes: ' + e.message); }
 
-  // ── DIAGNÓSTICO: probar acceso a cmf_cache y casos ──
   try {
-    const testCmf = await sb.from('cmf_cache').select('id,updated_at').limit(2);
-    if (testCmf.error) {
-      dbg("❌ CMF_CACHE ERROR: " + testCmf.error.code + " — " + testCmf.error.message);
-    } else {
-      dbg("✅ CMF_CACHE OK: " + JSON.stringify(testCmf.data));
-    }
-  } catch(e) { dbg("❌ CMF_CACHE EXCEPTION: " + e.message); }
-
-  try {
-    const testCasos = await sb.from('casos').select('id').limit(1);
-    if (testCasos.error) {
-      dbg("❌ CASOS ERROR: " + testCasos.error.code + " — " + testCasos.error.message);
-    } else {
-      dbg("✅ CASOS OK: " + JSON.stringify(testCasos.data));
-    }
-  } catch(e) { dbg("❌ CASOS EXCEPTION: " + e.message); }
-  // ── FIN DIAGNÓSTICO ──
-
-  try {
-    // Solo cargar casos NO eliminados (soft delete: deleted_at IS NULL)
+    // ── PASO 6: Descargar snapshot completo desde Supabase ──
     const { data, error } = await sb.from('casos')
-      .select('*')
+      .select('id, nombre, meta, data, saved_at, updated_at, deleted_at')
       .eq('user_id', sbCurrentUser.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: true });
-    if (error) { dbg('LOAD ERROR: '+JSON.stringify(error)); return; }
+    if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); return; }
     const rows = data || [];
-    dbg('LOAD: '+rows.length+' casos desde Supabase.');
-    const idx = rows.map(row => ({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at }));
+    dbg('LOAD: ' + rows.length + ' casos desde Supabase');
 
-    // ── Purgar casos locales que Supabase ya no tiene o están eliminados ──
-    // Incluye soft-deletes recientes (últimos 30 días) de otros dispositivos.
+    // ── PASO 5: LAST WRITE WINS — comparar updated_at entre servidor y local ──
     const sbIds = new Set(rows.map(r => r.id));
-    const { data: deletedRows } = await sb.from('casos')
-      .select('id, deleted_at')
-      .eq('user_id', sbCurrentUser.id)
-      .not('deleted_at', 'is', null)
-      .gte('deleted_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-    const deletedIds = new Set((deletedRows || []).map(r => r.id));
     const localIdx = getCasosIndex();
-    localIdx.forEach(lc => {
-      if (!sbIds.has(lc.id)) {
-        const createdAt = lc.created_at_local || 0;
-        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
-        if (isRecent && !deletedIds.has(lc.id)) {
-          dbg('LOAD: ⏳ rescatando caso huérfano reciente ' + lc.id.slice(0,8) + ' — reintentando subida');
-          idx.push(lc);
-          queueSave(lc.id);
-        } else {
-          dbg('LOAD: 🗑️ purgando caso local ' + lc.id.slice(0,8) +
-            (deletedIds.has(lc.id) ? ' (tombstone)' : ' (huérfano)'));
-          localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
-        }
-      }
-    });
+    // Construir índice final fusionado
+    const finalIdx = [];
 
-    // ── Aplicar Supabase como fuente de verdad ──
-    // localStorage es solo caché. Supabase siempre gana al cargar.
-    localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
     rows.forEach(row => {
+      const sbTimestamp = row.updated_at || row.saved_at || 0;
+      const sbTime = sbTimestamp ? new Date(sbTimestamp).getTime() : 0;
+
+      // Leer metadatos locales para comparar
+      const localMeta = localIdx.find(c => c.id === row.id);
+      const localTimestamp = localMeta?.updated_at || localMeta?.saved_at || 0;
+      const localTime = localTimestamp ? new Date(localTimestamp).getTime() : 0;
+
+      // Validar que Supabase tiene datos reales en el campo data
       const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5
         ? row.data : null;
       const hasRealData = sbPayload && (
@@ -10052,30 +10039,60 @@ async function sbLoadCasos() {
       );
 
       if (hasRealData) {
-        // Supabase tiene datos válidos → restaurar en localStorage (caché)
-        localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
-        dbg('LOAD: ✅ caso ' + row.id.slice(0,8) + ' restaurado desde Supabase (' + Object.keys(sbPayload).length + ' keys)');
+        if (sbTime >= localTime) {
+          // Servidor más nuevo o igual → descargar (Supabase gana)
+          localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
+          dbg('LOAD: ✅ ' + row.id.slice(0,8) + ' — servidor más nuevo, restaurando snapshot');
+        } else {
+          // Local más nuevo → re-subir al servidor
+          dbg('LOAD: ⬆️ ' + row.id.slice(0,8) + ' — local más nuevo, re-subiendo');
+          if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
+        }
       } else {
-        // Supabase sin datos válidos → conservar caché local si existe y re-subir
+        // Supabase sin datos válidos → conservar local y re-subir
         const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
         if (localRaw && localRaw.length > 50) {
-          dbg('LOAD: caso ' + row.id.slice(0,8) + ' Supabase vacío — re-subiendo desde caché local');
+          dbg('LOAD: ' + row.id.slice(0,8) + ' — Supabase vacío, re-subiendo desde local');
           if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
         } else {
-          dbg('LOAD: caso ' + row.id.slice(0,8) + ' sin datos en Supabase ni localStorage');
+          dbg('LOAD: ' + row.id.slice(0,8) + ' — sin datos en ningún lado');
+        }
+      }
+
+      // Agregar al índice final con metadatos de Supabase
+      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at, updated_at: row.updated_at });
+    });
+
+    // ── Rescatar casos locales huérfanos recientes (creados offline) ──
+    localIdx.forEach(lc => {
+      if (!sbIds.has(lc.id) && !_deletedCasoIds.has(lc.id)) {
+        const createdAt = lc.created_at_local || 0;
+        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
+        if (isRecent) {
+          dbg('LOAD: ⏳ ' + lc.id.slice(0,8) + ' — caso huérfano reciente, rescatando y subiendo');
+          finalIdx.push(lc);
+          queueSave(lc.id);
+        } else {
+          dbg('LOAD: 🗑️ ' + lc.id.slice(0,8) + ' — caso huérfano antiguo, purgando local');
+          localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
         }
       }
     });
 
+    // ── Aplicar índice final al localStorage ──
+    localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
+    dbg('LOAD: índice guardado con ' + finalIdx.length + ' casos');
+
     renderCasosList();
-    if (idx.length === 0) {
+    if (finalIdx.length === 0) {
       openProfileModal();
       return;
     }
-    // Restaurar el último caso activo o el más reciente
+
+    // ── Restaurar el último caso activo o el más reciente ──
     const lastId = localStorage.getItem('pension_utm_last_caso');
-    const targetId = (lastId && idx.find(c => c.id === lastId)) ? lastId : idx[idx.length - 1].id;
-    dbg('LOAD: lastId='+(lastId?lastId.slice(0,6):'none')+' target='+targetId.slice(0,6));
+    const targetId = (lastId && finalIdx.find(c => c.id === lastId)) ? lastId : finalIdx[finalIdx.length - 1].id;
+    dbg('LOAD: lastId=' + (lastId ? lastId.slice(0,6) : 'none') + ' target=' + targetId.slice(0,6));
     if (activeCasoId !== targetId) {
       switchCaso(targetId);
     } else {
@@ -10083,137 +10100,37 @@ async function sbLoadCasos() {
       updateActiveCasoBadge();
       renderCasosList();
     }
-  } catch(e) { dbg('LOAD EXCEPTION: '+e.message); }
+  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); }
 }
 
-// ── Sincronización en tiempo real entre dispositivos ──────────────────────
-// Cuando otro dispositivo guarda un caso, Supabase notifica a este cliente
-// y recarga solo el caso modificado sin resetear toda la UI.
+// ══════════════════════════════════════════════════════════════════════════════
+// REALTIME DESACTIVADO — PASO 2 REFACTORIZACIÓN
+// El código antiguo se conserva comentado. La app funciona 100% con
+// localStorage como fuente primaria + snapshot sync al abrir (sbLoadCasos).
+// ══════════════════════════════════════════════════════════════════════════════
+
+/* REALTIME DESACTIVADO — conservado para referencia
 let _realtimeChannel = null;
 
 async function sbStartRealtime() {
-  if (!sbCurrentUser) { dbg("REALTIME: sin usuario, abortando"); return; }
-  dbg("REALTIME: iniciando canal para " + sbCurrentUser.id.slice(0,8));
-  // Evitar canales duplicados
-  if (_realtimeChannel) {
-    await sb.removeChannel(_realtimeChannel);
-    _realtimeChannel = null;
-  }
-
-  _realtimeChannel = sb
-    .channel('casos-sync-' + sbCurrentUser.id)
-    .on('postgres_changes', {
-      event: '*',           // INSERT, UPDATE, DELETE
-      schema: 'public',
-      table: 'casos',
-      filter: 'user_id=eq.' + sbCurrentUser.id
-    }, payload => {
-      const ev   = payload.eventType;  // INSERT | UPDATE | DELETE
-      const row  = payload.new || {};
-      const oldR = payload.old || {};
-      const id   = row.id || oldR.id;
-      if (!id) return;
-      // Ignorar eco propio (el mismo dispositivo acaba de guardar este caso)
-      // Ventana ampliada a 5000ms: Supabase puede tardar más de 800ms en notificar
-      if (window._lastSavedId === id && window._lastSavedAt &&
-          Date.now() - window._lastSavedAt < 5000) {
-        dbg('REALTIME: ignorando eco propio para ' + id.slice(0,6));
-        return;
-      }
-
-      dbg('REALTIME: ' + ev + ' caso ' + id.slice(0,6));
-
-      // Soft delete: un UPDATE con deleted_at != null equivale a un DELETE
-      if (ev === 'DELETE' || (ev === 'UPDATE' && row.deleted_at)) {
-        dbg('REALTIME: caso ' + id.slice(0,6) + ' eliminado en otro dispositivo');
-        const idx = getCasosIndex().filter(c => c.id !== id);
-        localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
-        localStorage.removeItem(CASO_DATA_PREFIX + id);
-        if (activeCasoId === id) {
-          if (idx.length > 0) switchCaso(idx[idx.length - 1].id);
-          else openProfileModal();
-        } else {
-          renderCasosList();
-        }
-        showSyncToast('🗑️ Caso eliminado desde otro dispositivo');
-        return;
-      }
-
-      // INSERT o UPDATE: siempre hacer fetch directo a Supabase
-      // para evitar el límite de 256 KB del payload de Realtime
-      // Guard: si el caso fue eliminado localmente, ignorar el eco aunque llegue tarde
-      if (_deletedCasoIds.has(id)) {
-        dbg('REALTIME: ⛔ ignorando UPDATE/INSERT de caso eliminado ' + id.slice(0,6));
-        return;
-      }
-      dbg('REALTIME: fetching caso ' + id.slice(0,6) + ' desde Supabase...');
-      sb.from('casos').select('*').eq('id', id).eq('user_id', sbCurrentUser.id).single().then(({ data: freshRow, error }) => {
-        if (error || !freshRow) {
-          dbg('REALTIME: ❌ fetch error — ' + (error?.message || 'sin datos'));
-          return;
-        }
-        // Si Supabase devuelve el caso con deleted_at != null, tratarlo como eliminado
-        if (freshRow.deleted_at) {
-          dbg('REALTIME: caso ' + id.slice(0,6) + ' tiene deleted_at — tratando como eliminado');
-          _deletedCasoIds.add(id);
-          const idx = getCasosIndex().filter(c => c.id !== id);
-          localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
-          localStorage.removeItem(CASO_DATA_PREFIX + id);
-          if (activeCasoId === id) {
-            if (idx.length > 0) switchCaso(idx[idx.length - 1].id);
-            else openProfileModal();
-          } else { renderCasosList(); }
-          return;
-        }
-        if (freshRow.data && typeof freshRow.data === 'object' && Object.keys(freshRow.data).length > 5) {
-          // Validar versión: ignorar eventos más viejos que la copia local (Fix 9)
-          const localMeta = getCasosIndex().find(c => c.id === id);
-          const incomingVersion = freshRow.meta?.version || 1;
-          const localVersion = localMeta?.version || 1;
-          if (incomingVersion < localVersion) {
-            dbg('REALTIME: ⏭️ ignorando evento viejo — incoming v' + incomingVersion + ' < local v' + localVersion);
-            return;
-          }
-          localStorage.setItem(CASO_DATA_PREFIX + id, JSON.stringify(freshRow.data));
-          dbg('REALTIME: ✅ caso ' + id.slice(0,6) + ' actualizado (' + Object.keys(freshRow.data).length + ' keys)');
-        }
-        const idx = getCasosIndex();
-        const existing = idx.findIndex(c => c.id === id);
-        const newMeta = { ...(freshRow.meta || {}), id, saved_at: freshRow.saved_at };
-        if (existing >= 0) idx[existing] = newMeta;
-        else idx.push(newMeta);
-        localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(idx));
-
-        if (activeCasoId === id) {
-          // FIX: NO llamar switchCaso cuando el caso ya está activo.
-          // switchCaso resetea toda la UI (cierra sidebars, modales, etc.).
-          // Solo actualizamos los datos en memoria y refrescamos elementos pasivos.
-          dbg('REALTIME: datos del caso activo actualizados en background (sin resetear UI)');
-          updateActiveCasoBadge();
-          renderCasosList();
-        } else {
-          renderCasosList();
-        }
-        showSyncToast();
-      });
-    })
-    .subscribe(status => {
-      dbg('REALTIME status: ' + status);
-      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        dbg('REALTIME: ⚠️ ' + status + ' — reintentando en 15s...');
-        setTimeout(() => {
-          if (sbCurrentUser) sbStartRealtime();
-        }, 15000);
-      }
-      if (status === 'SUBSCRIBED') dbg('REALTIME: ✅ Escuchando cambios en tiempo real');
-    });
+  // ... código realtime original desactivado ...
+  // Usaba: .channel(), .on('postgres_changes'), .subscribe()
+  // Reemplazado por: sbLoadCasos() al iniciar sesión (snapshot sync)
 }
 
 async function stopRealtime() {
-  if (_realtimeChannel) {
-    await sb.removeChannel(_realtimeChannel);
-    _realtimeChannel = null;
-  }
+  // ... código realtime original desactivado ...
+}
+*/
+
+// ── Stubs vacíos para mantener compatibilidad con las llamadas existentes ──
+let _realtimeChannel = null; // conservado por compatibilidad
+async function sbStartRealtime() {
+  dbg('REALTIME: desactivado — usando snapshot sync (sbLoadCasos)');
+}
+async function stopRealtime() {
+  dbg('REALTIME: stopRealtime() no-op — realtime desactivado');
+  _realtimeChannel = null;
 }
 
 // Toast discreto de sincronización
@@ -10287,26 +10204,30 @@ async function sbSaveCaso(id) {
       const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
       data = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return {}; } })() : {};
     }
-    // saved_at es la única fuente de verdad para timestamps
+    // PASO 4: Snapshot completo con updated_at para LAST WRITE WINS
+    const now = new Date().toISOString();
     const payload = {
       id,
       user_id:  sbCurrentUser.id,
       nombre:   meta.nombre || 'Sin nombre',
       meta:     { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
       data,
-      saved_at: now
+      saved_at:   now,
+      updated_at: now
     };
+    // Actualizar timestamp en el índice local para consistencia LAST WRITE WINS
+    const metaIdx = getCasosIndex();
+    const metaEntry = metaIdx.find(c => c.id === id);
+    if (metaEntry) { metaEntry.updated_at = now; metaEntry.saved_at = now; saveCasosIndex(metaIdx); }
     dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
     // ── Safe upsert: nunca resetear deleted_at ──────────────────────────────
-    // Un upsert normal sin deleted_at puede sobrescribir el soft-delete si llega
-    // después del UPDATE de sbDeleteCaso (race condition debounce vs. delete).
-    // Solución: UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
-    // El campo version se incrementa en el servidor para evitar conflictos multi-dispositivo.
+    // UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
     const updatePayload = {
-      nombre: payload.nombre,
-      meta: payload.meta,
-      data: payload.data,
-      saved_at: payload.saved_at
+      nombre:     payload.nombre,
+      meta:       payload.meta,
+      data:       payload.data,
+      saved_at:   payload.saved_at,
+      updated_at: payload.updated_at
     };
     const { data: updData, error: updError } = await sb
       .from('casos')
@@ -10386,10 +10307,14 @@ async function sbDeleteCaso(id) {
     dbg('DELETE: saveTimeout cancelado para ' + id.slice(0,8));
   }
 
-  // Limpiar localStorage inmediatamente en este dispositivo
+  // PASO 10: Marcar sync_status = 'pending_delete' y ocultar de la UI
+  // El índice se filtra para ocultar inmediatamente; la operación remota va en cola.
   localStorage.removeItem(CASO_DATA_PREFIX + id);
-  const idx = getCasosIndex().filter(c => c.id !== id);
-  saveCasosIndex(idx);
+  const idxAll = getCasosIndex();
+  // Marcar antes de filtrar — útil si el proceso muere entre estos pasos
+  const casoToDelete = idxAll.find(c => c.id === id);
+  if (casoToDelete) { casoToDelete.sync_status = 'pending_delete'; }
+  saveCasosIndex(idxAll.filter(c => c.id !== id));
 
   // Encolar DELETE (cancela cualquier SAVE pendiente del mismo id)
   queueDelete(id);
@@ -10408,9 +10333,11 @@ async function _sbDeleteCasoCore(id) {
       .select('id');
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
+      // BUG 3 FIX: lanzar para que _processQueue reintente en lugar de descartar
+      throw new Error('DELETE Supabase error: ' + error.code + ' — ' + error.message);
     } else if (!delData || delData.length === 0) {
       dbg('⚠️ DELETE: 0 filas afectadas para ' + id + ' — el caso puede no existir aún en Supabase');
-      // No reintentar sin user_id: viola RLS y puede afectar registros ajenos
+      // 0 filas = el caso nunca llegó a Supabase (solo existía local): OK, no reintentar
     } else {
       dbg('✅ DELETE OK: caso ' + id.slice(0,8) + ' marcado como eliminado');
       // Limpiar de pending_deletes persistente
@@ -10458,25 +10385,12 @@ sb.auth.onAuthStateChange(async (event, session) => {
       const shouldLoad = event === 'SIGNED_IN' || !_casosLoaded;
       if (shouldLoad) {
         _casosLoaded = true;
-        // ── DIAGNÓSTICO RÁPIDO (siempre visible) ──
-        const r1 = await sb.from('cmf_cache').select('id').limit(1);
-        dbg('CMF: ' + (r1.error ? '❌ '+r1.error.code+' '+r1.error.message : '✅ OK '+JSON.stringify(r1.data)));
-        const r2 = await sb.from('casos').select('id').limit(1);
-        dbg('CASOS: ' + (r2.error ? '❌ '+r2.error.code+' '+r2.error.message : '✅ OK cnt='+r2.data.length));
-        // ── FIN DIAGNÓSTICO ──
         await sbLoadCasos();
       } else {
         dbg("AUTH: " + event + " — casos ya cargados, omitiendo sbLoadCasos");
       }
-      // Realtime: arrancar solo una vez por sesión
-      if (!_realtimeStarted) {
-        _realtimeStarted = true;
-        dbg("AUTH: llamando sbStartRealtime...");
-        await sbStartRealtime();
-        dbg("AUTH: sbStartRealtime() completado");
-      } else {
-        dbg("AUTH: Realtime ya activo, no se reinicia");
-      }
+      // REALTIME DESACTIVADO — snapshot sync completo en sbLoadCasos()
+      dbg('AUTH: snapshot sync completado — realtime desactivado');
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
@@ -10591,7 +10505,12 @@ async function _processQueue() {
 const _origSaveCurrentCasoNow = saveCurrentCasoNow;
 window.saveCurrentCasoNow = function() {
   _origSaveCurrentCasoNow();   // escribe en localStorage de forma síncrona
-  // La cola maneja la sincronización — no duplicar aquí
+  // BUG 8 FIX: encolar SAVE para que el dato local también llegue a Supabase.
+  // saveCurrentCasoNow se llama desde switchCaso y visibilitychange — rutas
+  // que NO tienen queueSave posterior, por lo que sin esto el dato nunca sube.
+  if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
+    if (!_deletedCasoIds.has(activeCasoId)) queueSave(activeCasoId);
+  }
 };
 
 // ── Parchear crearCaso para encolar el nuevo caso ──
