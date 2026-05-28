@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1620">
+ <meta name="app-version" content="2.0528.1715">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -10197,9 +10197,7 @@ async function sbSaveCaso(id) {
     return;
   }
   try {
-    // Verificar si el caso ya existe en Supabase (para decidir UPDATE vs INSERT)
-    const { data: existing } = await sb.from('casos').select('id').eq('id', id).eq('user_id', sbCurrentUser.id).maybeSingle();
-    // existing === null → caso nuevo, proceder con INSERT
+    // Sin SELECT previo — intentar INSERT directo; si ya existe (23505) hacer UPDATE
     const idx  = getCasosIndex();
     const meta = idx.find(c => c.id === id) || {};
     let data;
@@ -10247,63 +10245,27 @@ async function sbSaveCaso(id) {
     if (metaEntry) { metaEntry.saved_at = now; saveCasosIndex(metaIdx); }
     dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
     // ── DIAGNÓSTICO UPDATE ──────────────────────────────────────────────────
-    dbg('[DIAG] SAVE inicio user_id=' + payload.user_id + ' caso=' + id.slice(0,8));
-    // ── Safe upsert: nunca resetear deleted_at ──────────────────────────────
-    // UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
-    const updatePayload = {
-      nombre:   payload.nombre,
-      meta:     payload.meta,
-      data:     payload.data,
-      saved_at: payload.saved_at
-    };
-    const { data: updData, error: updError } = await sb
-      .from('casos')
-      .update(updatePayload)
-      .eq('id', id)
-      .eq('user_id', sbCurrentUser.id)
-      .select('id');
-    dbg('[DIAG] UPDATE RESULT: ' + JSON.stringify(updData));
-    dbg('[DIAG] UPDATE ERROR: ' + (updError ? updError.code + ' ' + updError.message : 'null'));
-    if (updError) {
-      dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message);
-      showSyncToast('⚠️ ' + updError.code + ': ' + updError.message);
-      throw new Error('UPDATE ' + updError.code + ': ' + updError.message);
-    } else if (updData && updData.length > 0) {
-      // UPDATE exitoso: el registro existía y no estaba eliminado
+    dbg('[DIAG] SAVE inicio user_id=' + payload.user_id.slice(0,8) + ' caso=' + id.slice(0,8));
+    if (_deletedCasoIds.has(id)) { dbg('SAVE: ⛔ eliminado antes del query'); return; }
+    // INSERT directo — si ya existe (23505) hacer UPDATE
+    const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id');
+    dbg('[DIAG] INSERT RESULT: ' + JSON.stringify(insData) + ' ERROR: ' + (insError ? insError.code : 'null'));
+    if (!insError) {
+      dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
+      window._lastSavedId = id; window._lastSavedAt = Date.now();
+    } else if (insError.code === '23505') {
+      // Ya existe → UPDATE
+      const { data: updData, error: updError } = await sb.from('casos')
+        .update({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
+        .eq('id', id).eq('user_id', sbCurrentUser.id).select('id');
+      dbg('[DIAG] UPDATE RESULT: ' + JSON.stringify(updData) + ' ERROR: ' + (updError ? updError.code : 'null'));
+      if (updError) { dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message); throw new Error(updError.message); }
       dbg('✅ SAVE UPDATE OK: caso ' + id.slice(0,8));
-      window._lastSavedId = id;
-      window._lastSavedAt = Date.now();
+      window._lastSavedId = id; window._lastSavedAt = Date.now();
     } else {
-      // 0 filas actualizadas → el registro no existe aún: intentar INSERT
-      // Guard post-await: verificar que no fue eliminado en el intervalo
-      if (_deletedCasoIds.has(id)) {
-        dbg('SAVE: ⛔ caso eliminado antes del INSERT — abortando');
-      } else {
-        // ── DIAGNÓSTICO: verificar sesión real en Supabase justo antes del INSERT ──
-        const { data: authCheck } = await sb.auth.getUser();
-        dbg('[DIAG] AUTH: ' + (authCheck?.user ? '✅ ' + authCheck.user.id.slice(0,8) : '❌ sin usuario'));
-        dbg('[DIAG] PAYLOAD id=' + payload.id.slice(0,8) + ' user_id=' + payload.user_id + ' nombre=' + payload.nombre);
-        if (!authCheck?.user) {
-          dbg('SAVE: ⛔ INSERT abortado — getUser() null (sesión no activa en Supabase)');
-          dbg('[DIAG] ⚠️ INSERT cancelado: sbCurrentUser existe pero getUser() devolvió null');
-          throw new Error('auth/no-user: getUser() null antes de INSERT');
-        }
-        const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id');
-        dbg('[DIAG] INSERT RESULT: ' + JSON.stringify(insData));
-        dbg('[DIAG] INSERT ERROR: ' + (insError ? insError.code + ' ' + insError.message : 'null'));
-        if (insError && insError.code === '23505') {
-          // Conflict PK: el registro existe con deleted_at != null → fue eliminado, no re-subir
-          dbg('SAVE: ⛔ INSERT 23505 — caso ya existe eliminado en Supabase, abortando');
-        } else if (insError) {
-          dbg('❌ SAVE INSERT: ' + insError.code + ' — ' + insError.message);
-          showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
-          throw new Error('INSERT ' + insError.code + ': ' + insError.message);
-        } else {
-          dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
-          window._lastSavedId = id;
-          window._lastSavedAt = Date.now();
-        }
-      }
+      dbg('❌ SAVE INSERT: ' + insError.code + ' — ' + insError.message);
+      showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
+      throw new Error(insError.message);
     }
   } catch(e) {
     dbg('❌ SAVE EXCEPTION: ' + e.message);
