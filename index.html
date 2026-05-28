@@ -9647,25 +9647,13 @@ let sbAuthTab = 'login';
 // _realtimeStarted eliminado — realtime desactivado
 let _casosLoaded = false;      // guard: evita doble sbLoadCasos por INITIAL_SESSION + SIGNED_IN
 
-// ── Cola única de sincronización (declarada aquí para que esté disponible
-//    antes de sbLoadCasos, sbDeleteCaso y cualquier otro llamador) ──
-// La cola se persiste en localStorage para sobrevivir cierres inesperados (Android)
-// La cola se restaura desde localStorage pero NO se procesa hasta tener sesión activa.
-// Llamar _processQueue sin sbCurrentUser deja _syncRunning=true para siempre → bloquea el login.
-let _syncQueue = (() => {
-  try {
-    const q = JSON.parse(localStorage.getItem('sync_queue') || '[]');
-    // Resetear retryCount al restaurar — los reintentos de sesiones anteriores
-    // no deben bloquear el procesamiento en la sesión nueva.
-    q.forEach(op => { op.retryCount = 0; });
-    return q;
-  } catch(e) { return []; }
-})();
+// Cola eliminada — sync directo a Supabase sin estado intermedio
+// Variables mantenidas como stubs para compatibilidad con código que las referencia
+let _syncQueue = [];
 let _syncRunning = false;
-
-function _persistSyncQueue() {
-  try { localStorage.setItem('sync_queue', JSON.stringify(_syncQueue)); } catch(e) {}
-}
+function _persistSyncQueue() {}
+// Limpiar cola antigua de localStorage si existe
+try { localStorage.removeItem('sync_queue'); } catch(e) {}
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -10425,14 +10413,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
       // En TOKEN_REFRESHED u otros eventos repetidos, evitar recargar innecesariamente.
       const shouldLoad = event === 'SIGNED_IN' || !_casosLoaded;
       if (shouldLoad) {
-        // En SIGNED_IN (login manual), limpiar cola de sesión anterior y resetear _syncRunning.
-        // Evita que ops zombi de otra sesión bloqueen indefinidamente el procesamiento.
-        if (event === 'SIGNED_IN') {
-          _syncQueue.length = 0;
-          _syncRunning = false;
-          try { localStorage.removeItem('sync_queue'); } catch(e) {}
-          dbg('AUTH: SIGNED_IN — cola de sync limpiada para sesión nueva');
-        }
         _casosLoaded = true;
         await sbLoadCasos();
       } else {
@@ -10457,141 +10437,42 @@ sb.auth.onAuthStateChange(async (event, session) => {
 // ETAPA 1 — COLA ÚNICA DE SINCRONIZACIÓN
 // Una sola operación pendiente por caso. SAVE jamás llega después de DELETE.
 // ══════════════════════════════════════════════════════════════════════════════
-// (_syncQueue y _syncRunning declarados junto a las variables de estado Supabase)
+// ══════════════════════════════════════════════════════════════════════════════
+// SYNC DIRECTO — sin cola, sin reintentos, sin estado que se trabe
+// queueSave y queueDelete son stubs compatibles que llaman directo a la función
+// ══════════════════════════════════════════════════════════════════════════════
 
-// Agregar o reemplazar un SAVE pendiente para este id
 function queueSave(id) {
   if (!id || !sbCurrentUser) return;
-  if (_deletedCasoIds.has(id)) {
-    dbg('QUEUE: ⛔ queueSave ignorado — ' + id.slice(0,8) + ' está eliminado');
-    return;
-  }
-  // Reemplazar cualquier SAVE anterior del mismo id (dedup)
-  const existing = _syncQueue.findIndex(op => op.id === id && op.type === 'SAVE');
-  const op = { type: 'SAVE', id, timestamp: Date.now() };
-  if (existing >= 0) {
-    _syncQueue[existing] = op;
-    dbg('QUEUE: SAVE actualizado para ' + id.slice(0,8));
-  } else {
-    _syncQueue.push(op);
-    dbg('QUEUE: SAVE encolado para ' + id.slice(0,8) + ' (cola: ' + _syncQueue.length + ')');
-  }
-  _persistSyncQueue();
-  _processQueue();
+  if (_deletedCasoIds.has(id)) return;
+  dbg('SYNC: guardando directo ' + id.slice(0,8));
+  sbSaveCaso(id).catch(e => dbg('SYNC SAVE error: ' + e.message));
 }
 
-// Agregar un DELETE y cancelar cualquier SAVE pendiente del mismo id
 function queueDelete(id) {
-  if (!id) return;
-  // No encolar si no hay sesion — _processQueue quedaria bloqueado sin poder ejecutar
-  if (!sbCurrentUser) { dbg('QUEUE: queueDelete diferido (sin usuario) para ' + (id||'').slice(0,8)); return; }
-  // Cancelar SAVEs pendientes del mismo id
-  const before = _syncQueue.length;
-  for (let i = _syncQueue.length - 1; i >= 0; i--) {
-    if (_syncQueue[i].id === id && _syncQueue[i].type === 'SAVE') _syncQueue.splice(i, 1);
-  }
-  if (_syncQueue.length < before) dbg('QUEUE: SAVE(s) cancelados por DELETE de ' + id.slice(0,8));
-  _syncQueue.push({ type: 'DELETE', id, timestamp: Date.now() });
-  dbg('QUEUE: DELETE encolado para ' + id.slice(0,8) + ' (cola: ' + _syncQueue.length + ')');
-  _persistSyncQueue();
-  _processQueue();
-}
-
-// Procesa una operación a la vez; espera respuesta antes de continuar
-async function _processQueue() {
-  // Guard: nunca procesar sin sesion activa — deja _syncRunning=true y bloquea el login
-  if (!sbCurrentUser) { dbg('QUEUE: sin usuario — procesamiento diferido'); return; }
-  if (_syncRunning) { dbg('QUEUE: _syncRunning=true — ya hay una operacion en curso, esperando'); return; }
-  if (_syncQueue.length === 0) return;
-  _syncRunning = true;
-
-  while (_syncQueue.length > 0) {
-    // 1. LEER el primer elemento SIN quitarlo — si el proceso muere aqui,
-    //    la operacion sigue persistida y se reintentara al reiniciar.
-    const op = _syncQueue[0];
-    // Descartar ops zombi que llegaron con retryCount agotado (restauradas de localStorage)
-    if ((op.retryCount || 0) > 5) {
-      dbg('QUEUE: ⚠️ op zombi con retryCount=' + op.retryCount + ' — descartando ' + op.type + ' ' + op.id.slice(0,8));
-      _syncQueue.shift();
-      _persistSyncQueue();
-      continue;
-    }
-    dbg('QUEUE: procesando ' + op.type + ' para ' + op.id.slice(0,8));
-
-    try {
-      if (op.type === 'SAVE') {
-        await sbSaveCaso(op.id);
-        // Exito: actualizar sync_status en el indice local
-        const idx2 = getCasosIndex();
-        const c2 = idx2.find(x => x.id === op.id);
-        if (c2) { c2.sync_status = 'synced'; saveCasosIndex(idx2); }
-      } else if (op.type === 'DELETE') {
-        await _sbDeleteCasoCore(op.id);
-      }
-
-      // 2. EXITO: recien ahora eliminamos de la cola y persistimos
-      _syncQueue.shift();
-      _persistSyncQueue();
-
-    } catch(e) {
-      dbg('QUEUE: error procesando ' + op.type + ' ' + op.id.slice(0,8) + ': ' + e.message);
-
-      // 3. FALLO: incrementar retryCount en el elemento [0] y persistir
-      _syncQueue[0].retryCount = (_syncQueue[0].retryCount || 0) + 1;
-      _persistSyncQueue();
-
-      if (_syncQueue[0].retryCount <= 5) {
-        const retryDelay = Math.min(30000, 1000 * Math.pow(2, _syncQueue[0].retryCount));
-        dbg('QUEUE: reintentando ' + op.type + ' en ' + retryDelay + 'ms (intento ' + _syncQueue[0].retryCount + ')');
-        setTimeout(() => {
-          _syncRunning = false;
-          _processQueue();
-        }, retryDelay);
-      } else {
-        dbg('QUEUE: agoto reintentos — descartando ' + op.type + ' ' + op.id.slice(0,8));
-        _syncQueue.shift();
-        _persistSyncQueue();
-      }
-      return; // salir del while; el setTimeout o el descarte cerraron el ciclo
-    }
-  }
-  _syncRunning = false;
+  if (!id || !sbCurrentUser) return;
+  dbg('SYNC: eliminando directo ' + id.slice(0,8));
+  _sbDeleteCasoCore(id).catch(e => dbg('SYNC DELETE error: ' + e.message));
 }
 
 // ── Parchear saveCurrentCasoNow para también sincronizar con Supabase ──
 const _origSaveCurrentCasoNow = saveCurrentCasoNow;
 window.saveCurrentCasoNow = function() {
-  _origSaveCurrentCasoNow();   // escribe en localStorage de forma síncrona
-  // BUG 8 FIX: encolar SAVE para que el dato local también llegue a Supabase.
-  // saveCurrentCasoNow se llama desde switchCaso y visibilitychange — rutas
-  // que NO tienen queueSave posterior, por lo que sin esto el dato nunca sube.
-  if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
-    if (!_deletedCasoIds.has(activeCasoId)) queueSave(activeCasoId);
+  _origSaveCurrentCasoNow();
+  if (sbCurrentUser && activeCasoId && !_deletedCasoIds.has(activeCasoId)) {
+    queueSave(activeCasoId);
   }
 };
 
-// ── Parchear crearCaso para encolar el nuevo caso ──
-// IMPORTANTE: crearCaso llama switchCaso → saveCurrentCasoNow (síncrono, sin debounce).
-// saveSession NO se dispara automáticamente, por eso hay que encolar el SAVE explícitamente.
-// Se espera 800ms para que applySession (llamado por switchCaso) termine de poblar el DOM
-// antes de que sbSaveCaso llame a buildSession().
+// ── Parchear crearCaso para guardar el nuevo caso en Supabase ──
 const _origCrearCaso = crearCaso;
 window.crearCaso = function() {
   _origCrearCaso();
-  if (sbCurrentUser) setTimeout(() => {
-    if (activeCasoId) queueSave(activeCasoId);
-  }, 800);
-};
-
-// ── Herramienta de emergencia: limpiar cola bloqueada desde consola ──
-// Uso: window._resetSyncQueue() en DevTools si la cola queda atascada
-window._resetSyncQueue = function() {
-  const antes = _syncQueue.length;
-  _syncQueue.length = 0;
-  _syncRunning = false;
-  try { localStorage.removeItem('sync_queue'); } catch(e) {}
-  console.log('[RESET] Cola vaciada (' + antes + ' ops). _syncRunning=false. Puedes re-intentar guardando.');
-  dbg('RESET: cola vaciada manualmente (' + antes + ' ops)');
+  if (sbCurrentUser) {
+    setTimeout(() => {
+      if (activeCasoId) queueSave(activeCasoId);
+    }, 800);
+  }
 };
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
