@@ -6533,6 +6533,11 @@ function imputarAbonosArt1595(detalles, abonos) {
 }
 function calculate() {
 if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
+// Guard: si utmData aún no cargó, no hay nada que calcular
+if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }
+// Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
+if (_noRange) { dbg('CALC: sin rango definido — abortando sin error'); return; }
 dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len=' + utmData.length + ' utm=' + (document.getElementById('utmAmount').value||'?'));
 const hoy = new Date();
 hoy.setHours(0, 0, 0, 0);
@@ -10005,7 +10010,7 @@ async function sbLoadCasos() {
   try {
     // ── PASO 6: Descargar snapshot completo desde Supabase ──
     const { data, error } = await sb.from('casos')
-      .select('id, nombre, meta, data, saved_at, deleted_at')
+      .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
       .eq('user_id', sbCurrentUser.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: true });
@@ -10208,12 +10213,13 @@ async function sbSaveCaso(id) {
     const now = new Date().toISOString();
     const payload = {
       id,
-      user_id:  sbCurrentUser.id,
-      nombre:   meta.nombre || 'Sin nombre',
-      meta:     { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
+      user_id:    sbCurrentUser.id,
+      nombre:     meta.nombre || 'Sin nombre',
+      meta:       { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
       data,
-      saved_at: now
-      // updated_at omitido — columna no existe en el schema actual de Supabase
+      saved_at:   now,
+      created_at: now
+      // updated_at y version omitidos — columnas no existen aún en Supabase
     };
     // Actualizar saved_at en el índice local
     const metaIdx = getCasosIndex();
@@ -10234,20 +10240,13 @@ async function sbSaveCaso(id) {
       .eq('id', id)
       .eq('user_id', sbCurrentUser.id)
       .is('deleted_at', null)
-      .select('id, version');
+      .select('id');
     if (updError) {
       dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message);
       showSyncToast('⚠️ ' + updError.code + ': ' + updError.message);
     } else if (updData && updData.length > 0) {
       // UPDATE exitoso: el registro existía y no estaba eliminado
       dbg('✅ SAVE UPDATE OK: caso ' + id.slice(0,8));
-      // Sincronizar versión devuelta por el servidor al índice local
-      const serverVersion = updData[0]?.version;
-      if (serverVersion) {
-        const idxV = getCasosIndex();
-        const cV = idxV.find(x => x.id === id);
-        if (cV) { cV.version = serverVersion; saveCasosIndex(idxV); }
-      }
       window._lastSavedId = id;
       window._lastSavedAt = Date.now();
     } else {
@@ -10256,7 +10255,7 @@ async function sbSaveCaso(id) {
       if (_deletedCasoIds.has(id)) {
         dbg('SAVE: ⛔ caso eliminado antes del INSERT — abortando');
       } else {
-        const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id, version');
+        const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id');
         if (insError && insError.code === '23505') {
           // Conflict PK: el registro existe con deleted_at != null → fue eliminado, no re-subir
           dbg('SAVE: ⛔ INSERT 23505 — caso ya existe eliminado en Supabase, abortando');
@@ -10265,13 +10264,6 @@ async function sbSaveCaso(id) {
           showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
         } else {
           dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
-          // Sincronizar versión del servidor al índice local
-          const insVersion = insData?.[0]?.version;
-          if (insVersion) {
-            const idxI = getCasosIndex();
-            const cI = idxI.find(x => x.id === id);
-            if (cI) { cI.version = insVersion; saveCasosIndex(idxI); }
-          }
           window._lastSavedId = id;
           window._lastSavedAt = Date.now();
         }
