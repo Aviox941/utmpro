@@ -9464,7 +9464,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0527.1919</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1545</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -10350,16 +10350,13 @@ async function sbDeleteCaso(id) {
 // Lógica async real del DELETE — llamada por _processQueue
 async function _sbDeleteCasoCore(id) {
   if (!sbCurrentUser || !id) return;
-  dbg('DELETE CORE: marcando caso ' + id.slice(0,8) + ' como eliminado en Supabase...');
+  dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + '...');
   try {
-    // DELETE real — usa la política owner_delete de RLS (más simple que soft-delete con deleted_at)
-    dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id + ' caso=' + id.slice(0,8));
-    const { data: delData, error } = await sb
-      .from('casos')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', sbCurrentUser.id)
-      .select('id');
+    // DELETE real — usa la política owner_delete de RLS
+    dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));
+    const _deletePromise = sb.from('casos').delete().eq('id', id).eq('user_id', sbCurrentUser.id).select('id');
+    const _timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DELETE timeout 10s')), 10000));
+    const { data: delData, error } = await Promise.race([_deletePromise, _timeoutPromise]);
     dbg('[DIAG DELETE] RESULT=' + JSON.stringify(delData) + ' ERROR=' + (error ? error.code + ' ' + error.message : 'null'));
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
