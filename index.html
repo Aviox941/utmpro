@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1750">
+ <meta name="app-version" content="2.0528.1810">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9654,6 +9654,8 @@ let _syncRunning = false;
 function _persistSyncQueue() {}
 // Limpiar cola antigua de localStorage si existe
 try { localStorage.removeItem('sync_queue'); } catch(e) {}
+// Token de sesión — se actualiza en onAuthStateChange
+let _sbAccessToken = null;
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -10248,8 +10250,9 @@ async function sbSaveCaso(id) {
     dbg('[DIAG] SAVE inicio user_id=' + payload.user_id.slice(0,8) + ' caso=' + id.slice(0,8));
     if (_deletedCasoIds.has(id)) { dbg('SAVE: ⛔ eliminado antes del query'); return; }
     // INSERT directo via fetch REST — más liviano que el SDK en móvil
-    const _sbToken = (await sb.auth.getSession()).data.session?.access_token;
-    if (!_sbToken) { dbg('SAVE: ⛔ sin token de sesión'); throw new Error('sin token'); }
+    const _sbToken = sbAccessToken || _sbAccessToken;
+    if (!_sbToken) { dbg('SAVE: ⛔ sin token'); throw new Error('sin token'); }
+    dbg('[DIAG] token ok');
 
     const _insController = new AbortController();
     setTimeout(() => _insController.abort(), 15000);
@@ -10347,8 +10350,9 @@ async function _sbDeleteCasoCore(id) {
     // DELETE real — usa la política owner_delete de RLS
     dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));
     // DELETE via fetch REST
-    const _delToken = (await sb.auth.getSession()).data.session?.access_token;
+    const _delToken = sbAccessToken || _sbAccessToken;
     if (!_delToken) { dbg('DELETE: ⛔ sin token'); throw new Error('sin token'); }
+    dbg('[DIAG DELETE] token ok');
     const _delController = new AbortController();
     setTimeout(() => _delController.abort(), 15000);
     const _delRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id, {
