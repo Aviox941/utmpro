@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1715">
+ <meta name="app-version" content="2.0528.1740">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -10247,25 +10247,46 @@ async function sbSaveCaso(id) {
     // ── DIAGNÓSTICO UPDATE ──────────────────────────────────────────────────
     dbg('[DIAG] SAVE inicio user_id=' + payload.user_id.slice(0,8) + ' caso=' + id.slice(0,8));
     if (_deletedCasoIds.has(id)) { dbg('SAVE: ⛔ eliminado antes del query'); return; }
-    // INSERT directo — si ya existe (23505) hacer UPDATE
-    const { data: insData, error: insError } = await sb.from('casos').insert(payload).select('id');
-    dbg('[DIAG] INSERT RESULT: ' + JSON.stringify(insData) + ' ERROR: ' + (insError ? insError.code : 'null'));
-    if (!insError) {
+    // INSERT directo via fetch REST — más liviano que el SDK en móvil
+    const _sbToken = (await sb.auth.getSession()).data.session?.access_token;
+    if (!_sbToken) { dbg('SAVE: ⛔ sin token de sesión'); throw new Error('sin token'); }
+
+    const _insRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+        'Authorization': 'Bearer ' + _sbToken,
+        'Prefer': 'return=representation,resolution=ignore-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+    const _insBody = await _insRes.json();
+    dbg('[DIAG] INSERT HTTP ' + _insRes.status + ' body=' + JSON.stringify(_insBody).slice(0,80));
+
+    if (_insRes.status === 201) {
       dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
       window._lastSavedId = id; window._lastSavedAt = Date.now();
-    } else if (insError.code === '23505') {
-      // Ya existe → UPDATE
-      const { data: updData, error: updError } = await sb.from('casos')
-        .update({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
-        .eq('id', id).eq('user_id', sbCurrentUser.id).select('id');
-      dbg('[DIAG] UPDATE RESULT: ' + JSON.stringify(updData) + ' ERROR: ' + (updError ? updError.code : 'null'));
-      if (updError) { dbg('❌ SAVE UPDATE: ' + updError.code + ' — ' + updError.message); throw new Error(updError.message); }
+    } else if (_insRes.status === 409 || (_insBody?.code === '23505')) {
+      // Ya existe → PATCH (UPDATE)
+      const _updRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+          'Authorization': 'Bearer ' + _sbToken,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
+      });
+      dbg('[DIAG] UPDATE HTTP ' + _updRes.status);
+      if (!_updRes.ok) { const e = await _updRes.json(); throw new Error('PATCH ' + _updRes.status + ': ' + JSON.stringify(e)); }
       dbg('✅ SAVE UPDATE OK: caso ' + id.slice(0,8));
       window._lastSavedId = id; window._lastSavedAt = Date.now();
     } else {
-      dbg('❌ SAVE INSERT: ' + insError.code + ' — ' + insError.message);
-      showSyncToast('⚠️ ' + insError.code + ': ' + insError.message);
-      throw new Error(insError.message);
+      dbg('❌ SAVE INSERT HTTP ' + _insRes.status + ': ' + JSON.stringify(_insBody).slice(0,120));
+      showSyncToast('⚠️ Error ' + _insRes.status + ' guardando caso');
+      throw new Error('INSERT HTTP ' + _insRes.status);
     }
   } catch(e) {
     dbg('❌ SAVE EXCEPTION: ' + e.message);
@@ -10322,10 +10343,20 @@ async function _sbDeleteCasoCore(id) {
   try {
     // DELETE real — usa la política owner_delete de RLS
     dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));
-    const _deletePromise = sb.from('casos').delete().eq('id', id).select('id');
-    const _timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('DELETE timeout 30s')), 30000));
-    const { data: delData, error } = await Promise.race([_deletePromise, _timeoutPromise]);
-    dbg('[DIAG DELETE] RESULT=' + JSON.stringify(delData) + ' ERROR=' + (error ? error.code + ' ' + error.message : 'null'));
+    // DELETE via fetch REST
+    const _delToken = (await sb.auth.getSession()).data.session?.access_token;
+    if (!_delToken) { dbg('DELETE: ⛔ sin token'); throw new Error('sin token'); }
+    const _delRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id, {
+      method: 'DELETE',
+      headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+        'Authorization': 'Bearer ' + _delToken,
+        'Prefer': 'return=representation'
+      }
+    });
+    dbg('[DIAG DELETE] HTTP ' + _delRes.status);
+    const error = _delRes.ok ? null : { code: _delRes.status, message: await _delRes.text() };
+    const delData = _delRes.ok ? [{ id }] : null;
     if (error) {
       dbg('❌ DELETE ERROR: ' + error.code + ' — ' + error.message);
       showSyncToast('⚠️ DELETE ' + error.code + ': ' + error.message);
