@@ -4873,7 +4873,7 @@ localStorage.setItem(key, JSON.stringify(session));
 if (activeCasoId) {
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.saved_at = _saveNow; c.updated_at = _saveNow; c.updated_at_local = Date.now(); c.sync_status = 'pending'; saveCasosIndex(idx); }
+if (c) { c.saved_at = _saveNow; c.updated_at_local = Date.now(); c.sync_status = 'pending'; saveCasosIndex(idx); }
 // ── Encolar sincronización con Supabase (Etapa 1 — cola única) ──
 if (typeof queueSave === 'function' && sbCurrentUser) {
   queueSave(activeCasoId);
@@ -7754,13 +7754,12 @@ function saveCurrentCasoNow() {
 if (!activeCasoId) return;
 const session = buildSession();
 const now = new Date().toISOString();
-session.saved_at   = now;
-session.updated_at = now; // PASO 9: timestamp para LAST WRITE WINS
+session.saved_at = now;
 localStorage.setItem(getCasoKey(activeCasoId), JSON.stringify(session));
-// Actualizar timestamp en el índice
+// Actualizar saved_at en el índice
 const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
-if (c) { c.saved_at = now; c.updated_at = now; c.updated_at_local = Date.now(); saveCasosIndex(idx); }
+if (c) { c.saved_at = now; c.updated_at_local = Date.now(); saveCasosIndex(idx); }
 }
 function buildSession() {
 return {
@@ -10006,7 +10005,7 @@ async function sbLoadCasos() {
   try {
     // ── PASO 6: Descargar snapshot completo desde Supabase ──
     const { data, error } = await sb.from('casos')
-      .select('id, nombre, meta, data, saved_at, updated_at, deleted_at')
+      .select('id, nombre, meta, data, saved_at, deleted_at')
       .eq('user_id', sbCurrentUser.id)
       .is('deleted_at', null)
       .order('created_at', { ascending: true });
@@ -10021,12 +10020,13 @@ async function sbLoadCasos() {
     const finalIdx = [];
 
     rows.forEach(row => {
-      const sbTimestamp = row.updated_at || row.saved_at || 0;
+      // LAST WRITE WINS usando saved_at (updated_at no existe en el schema actual)
+      const sbTimestamp = row.saved_at || 0;
       const sbTime = sbTimestamp ? new Date(sbTimestamp).getTime() : 0;
 
-      // Leer metadatos locales para comparar
+      // Leer metadatos locales para comparar (usar saved_at como fuente de verdad)
       const localMeta = localIdx.find(c => c.id === row.id);
-      const localTimestamp = localMeta?.updated_at || localMeta?.saved_at || 0;
+      const localTimestamp = localMeta?.saved_at || 0;
       const localTime = localTimestamp ? new Date(localTimestamp).getTime() : 0;
 
       // Validar que Supabase tiene datos reales en el campo data
@@ -10060,7 +10060,7 @@ async function sbLoadCasos() {
       }
 
       // Agregar al índice final con metadatos de Supabase
-      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at, updated_at: row.updated_at });
+      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
     });
 
     // ── Rescatar casos locales huérfanos recientes (creados offline) ──
@@ -10212,22 +10212,21 @@ async function sbSaveCaso(id) {
       nombre:   meta.nombre || 'Sin nombre',
       meta:     { nombre: meta.nombre, rolCausa: meta.rolCausa, tribunal: meta.tribunal, estado: meta.estado, alimentante: meta.alimentante, rutAlimentante: meta.rutAlimentante, alimentario: meta.alimentario, rutAlimentario: meta.rutAlimentario, montoDecretado: meta.montoDecretado, diaPago: meta.diaPago, fechaInicioPago: meta.fechaInicioPago, reajustabilidad: meta.reajustabilidad },
       data,
-      saved_at:   now,
-      updated_at: now
+      saved_at: now
+      // updated_at omitido — columna no existe en el schema actual de Supabase
     };
-    // Actualizar timestamp en el índice local para consistencia LAST WRITE WINS
+    // Actualizar saved_at en el índice local
     const metaIdx = getCasosIndex();
     const metaEntry = metaIdx.find(c => c.id === id);
-    if (metaEntry) { metaEntry.updated_at = now; metaEntry.saved_at = now; saveCasosIndex(metaIdx); }
+    if (metaEntry) { metaEntry.saved_at = now; saveCasosIndex(metaIdx); }
     dbg('SAVE: uid=' + sbCurrentUser.id.slice(0,8) + ' id=' + id);
     // ── Safe upsert: nunca resetear deleted_at ──────────────────────────────
     // UPDATE solo en filas con deleted_at IS NULL; si no existe, INSERT.
     const updatePayload = {
-      nombre:     payload.nombre,
-      meta:       payload.meta,
-      data:       payload.data,
-      saved_at:   payload.saved_at,
-      updated_at: payload.updated_at
+      nombre:   payload.nombre,
+      meta:     payload.meta,
+      data:     payload.data,
+      saved_at: payload.saved_at
     };
     const { data: updData, error: updError } = await sb
       .from('casos')
