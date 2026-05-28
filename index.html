@@ -8005,7 +8005,7 @@ function crearCaso() {
   if (nombre.length < 2) return;
   // Guardar caso actual antes de crear el nuevo
   if (activeCasoId) saveCurrentCasoNow();
-  const id = 'caso_' + Date.now();
+  const id = crypto.randomUUID ? crypto.randomUUID() : 'caso_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
   const idx = getCasosIndex();
   idx.push({
     id,
