@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1740">
+ <meta name="app-version" content="2.0528.1750">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -10251,6 +10251,8 @@ async function sbSaveCaso(id) {
     const _sbToken = (await sb.auth.getSession()).data.session?.access_token;
     if (!_sbToken) { dbg('SAVE: ⛔ sin token de sesión'); throw new Error('sin token'); }
 
+    const _insController = new AbortController();
+    setTimeout(() => _insController.abort(), 15000);
     const _insRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos', {
       method: 'POST',
       headers: {
@@ -10259,7 +10261,8 @@ async function sbSaveCaso(id) {
         'Authorization': 'Bearer ' + _sbToken,
         'Prefer': 'return=representation,resolution=ignore-duplicates'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: _insController.signal
     });
     const _insBody = await _insRes.json();
     dbg('[DIAG] INSERT HTTP ' + _insRes.status + ' body=' + JSON.stringify(_insBody).slice(0,80));
@@ -10346,13 +10349,16 @@ async function _sbDeleteCasoCore(id) {
     // DELETE via fetch REST
     const _delToken = (await sb.auth.getSession()).data.session?.access_token;
     if (!_delToken) { dbg('DELETE: ⛔ sin token'); throw new Error('sin token'); }
+    const _delController = new AbortController();
+    setTimeout(() => _delController.abort(), 15000);
     const _delRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id, {
       method: 'DELETE',
       headers: {
         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
         'Authorization': 'Bearer ' + _delToken,
-        'Prefer': 'return=representation'
-      }
+        'Prefer': 'return=minimal'
+      },
+      signal: _delController.signal
     });
     dbg('[DIAG DELETE] HTTP ' + _delRes.status);
     const error = _delRes.ok ? null : { code: _delRes.status, message: await _delRes.text() };
