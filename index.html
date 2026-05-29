@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0529.0210">
+ <meta name="app-version" content="2.0529.0240">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8006,7 +8006,7 @@ function crearCaso() {
   if (nombre.length < 2) return;
   // Guardar caso actual antes de crear el nuevo
   if (activeCasoId) saveCurrentCasoNow();
-  const id = crypto.randomUUID ? crypto.randomUUID() : 'caso_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
+  const id = crypto.randomUUID(); // UUID v4 — requerido para columna UUID de Supabase
   const idx = getCasosIndex();
   idx.push({
     id,
@@ -8322,14 +8322,13 @@ function renderProfileList() {
 function crearPerfil() {
   const nombre = document.getElementById('profileNameInput').value.trim();
   if (!nombre) return;
-  const id = 'caso_' + Date.now();
+  const id = crypto.randomUUID(); // UUID válido para Supabase
   const now = new Date().toISOString();
   const idx = getCasosIndex();
-  // BUG 6 FIX: incluir created_at_local, updated_at y sync_status
-  // para que sbLoadCasos pueda rescatar este caso si queda huérfano.
   idx.push({ id, nombre, created: Date.now(), created_at_local: Date.now(),
              updated_at_local: Date.now(), saved_at: null,
-             sync_status: 'pending_create', version: 1 });
+             sync_status: 'pending_create', version: 1,
+             user_id: sbCurrentUser?.id || null }); // user_id para detección multicuenta
   saveCasosIndex(idx);
   // Save current state then switch to new empty caso
   if (activeCasoId) saveCurrentCasoNow();
@@ -9470,7 +9469,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0529.0210</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0529.0240</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -10032,23 +10031,39 @@ async function sbLoadCasos() {
   if (!sbCurrentUser) return;
   dbg("LOAD: iniciando snapshot sync desde Supabase");
 
-  // MULTICUENTA: verificar si el localStorage pertenece al usuario actual
-  // Si hay casos de otro usuario, limpiar antes de cargar (PWA no limpia caché entre cuentas)
+  // MULTICUENTA: limpiar localStorage si pertenece a otro usuario
+  // Estrategia robusta: comparar user_id almacenado con el actual
+  // Si no hay user_id almacenado (primera vez o PWA sin signOut previo),
+  // verificar si algún caso local tiene user_id distinto al actual.
   try {
     const storedUserId = localStorage.getItem('pension_utm_current_user');
-    if (storedUserId && storedUserId !== sbCurrentUser.id) {
-      dbg('LOAD: ⚠️ localStorage de otro usuario (' + storedUserId.slice(0,8) + ') — limpiando...');
-      const casosKeys = Object.keys(localStorage).filter(k =>
-        k === CASOS_INDEX_KEY ||
-        k === 'pension_utm_last_caso' ||
-        k === 'pending_deletes' ||
-        k === 'sync_queue' ||
-        k.startsWith(CASO_DATA_PREFIX)
-      );
-      casosKeys.forEach(k => localStorage.removeItem(k));
-      dbg('LOAD: localStorage limpiado — ' + casosKeys.length + ' claves eliminadas');
+    const userChanged = storedUserId && storedUserId !== sbCurrentUser.id;
+    const firstLogin = !storedUserId;
+
+    if (userChanged || firstLogin) {
+      // Si el usuario cambió, limpiar siempre.
+      // Si es primer login (firstLogin), limpiar también — no sabemos a quién
+      // pertenecen los casos locales sin user_id (versiones anteriores al fix multicuenta).
+      // Es más seguro limpiar y descargar desde Supabase que arriesgar mezclar cuentas.
+      const localIdx = getCasosIndex();
+      const shouldClean = userChanged ||
+        (firstLogin && localIdx.length > 0); // primer login con datos huérfanos sin user_id
+
+      if (shouldClean) {
+        dbg('LOAD: ⚠️ limpiando localStorage — ' + (userChanged ? 'usuario cambió' : 'primer login con datos sin owner'));
+        Object.keys(localStorage)
+          .filter(k =>
+            k === CASOS_INDEX_KEY ||
+            k === 'pension_utm_last_caso' ||
+            k === 'pending_deletes' ||
+            k === 'sync_queue' ||
+            k.startsWith(CASO_DATA_PREFIX)
+          )
+          .forEach(k => localStorage.removeItem(k));
+        dbg('LOAD: localStorage limpiado — ' + sbCurrentUser.id.slice(0,8));
+      }
     }
-    // Registrar usuario actual para detectar cambios de cuenta
+    // Siempre registrar el usuario actual
     localStorage.setItem('pension_utm_current_user', sbCurrentUser.id);
   } catch(e) { dbg('LOAD: error verificando usuario: ' + e.message); }
 
@@ -10125,21 +10140,29 @@ async function sbLoadCasos() {
         }
       }
 
-      // Agregar al índice final con metadatos de Supabase
-      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
+      // Agregar al índice final — incluir user_id para detección multicuenta
+      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at,
+                      user_id: sbCurrentUser.id });
     });
 
     // ── Rescatar casos locales huérfanos recientes (creados offline) ──
+    // CRÍTICO multicuenta: solo rescatar casos del usuario actual
     localIdx.forEach(lc => {
       if (!sbIds.has(lc.id) && !_deletedCasoIds.has(lc.id)) {
+        // Si el caso tiene user_id de otro usuario, eliminarlo sin rescatar
+        if (lc.user_id && lc.user_id !== sbCurrentUser.id) {
+          dbg('LOAD: 🚫 ' + lc.id.slice(0,8) + ' — caso de otro usuario, eliminando sin rescatar');
+          localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
+          return;
+        }
         const createdAt = lc.created_at_local || 0;
         const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
         if (isRecent) {
-          dbg('LOAD: ⏳ ' + lc.id.slice(0,8) + ' — caso huérfano reciente, rescatando y subiendo');
+          dbg('LOAD: ⏳ ' + lc.id.slice(0,8) + ' — caso huérfano reciente del usuario actual, rescatando');
           finalIdx.push(lc);
           queueSave(lc.id);
         } else {
-          dbg('LOAD: 🗑️ ' + lc.id.slice(0,8) + ' — caso huérfano antiguo, purgando local');
+          dbg('LOAD: 🗑️ ' + lc.id.slice(0,8) + ' — caso huérfano antiguo, purgando');
           localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
         }
       }
