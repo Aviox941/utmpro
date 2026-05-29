@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0529.0240">
+ <meta name="app-version" content="2.0529.0310">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9469,7 +9469,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0529.0240</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0529.0310</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9482,76 +9482,145 @@ document.addEventListener('visibilitychange', async () => {
 
 <script>
 
-// ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
+// ── Panel de debug flotante e independiente ──
+// - Se activa con 5 taps en el header
+// - No se cierra al hacer signOut (persiste entre sesiones)
+// - Arrastrable — lejos del botón de cerrar sesión
+// - Botón X para cerrarlo manualmente
 function dbg(msg) {
   console.log('[DBG]', msg);
   let p = document.getElementById('_dbgPanel');
   if (!p) {
     p = document.createElement('div');
     p.id = '_dbgPanel';
-    p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
-      'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
-      'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
-    const expBtn = document.createElement('button');
-    expBtn.textContent = '📤 EXPORTAR DATOS';
-    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
-    expBtn.onclick = () => {
+    // Ajustar altura al viewport para no tapar botones inferiores (ej. "Añadir")
+    const _dbgMaxH = Math.min(260, Math.round(window.innerHeight * 0.38));
+    p.style.cssText = [
+      'display:none',
+      'position:fixed',
+      'top:56px',
+      'right:8px',
+      'width:min(320px,calc(100vw - 16px))',
+      'height:' + _dbgMaxH + 'px',
+      'background:#0f172a',
+      'color:#a3e635',
+      'font-size:9px',
+      'font-family:monospace',
+      'overflow-y:auto',
+      'z-index:99999',
+      'border-radius:10px',
+      'border:2px solid #22d3ee',
+      'box-shadow:0 4px 24px rgba(0,0,0,0.7)',
+      'padding:6px',
+      'padding-top:32px',
+    ].join(';');
+
+    // ── Barra de título arrastrable ──
+    const titleBar = document.createElement('div');
+    titleBar.style.cssText = 'position:absolute;top:0;left:0;right:0;height:26px;' +
+      'background:#1e293b;border-radius:8px 8px 0 0;display:flex;align-items:center;' +
+      'justify-content:space-between;padding:0 6px;cursor:grab;user-select:none;';
+    titleBar.innerHTML = '<span style="color:#94a3b8;font-size:8px;font-weight:900;">⚙ DEBUG LOG</span>';
+
+    // Botón cerrar X
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = 'background:none;border:none;color:#94a3b8;font-size:11px;' +
+      'cursor:pointer;padding:0 4px;line-height:1;';
+    closeBtn.onclick = () => { p.style.display = 'none'; };
+    titleBar.appendChild(closeBtn);
+    p.appendChild(titleBar);
+
+    // ── Hacer arrastrable ──
+    let dragging = false, startX, startY, origRight, origTop;
+    titleBar.addEventListener('pointerdown', e => {
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      const rect = p.getBoundingClientRect();
+      origRight = window.innerWidth - rect.right;
+      origTop = rect.top;
+      titleBar.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+    document.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      p.style.right = Math.max(0, origRight - dx) + 'px';
+      p.style.top  = Math.max(0, origTop  + dy) + 'px';
+    });
+    document.addEventListener('pointerup', () => {
+      dragging = false;
+      titleBar.style.cursor = 'grab';
+    });
+
+    // ── Botones de acción ──
+    const btnBar = document.createElement('div');
+    btnBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px;';
+
+    const mkBtn = (label, bg, fn) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = 'background:' + bg + ';color:#fff;font-size:8px;font-weight:900;' +
+        'padding:3px 7px;border-radius:5px;border:none;cursor:pointer;';
+      b.onclick = fn;
+      return b;
+    };
+
+    btnBar.appendChild(mkBtn('📤 EXPORTAR', '#1d4ed8', () => {
       const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
       const dump = {};
       keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
       const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
-    };
-    p.appendChild(expBtn);
+    }));
 
-    // ── Botón RESET COLA DE SYNC ──
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = '🔄 RESET COLA SYNC';
-    resetBtn.style.cssText = 'position:sticky;top:0;background:#dc2626;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    resetBtn.onclick = () => {
+    btnBar.appendChild(mkBtn('🔄 RESET COLA', '#dc2626', () => {
       const antes = _syncQueue.length;
       _syncQueue.length = 0;
       _syncRunning = false;
       try { localStorage.removeItem('sync_queue'); } catch(e) {}
-      dbg('🔄 RESET MANUAL: cola vaciada (' + antes + ' ops). Reintentando...');
-      // Disparar SAVE del caso activo inmediatamente
+      dbg('🔄 RESET MANUAL: cola vaciada (' + antes + ' ops)');
       if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
         setTimeout(() => { queueSave(activeCasoId); }, 300);
       }
-    };
-    p.appendChild(resetBtn);
+    }));
 
-    // ── Botón ESTADO SYNC ──
-    const statusBtn = document.createElement('button');
-    statusBtn.textContent = '📊 ESTADO';
-    statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    statusBtn.onclick = () => {
-      dbg('📊 ESTADO — cola: ' + _syncQueue.length + ' ops | running: ' + _syncRunning +
-          ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
-          ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
-      _syncQueue.forEach((op, i) => {
-        dbg('  [' + i + '] ' + op.type + ' ' + op.id.slice(0,8) + ' retry=' + (op.retryCount||0));
-      });
-    };
-    p.appendChild(statusBtn);
+    btnBar.appendChild(mkBtn('📊 ESTADO', '#0f766e', () => {
+      dbg('📊 user:' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
+          ' | caso:' + (activeCasoId ? activeCasoId.slice(0,8) : 'null') +
+          ' | localStorage_user:' + (localStorage.getItem('pension_utm_current_user') || 'none').slice(0,8));
+    }));
+
+    btnBar.appendChild(mkBtn('🧹 LIMPIAR LOG', '#475569', () => {
+      Array.from(p.querySelectorAll('div:not(#_dbgBtnBar)')).forEach(d => d.remove());
+      dbg('Log limpiado');
+    }));
+
+    btnBar.id = '_dbgBtnBar';
+    p.appendChild(btnBar);
 
     document.body.appendChild(p);
+
+    // 5 taps en el header para mostrar/ocultar
     let taps = 0, tapTimer;
     document.querySelector('header')?.addEventListener('click', () => {
       taps++;
       clearTimeout(tapTimer);
       tapTimer = setTimeout(() => { taps = 0; }, 1500);
-      if (taps >= 5) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; taps = 0; }
+      if (taps >= 5) {
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        taps = 0;
+      }
     });
   }
   const line = document.createElement('div');
-  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  line.style.cssText = 'border-bottom:1px solid #1e293b;padding:1px 0;';
+  line.textContent = new Date().toLocaleTimeString('es-CL') + ' ' + msg;
   if (msg.includes('❌') || msg.includes('ERROR')) line.style.color = '#f87171';
-  if (msg.includes('✅')) line.style.color = '#4ade80';
+  else if (msg.includes('✅')) line.style.color = '#4ade80';
+  else if (msg.includes('⚠️')) line.style.color = '#fbbf24';
   p.appendChild(line);
   p.scrollTop = p.scrollHeight;
 }
@@ -9984,10 +10053,11 @@ async function sbSignOut() {
   // 1. Mostrar login de inmediato, antes de cualquier async
   try { showLoginScreen(); } catch(e) {}
 
-  // 2. Limpiar estado local
+  // 2. Limpiar estado local y UI
   sbCurrentUser = null;
   sbAccessToken = null;
   activeCasoId = null;
+  try { resetAllSilent(); } catch(e) {}  // limpiar cálculos de la pantalla
 
   // 3. Limpiar tokens de auth Y datos de casos del localStorage
   //    CRÍTICO para multicuenta: sin esto el próximo usuario ve los casos del anterior
@@ -10046,11 +10116,14 @@ async function sbLoadCasos() {
       // pertenecen los casos locales sin user_id (versiones anteriores al fix multicuenta).
       // Es más seguro limpiar y descargar desde Supabase que arriesgar mezclar cuentas.
       const localIdx = getCasosIndex();
-      const shouldClean = userChanged ||
-        (firstLogin && localIdx.length > 0); // primer login con datos huérfanos sin user_id
+      // Solo limpiar si sabemos con certeza que el usuario cambió.
+      // firstLogin NO limpia — los datos locales pueden ser del mismo usuario
+      // en otro dispositivo o tras reinstalar la PWA. Supabase es la fuente de verdad:
+      // sbLoadCasos descargará los casos correctos y sobreescribirá lo local.
+      const shouldClean = userChanged;
 
       if (shouldClean) {
-        dbg('LOAD: ⚠️ limpiando localStorage — ' + (userChanged ? 'usuario cambió' : 'primer login con datos sin owner'));
+        dbg('LOAD: ⚠️ usuario cambió — limpiando localStorage del usuario anterior');
         Object.keys(localStorage)
           .filter(k =>
             k === CASOS_INDEX_KEY ||
@@ -10493,6 +10566,29 @@ sb.auth.onAuthStateChange(async (event, session) => {
 
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
+    const incomingUserId = session.user.id;
+
+    // MULTICUENTA: si el usuario que entra es distinto al anterior,
+    // limpiar localStorage y UI ANTES de mostrar la app — no después.
+    const previousUserId = localStorage.getItem('pension_utm_current_user');
+    if (previousUserId && previousUserId !== incomingUserId) {
+      dbg('AUTH: usuario cambió (' + previousUserId.slice(0,8) + ' → ' + incomingUserId.slice(0,8) + ') — limpiando antes de mostrar app');
+      // Limpiar UI
+      try { resetAllSilent(); } catch(e) {}
+      activeCasoId = null;
+      // Limpiar localStorage de casos del usuario anterior
+      Object.keys(localStorage)
+        .filter(k =>
+          k === CASOS_INDEX_KEY ||
+          k === 'pension_utm_last_caso' ||
+          k === 'pending_deletes' ||
+          k === 'sync_queue' ||
+          k.startsWith(CASO_DATA_PREFIX)
+        )
+        .forEach(k => localStorage.removeItem(k));
+      dbg('AUTH: localStorage limpiado antes de cargar usuario nuevo');
+    }
+
     sbCurrentUser = session.user;
     sbAccessToken = session.access_token || null;
     const email = session.user.email || '—';
