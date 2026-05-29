@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1870">
+ <meta name="app-version" content="2.0529.0210">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v74 · FIX PERIODOS CLP + ANIMACION + SUPABASE SYNC</title>
+ <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3104,21 +3104,17 @@
 
   /* ── Collapsible sections ───────────────────────────────────── */
   .collapsible-body {
-    display: grid;
-    grid-template-rows: 1fr;
-    opacity: 1;
-    transition: grid-template-rows 0.28s cubic-bezier(.4,0,.2,1), opacity 0.22s ease;
-    will-change: grid-template-rows;
-  }
-  .collapsible-body > * {
     overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(.4,0,.2,1), opacity 0.25s ease;
+    max-height: 2000px;
+    opacity: 1;
   }
   .collapsible-body.is-collapsed {
-    grid-template-rows: 0fr !important;
+    max-height: 0 !important;
     opacity: 0;
   }
   .collapse-chevron {
-    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
     flex-shrink: 0;
   }
   .collapse-chevron.is-collapsed {
@@ -4852,10 +4848,6 @@ let lastCalculationData = [];
 let lastImputacion = null; // resultado de imputarAbonosArt1595, reutilizado por generarPDF
 let activeTabYear = null;
 let saveTimeout = null;
-// ── Guard: evita que saveSession() dispare queueSave mientras applySession() ──
-// está restaurando el DOM. Sin este flag, el debounce de 2s podría capturar
-// el DOM a medio restaurar y subir un snapshot vacío o incompleto a Supabase.
-let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
@@ -4883,10 +4875,7 @@ const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
 if (c) { c.saved_at = _saveNow; c.updated_at_local = Date.now(); c.sync_status = 'pending'; saveCasosIndex(idx); }
 // ── Encolar sincronización con Supabase (Etapa 1 — cola única) ──
-// Solo encolar si NO estamos en medio de un applySession().
-// Durante el restore el DOM está incompleto y buildSession() capturaría
-// datos vacíos o del caso anterior.
-if (typeof queueSave === 'function' && sbCurrentUser && !_isRestoringSession) {
+if (typeof queueSave === 'function' && sbCurrentUser) {
   queueSave(activeCasoId);
 }
 }
@@ -5976,18 +5965,6 @@ function addPeriodoPension() {
       desde: { mes: desdeItem.monthIdx + 1, anio: desdeItem.y, label: desdeLabel },
       hasta: { mes: hastaItem.monthIdx + 1, anio: hastaItem.y, label: hastaLabel },
     };
-  } else if (mode === 'clp') {
-    const clp = parseInt((document.getElementById('clpAmount').value || '').replace(/\./g, '').replace(/[^0-9]/g, '')) || 0;
-    if (clp <= 0) return;
-    nuevo = {
-      id: 'pp_' + Date.now(),
-      modo: 'clp',
-      utm: 0,
-      clp: clp,
-      porcentaje: 0, sueldo: 0, usaIMM: false,
-      desde: { mes: desdeItem.monthIdx + 1, anio: desdeItem.y, label: desdeLabel },
-      hasta: { mes: hastaItem.monthIdx + 1, anio: hastaItem.y, label: hastaLabel },
-    };
   } else {
     const useIMM  = document.getElementById('toggleIMM')?.checked || false;
     const pct     = parseFloat(document.getElementById('salaryPercent').value) || 0;
@@ -6053,8 +6030,6 @@ function renderPeriodosPension() {
         if (absM >= desdeAbs && absM <= hastaAbs) {
           if (p.modo === 'utm') {
             totalUTM += p.utm;
-          } else if (p.modo === 'clp') {
-            totalUTM += p.clp / d.v;
           } else {
             var base = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
             totalUTM += (base * (p.porcentaje / 100)) / d.v;
@@ -6066,8 +6041,6 @@ function renderPeriodosPension() {
     var cuotaStr;
     if (p.modo === 'utm') {
       cuotaStr = p.utm + ' UTM';
-    } else if (p.modo === 'clp') {
-      cuotaStr = '$' + format(p.clp) + ' fijo';
     } else {
       var base2 = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
       cuotaStr = p.porcentaje + '% ' + (p.usaIMM ? 'IMM' : format(base2));
@@ -6110,8 +6083,6 @@ function getPeriodoCuotaParaMes(anio, mesIdx) {
     // usando utmMesHistorico (UTM del mes), que es el valor correcto.
     if (p.modo === 'utm') {
       return { cuotaUTM: p.utm, cuotaCLP: 0, modoEsPesos: false };
-    } else if (p.modo === 'clp') {
-      return { cuotaUTM: 0, cuotaCLP: p.clp, modoEsPesos: true };
     } else {
       const base = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
       const clp  = base * (p.porcentaje / 100);
@@ -7751,9 +7722,7 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
-// Limpiar siempre antes de cargar el nuevo caso
-// Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
-resetAllSilent();
+resetAllSilent(); // limpiar siempre antes de cargar el nuevo caso
 const raw = localStorage.getItem(getCasoKey(id));
 dbg('SWITCH: id='+id.slice(0,12)+' localLen='+(raw?raw.length:0));
 if (raw) {
@@ -7763,7 +7732,8 @@ dbg('SWITCH: applySession saved_at='+(s.saved_at||'?').slice(0,19));
 applySession(s);
 } catch(e) { dbg('SWITCH PARSE ERROR: '+e.message); }
 } else {
-dbg('SWITCH: SIN DATOS localStorage — caso nuevo o sin datos locales');
+dbg('SWITCH: SIN DATOS localStorage');
+resetAllSilent();
 }
 updateActiveCasoBadge();
 renderCasosList();
@@ -7851,28 +7821,6 @@ function recalcCalcRange() {
   if (calcEndIndex   === -1) calcEndIndex   = utmData.length - 1;
 }
 function applySession(s) {
-// ── Guard Supabase: bloquea queueSave durante toda la restauración ──
-// saveSession() se dispara varias veces dentro de applySession (por handleCalculationModeChange,
-// renderHistoricalList, etc.). Sin este flag, el debounce de 2s puede capturar el DOM
-// a medio restaurar y subir un snapshot incompleto/vacío a Supabase.
-_isRestoringSession = true;
-// ── FIX v74: Limpiar totales y datos de cálculo ANTES de restaurar sesión.
-// Evita que los totales del caso anterior persistan cuando handleCalculationModeChange()
-// llama a calculate() al final de esta función — sin este reset, calculate() usaba
-// lastCalculationData del caso previo y repintaba sus totales en el caso nuevo.
-lastCalculationData = [];
-lastImputacion = null;
-document.getElementById('totalGrand').innerText = '0';
-document.getElementById('totalGrandUtm').innerText = '0.00 UTM';
-document.getElementById('totalCap').innerText = '$0';
-document.getElementById('totalCapUtm').innerText = '0.00 UTM';
-document.getElementById('totalInt').innerText = '$0';
-document.getElementById('totalIntUtm').innerText = '0.00 UTM';
-document.getElementById('yearTabsCard').classList.add('hidden');
-document.getElementById('detailsList').classList.add('hidden');
-document.getElementById('detailsList').innerHTML = '';
-document.getElementById('abonoResultRow').classList.add('hidden');
-// ── fin FIX v74 ──
 document.getElementById('calculationMode').value = s.calculationMode || 'utm';
 document.getElementById('utmAmount').value = s.utmAmount || '';
 document.getElementById('clpAmount').value = s.clpAmount || '';
@@ -7965,14 +7913,6 @@ updateSaveIndicator(s.saved_at);
 document.getElementById('saveIndicator').classList.remove('hidden');
 } else {
 document.getElementById('saveIndicator').classList.add('hidden');
-}
-// ── Liberar guard y disparar UN solo save limpio ──
-// En este punto el DOM está 100% restaurado y calculate() ya corrió.
-// Si Supabase tiene datos (sbCurrentUser existe), guardamos el snapshot
-// completo — esto corrige casos que llegaron vacíos desde otro dispositivo.
-_isRestoringSession = false;
-if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId)) {
-  queueSave(activeCasoId);
 }
 }
 function resetAllSilent() {
@@ -9297,9 +9237,8 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // En móvil, beforeunload muchas veces NO se dispara al cambiar de app.
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
 document.addEventListener('visibilitychange', async () => {
-  // Al volver a primer plano → sync desde Supabase (detecta cambios de otro dispositivo)
   if (document.visibilityState === 'visible' && sbCurrentUser) {
-    dbg('VISIBILITY: app en primer plano — recargando desde Supabase...');
+    dbg('VISIBILITY: recargando desde Supabase...');
     await sbLoadCasos();
     return;
   }
@@ -9531,7 +9470,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1920</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0529.0210</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9592,8 +9531,7 @@ function dbg(msg) {
     statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
       'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
     statusBtn.onclick = () => {
-      dbg('📊 ESTADO — lastSaved: ' + (window._lastSavedId ? window._lastSavedId.slice(0,8) : 'none') +
-          ' | lastSavedAt: ' + (window._lastSavedAt ? new Date(window._lastSavedAt).toLocaleTimeString('es-CL') : 'nunca') +
+      dbg('📊 ESTADO — cola: ' + _syncQueue.length + ' ops | running: ' + _syncRunning +
           ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
           ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
       _syncQueue.forEach((op, i) => {
@@ -10052,18 +9990,24 @@ async function sbSignOut() {
   sbAccessToken = null;
   activeCasoId = null;
 
-  // 3. Limpiar tokens del storage ANTES de llamar a signOut
-  //    para que si onAuthStateChange dispara durante signOut
-  //    no encuentre credenciales y no intente restaurar sesión.
+  // 3. Limpiar tokens de auth Y datos de casos del localStorage
+  //    CRÍTICO para multicuenta: sin esto el próximo usuario ve los casos del anterior
   try {
     const keysToDelete = Object.keys(localStorage).filter(k =>
       k === 'pension_utm_auth' ||
       k.startsWith('sb-') ||
       k.includes('supabase') ||
-      k.includes('auth-token')
+      k.includes('auth-token') ||
+      k === CASOS_INDEX_KEY ||
+      k === 'pension_utm_last_caso' ||
+      k === 'pension_utm_current_user' ||
+      k === 'pending_deletes' ||
+      k === 'sync_queue' ||
+      k.startsWith(CASO_DATA_PREFIX)
     );
     keysToDelete.forEach(k => localStorage.removeItem(k));
-  } catch(e) {}
+    dbg('SIGNOUT: localStorage limpio — ' + keysToDelete.length + ' claves eliminadas');
+  } catch(e) { dbg('SIGNOUT: error limpiando localStorage: ' + e.message); }
   try { sessionStorage.clear(); } catch(e) {}
 
   // 4. Llamar signOut en Supabase (máx 2s) — onAuthStateChange
@@ -10087,6 +10031,26 @@ async function sbSignOut() {
 async function sbLoadCasos() {
   if (!sbCurrentUser) return;
   dbg("LOAD: iniciando snapshot sync desde Supabase");
+
+  // MULTICUENTA: verificar si el localStorage pertenece al usuario actual
+  // Si hay casos de otro usuario, limpiar antes de cargar (PWA no limpia caché entre cuentas)
+  try {
+    const storedUserId = localStorage.getItem('pension_utm_current_user');
+    if (storedUserId && storedUserId !== sbCurrentUser.id) {
+      dbg('LOAD: ⚠️ localStorage de otro usuario (' + storedUserId.slice(0,8) + ') — limpiando...');
+      const casosKeys = Object.keys(localStorage).filter(k =>
+        k === CASOS_INDEX_KEY ||
+        k === 'pension_utm_last_caso' ||
+        k === 'pending_deletes' ||
+        k === 'sync_queue' ||
+        k.startsWith(CASO_DATA_PREFIX)
+      );
+      casosKeys.forEach(k => localStorage.removeItem(k));
+      dbg('LOAD: localStorage limpiado — ' + casosKeys.length + ' claves eliminadas');
+    }
+    // Registrar usuario actual para detectar cambios de cuenta
+    localStorage.setItem('pension_utm_current_user', sbCurrentUser.id);
+  } catch(e) { dbg('LOAD: error verificando usuario: ' + e.message); }
 
   // ── Reintentar deletes pendientes de sesiones anteriores ──
   try {
@@ -10272,20 +10236,24 @@ async function sbSaveCaso(id) {
     const meta = idx.find(c => c.id === id) || {};
     let data;
     if (id === activeCasoId) {
-      // Siempre preferir localStorage — es la fuente de verdad.
-      // saveSession() escribe ahí con debounce ANTES de que queueSave llegue aquí,
-      // por lo que localStorage siempre tiene el snapshot más reciente y completo.
-      // buildSession() lee del DOM y es frágil: puede capturar campos vacíos si
-      // applySession() aún no terminó, o si el modo es salary_percent (utmAmount y
-      // clpAmount quedan vacíos aunque el caso tenga datos válidos).
+      // Preferir localStorage si tiene datos válidos (más de 5 keys).
+      // buildSession() lee del DOM — si applySession() aún no corrió,
+      // el DOM puede estar vacío y se guardarían campos en cero/vacío.
       const rawLocal = localStorage.getItem(CASO_DATA_PREFIX + id);
       const localParsed = rawLocal ? (() => { try { return JSON.parse(rawLocal); } catch(e) { return null; } })() : null;
       if (localParsed && typeof localParsed === 'object' && Object.keys(localParsed).length > 5) {
-        data = localParsed;
-        dbg('SAVE: usando localStorage para ' + id.slice(0,8) + ' (' + Object.keys(localParsed).length + ' keys)');
+        // Verificar que el DOM también tenga datos (applySession ya corrió)
+        const domUtm = document.getElementById('utmAmount')?.value;
+        const domClp = document.getElementById('clpAmount')?.value;
+        if (domUtm || domClp) {
+          // DOM tiene datos — buildSession es confiable
+          data = buildSession();
+        } else {
+          // DOM vacío — usar localStorage para no sobreescribir con ceros
+          dbg('SAVE: DOM vacío, usando localStorage para ' + id.slice(0,8));
+          data = localParsed;
+        }
       } else {
-        // localStorage vacío o insuficiente — buildSession() como último recurso
-        dbg('SAVE: localStorage insuficiente, usando buildSession() para ' + id.slice(0,8));
         data = buildSession();
       }
     } else {
@@ -10296,7 +10264,7 @@ async function sbSaveCaso(id) {
     // Validar que data no esté vacío antes de enviar a Supabase
     const dataKeys = data ? Object.keys(data).length : 0;
     if (dataKeys < 3) {
-      dbg('SAVE: ⛔ payload vacío para ' + id.slice(0,8) + ' (' + dataKeys + ' keys) — abortando');
+      dbg('SAVE: ⛔ payload vacío (' + dataKeys + ' keys) — abortando para ' + id.slice(0,8));
       return;
     }
     // PASO 4: Snapshot completo con updated_at para LAST WRITE WINS
@@ -10323,7 +10291,7 @@ async function sbSaveCaso(id) {
     const _sbToken = sbAccessToken || _sbAccessToken;
     if (!_sbToken || !sbCurrentUser?.id) {
       dbg('SAVE: ⛔ sin token o sin user_id — abortando');
-      return; // No lanzar excepción — es condición esperada al iniciar
+      return;
     }
     dbg('[DIAG] token ok');
 
@@ -10347,6 +10315,21 @@ async function sbSaveCaso(id) {
       clearTimeout(_insTimer);
       dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
       window._lastSavedId = id; window._lastSavedAt = Date.now();
+    } else if (_insRes.status === 200 && (!_insBody || (Array.isArray(_insBody) && _insBody.length === 0))) {
+      // Supabase devolvió 200 vacío — el caso ya existía, forzar PATCH
+      dbg('SAVE: 200 vacío — caso ya existe, forzando UPDATE');
+      const _updRes2 = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+          'Authorization': 'Bearer ' + _sbToken,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
+      });
+      if (_updRes2.ok) { dbg('✅ SAVE PATCH OK (200-vacío): caso ' + id.slice(0,8)); window._lastSavedId = id; window._lastSavedAt = Date.now(); }
+      else { const e2 = await _updRes2.json(); throw new Error('PATCH(200) ' + _updRes2.status + ': ' + JSON.stringify(e2)); }
     } else if (_insRes.status === 409 || (_insBody?.code === '23505')) {
       clearTimeout(_insTimer);
       // Ya existe → PATCH (UPDATE)
@@ -10372,7 +10355,6 @@ async function sbSaveCaso(id) {
   } catch(e) {
     dbg('❌ SAVE EXCEPTION: ' + e.message + ' — reintentando en 5s...');
     showSyncToast('⚠️ Error de red — reintentando...');
-    // Reintento único tras 5s — simple y sin estado global
     setTimeout(() => {
       if (sbCurrentUser && !_deletedCasoIds.has(id)) {
         dbg('SAVE: reintento para ' + id.slice(0,8));
@@ -10439,7 +10421,7 @@ async function _sbDeleteCasoCore(id) {
     if (!_delToken) { dbg('DELETE: ⛔ sin token'); throw new Error('sin token'); }
     dbg('[DIAG DELETE] token ok');
     const _delController = new AbortController();
-    setTimeout(() => _delController.abort(), 30000);
+    setTimeout(() => _delController.abort(), 15000);
     const _delRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id, {
       method: 'DELETE',
       headers: {
