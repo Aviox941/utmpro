@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1840">
+ <meta name="app-version" content="2.0528.1850">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -9235,13 +9235,7 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // ── Guardar cuando la app pasa a segundo plano (iOS/Android) ──────────────
 // En móvil, beforeunload muchas veces NO se dispara al cambiar de app.
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
-document.addEventListener('visibilitychange', async () => {
-  // Al volver a primer plano → recargar desde Supabase para ver cambios de otros dispositivos
-  if (document.visibilityState === 'visible' && sbCurrentUser) {
-    dbg('VISIBILITY: app en primer plano — sincronizando desde Supabase...');
-    await sbLoadCasos();
-    return;
-  }
+document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'hidden') return;
   if (!activeCasoId || !sbCurrentUser) return;
   if (_deletedCasoIds.has(activeCasoId)) {
@@ -9470,7 +9464,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1840</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1850</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -10268,7 +10262,7 @@ async function sbSaveCaso(id) {
         'Content-Type': 'application/json',
         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
         'Authorization': 'Bearer ' + _sbToken,
-        'Prefer': 'return=representation,resolution=ignore-duplicates'
+        'Prefer': 'return=representation'
       },
       body: JSON.stringify(payload),
       signal: _insController.signal
@@ -10279,6 +10273,21 @@ async function sbSaveCaso(id) {
     if (_insRes.status === 201) {
       dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
       window._lastSavedId = id; window._lastSavedAt = Date.now();
+    } else if (_insRes.status === 200 && (!_insBody || (Array.isArray(_insBody) && _insBody.length === 0))) {
+      // Supabase devolvió 200 vacío — el caso ya existía, forzar PATCH
+      dbg('SAVE: 200 vacío — caso ya existe, forzando UPDATE');
+      const _updRes2 = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+          'Authorization': 'Bearer ' + _sbToken,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
+      });
+      if (_updRes2.ok) { dbg('✅ SAVE PATCH OK (200-vacío): caso ' + id.slice(0,8)); window._lastSavedId = id; window._lastSavedAt = Date.now(); }
+      else { const e2 = await _updRes2.json(); throw new Error('PATCH(200) ' + _updRes2.status + ': ' + JSON.stringify(e2)); }
     } else if (_insRes.status === 409 || (_insBody?.code === '23505')) {
       // Ya existe → PATCH (UPDATE)
       const _updRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
