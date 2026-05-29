@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1860">
+ <meta name="app-version" content="2.0528.1870">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v74 · FIX TOTALES ENTRE CASOS</title>
+ <title>Pensión UTM - Liquidación Pro v74 · FIX PERIODOS CLP + ANIMACION + SUPABASE SYNC</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3104,17 +3104,21 @@
 
   /* ── Collapsible sections ───────────────────────────────────── */
   .collapsible-body {
-    overflow: hidden;
-    transition: max-height 0.3s cubic-bezier(.4,0,.2,1), opacity 0.25s ease;
-    max-height: 2000px;
+    display: grid;
+    grid-template-rows: 1fr;
     opacity: 1;
+    transition: grid-template-rows 0.28s cubic-bezier(.4,0,.2,1), opacity 0.22s ease;
+    will-change: grid-template-rows;
+  }
+  .collapsible-body > * {
+    overflow: hidden;
   }
   .collapsible-body.is-collapsed {
-    max-height: 0 !important;
+    grid-template-rows: 0fr !important;
     opacity: 0;
   }
   .collapse-chevron {
-    transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     flex-shrink: 0;
   }
   .collapse-chevron.is-collapsed {
@@ -4848,6 +4852,10 @@ let lastCalculationData = [];
 let lastImputacion = null; // resultado de imputarAbonosArt1595, reutilizado por generarPDF
 let activeTabYear = null;
 let saveTimeout = null;
+// ── Guard: evita que saveSession() dispare queueSave mientras applySession() ──
+// está restaurando el DOM. Sin este flag, el debounce de 2s podría capturar
+// el DOM a medio restaurar y subir un snapshot vacío o incompleto a Supabase.
+let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
@@ -4875,7 +4883,10 @@ const idx = getCasosIndex();
 const c = idx.find(x => x.id === activeCasoId);
 if (c) { c.saved_at = _saveNow; c.updated_at_local = Date.now(); c.sync_status = 'pending'; saveCasosIndex(idx); }
 // ── Encolar sincronización con Supabase (Etapa 1 — cola única) ──
-if (typeof queueSave === 'function' && sbCurrentUser) {
+// Solo encolar si NO estamos en medio de un applySession().
+// Durante el restore el DOM está incompleto y buildSession() capturaría
+// datos vacíos o del caso anterior.
+if (typeof queueSave === 'function' && sbCurrentUser && !_isRestoringSession) {
   queueSave(activeCasoId);
 }
 }
@@ -5965,6 +5976,18 @@ function addPeriodoPension() {
       desde: { mes: desdeItem.monthIdx + 1, anio: desdeItem.y, label: desdeLabel },
       hasta: { mes: hastaItem.monthIdx + 1, anio: hastaItem.y, label: hastaLabel },
     };
+  } else if (mode === 'clp') {
+    const clp = parseInt((document.getElementById('clpAmount').value || '').replace(/\./g, '').replace(/[^0-9]/g, '')) || 0;
+    if (clp <= 0) return;
+    nuevo = {
+      id: 'pp_' + Date.now(),
+      modo: 'clp',
+      utm: 0,
+      clp: clp,
+      porcentaje: 0, sueldo: 0, usaIMM: false,
+      desde: { mes: desdeItem.monthIdx + 1, anio: desdeItem.y, label: desdeLabel },
+      hasta: { mes: hastaItem.monthIdx + 1, anio: hastaItem.y, label: hastaLabel },
+    };
   } else {
     const useIMM  = document.getElementById('toggleIMM')?.checked || false;
     const pct     = parseFloat(document.getElementById('salaryPercent').value) || 0;
@@ -6030,6 +6053,8 @@ function renderPeriodosPension() {
         if (absM >= desdeAbs && absM <= hastaAbs) {
           if (p.modo === 'utm') {
             totalUTM += p.utm;
+          } else if (p.modo === 'clp') {
+            totalUTM += p.clp / d.v;
           } else {
             var base = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
             totalUTM += (base * (p.porcentaje / 100)) / d.v;
@@ -6041,6 +6066,8 @@ function renderPeriodosPension() {
     var cuotaStr;
     if (p.modo === 'utm') {
       cuotaStr = p.utm + ' UTM';
+    } else if (p.modo === 'clp') {
+      cuotaStr = '$' + format(p.clp) + ' fijo';
     } else {
       var base2 = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
       cuotaStr = p.porcentaje + '% ' + (p.usaIMM ? 'IMM' : format(base2));
@@ -6083,6 +6110,8 @@ function getPeriodoCuotaParaMes(anio, mesIdx) {
     // usando utmMesHistorico (UTM del mes), que es el valor correcto.
     if (p.modo === 'utm') {
       return { cuotaUTM: p.utm, cuotaCLP: 0, modoEsPesos: false };
+    } else if (p.modo === 'clp') {
+      return { cuotaUTM: 0, cuotaCLP: p.clp, modoEsPesos: true };
     } else {
       const base = p.usaIMM ? SUELDO_MINIMO : p.sueldo;
       const clp  = base * (p.porcentaje / 100);
@@ -7822,6 +7851,11 @@ function recalcCalcRange() {
   if (calcEndIndex   === -1) calcEndIndex   = utmData.length - 1;
 }
 function applySession(s) {
+// ── Guard Supabase: bloquea queueSave durante toda la restauración ──
+// saveSession() se dispara varias veces dentro de applySession (por handleCalculationModeChange,
+// renderHistoricalList, etc.). Sin este flag, el debounce de 2s puede capturar el DOM
+// a medio restaurar y subir un snapshot incompleto/vacío a Supabase.
+_isRestoringSession = true;
 // ── FIX v74: Limpiar totales y datos de cálculo ANTES de restaurar sesión.
 // Evita que los totales del caso anterior persistan cuando handleCalculationModeChange()
 // llama a calculate() al final de esta función — sin este reset, calculate() usaba
@@ -7931,6 +7965,14 @@ updateSaveIndicator(s.saved_at);
 document.getElementById('saveIndicator').classList.remove('hidden');
 } else {
 document.getElementById('saveIndicator').classList.add('hidden');
+}
+// ── Liberar guard y disparar UN solo save limpio ──
+// En este punto el DOM está 100% restaurado y calculate() ya corrió.
+// Si Supabase tiene datos (sbCurrentUser existe), guardamos el snapshot
+// completo — esto corrige casos que llegaron vacíos desde otro dispositivo.
+_isRestoringSession = false;
+if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId)) {
+  queueSave(activeCasoId);
 }
 }
 function resetAllSilent() {
@@ -10230,24 +10272,20 @@ async function sbSaveCaso(id) {
     const meta = idx.find(c => c.id === id) || {};
     let data;
     if (id === activeCasoId) {
-      // Preferir localStorage si tiene datos válidos (más de 5 keys).
-      // buildSession() lee del DOM — si applySession() aún no corrió,
-      // el DOM puede estar vacío y se guardarían campos en cero/vacío.
+      // Siempre preferir localStorage — es la fuente de verdad.
+      // saveSession() escribe ahí con debounce ANTES de que queueSave llegue aquí,
+      // por lo que localStorage siempre tiene el snapshot más reciente y completo.
+      // buildSession() lee del DOM y es frágil: puede capturar campos vacíos si
+      // applySession() aún no terminó, o si el modo es salary_percent (utmAmount y
+      // clpAmount quedan vacíos aunque el caso tenga datos válidos).
       const rawLocal = localStorage.getItem(CASO_DATA_PREFIX + id);
       const localParsed = rawLocal ? (() => { try { return JSON.parse(rawLocal); } catch(e) { return null; } })() : null;
       if (localParsed && typeof localParsed === 'object' && Object.keys(localParsed).length > 5) {
-        // Verificar que el DOM también tenga datos (applySession ya corrió)
-        const domUtm = document.getElementById('utmAmount')?.value;
-        const domClp = document.getElementById('clpAmount')?.value;
-        if (domUtm || domClp) {
-          // DOM tiene datos — buildSession es confiable
-          data = buildSession();
-        } else {
-          // DOM vacío — usar localStorage para no sobreescribir con ceros
-          dbg('SAVE: DOM vacío, usando localStorage para ' + id.slice(0,8));
-          data = localParsed;
-        }
+        data = localParsed;
+        dbg('SAVE: usando localStorage para ' + id.slice(0,8) + ' (' + Object.keys(localParsed).length + ' keys)');
       } else {
+        // localStorage vacío o insuficiente — buildSession() como último recurso
+        dbg('SAVE: localStorage insuficiente, usando buildSession() para ' + id.slice(0,8));
         data = buildSession();
       }
     } else {
