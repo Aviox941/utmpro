@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1850">
+ <meta name="app-version" content="2.0528.1860">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v73 · REFACTOR ETAPA 3.1 + ART.1595 DESGLOSE PDF</title>
+ <title>Pensión UTM - Liquidación Pro v74 · FIX TOTALES ENTRE CASOS</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -7722,6 +7722,9 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
+// Limpiar siempre antes de cargar el nuevo caso
+// Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
+resetAllSilent();
 const raw = localStorage.getItem(getCasoKey(id));
 dbg('SWITCH: id='+id.slice(0,12)+' localLen='+(raw?raw.length:0));
 if (raw) {
@@ -7731,8 +7734,7 @@ dbg('SWITCH: applySession saved_at='+(s.saved_at||'?').slice(0,19));
 applySession(s);
 } catch(e) { dbg('SWITCH PARSE ERROR: '+e.message); }
 } else {
-dbg('SWITCH: SIN DATOS localStorage');
-resetAllSilent();
+dbg('SWITCH: SIN DATOS localStorage — caso nuevo o sin datos locales');
 }
 updateActiveCasoBadge();
 renderCasosList();
@@ -7820,6 +7822,23 @@ function recalcCalcRange() {
   if (calcEndIndex   === -1) calcEndIndex   = utmData.length - 1;
 }
 function applySession(s) {
+// ── FIX v74: Limpiar totales y datos de cálculo ANTES de restaurar sesión.
+// Evita que los totales del caso anterior persistan cuando handleCalculationModeChange()
+// llama a calculate() al final de esta función — sin este reset, calculate() usaba
+// lastCalculationData del caso previo y repintaba sus totales en el caso nuevo.
+lastCalculationData = [];
+lastImputacion = null;
+document.getElementById('totalGrand').innerText = '0';
+document.getElementById('totalGrandUtm').innerText = '0.00 UTM';
+document.getElementById('totalCap').innerText = '$0';
+document.getElementById('totalCapUtm').innerText = '0.00 UTM';
+document.getElementById('totalInt').innerText = '$0';
+document.getElementById('totalIntUtm').innerText = '0.00 UTM';
+document.getElementById('yearTabsCard').classList.add('hidden');
+document.getElementById('detailsList').classList.add('hidden');
+document.getElementById('detailsList').innerHTML = '';
+document.getElementById('abonoResultRow').classList.add('hidden');
+// ── fin FIX v74 ──
 document.getElementById('calculationMode').value = s.calculationMode || 'utm';
 document.getElementById('utmAmount').value = s.utmAmount || '';
 document.getElementById('clpAmount').value = s.clpAmount || '';
@@ -9235,7 +9254,13 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // ── Guardar cuando la app pasa a segundo plano (iOS/Android) ──────────────
 // En móvil, beforeunload muchas veces NO se dispara al cambiar de app.
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
-document.addEventListener('visibilitychange', () => {
+document.addEventListener('visibilitychange', async () => {
+  // Al volver a primer plano → sync desde Supabase (detecta cambios de otro dispositivo)
+  if (document.visibilityState === 'visible' && sbCurrentUser) {
+    dbg('VISIBILITY: app en primer plano — recargando desde Supabase...');
+    await sbLoadCasos();
+    return;
+  }
   if (document.visibilityState !== 'hidden') return;
   if (!activeCasoId || !sbCurrentUser) return;
   if (_deletedCasoIds.has(activeCasoId)) {
@@ -9464,7 +9489,7 @@ document.addEventListener('visibilitychange', () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1850</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1920</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9525,7 +9550,8 @@ function dbg(msg) {
     statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
       'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
     statusBtn.onclick = () => {
-      dbg('📊 ESTADO — cola: ' + _syncQueue.length + ' ops | running: ' + _syncRunning +
+      dbg('📊 ESTADO — lastSaved: ' + (window._lastSavedId ? window._lastSavedId.slice(0,8) : 'none') +
+          ' | lastSavedAt: ' + (window._lastSavedAt ? new Date(window._lastSavedAt).toLocaleTimeString('es-CL') : 'nunca') +
           ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
           ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
       _syncQueue.forEach((op, i) => {
@@ -10229,6 +10255,12 @@ async function sbSaveCaso(id) {
       const raw = localStorage.getItem(CASO_DATA_PREFIX + id);
       data = raw ? (() => { try { return JSON.parse(raw); } catch(e) { return {}; } })() : {};
     }
+    // Validar que data no esté vacío antes de enviar a Supabase
+    const dataKeys = data ? Object.keys(data).length : 0;
+    if (dataKeys < 3) {
+      dbg('SAVE: ⛔ payload vacío para ' + id.slice(0,8) + ' (' + dataKeys + ' keys) — abortando');
+      return;
+    }
     // PASO 4: Snapshot completo con updated_at para LAST WRITE WINS
     const now = new Date().toISOString();
     const payload = {
@@ -10251,11 +10283,14 @@ async function sbSaveCaso(id) {
     if (_deletedCasoIds.has(id)) { dbg('SAVE: ⛔ eliminado antes del query'); return; }
     // INSERT directo via fetch REST — más liviano que el SDK en móvil
     const _sbToken = sbAccessToken || _sbAccessToken;
-    if (!_sbToken) { dbg('SAVE: ⛔ sin token'); throw new Error('sin token'); }
+    if (!_sbToken || !sbCurrentUser?.id) {
+      dbg('SAVE: ⛔ sin token o sin user_id — abortando');
+      return; // No lanzar excepción — es condición esperada al iniciar
+    }
     dbg('[DIAG] token ok');
 
     const _insController = new AbortController();
-    setTimeout(() => _insController.abort(), 15000);
+    const _insTimer = setTimeout(() => _insController.abort(), 30000);
     const _insRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos', {
       method: 'POST',
       headers: {
@@ -10271,24 +10306,11 @@ async function sbSaveCaso(id) {
     dbg('[DIAG] INSERT HTTP ' + _insRes.status + ' body=' + JSON.stringify(_insBody).slice(0,80));
 
     if (_insRes.status === 201) {
+      clearTimeout(_insTimer);
       dbg('✅ SAVE INSERT OK: caso ' + id.slice(0,8));
       window._lastSavedId = id; window._lastSavedAt = Date.now();
-    } else if (_insRes.status === 200 && (!_insBody || (Array.isArray(_insBody) && _insBody.length === 0))) {
-      // Supabase devolvió 200 vacío — el caso ya existía, forzar PATCH
-      dbg('SAVE: 200 vacío — caso ya existe, forzando UPDATE');
-      const _updRes2 = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
-          'Authorization': 'Bearer ' + _sbToken,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({ nombre: payload.nombre, meta: payload.meta, data: payload.data, saved_at: payload.saved_at })
-      });
-      if (_updRes2.ok) { dbg('✅ SAVE PATCH OK (200-vacío): caso ' + id.slice(0,8)); window._lastSavedId = id; window._lastSavedAt = Date.now(); }
-      else { const e2 = await _updRes2.json(); throw new Error('PATCH(200) ' + _updRes2.status + ': ' + JSON.stringify(e2)); }
     } else if (_insRes.status === 409 || (_insBody?.code === '23505')) {
+      clearTimeout(_insTimer);
       // Ya existe → PATCH (UPDATE)
       const _updRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id + '&user_id=eq.' + sbCurrentUser.id, {
         method: 'PATCH',
@@ -10310,8 +10332,18 @@ async function sbSaveCaso(id) {
       throw new Error('INSERT HTTP ' + _insRes.status);
     }
   } catch(e) {
-    dbg('❌ SAVE EXCEPTION: ' + e.message);
-    showSyncToast('⚠️ Error: ' + e.message);
+    dbg('❌ SAVE EXCEPTION: ' + e.message + ' — reintentando en 5s...');
+    showSyncToast('⚠️ Error de red — reintentando...');
+    // Reintento único tras 5s — simple y sin estado global
+    setTimeout(() => {
+      if (sbCurrentUser && !_deletedCasoIds.has(id)) {
+        dbg('SAVE: reintento para ' + id.slice(0,8));
+        sbSaveCaso(id).catch(e2 => {
+          dbg('SAVE: reintento fallido — ' + e2.message);
+          showSyncToast('⚠️ Sin conexión — dato guardado localmente');
+        });
+      }
+    }, 5000);
   }
 }
 
@@ -10369,7 +10401,7 @@ async function _sbDeleteCasoCore(id) {
     if (!_delToken) { dbg('DELETE: ⛔ sin token'); throw new Error('sin token'); }
     dbg('[DIAG DELETE] token ok');
     const _delController = new AbortController();
-    setTimeout(() => _delController.abort(), 15000);
+    setTimeout(() => _delController.abort(), 30000);
     const _delRes = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/rest/v1/casos?id=eq.' + id, {
       method: 'DELETE',
       headers: {
