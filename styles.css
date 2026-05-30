@@ -1,0 +1,3101 @@
+/* ============================================================
+     /styles/theme.css  — VARIABLES CENTRALIZADAS
+     Reemplaza todos los colores, radios, sombras hardcodeados.
+     Un único lugar para cambiar la identidad visual completa.
+     ============================================================ */
+  :root {
+   /* --- Paleta base — Light Legal Fintech --- */
+   --color-bg-app:        #f5f6f8;
+   --color-bg-surface:    #ffffff;
+   --color-bg-elevated:   #f0f1f5;
+   --color-bg-input:      #ffffff;
+   --color-bg-inset:      #f7f8fa;
+
+   /* --- Acento principal (violeta) --- */
+   --color-accent:        #2563eb;
+   --color-accent-light:  #60a5fa;
+   --color-accent-muted:  #3b82f6;
+   --color-accent-pale:   #93c5fd;
+
+   /* --- Texto --- */
+   --color-text-primary:  #1a1d2e;
+   --color-text-secondary:#5a6380;
+   --color-text-muted:    #8e97b0;
+   --color-text-faint:    rgba(0,0,0,0.25);
+
+   /* --- Bordes / separadores --- */
+   --color-border:        rgba(0,0,0,0.07);
+   --color-border-accent: rgba(37,99,235,0.25);
+   --color-border-input:  rgba(37,99,235,0.18);
+   --color-border-card:   rgba(0,0,0,0.07);
+
+   /* --- Colores semánticos de sección --- */
+   --color-cyan:          #0891b2;
+   --color-cyan-bg:       rgba(8,145,178,0.06);
+   --color-cyan-border:   rgba(8,145,178,0.15);
+   --color-blue:          #3b82f6;
+   --color-blue-bg:       rgba(59,130,246,0.06);
+   --color-blue-border:   rgba(59,130,246,0.15);
+   --color-purple:        #7c3aed;
+   --color-purple-bg:     rgba(37,99,235,0.06);
+   --color-purple-border: rgba(37,99,235,0.15);
+   --color-orange:        #ea580c;
+   --color-orange-bg:     rgba(234,88,12,0.06);
+   --color-orange-border: rgba(234,88,12,0.15);
+   --color-red:           #dc2626;
+   --color-red-bg:        rgba(220,38,38,0.08);
+
+   /* --- Radios --- */
+   --radius-sm:   8px;
+   --radius-md:   12px;
+   --radius-lg:   16px;
+   --radius-xl:   20px;
+   --radius-2xl:  24px;
+   --radius-3xl:  32px;
+   --radius-full: 9999px;
+
+   /* --- Sombras --- */
+   --shadow-card: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.05);
+   --shadow-modal:0 8px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08);
+   --shadow-accent:0 2px 10px rgba(37,99,235,0.18);
+
+   /* --- Tipografía --- */
+   --font-main:  "DM Sans", system-ui, sans-serif;
+   --font-mono:  "DM Mono", "Fira Code", monospace;
+   --font-weight-black: 700;
+   --font-weight-bold:  600;
+
+   /* --- Transiciones --- */
+   --transition-fast: 0.15s ease;
+   --transition-base: 0.2s ease;
+   --transition-slow: 0.3s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ============================================================
+     /styles/components.css — CLASES UI REUTILIZABLES
+     Cada bloque corresponde a un componente futuro separable.
+     Se reemplaza aquí el CSS inline repetido en todo el archivo.
+     ============================================================ */
+
+  /* --- Base global --- */
+  body {
+   -webkit-tap-highlight-color: transparent;
+   scroll-behavior: smooth;
+   background-color: var(--color-bg-app);
+   color: var(--color-text-primary);
+   font-family: var(--font-main);
+   /* Bloquear pull-to-refresh en Android Chrome */
+   overscroll-behavior-y: none;
+  }
+
+  /* --- Utilidad: ocultar scrollbar (no-scrollbar) --- */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* --- Componente: Card de detalle de cuota (detail-card) --- */
+  /* Futuro: /components/ui/Card.js → <DetailCard /> */
+  .detail-card {
+   border: 1px solid var(--color-border-card);
+   background-color: var(--color-bg-surface);
+   color: var(--color-text-primary);
+   padding: 0.75rem;
+   border-radius: var(--radius-xl);
+   display: flex;
+   flex-direction: column;
+   justify-content: space-between;
+   min-height: 85px;
+   cursor: pointer;
+   box-shadow: var(--shadow-card);
+  }
+
+  /* --- Componente: Switch / Toggle (switch, slider) --- */
+  /* Futuro: /components/ui/Toggle.js → <Toggle /> */
+  .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+   position: absolute; cursor: pointer;
+   top: 0; left: 0; right: 0; bottom: 0;
+   background-color: #d1d5e0;
+   transition: var(--transition-slow);
+   border-radius: var(--radius-full);
+  }
+  .slider:before {
+   position: absolute; content: "";
+   height: 14px; width: 14px;
+   left: 3px; bottom: 3px;
+   background-color: white;
+   transition: var(--transition-slow);
+   border-radius: 50%;
+   box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  }
+  input:checked + .slider { background-color: var(--color-accent); }
+  input:checked + .slider:before { transform: translateX(20px); }
+  .switch-orange input:checked + .slider { background-color: var(--color-orange); }
+
+  /* --- Componente: Tabs de año (year-tab) --- */
+  /* Futuro: /components/ui/Tabs.js → <YearTab /> */
+  .year-tab {
+   padding: 8px 16px;
+   border-radius: var(--radius-md);
+   font-size: 12px;
+   font-weight: var(--font-weight-black);
+   background: #eef0f5;
+   color: #4a6080;
+   white-space: nowrap;
+   border: 1px solid rgba(0,0,0,0.06);
+  }
+  .year-tab.active  { background: var(--color-accent); color: white; border-color: var(--color-accent); box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
+  .year-tab.hist    { background: #fff7ed; color: #c2410c; border-color: rgba(234,88,12,0.15); }
+  .year-tab.hist.active { background: #ea580c; color: white; border-color: #ea580c; }
+
+  /* --- Componente: Grid de meses (calendrio) (month-grid, month-btn) --- */
+  /* Futuro: /components/ui/Calendar.js → <MonthGrid /> */
+  .month-grid {
+   display: grid;
+   grid-template-columns: repeat(3, 1fr);
+   gap: 8px;
+  }
+  .month-btn {
+   padding: 12px 5px;
+   border-radius: var(--radius-md);
+   font-size: 11px;
+   font-weight: var(--font-weight-black);
+   transition: all var(--transition-base);
+   border: 1px solid rgba(0,0,0,0.08);
+   text-transform: uppercase;
+   color: var(--color-text-secondary);
+   background: #f0f2f7;
+  }
+  .month-btn.active   { background-color: var(--color-accent); color: white; border-color: var(--color-accent); box-shadow: 0 2px 8px rgba(37,99,235,0.2); }
+  .month-btn.disabled { opacity: 0.35; pointer-events: none; background-color: #e8eaf0; }
+
+  /* --- Componente: Item de lista (abono-item, hist-item) --- */
+  /* Futuro: /components/ui/ListItem.js → <ListItem /> */
+  .abono-item,
+  .hist-item {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   background: #f7f8fb;
+   padding: 8px 12px;
+   border-radius: var(--radius-md);
+   border: 1px solid rgba(0,0,0,0.06);
+   margin-bottom: 4px;
+   color: var(--color-text-primary);
+  }
+
+  /* --- Componente: Sidebar (sidebar, sidebarOverlay, caso-item) --- */
+  /* Futuro: /components/layout/Sidebar.js → <Sidebar /> */
+  #sidebarOverlay {
+   position: fixed; inset: 0; z-index: 300;
+   background: rgba(26,29,46,0.35);
+   backdrop-filter: blur(4px);
+   opacity: 0; pointer-events: none;
+   transition: opacity 0.3s ease;
+  }
+  #sidebarOverlay.open { opacity: 1; pointer-events: all; }
+  #sidebar {
+   position: fixed; top: 0; left: 0; bottom: 0;
+   z-index: 310; width: 280px;
+   background: #ffffff;
+   border-right: 1px solid rgba(0,0,0,0.07);
+   transform: translateX(-100%);
+   transition: transform var(--transition-slow);
+   display: flex; flex-direction: column; overflow: hidden;
+   box-shadow: 4px 0 24px rgba(0,0,0,0.10);
+   padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  .caso-item {
+   display: flex; align-items: center; gap: 10px;
+   padding: 10px 14px;
+   border-radius: var(--radius-md);
+   cursor: pointer;
+   transition: background var(--transition-fast);
+   border: 1px solid transparent;
+   margin-bottom: 4px;
+  }
+  .caso-item:hover { background: rgba(37,99,235,0.06); }
+  .caso-item.active {
+   background: rgba(37,99,235,0.08);
+   border-color: rgba(37,99,235,0.18);
+  }
+  .caso-avatar {
+   width: 32px; height: 32px;
+   border-radius: 10px;
+   background: #eef0f7;
+   display: flex; align-items: center; justify-content: center;
+   font-size: 13px; font-weight: var(--font-weight-black);
+   color: var(--color-text-secondary); flex-shrink: 0;
+   border: 1px solid rgba(0,0,0,0.06);
+  }
+  .caso-item.active .caso-avatar {
+   background: rgba(37,99,235,0.12);
+   color: #1d4ed8;
+   border-color: rgba(37,99,235,0.22);
+  }
+
+  /* --- Componente: Toast de guardado (saveToast) --- */
+  #saveToast {
+   position: fixed; bottom: 90px; left: 50%;
+   transform: translateX(-50%) translateY(20px);
+   background: var(--color-accent);
+   color: white; padding: 8px 20px;
+   border-radius: var(--radius-full);
+   font-size: 11px; font-weight: var(--font-weight-black);
+   opacity: 0; transition: all 0.3s ease;
+   z-index: 200; pointer-events: none; white-space: nowrap;
+  }
+  #saveToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* --- Componente: Botones con estado (btn-ready y variantes) --- */
+  /* Futuro: /components/ui/Button.js → <Button variant="ready|amber|violet" /> */
+  .btn-ready       { transition: opacity var(--transition-base); animation: btnPulse 0.6s ease-out 1; }
+  .btn-ready-amber { transition: opacity var(--transition-base); animation: btnPulseAmber 0.6s ease-out 1; }
+  .btn-ready-violet{ transition: opacity var(--transition-base); animation: btnPulseViolet 0.6s ease-out 1; }
+
+  @keyframes btnPulse {
+   0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); transform: scale(1); }
+   50%  { box-shadow: 0 0 0 10px rgba(16,185,129,0); transform: scale(1.02); }
+   100% { box-shadow: 0 0 0 0  rgba(16,185,129,0); transform: scale(1); }
+  }
+  @keyframes btnPulseAmber {
+   0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.35); transform: scale(1); }
+   50%  { box-shadow: 0 0 0 10px rgba(59,130,246,0); transform: scale(1.02); }
+   100% { box-shadow: 0 0 0 0  rgba(59,130,246,0); transform: scale(1); }
+  }
+  @keyframes btnPulseViolet {
+   0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.35); transform: scale(1); }
+   50%  { box-shadow: 0 0 0 10px rgba(59,130,246,0); transform: scale(1.02); }
+   100% { box-shadow: 0 0 0 0  rgba(59,130,246,0); transform: scale(1); }
+  }
+
+  /* ============================================================
+     /components/ui/Button.js — SISTEMA DE BOTONES REUTILIZABLES
+     ETAPA 2.1: Centraliza padding, radius, sombra, hover, active,
+     tipografía y colores. Reemplaza clases inline repetidas.
+     Variantes: btn-primary | btn-secondary | btn-danger | btn-ghost
+     ============================================================ */
+
+  /* --- Base común a todas las variantes --- */
+  .btn-base {
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   padding: 0.75rem 1rem;       /* py-3 px-4 */
+   border-radius: var(--radius-md);  /* rounded-xl */
+   font-family: var(--font-main);
+   font-size: 0.75rem;          /* text-xs */
+   font-weight: var(--font-weight-black); /* font-black */
+   text-transform: uppercase;
+   letter-spacing: 0.025em;
+   border: 1px solid transparent;
+   cursor: pointer;
+   transition: all var(--transition-base);
+   line-height: 1;
+   white-space: nowrap;
+   -webkit-tap-highlight-color: transparent;
+  }
+  .btn-base:active { transform: scale(0.95); }
+
+  /* --- PrimaryButton: acción principal violeta sólido --- */
+  /* Usado en: "Nuevo Caso", "Crear", "Guardar" */
+  .btn-primary {
+   background: var(--color-accent);
+   color: white;
+   border-color: transparent;
+   box-shadow: var(--shadow-accent);
+  }
+  .btn-primary:hover { background: var(--color-accent-muted); }
+  .btn-primary:disabled {
+   opacity: 0.4;
+   cursor: not-allowed;
+   transform: none;
+  }
+
+  /* --- SecondaryButton: acción secundaria violeta fantasma --- */
+  /* Usado en: "Entendido", "Cerrar" footer de modales */
+  .btn-secondary {
+   background: rgba(37,99,235,0.08);
+   color: var(--color-accent);
+   border-color: rgba(37,99,235,0.18);
+  }
+  .btn-secondary:hover { background: rgba(37,99,235,0.14); }
+
+  /* --- DangerButton: acción destructiva rojo --- */
+  /* Usado en: "Eliminar", "Sí, limpiar" */
+  .btn-danger {
+   background: #ef4444;
+   color: white;
+   border-color: transparent;
+  }
+  .btn-danger:hover { background: #dc2626; }
+
+  /* --- GhostButton: neutra, sin acento — "Cancelar" --- */
+  /* Usado en: todos los botones "Cancelar" de modales */
+  .btn-ghost {
+   background: #f0f2f7;
+   color: var(--color-text-secondary);
+   border-color: rgba(0,0,0,0.07);
+  }
+  .btn-ghost:hover { background: #e6e9f2; }
+
+  /* --- Variante full-width (para modales) --- */
+  .btn-full { width: 100%; }
+
+  /* --- Variante flex (mitad en grid de 2) --- */
+  .btn-flex { flex: 1; }
+
+  /* ============================================================ */
+
+  /* --- Utilidad: Animación de entrada (animate-fadeIn) --- */
+  .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn {
+   from { opacity: 0; transform: translateY(10px); }
+   to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* --- Utilidad: Loader pulsante (loading-pulse) --- */
+  .loading-pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+   0%, 100% { opacity: 1; }
+   50%       { opacity: 0.4; }
+  }
+
+  /* --- Componente: Overlay + panel de modal (modal-overlay, modal-panel) --- */
+  /* Futuro: /components/layout/Modal.js → <Modal /> — reutilizable para todos los modales */
+  .modal-overlay {
+   display: none; opacity: 0; pointer-events: none;
+   transition: opacity 0.25s ease;
+  }
+  .modal-overlay.modal-showing { display: flex; }
+  .modal-overlay.modal-visible  { opacity: 1; pointer-events: all; }
+  .modal-overlay .modal-panel {
+   transform: translateY(18px) scale(0.97);
+   opacity: 0;
+   transition: transform var(--transition-slow), opacity 0.25s ease;
+  }
+  .modal-overlay.modal-visible .modal-panel {
+   transform: translateY(0) scale(1);
+   opacity: 1;
+  }
+
+  /* --- Scroll interno de modales --- */
+  body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right: 0; }
+  .modal-scroll   { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+  /* Sin borde exterior en todos los modales */
+  [id$="Modal"] > div,
+  [id$="modal"] > div {
+   border: none !important;
+   box-shadow: var(--shadow-modal) !important;
+  }
+
+  /* --- Badge del caso activo (header) — regla base preservada --- */
+  #activeCasoBadge {
+   display: flex; flex-direction: column;
+   align-items: center; gap: 2px; cursor: pointer;
+  }
+
+  /* ============================================================
+     ETAPA 2.2 — /components/ui/Card
+     Sistema de cards reutilizables.
+     Centraliza bg + border + radius + padding + shadow
+     sin tocar lógica JS, IDs, localStorage ni layouts.
+     ============================================================
+
+     VARIANTES:
+       .card-base     → bloques generales, formularios, contenedores
+       .card-section  → secciones de color (cyan, orange, blue, purple)
+       .card-result   → resumen financiero, preview de deuda
+       .card-modal    → interior de modales y paneles flotantes
+
+     MODIFICADORES DE COLOR para .card-section:
+       .card-section--cyan   (Pensiones Mensuales)
+       .card-section--orange (Deuda Histórica)
+       .card-section--blue   (Abonos Realizados)
+       .card-section--purple (Pagos Parciales)
+
+     MODIFICADORES DE COLOR para .card-result:
+       .card-result--purple  (resumen principal)
+       .card-result--orange  (preview consolidada)
+       .card-result--generic (resumen recalculable)
+     ============================================================ */
+
+  /* ── 1. card-base ──────────────────────────────────────────
+     Uso: bg general + border sutil + radius + padding + shadow
+     Reemplaza: bg-[#161b22] + border + rounded-2xl + p-4
+     ─────────────────────────────────────────────────────── */
+  .card-base {
+   background: var(--color-bg-surface);       /* #161b22 */
+   border: 1px solid var(--color-border-card); /* rgba(255,255,255,0.08) */
+   border-radius: var(--radius-2xl);           /* 24px ≈ rounded-3xl */
+   padding: 0.5rem;                            /* reduced from 0.75rem */
+   box-shadow: var(--shadow-card);
+   transition: border-color var(--transition-base);
+  }
+
+  /* ── 2. card-section ────────────────────────────────────────
+     Uso: secciones semánticas con color (cyan/orange/blue/purple)
+     Reemplaza: p-4 rounded-2xl border + style="background:…;border-color:…"
+     ─────────────────────────────────────────────────────── */
+  .card-section {
+   padding: 0.5rem;
+   border-radius: var(--radius-2xl);           /* rounded-2xl */
+   border: 1px solid transparent;
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;                               /* reemplaza space-y (no es CSS válido) */
+   transition: border-color var(--transition-base);
+  }
+
+  /* Color tokens: cyan */
+  .card-section--cyan {
+   background: var(--color-cyan-bg);
+   border-color: var(--color-cyan-border);
+  }
+
+  /* Color tokens: orange */
+  .card-section--orange {
+   background: var(--color-orange-bg);
+   border-color: var(--color-orange-border);
+  }
+
+  /* Color tokens: blue */
+  .card-section--blue {
+   background: var(--color-blue-bg);
+   border-color: var(--color-blue-border);
+  }
+
+  /* Color tokens: purple */
+  .card-section--purple {
+   background: var(--color-purple-bg);
+   border-color: var(--color-purple-border);
+  }
+
+  /* ── 3. card-result ─────────────────────────────────────────
+     Uso: preview de resumen de deuda, totales financieros
+     Reemplaza: hidden animate-fadeIn rounded-xl p-3 space-y-2
+                + style="background:rgba(255,255,255,0.03)"
+     ─────────────────────────────────────────────────────── */
+  .card-result {
+   border-radius: var(--radius-lg);
+   padding: 0.75rem;
+   background: #f7f8fb;
+   border: 1px solid rgba(0,0,0,0.06);
+  }
+
+  /* Variante purple: resumen principal (historial recalculable) */
+  .card-result--purple {
+   background: rgba(37,99,235,0.05);
+   border-color: rgba(37,99,235,0.12);
+  }
+
+  /* Variante orange: preview consolidada */
+  .card-result--orange {
+   background: rgba(234,88,12,0.05);
+   border-color: rgba(234,88,12,0.12);
+  }
+
+  /* Sub-celda interna de card-result (grid de 2 columnas) */
+  .card-result__cell {
+   border-radius: var(--radius-sm);
+   padding: 6px 0;
+   background: rgba(0,0,0,0.03);
+   text-align: center;
+  }
+
+  /* Fila destacada "Total" dentro de card-result */
+  .card-result__total {
+   border-radius: var(--radius-sm);
+   padding: 8px 0;
+   text-align: center;
+  }
+  .card-result--orange .card-result__total {
+   background: rgba(234,88,12,0.07);
+   border: 1px solid rgba(234,88,12,0.15);
+  }
+
+  /* ── 4. card-modal ──────────────────────────────────────────
+     Uso: panel interno de modales y diálogos flotantes
+     Reemplaza: bg-[#161b22] border border-white/7 w-full
+                max-w-xs/sm rounded-3xl overflow-hidden
+     ─────────────────────────────────────────────────────── */
+  .card-modal {
+   background: #ffffff;
+   border: 1px solid rgba(0,0,0,0.07);
+   border-radius: var(--radius-3xl);
+   overflow: hidden;
+   width: 100%;
+   box-shadow: var(--shadow-modal);
+  }
+
+  /* Tamaño estándar para diálogos pequeños (max-w-xs) */
+  .card-modal--sm { max-width: 20rem; }        /* max-w-xs = 320px */
+
+  /* Tamaño estándar para diálogos medianos (max-w-sm) */
+  .card-modal--md { max-width: 24rem; }        /* max-w-sm = 384px */
+
+  /* Header de card-modal: fondo ligeramente distinto + borde inferior */
+  .card-modal__header {
+   padding: 1rem 1.25rem;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   border-bottom: 1px solid rgba(0,0,0,0.07);
+   background: #f7f8fb;
+   flex-shrink: 0;
+  }
+
+  /* Variante de header con color de acento (purple) */
+  .card-modal__header--purple {
+   background: rgba(37,99,235,0.05);
+   border-bottom-color: rgba(37,99,235,0.10);
+  }
+
+  /* Variante de header con color orange */
+  .card-modal__header--orange {
+   background: rgba(234,88,12,0.05);
+   border-bottom-color: rgba(234,88,12,0.10);
+  }
+
+  /* Cuerpo scrollable de card-modal */
+  .card-modal__body {
+   padding: 1rem 1.25rem;
+   overflow-y: auto;
+   -webkit-overflow-scrolling: touch;
+   overscroll-behavior: contain;
+  }
+
+  /* Footer de card-modal */
+  .card-modal__footer {
+   padding: 0.5rem 1.25rem 1rem;
+   border-top: 1px solid rgba(0,0,0,0.07);
+   flex-shrink: 0;
+  }
+
+  /* ── Nota interna (info-box) ────────────────────────────────
+     Uso: bloques informativos dentro de modales de ayuda
+     Reemplaza: bg-white/5 rounded-xl p-3 space-y-1
+     ─────────────────────────────────────────────────────── */
+  .info-box {
+   background: #f5f7fb;
+   border-radius: var(--radius-lg);
+   padding: 0.75rem;
+   border: 1px solid rgba(0,0,0,0.06);
+  }
+
+  /* Variante con acento purple */
+  .info-box--purple {
+   background: rgba(37,99,235,0.06);
+   border: 1px solid rgba(37,99,235,0.14);
+  }
+
+  /* ============================================================
+     FIN ETAPA 2.2 — /components/ui/Card
+     ============================================================ */
+
+  /* ============================================================
+     ETAPA 2.3 — /components/ui/Input
+     Sistema de inputs reutilizables.
+     Centraliza bg, border, radius, padding, font, colores,
+     transition, focus state, placeholder y shadow suave.
+     CERO cambios en JS, IDs, oninput, onchange ni validaciones.
+     ============================================================
+
+     CLASES:
+       .input-base     → text / number / generales
+       .input-number   → UTM, porcentajes, cuotas, valores financieros
+       .input-currency → pesos, deuda, abonos, montos CLP
+       .input-date     → date-picker buttons (fecha/mes/año)
+       .input-label    → <label> de formulario
+
+     MODIFICADORES:
+       .input-sm       → tamaño reducido (ej: diaVencimiento)
+       .input-w-full   → ancho 100% (cuando el contexto no lo da)
+     ============================================================ */
+
+  /* ── Base compartida (resets + tokens visuales) ────────────── */
+  .input-base,
+  .input-number,
+  .input-currency {
+    background: var(--color-bg-input);          /* #0d1117 */
+    color: var(--color-text-primary);            /* #e2e8f0 */
+    border: 1px solid var(--color-border-input); /* rgba(59,130,246,0.20) */
+    border-radius: var(--radius-lg);             /* 16px ≈ rounded-xl */
+    padding: 0.3rem 0.75rem;                    /* compact */
+    font-family: var(--font-main);
+    font-size: 0.875rem;                         /* text-sm */
+    font-weight: var(--font-weight-black);       /* 900 */
+    line-height: 1.25;
+    outline: none;
+    width: 100%;
+    min-height: 32px;                            /* compact */
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    -webkit-tap-highlight-color: transparent;
+    /* Placeholder sutil */
+    --placeholder-color: var(--color-text-muted); /* #64748b */
+  }
+
+  /* Focus state centralizado */
+  .input-base:focus,
+  .input-number:focus,
+  .input-currency:focus {
+    border-color: var(--color-accent);           /* #3b82f6 */
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+
+  /* Placeholder */
+  .input-base::placeholder,
+  .input-number::placeholder,
+  .input-currency::placeholder {
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  /* ── .input-number: valores numéricos/UTM/porcentajes ───────── */
+  /* Mantiene inputmode="decimal/numeric" del HTML — no se altera */
+  .input-number {
+    /* Ocultar flechas nativas del input[type=number] */
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .input-number::-webkit-inner-spin-button,
+  .input-number::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* ── .input-currency: pesos / CLP / abonos ─────────────────── */
+  /* Solo visual — NO toca formateo/máscara existente */
+  .input-currency {
+    letter-spacing: 0.01em;
+  }
+
+  /* ── .input-sm: tamaño compacto (ej: día de vencimiento) ────── */
+  .input-sm {
+    width: 3.5rem;                               /* w-14 */
+    padding: 0.5rem;                             /* p-2 */
+    text-align: center;
+    border-color: rgba(59,130,246,0.30);
+  }
+
+  /* ── .input-date: botones tipo date-picker ──────────────────── */
+  /* Reemplaza los button con px-3 pt-1.5 pb-2 bg-[#0d1117]       */
+  /* NO modifica pickers ni comportamiento nativo                  */
+  .input-date {
+    background: var(--color-bg-input);           /* #0d1117 */
+    border: 1px solid var(--color-border-input); /* rgba(59,130,246,0.20) */
+    border-radius: var(--radius-lg);
+    padding: 0.15rem 0.625rem 0.2rem;            /* compact */
+    width: 100%;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-base);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .input-date:active {
+    background: #1e2533;
+  }
+  .input-date:focus-visible {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+
+  /* Sublabel superior del date-picker ("Desde", "Mes / Año", etc.) */
+  .input-date__sublabel {
+    font-size: 0.5rem;                           /* text-[8px] */
+    font-weight: var(--font-weight-black);
+    color: rgba(59,130,246,0.70);                /* [#3b82f6]/70 */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Valor seleccionado del date-picker */
+  .input-date__value {
+    font-size: 0.75rem;                          /* text-xs */
+    font-weight: var(--font-weight-black);
+    color: var(--color-text-secondary);          /* text-slate-400 */
+    margin-top: 0.125rem;                        /* mt-0.5 */
+  }
+
+  /* ── .input-label: etiqueta de campo ───────────────────────── */
+  .input-label {
+    display: block;
+    font-size: 0.5625rem;                        /* text-[9px] */
+    font-weight: var(--font-weight-black);       /* font-black */
+    color: var(--color-text-secondary);          /* text-slate-400 */
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 0.25rem;                        /* ml-1 */
+    margin-bottom: 0.125rem;
+    font-style: italic;
+  }
+
+  /* Variante sin italic (secciones no-principales) */
+  .input-label--plain {
+    font-style: normal;
+  }
+
+  /* ── Inputs en modales (borde ligeramente más claro) ─────────── */
+  /* Usado en: profileNameInput, newCasoInput, renameCasoInput     */
+  .input-base--modal {
+    border-color: rgba(255,255,255,0.07);        /* border-white/7 */
+    font-weight: 700;                            /* font-bold en vez de black */
+    margin-bottom: 1rem;                         /* mb-4 */
+  }
+  .input-base--modal:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.10);
+  }
+
+  /* ── Estado disabled / readonly ─────────────────────────────── */
+  .input-base:disabled,
+  .input-number:disabled,
+  .input-currency:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ============================================================
+     FIN ETAPA 2.3 — /components/ui/Input
+     ============================================================ */
+
+  /* ============================================================
+     ETAPA 4.1.4 — Header Light Legal Fintech
+     Replaces dark 4.1.3. SOLO cambios visuales.
+     ============================================================ */
+
+  /* ── Contenedor principal del header ───────────────────────── */
+  #app-container > header {
+    background: #ffffff !important;
+    border-bottom: 1px solid rgba(0,0,0,0.08) !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.05) !important;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Acento de color muy sutil en top del header */
+  #app-container > header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #2563eb 0%, #93c5fd 50%, #2563eb 100%);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ── Fila principal de controles del header ─────────────────── */
+  .header-row-main {
+    display: flex;
+    align-items: center;
+    padding: 7px 12px 7px;
+    gap: 8px;
+    min-height: 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Badge del caso activo ───────────────────────────────── */
+  #activeCasoBadge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 3px 9px 3px 5px;
+    border-radius: 20px;
+    background: rgba(37,99,235,0.07);
+    border: 1px solid rgba(37,99,235,0.14);
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+    flex-direction: row;
+  }
+  #activeCasoBadge:hover {
+    background: rgba(37,99,235,0.12);
+    border-color: rgba(37,99,235,0.22);
+  }
+  #activeCasoBadge:active {
+    opacity: 0.8;
+    transform: scale(0.97);
+  }
+
+  /* Avatar — compacto, cuadrado pequeño */
+  .caso-badge-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37,99,235,0.12);
+    border: 1px solid rgba(37,99,235,0.20);
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+  }
+  #activeCasoBadge:hover .caso-badge-avatar {
+    background: rgba(37,99,235,0.20);
+  }
+
+  /* Nombre del caso activo */
+  #activeCasoNombreHeader {
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #1d4ed8 !important;
+    letter-spacing: 0.01em;
+    max-width: 90px;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ── Bloque de título de plataforma ─────────────────────────── */
+  .header-title-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex: 1;
+  }
+  .header-title-main {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    color: #1a1d2e;
+    line-height: 1.2;
+    font-family: var(--font-main);
+  }
+  .header-title-sub {
+    font-size: 8px;
+    font-weight: 400;
+    color: #8e97b0;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    font-family: var(--font-main);
+  }
+
+  /* ── Botones de iconos — subtle light style ─────────────────── */
+  .header-icon-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    transition: background var(--transition-fast), color var(--transition-fast);
+    color: #8e97b0;
+    background: transparent;
+    border: none;
+    flex-shrink: 0;
+    gap: 1px;
+  }
+  .header-icon-btn:hover {
+    background: rgba(37,99,235,0.09);
+    border-color: rgba(37,99,235,0.18);
+    color: #2563eb;
+  }
+  .header-icon-btn:active {
+    transform: scale(0.92);
+    background: rgba(37,99,235,0.14);
+  }
+
+  /* Variante peligro — botón reset/eliminar */
+  .header-icon-btn--danger {
+    color: #a0aab8;
+    background: transparent;
+    border: none;
+  }
+  .header-icon-btn--danger:hover {
+    background: rgba(220,38,38,0.07);
+    border-color: rgba(220,38,38,0.16);
+    color: #dc2626;
+  }
+
+  /* ── Separador bajo la fila de controles ────────────────────── */
+  .header-divider {
+    height: 1px;
+    margin: 0 14px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(37,99,235,0.10) 30%,
+      rgba(0,0,0,0.07) 50%,
+      rgba(37,99,235,0.10) 70%,
+      transparent 100%);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Barra de carga ─────────────────────────────────────────── */
+  #loadingBar {
+    padding: 4px 14px 8px;
+    position: relative;
+    z-index: 1;
+  }
+  #loadingBar .flex-1.bg-white\/10 {
+    background: rgba(0,0,0,0.06) !important;
+  }
+  #loadingText {
+    color: #8e97b0 !important;
+  }
+
+  /* ── Tarjetas UTM — clean white cards ──────────────────────── */
+  #utmTicker {
+    padding: 0 12px 7px;
+    margin-top: 0 !important;
+    gap: 7px !important;
+    position: relative;
+    z-index: 1;
+  }
+
+  .utm-card-premium {
+    background: #f7f8fb;
+    border: 1px solid rgba(0,0,0,0.07);
+    border-radius: 10px;
+    padding: 5px 11px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    min-width: 0;
+    flex: 1;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .utm-card-premium:hover {
+    border-color: rgba(37,99,235,0.18);
+    box-shadow: 0 2px 8px rgba(37,99,235,0.08);
+  }
+
+  .utm-card-label {
+    font-size: 6.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8e97b0;
+    line-height: 1;
+  }
+
+  .utm-card-value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .utm-card-value-row .utm-val-main {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1d2e;
+    letter-spacing: -0.4px;
+    line-height: 1;
+  }
+  .utm-card-value-row .utm-val-month {
+    font-size: 8px;
+    font-weight: 500;
+    color: #a0aab8;
+    line-height: 1;
+  }
+
+  /* Variante secundaria — Próximo Mes */
+  .utm-card-premium--secondary {
+    background: #f2f3f8;
+    border-color: rgba(0,0,0,0.05);
+  }
+  .utm-card-premium--secondary .utm-card-label {
+    color: #adb5c8;
+  }
+  .utm-card-premium--secondary .utm-val-main {
+    color: #8e97b0;
+    font-weight: 600;
+  }
+  .utm-card-premium--secondary .utm-val-month {
+    color: #b8bfd0;
+  }
+
+  /* ── saveIndicator ──────────────────────────────────────────── */
+  #saveIndicator #saveTime {
+    font-size: 8px;
+    color: #8e97b0;
+    font-weight: 500;
+  }
+
+  /* ============================================================
+     FIN ETAPA 4.1.4 — Header Light Legal Fintech
+     ============================================================ */
+
+  /* ============================================================
+     ETAPA 4.1.2 — Refinamiento Premium Card Principal
+     SOLO cambios visuales. Cero cambios funcionales.
+     Afecta exclusivamente: #resultsCard > div:first-child
+     ============================================================ */
+
+  /* ── Contenedor principal de la card de liquidación ─────────── */
+  .liq-card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.07);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.05),
+      0 8px 32px rgba(0,0,0,0.06),
+      0 0 0 1px rgba(37,99,235,0.05) inset;
+  }
+
+  /* ── Hero Total Card ─────────────────────────────────────────── */
+  /* ── Hero: wrapper dos tarjetas lado a lado ──────────────────── */
+  .hero-cards-row {
+    display: flex;
+    gap: 4px;
+    align-items: stretch;
+  }
+
+  /* ── Tarjeta izquierda: Total Adeudado (violeta) ─────────────── */
+  .hero-total-card {
+    flex: 1;
+    min-width: 0;
+    border-radius: 14px 6px 6px 14px;
+    background: linear-gradient(140deg, #1e3a5f 0%, #1e4d8c 52%, #2563ae 100%);
+    box-shadow: 0 4px 24px rgba(30,58,95,0.30), 0 1px 4px rgba(0,0,0,0.10);
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 130px;
+  }
+  .hero-total-card__label {
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgba(191,219,254,0.80);
+    position: relative;
+    z-index: 1;
+  }
+  .hero-total-card__amount-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    position: relative;
+    z-index: 1;
+    margin-top: 2px;
+  }
+  .hero-total-card__sign {
+    font-size: clamp(11px, 3vw, 16px);
+    font-weight: 700;
+    color: rgba(255,255,255,0.50);
+    line-height: 1;
+    margin-top: 4px;
+  }
+  .hero-total-card__amount {
+    font-size: clamp(28px, 9vw, 44px);
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hero-total-card__utm {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(191,219,254,0.75);
+    margin-top: 3px;
+    letter-spacing: 0.01em;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Tarjeta derecha: Capital + Intereses en una sola card ───── */
+  .hero-stat-card {
+    width: 148px;
+    flex-shrink: 0;
+    background: #ffffff;
+    border-radius: 6px 14px 14px 6px;
+    border: 1px solid rgba(0,0,0,0.07);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .hero-stat-row {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 10px;
+  }
+  .hero-stat-row + .hero-stat-row {
+    border-top: 1px solid rgba(0,0,0,0.07);
+  }
+  .hero-stat-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .hero-stat-icon--capital {
+    background: linear-gradient(135deg, #bbf7d0 0%, #6ee7b7 100%);
+  }
+  .hero-stat-icon--interes {
+    background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%);
+  }
+  .hero-stat-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  .hero-stat-text__label {
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: rgba(90,99,128,0.50);
+    white-space: nowrap;
+  }
+  .hero-stat-text__val {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #1a1d2e;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hero-stat-text__utm {
+    font-size: 7.5px;
+    font-weight: 600;
+    color: rgba(90,99,128,0.40);
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Badge "LIQUIDACIÓN ESTIMADA" ───────────────────────────── */
+  .liq-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #3b82f6;
+    background: rgba(37,99,235,0.07);
+    border: 1px solid rgba(37,99,235,0.14);
+    border-radius: 6px;
+    padding: 4px 10px;
+  }
+  .liq-badge__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #3b82f6;
+    flex-shrink: 0;
+  }
+
+  /* ── Cabecera: zona del badge ────────────────────────────────── */
+  .liq-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 6px;
+  }
+
+  /* ── Zona del monto principal ───────────────────────────────── */
+  .liq-amount-zone {
+    text-align: center;
+    padding: 0 12px 6px;
+  }
+  .liq-currency-sign {
+    color: rgba(26,29,46,0.28);
+    font-weight: 700;
+    margin-top: 6px;
+    font-size: clamp(13px, 3.5vw, 18px);
+    line-height: 1;
+    align-self: flex-start;
+  }
+  .liq-total-amount {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-weight: 700;
+    color: #1a1d2e;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    word-break: break-all;
+    font-size: clamp(30px, 9vw, 54px);
+  }
+  .liq-utm-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(37,99,235,0.60);
+    margin-top: 5px;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Divisor horizontal elegante ────────────────────────────── */
+  .liq-divider {
+    height: 1px;
+    margin: 0 20px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(0,0,0,0.07) 20%,
+      rgba(37,99,235,0.10) 50%,
+      rgba(0,0,0,0.07) 80%,
+      transparent 100%);
+  }
+
+  /* ── Grid de subtotales ──────────────────────────────────────── */
+  .liq-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .liq-grid__sep {
+    background: rgba(0,0,0,0.06);
+    width: 1px;
+    align-self: stretch;
+  }
+  .liq-cell {
+    padding: 6px 12px 8px;
+    background: transparent;
+  }
+  .liq-cell__label {
+    font-size: 7.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(90,99,128,0.55);
+    margin-bottom: 5px;
+  }
+  .liq-cell__main {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1d2e;
+    letter-spacing: -0.02em;
+  }
+  .liq-cell__main--accent {
+    color: #3b82f6;
+  }
+  .liq-cell__sub {
+    font-size: 8.5px;
+    font-weight: 600;
+    margin-top: 2px;
+    color: rgba(37,99,235,0.40);
+    letter-spacing: 0.01em;
+  }
+  .liq-cell__sub--cyan {
+    color: rgba(8,145,178,0.50);
+  }
+
+  /* ── Total intereses — zona derecha del header ───────────────── */
+  .liq-int-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+  }
+  .liq-int-right__label {
+    font-size: 6.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(90,99,128,0.55);
+  }
+  .liq-int-right__val {
+    font-size: 12px;
+    font-weight: 700;
+    color: #3b82f6;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .liq-int-right__utm {
+    font-size: 8px;
+    font-weight: 600;
+    color: rgba(8,145,178,0.55);
+  }
+  .liq-abono-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 16px 8px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    background: transparent;
+  }
+  .liq-abono-row__label {
+    font-size: 7.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(90,99,128,0.50);
+  }
+  .liq-abono-row__value {
+    font-size: 11px;
+    font-weight: 700;
+    color: #2563eb;
+    letter-spacing: -0.01em;
+  }
+  /* ============================================================
+     FIN ETAPA 4.1.4 — Header Light Legal Fintech
+     ============================================================ */
+
+  /* ============================================================
+     ETAPA 4.2 — RESPONSIVE LAYOUT SYSTEM
+     Breakpoints mobile-first:
+       md  ≥ 768px   (tablet)
+       lg  ≥ 1024px  (tablet grande / laptop)
+       xl  ≥ 1280px  (desktop)
+     Cero cambios en JS, cálculos, listeners, IDs o render.
+     ============================================================ */
+
+  /* ── ANTI-ZOOM: fija el tamaño base del rem para que el zoom del
+        navegador no infle todo el layout. Los valores px se mantienen
+        fijos; el zoom solo afecta la lectura del contenido de texto. ── */
+  html {
+    font-size: 14px !important;
+  }
+  @media (min-width: 768px) {
+    html { font-size: 15px !important; }
+  }
+  @media (min-width: 1024px) {
+    html { font-size: 16px !important; }
+  }
+
+  /* ── 1. Contenedor principal ────────────────────────────────── */
+  #app-container {
+    width: 100%;
+    max-width: 520px;   /* px fijo: no crece con zoom */
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  @media (min-width: 768px) {
+    body { background: #e8eaf0 !important; }
+    #app-container {
+      max-width: 680px;   /* px fijo tablet */
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.05), 0 8px 48px rgba(0,0,0,0.09);
+      border-left: 1px solid rgba(0,0,0,0.06);
+      border-right: 1px solid rgba(0,0,0,0.06);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    #app-container { max-width: 780px; }
+  }
+
+  @media (min-width: 1280px) {
+    #app-container { max-width: 860px; }
+  }
+
+  /* ── ANTI-ZOOM: límites absolutos en px para tarjetas e inputs ── */
+  .card-base,
+  .card-section {
+    max-width: 100%;
+  }
+  .input-base,
+  .input-number,
+  .input-currency {
+    max-height: 36px !important;
+    min-height: 32px !important;
+    font-size: 13px !important;
+  }
+  .input-date {
+    max-height: 36px !important;
+    min-height: 32px !important;
+    font-size: 12px !important;
+  }
+
+  /* ── MÓVIL: estilos agresivos solo para celular (< 600px) ─────── */
+  @media (max-width: 600px) {
+    html { font-size: 12px !important; }
+
+    main { margin-top: 0.5rem !important; padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
+    #mainInputs { gap: 28px !important; }
+    #mainInputs > * + * { margin-top: 0 !important; }
+
+    .card-base    { padding: 0.5rem !important; border-radius: 14px !important; }
+    .card-section { padding: 0.5rem !important; border-radius: 14px !important; }
+    .card-section.space-y-3 > * + * { margin-top: 0.375rem !important; }
+
+    /* Inputs compactos */
+    .input-base,
+    .input-number,
+    .input-currency {
+      padding: 0 0.625rem !important;
+      height: 34px !important;
+      min-height: 34px !important;
+      max-height: 34px !important;
+      font-size: 13px !important;
+      line-height: 34px !important;
+    }
+    .input-date {
+      padding: 0.25rem 0.625rem !important;
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      line-height: normal !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+    }
+    .input-label { font-size: 9px !important; margin-bottom: 3px !important; }
+
+    /* Space-y dentro de cards */
+    .space-y-3 > * + * { margin-top: 0.375rem !important; }
+    .space-y-4 > * + * { margin-top: 0.5rem !important; }
+
+    /* dh-body compacto */
+    .dh-body { padding: 8px !important; }
+    .dh-section { margin-bottom: 6px !important; }
+    .dh-sep { margin: 6px 0 !important; }
+    .dh-card__header { padding: 7px 10px 6px !important; }
+
+    /* Header UTM ticker */
+    #utmTicker { padding: 0 10px 6px !important; gap: 6px !important; }
+    .utm-card-premium { padding: 4px 8px 5px !important; }
+  }
+  @media (min-width: 768px) {
+    .header-row-main {
+      padding: 9px 24px 9px;
+      min-height: 48px;
+      gap: 14px;
+    }
+    .header-icon-btn { width: 38px; height: 38px; }
+    .header-divider    { margin: 0 24px; }
+    #loadingBar        { padding: 4px 24px 10px; }
+    #utmTicker         { padding: 0 24px 10px !important; gap: 12px !important; }
+    .utm-card-premium  { padding: 8px 16px 10px; flex: 0 1 200px; max-width: 220px; }
+    .utm-card-value-row .utm-val-main { font-size: 17px; }
+    .utm-card-label    { font-size: 7.5px; }
+  }
+
+  @media (min-width: 1024px) {
+    .header-row-main { padding: 10px 32px 10px; }
+    #utmTicker        { padding: 0 32px 12px !important; }
+    .header-divider   { margin: 0 32px; }
+    #loadingBar       { padding: 4px 32px 10px; }
+  }
+
+  /* ── 3. Liquidación card (hero) ─────────────────────────────── */
+  @media (min-width: 768px) {
+    .liq-card        { border-radius: 24px; }
+    .liq-header      { padding: 10px 20px 9px; }
+    .liq-amount-zone { padding: 0 22px 12px; }
+    .liq-total-amount { font-size: clamp(34px, 6vw, 56px); }
+    .liq-utm-label   { font-size: 11px; margin-top: 5px; }
+    .liq-divider     { margin: 0 24px; }
+    .liq-cell        { padding: 9px 20px 11px; }
+    .liq-cell__label { font-size: 8.5px; margin-bottom: 4px; }
+    .liq-cell__main  { font-size: 15px; }
+    .liq-abono-row   { padding: 8px 20px 10px; }
+    .liq-badge       { font-size: 9px; padding: 5px 13px; }
+    .liq-int-right__val { font-size: 14px; }
+  }
+
+  @media (min-width: 1024px) {
+    .liq-header      { padding: 12px 28px 10px; }
+    .liq-amount-zone { padding: 0 30px 16px; }
+    .liq-cell        { padding: 11px 28px 14px; }
+    .liq-divider     { margin: 0 32px; }
+  }
+
+  /* ── 4. Cuadrícula de detalles de cuotas ─────────────────────── */
+  @media (min-width: 768px) {
+    #detailsList {
+      grid-template-columns: repeat(3, 1fr) !important;
+      gap: 12px !important;
+    }
+    .detail-card { min-height: 96px; padding: 1rem; }
+  }
+
+  @media (min-width: 1024px) {
+    #detailsList { grid-template-columns: repeat(4, 1fr) !important; }
+  }
+
+  /* ── 5. Year tabs ───────────────────────────────────────────── */
+  @media (min-width: 768px) {
+    #yearTabs    { gap: 8px !important; }
+    .year-tab    { padding: 10px 20px; font-size: 13px; }
+  }
+
+  /* ── 6. Layout de secciones de formulario — full width vertical siempre ── */
+  @media (min-width: 768px) {
+    #mainInputs {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    #mainInputs {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+  }
+
+  /* ── 7. Card sections + card-base padding responsive ─────────── */
+  @media (min-width: 768px) {
+    .card-section { padding: 0.6rem; border-radius: 18px; }
+    .card-base    { padding: 0.6rem; border-radius: 18px; }
+  }
+
+  @media (min-width: 1024px) {
+    .card-section { padding: 0.75rem; }
+    .card-base    { padding: 0.75rem; }
+  }
+
+  /* ── 8. Inputs responsive ───────────────────────────────────── */
+  @media (min-width: 768px) {
+    .input-base,
+    .input-number,
+    .input-currency { padding: 0.3rem 0.75rem; font-size: 0.875rem; min-height: 34px; max-height: 38px; }
+    .input-date     { padding: 0.25rem 0.75rem; min-height: 40px; max-height: 40px; height: 40px; line-height: normal; justify-content: center; overflow: hidden; }
+    .input-label    { font-size: 0.6rem; margin-bottom: 0.2rem; }
+    .btn-base       { padding: 0.5rem 1rem; font-size: 0.8125rem; }
+  }
+
+  /* ── 9. Listas de abonos/parciales más altas en tablet ─────── */
+  @media (min-width: 768px) {
+    #abonosListContainer,
+    #parcialesListContainer { max-height: 14rem; }
+  }
+
+  /* ── 10. Sidebar responsive ─────────────────────────────────── */
+  @media (min-width: 768px) {
+    #sidebar { width: 320px; }
+  }
+  @media (min-width: 1024px) {
+    #sidebar { width: 360px; }
+  }
+
+  /* ── 11. Modales responsive ─────────────────────────────────── */
+  @media (min-width: 768px) {
+    .card-modal--sm { max-width: 26rem; }
+    .card-modal--md { max-width: 34rem; }
+
+    /* Modal de resumen y calendario más cómodos */
+    #resumenModal > div  { max-width: 44rem !important; }
+    #calendarModal > div { max-width: 28rem !important; }
+    #detailModal > div   { max-width: 32rem !important; }
+    #helpModal > div     { max-width: 34rem !important; }
+  }
+
+  /* ── 12. resumenModal max-height responsive ─────────────────── */
+  #resumenContent { max-height: 60vh; }
+  @media (min-width: 768px) {
+    #resumenContent        { max-height: 70vh; }
+    .card-modal__body      { padding: 1.25rem 1.5rem; }
+    .card-modal__header    { padding: 1.125rem 1.5rem; }
+    .card-modal__footer    { padding: 0.625rem 1.5rem 1.25rem; }
+  }
+
+  /* ── 13. Save toast responsive ──────────────────────────────── */
+  @media (min-width: 768px) {
+    #saveToast { bottom: 32px; }
+  }
+
+  /* ── 14. IMM row altura responsive ─────────────────────────── */
+  @media (min-width: 768px) {
+    /* Ajustar mínimo del contenedor IMM para inputs más grandes */
+    #salaryInputs .h-\[46px\] { height: 52px !important; }
+  }
+
+  /* ── 15. Resultscard gap responsive ─────────────────────────── */
+  @media (min-width: 768px) {
+    #resultsCard { gap: 12px; }
+  }
+
+  /* ============================================================
+     FIN ETAPA 4.2 — RESPONSIVE LAYOUT SYSTEM
+     ============================================================ */
+
+  /* ============================================================
+     OVERRIDES GLOBALES — Light Theme Fintech Jurídico
+     Captura todos los colores dark hardcodeados residuales
+     que no están en variables y que JS renderiza inline.
+     ============================================================ */
+
+  /* Modal overlays */
+  #newCasoModal,
+  #renameCasoModal,
+  #deleteCasoModal,
+  #abonosHelpModal,
+  #parcialHelpModal,
+  #histHelp,
+  [id$="Modal"].fixed,
+  [id$="modal"].fixed {
+    background: rgba(26,29,46,0.45) !important;
+  }
+
+  /* card-modal backgrounds */
+  .card-modal,
+  .card-modal--sm,
+  .card-modal--md {
+    background: #ffffff !important;
+    border-color: rgba(0,0,0,0.08) !important;
+  }
+
+  /* Texto blanco → dark en modales */
+  .card-modal h3 { color: #1a1d2e !important; }
+  .card-modal p { color: #5a6380; }
+  .card-modal .text-white { color: #1a1d2e !important; }
+  .card-modal .text-slate-300, .card-modal .text-slate-400 { color: #6b7399 !important; }
+  .card-modal .text-slate-500 { color: #8e97b0 !important; }
+
+  /* Sidebar dark → light */
+  #sidebar .text-white { color: #1a1d2e !important; }
+  #sidebar .text-slate-400, #sidebar .text-slate-500 { color: #8e97b0 !important; }
+  #sidebar .border-white\/7 { border-color: rgba(0,0,0,0.07) !important; }
+  #sidebar .bg-\[\#3b82f6\] { background: #2563eb !important; }
+
+  /* Info boxes dark → light */
+  .info-box .text-white { color: #1a1d2e !important; }
+  .info-box .text-slate-300, .info-box .text-slate-400 { color: #6b7399 !important; }
+
+  /* bg-black/20, bg-black/30 → light equivalents */
+  .bg-black\/20 { background: rgba(0,0,0,0.04) !important; }
+  .bg-black\/30 { background: rgba(0,0,0,0.04) !important; }
+
+  /* Input in modal */
+  .input-base, .input-number, .input-currency {
+    background: #ffffff !important;
+    color: #1a1d2e !important;
+    border-color: rgba(37,99,235,0.18) !important;
+  }
+  .input-base::placeholder, .input-number::placeholder, .input-currency::placeholder {
+    color: #adb5c8 !important;
+  }
+  .input-date {
+    background: #f7f8fb !important;
+    border-color: rgba(37,99,235,0.15) !important;
+    color: #1a1d2e !important;
+  }
+  .input-date__sublabel { color: rgba(37,99,235,0.65) !important; }
+  .input-date__value { color: #5a6380 !important; }
+  .input-date:active { background: #eef0f7 !important; }
+
+  /* input-sm */
+  .input-sm { border-color: rgba(37,99,235,0.22) !important; }
+
+  /* Select dropdowns */
+  select {
+    background: #f7f8fb !important;
+    color: #1a1d2e !important;
+    border-color: rgba(37,99,235,0.18) !important;
+  }
+
+  /* Card-base text */
+  .card-base { background: #ffffff; border-color: rgba(0,0,0,0.07); }
+
+  /* card-section overrides */
+  .card-section--cyan   { background: rgba(8,145,178,0.05);  border-color: rgba(8,145,178,0.12);  }
+  .card-section--orange { background: rgba(234,88,12,0.05);  border-color: rgba(234,88,12,0.12);  }
+  .card-section--blue   { background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.12); }
+  .card-section--purple { background: rgba(37,99,235,0.05); border-color: rgba(37,99,235,0.12); }
+
+  /* Inline text colors — replace dark palette */
+  .text-\[\#93c5fd\]  { color: #3b82f6 !important; }
+  .text-\[\#bfdbfe\]  { color: #2563eb !important; }
+  .text-\[\#60a5fa\]  { color: #3b82f6 !important; }
+  .text-\[\#67e8f9\]  { color: #0891b2 !important; }
+  .text-\[\#fb923c\]  { color: #ea580c !important; }
+  .text-\[\#fdba74\]  { color: #c2410c !important; }
+  .text-\[\#f6ac69\]  { color: #c2410c !important; }
+
+  /* Tailwind text overrides */
+  .text-slate-300 { color: #6b7399; }
+  .text-slate-400 { color: #8e97b0; }
+  .text-slate-500 { color: #a0aab8; }
+  .text-slate-600 { color: #b0bac8; }
+  .text-white     { color: #1a1d2e; }
+
+  /* Rounded inline backgrounds in modal content */
+  .rounded-xl.px-3.py-2\.5[style*="background:rgba(59,130,246"] { background: rgba(37,99,235,0.06) !important; }
+  .rounded-xl.px-3.py-2\.5[style*="background:rgba(249,115,22"] { background: rgba(234,88,12,0.06) !important; }
+  .rounded-xl.px-3.py-2\.5[style*="background:rgba(251,146,60"] { background: rgba(234,88,12,0.06) !important; }
+
+  /* font-mono code blocks */
+  .font-mono { 
+    font-family: var(--font-mono) !important; 
+    background: #f0f2f8 !important; 
+    color: #2563eb !important; 
+  }
+
+  /* Save toast */
+  #saveToast {
+    background: #2563eb;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.25);
+  }
+
+  /* Scrollbar light */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.25); }
+
+  /* Main app container bg */
+  #app-container { background: #f5f6f8 !important; }
+  #mainContent { background: #f5f6f8 !important; }
+
+
+  /* ============================================================
+     REFINAMIENTO UI PREMIUM — v1.0
+     Objetivo: Menos ruido visual, mejor jerarquía, más aire.
+     SIN modificar lógica, IDs, responsive, cálculos.
+     ============================================================ */
+
+  /* ── 1. Tipografía global: jerarquía más clara ─────────────── */
+  /* Títulos de sección: más peso visual, menos mayúsculas agresivas */
+  .card-section > div > p:first-child,
+  .card-section > .flex > p:first-child {
+    letter-spacing: 0.04em;
+    font-size: 10.5px !important;
+  }
+
+  /* Labels de input: más sutiles, menos peso */
+  .input-label {
+    font-weight: 500 !important;
+    font-style: normal !important;
+    letter-spacing: 0.06em;
+    color: #9aa3bb !important;
+    font-size: 9px !important;
+    margin-bottom: 4px;
+  }
+
+  /* Números financieros principales: mayor protagonismo */
+  .liq-total-amount {
+    font-weight: 800 !important;
+    letter-spacing: -0.05em !important;
+  }
+  .liq-cell__main {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.025em !important;
+  }
+  .dh-result-total__val {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.04em !important;
+  }
+  .dh-result-cell__val {
+    font-size: 13.5px !important;
+    font-weight: 700 !important;
+  }
+
+  /* ── 2. Reducción de ruido visual — bordes más suaves ───────── */
+  /* card-base: borde casi invisible, más sombra */
+  .card-base {
+    border-color: rgba(0,0,0,0.045) !important;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.04),
+      0 4px 20px rgba(0,0,0,0.055) !important;
+  }
+
+  /* card-section: fondos más suaves, bordes casi invisibles */
+  .card-section--cyan   { border-color: rgba(8,145,178,0.08)  !important; }
+  .card-section--orange { border-color: rgba(234,88,12,0.08)  !important; }
+  .card-section--blue   { border-color: rgba(59,130,246,0.08) !important; }
+  .card-section--purple { border-color: rgba(37,99,235,0.08) !important; }
+
+  /* liq-card: sombra más elegante, borde mínimo */
+  .liq-card {
+    border-color: rgba(0,0,0,0.05) !important;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.04),
+      0 12px 40px rgba(0,0,0,0.07),
+      0 0 0 1px rgba(37,99,235,0.04) inset !important;
+  }
+
+  /* detail-card: borde sutil, sombra suave */
+  .detail-card {
+    border-color: rgba(0,0,0,0.05) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04) !important;
+  }
+
+  /* dh-card: menos borde agresivo */
+  .dh-card {
+    border-color: rgba(234,88,12,0.09) !important;
+    box-shadow:
+      0 1px 3px rgba(0,0,0,0.04),
+      0 6px 24px rgba(0,0,0,0.055) !important;
+  }
+  .dh-card__header {
+    border-bottom-color: rgba(234,88,12,0.08) !important;
+  }
+  .dh-settings-group {
+    border-color: rgba(0,0,0,0.05) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03) !important;
+  }
+  .dh-setting-row + .dh-setting-row {
+    border-top-color: rgba(0,0,0,0.045) !important;
+  }
+
+  /* Inputs: borde ultra-sutil en reposo */
+  .input-base,
+  .input-number,
+  .input-currency {
+    border-color: rgba(37,99,235,0.13) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+  }
+
+  /* abono-item / hist-item sin caja innecesaria */
+  .abono-item,
+  .hist-item {
+    border-color: rgba(0,0,0,0.045) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+    background: #f9fafc !important;
+  }
+
+  /* liq-abono-row: separador sutil */
+  .liq-abono-row {
+    border-top-color: rgba(0,0,0,0.04) !important;
+  }
+
+  /* Separadores internos en card-base */
+  .card-base .border-t.border-white\/7,
+  .card-base [class*="border-t"] {
+    border-color: rgba(0,0,0,0.05) !important;
+  }
+
+  /* ── 3. Spacing — más aire entre secciones ───────────────────── */
+  /* Espacio entre secciones del formulario */
+  #mainInputs {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  #mainInputs > * + * {
+    margin-top: 0 !important; /* gap maneja el espacio */
+  }
+
+  /* Padding interior de card-section: más generoso */
+  .card-section {
+    padding: 1.125rem 1rem !important;
+  }
+
+  /* Padding card-base */
+  .card-base {
+    padding: 1.125rem !important;
+  }
+
+  /* Espaciado interno del dh-body */
+  .dh-body {
+    padding: 18px !important;
+  }
+  .dh-section {
+    margin-bottom: 16px !important;
+  }
+  .dh-section__label {
+    margin-bottom: 10px !important;
+  }
+
+  /* Separadores dh más respirados */
+  .dh-sep {
+    margin: 16px 0 !important;
+  }
+
+  /* Resultscard: más espacio */
+  #resultsCard {
+    gap: 10px !important;
+  }
+
+  /* Espacio en el main */
+  main {
+    padding-top: 1.5rem !important;
+  }
+
+  /* grid de cuotas: más espacio entre cards */
+  #detailsList {
+    gap: 10px !important;
+  }
+
+  /* ── 4. Profundidad visual — sombras suaves, sin efecto plano ── */
+  /* utm-card: sombra levemente más presente */
+  .utm-card-premium {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04) !important;
+    border-color: rgba(0,0,0,0.055) !important;
+  }
+
+  /* year-tab activo: sombra de profundidad */
+  .year-tab.active {
+    box-shadow: 0 2px 10px rgba(37,99,235,0.22), 0 1px 3px rgba(37,99,235,0.15) !important;
+  }
+
+  /* btn-primary: sombra más elegante */
+  .btn-primary {
+    box-shadow: 0 2px 8px rgba(37,99,235,0.20), 0 1px 3px rgba(37,99,235,0.10) !important;
+  }
+
+  /* modal: sombra más profunda y envolvente */
+  .card-modal {
+    box-shadow:
+      0 4px 16px rgba(0,0,0,0.08),
+      0 20px 60px rgba(0,0,0,0.14),
+      0 0 0 1px rgba(0,0,0,0.04) !important;
+  }
+
+  /* sidebar: sombra más pronunciada */
+  #sidebar {
+    box-shadow: 6px 0 32px rgba(0,0,0,0.12), 2px 0 8px rgba(0,0,0,0.06) !important;
+  }
+
+  /* header: sombra más suave */
+  #app-container > header {
+    box-shadow: 0 1px 0 rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04) !important;
+  }
+
+  /* dh-result-card: sombra sutil */
+  .dh-result-card {
+    box-shadow: 0 2px 8px rgba(234,88,12,0.08), 0 1px 3px rgba(0,0,0,0.04) !important;
+  }
+
+  /* ── 5. Micro-mejoras de acabado ─────────────────────────────── */
+  /* liq-cell__label: más sutil */
+  .liq-cell__label {
+    color: rgba(90,99,128,0.45) !important;
+    font-size: 7px !important;
+    letter-spacing: 0.12em !important;
+  }
+  .liq-int-right__label {
+    color: rgba(90,99,128,0.45) !important;
+    font-size: 6px !important;
+  }
+
+  /* badge de liquidación: más refinado */
+  .liq-badge {
+    background: rgba(37,99,235,0.055) !important;
+    border-color: rgba(37,99,235,0.10) !important;
+  }
+
+  /* utm-card-label: más sutil */
+  .utm-card-label {
+    color: #a4adc0 !important;
+    letter-spacing: 0.10em !important;
+  }
+
+  /* dh-section__label separador sutil */
+  .dh-section__label::after {
+    background: rgba(0,0,0,0.06) !important;
+  }
+
+  /* year-tab inactivo: sin borde agresivo */
+  .year-tab {
+    border-color: rgba(0,0,0,0.04) !important;
+    background: #eef0f6 !important;
+  }
+
+  /* month-btn inactivo: sin borde */
+  .month-btn {
+    border-color: rgba(0,0,0,0.05) !important;
+    background: #eff1f6 !important;
+  }
+
+  /* liq-divider: más elegante */
+  .liq-divider {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(0,0,0,0.05) 20%,
+      rgba(37,99,235,0.07) 50%,
+      rgba(0,0,0,0.05) 80%,
+      transparent 100%) !important;
+  }
+
+  /* header-divider: más invisible */
+  .header-divider {
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(37,99,235,0.07) 30%,
+      rgba(0,0,0,0.05) 50%,
+      rgba(37,99,235,0.07) 70%,
+      transparent 100%) !important;
+  }
+
+  /* dh-utm-cell: sin borde innecesario */
+  .dh-utm-cell {
+    border-color: rgba(0,0,0,0.05) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+  }
+
+  /* result-cell separador sutil */
+  .dh-result-cell + .dh-result-cell {
+    border-left-color: rgba(0,0,0,0.05) !important;
+  }
+
+  /* tasa-indicator: más suave */
+  .dh-tasa-indicator {
+    border-color: rgba(37,99,235,0.10) !important;
+    border-top-color: rgba(0,0,0,0.04) !important;
+  }
+
+  /* activeCasoBadge: más sutil */
+  #activeCasoBadge {
+    background: rgba(37,99,235,0.055) !important;
+    border-color: rgba(37,99,235,0.10) !important;
+  }
+
+  /* header-icon-btn: sin fondo */
+  .header-icon-btn {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  /* liq-grid__sep más sutil */
+  .liq-grid__sep {
+    background: rgba(0,0,0,0.04) !important;
+  }
+
+  /* ── 6. Responsive overrides para el refinamiento ────────────── */
+  @media (min-width: 768px) {
+    .card-section { padding: 0.6rem 0.75rem !important; }
+    .card-base    { padding: 0.6rem !important; }
+    .dh-body      { padding: 12px !important; }
+    #mainInputs   { gap: 12px !important; }
+  }
+  /* Asegurar que en tablets (768-1023px) el sidebar mobile funcione correctamente */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    #sidebar {
+      position: fixed !important;
+      transform: translateX(-100%) !important;
+      transition: transform var(--transition-slow) !important;
+      width: 280px !important;
+      z-index: 310 !important;
+    }
+    #sidebar.open { transform: translateX(0) !important; }
+    #sidebarOverlay { display: block !important; }
+    button[onclick="openSidebar()"] { display: flex !important; }
+    #desktop-layout { display: block !important; }
+    #app-container {
+      max-width: 100% !important;
+      margin: 0 !important;
+    }
+  }
+  @media (min-width: 1024px) {
+    .card-section { padding: 0.75rem !important; }
+    .card-base    { padding: 0.75rem !important; }
+  }
+
+  /* ============================================================
+     FIN REFINAMIENTO UI PREMIUM — ETAPA 1
+     ============================================================ */
+
+  /* ============================================================
+     REFINAMIENTO UI PREMIUM — ETAPA 2
+     Objetivo: más financiero/profesional, menos formulario HTML.
+     SIN modificar lógica, IDs, responsive, cálculos.
+     ============================================================ */
+
+  /* ─────────────────────────────────────────────────────────────
+     1. CARD DE LIQUIDACIÓN — protagonismo al total, limpieza
+     ───────────────────────────────────────────────────────────── */
+
+  /* Zona de monto total: más espacio vertical, más impacto */
+  .liq-amount-zone,
+  [style*="text-align:center;padding-bottom:4px"] {
+    padding: 4px 16px 18px !important;
+  }
+
+  /* Signo $ más tenue — el número es el protagonista */
+  .liq-currency-sign {
+    color: rgba(26,29,46,0.18) !important;
+    font-size: clamp(14px, 3.8vw, 20px) !important;
+    margin-top: 8px !important;
+  }
+
+  /* Monto total: tracking más apretado, peso máximo */
+  .liq-total-amount {
+    font-size: clamp(36px, 10.5vw, 60px) !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.055em !important;
+    color: #111420 !important;
+  }
+
+  /* UTM sub-label del total: más discreta */
+  .liq-utm-label {
+    font-size: 9px !important;
+    font-weight: 500 !important;
+    color: rgba(37,99,235,0.45) !important;
+    letter-spacing: 0.04em !important;
+    margin-top: 6px !important;
+  }
+
+  /* Capital / Intereses: reducidos, secundarios */
+  .liq-cell__main {
+    font-size: 12.5px !important;
+    color: #2a2f45 !important;
+    font-weight: 600 !important;
+  }
+  .liq-cell__sub {
+    font-size: 7px !important;
+    color: rgba(37,99,235,0.32) !important;
+    margin-top: 1px !important;
+  }
+  .liq-int-right__val {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    color: #7055b8 !important;
+  }
+  .liq-int-right__utm {
+    font-size: 7px !important;
+    color: rgba(8,145,178,0.40) !important;
+  }
+
+  /* Badge de liquidación: mínimo, elegante */
+  .liq-badge {
+    font-size: 7px !important;
+    padding: 3px 8px !important;
+    letter-spacing: 0.16em !important;
+    gap: 4px !important;
+    border-radius: 5px !important;
+  }
+  .liq-badge__dot {
+    width: 4px !important;
+    height: 4px !important;
+    background: rgba(59,130,246,0.45) !important;
+  }
+
+  /* Zona superior de la liq-card: menos padding top */
+  .liq-card > div:first-child {
+    padding: 12px 16px 0 !important;
+  }
+
+  /* Fila capital/intereses: más compacta */
+  .liq-card > div:first-child > .flex {
+    margin-bottom: 2px !important;
+  }
+
+  /* Fila abonos: más integrada */
+  .liq-abono-row {
+    padding: 8px 18px 10px !important;
+  }
+  .liq-abono-row__label {
+    font-size: 7px !important;
+    letter-spacing: 0.12em !important;
+    color: rgba(90,99,128,0.42) !important;
+  }
+  .liq-abono-row__value {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+  }
+
+  /* detail-card: números más protagonistas */
+  .detail-card {
+    min-height: 78px !important;
+    padding: 0.65rem 0.75rem !important;
+    border-radius: 14px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     2. INPUTS — menos formulario, más instrumento financiero
+     ───────────────────────────────────────────────────────────── */
+
+  /* Base de inputs: altura reducida, padding balanceado */
+  .input-base,
+  .input-number,
+  .input-currency {
+    padding: 0.6rem 0.75rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    border-radius: 11px !important;
+    background: #fafbfd !important;
+    border-color: rgba(37,99,235,0.11) !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  /* Focus: acento más elegante, sin glow excesivo */
+  .input-base:focus,
+  .input-number:focus,
+  .input-currency:focus {
+    border-color: rgba(37,99,235,0.40) !important;
+    box-shadow: 0 0 0 2.5px rgba(37,99,235,0.08) !important;
+    background: #ffffff !important;
+  }
+
+  /* Placeholder: más tenue */
+  .input-base::placeholder,
+  .input-number::placeholder,
+  .input-currency::placeholder {
+    color: #c4cad8 !important;
+    font-weight: 400 !important;
+    letter-spacing: 0 !important;
+  }
+
+  /* input-date: más limpio, menos boxy */
+  .input-date {
+    background: #fafbfd !important;
+    border-color: rgba(37,99,235,0.11) !important;
+    border-radius: 11px !important;
+    padding: 0.45rem 0.75rem 0.55rem !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.025) !important;
+  }
+  .input-date__sublabel {
+    font-size: 7px !important;
+    color: rgba(37,99,235,0.55) !important;
+    letter-spacing: 0.08em !important;
+  }
+  .input-date__value {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    color: #3a4060 !important;
+    margin-top: 1px !important;
+  }
+
+  /* input-sm (día vencimiento): más compacto */
+  .input-sm {
+    width: 3rem !important;
+    padding: 0.45rem !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    border-color: rgba(37,99,235,0.16) !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     3. SWITCHES — más elegantes y visibles
+     ───────────────────────────────────────────────────────────── */
+
+  /* Switch más grande y con mejor contraste */
+  .switch {
+    width: 44px !important;
+    height: 24px !important;
+  }
+  .slider {
+    background-color: #dde1ec !important;
+    border-radius: 24px !important;
+    transition: background-color 0.2s ease !important;
+  }
+  .slider:before {
+    height: 18px !important;
+    width: 18px !important;
+    left: 3px !important;
+    bottom: 3px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.20), 0 0 0 0.5px rgba(0,0,0,0.06) !important;
+    transition: transform 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+  }
+  input:checked + .slider {
+    background-color: #2563eb !important;
+  }
+  input:checked + .slider:before {
+    transform: translateX(20px) !important;
+    box-shadow: 0 1px 4px rgba(37,99,235,0.30) !important;
+  }
+
+  /* Row de switch en card-base: menos altura, más aire lateral */
+  .card-base .flex.justify-between.items-center {
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .card-base .flex.justify-between.items-center + .flex.justify-between.items-center {
+    padding-top: 14px !important;
+  }
+  .card-base > .space-y-3 > .flex,
+  .card-base .flex.justify-between.items-center:not(:first-child) {
+    padding-top: 14px !important;
+  }
+
+  /* Títulos de opciones en card-base: más limpio */
+  .card-base p.text-\[10px\].font-black.uppercase {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: none !important;
+  }
+  .card-base p.text-\[8px\] {
+    font-size: 8px !important;
+    font-weight: 400 !important;
+    color: #adb5c8 !important;
+    opacity: 1 !important;
+  }
+
+  /* IMM container: más limpio */
+  .card-section--cyan .flex.items-center.justify-between.bg-white\/5 {
+    background: #fafbfd !important;
+    border-color: rgba(37,99,235,0.11) !important;
+    border-radius: 11px !important;
+    height: 42px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     4. CABECERAS DE SECCIÓN — menos noise, más carácter
+     ───────────────────────────────────────────────────────────── */
+
+  /* Bullet + título de sección: más ligero */
+  .card-section > div > p.text-\[10px\].font-black,
+  .card-section > .flex > p.text-\[10px\].font-black {
+    font-size: 9.5px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.10em !important;
+  }
+
+  /* Bullets de sección: más pequeños */
+  .card-section span.w-2.h-2.rounded-full {
+    width: 5px !important;
+    height: 5px !important;
+  }
+
+  /* Toggle UTM / % Sueldo: más refinado */
+  .card-section--cyan > div > div[style*="background:#f0f2f7"] {
+    background: rgba(240,242,247,0.80) !important;
+    border-color: rgba(0,0,0,0.06) !important;
+    border-radius: 24px !important;
+  }
+  #toggleUtmBtn, #toggleSalaryBtn {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em !important;
+    padding: 5px 14px !important;
+  }
+
+  /* Chip de equivalencia: más sutil */
+  #utmEquivChip, #clpHistoricoChip, #salaryCalcChip {
+    border-radius: 9px !important;
+    padding: 5px 10px !important;
+    font-size: 10px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     5. DH-CARD (DEUDA HISTÓRICA) — más financiero
+     ───────────────────────────────────────────────────────────── */
+
+  /* Header del módulo DH: más compacto */
+  .dh-card__header {
+    padding: 11px 14px 10px !important;
+  }
+  .dh-card__title {
+    font-size: 9.5px !important;
+    letter-spacing: 0.06em !important;
+  }
+  .dh-card__subtitle {
+    font-size: 8px !important;
+    margin-top: 0px !important;
+  }
+  .dh-card__icon {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 8px !important;
+  }
+
+  /* mode-toggle: más integrado */
+  .dh-mode-btn {
+    font-size: 8.5px !important;
+    padding: 4px 10px !important;
+    letter-spacing: 0.03em !important;
+  }
+
+  /* setting-row: menos altura */
+  .dh-setting-row {
+    padding: 10px 14px !important;
+  }
+  .dh-setting-row__title {
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+  }
+  .dh-setting-row__desc {
+    font-size: 8px !important;
+    margin-top: 1px !important;
+  }
+
+  /* result-total: monto destacado */
+  .dh-result-total__val {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.04em !important;
+    line-height: 1 !important;
+  }
+  .dh-result-total {
+    padding: 12px 14px 14px !important;
+  }
+  .dh-result-total__label {
+    font-size: 6.5px !important;
+    letter-spacing: 0.14em !important;
+    margin-bottom: 5px !important;
+  }
+
+  /* result-cell: más compacto */
+  .dh-result-cell {
+    padding: 10px 12px 11px !important;
+  }
+  .dh-result-cell__label {
+    font-size: 7px !important;
+    letter-spacing: 0.09em !important;
+    margin-bottom: 3px !important;
+  }
+  .dh-result-cell__val {
+    font-size: 13px !important;
+    letter-spacing: -0.025em !important;
+  }
+
+  /* result-card head: más delgado */
+  .dh-result-card__head {
+    padding: 8px 12px 7px !important;
+  }
+  .dh-result-card__head-label {
+    font-size: 7px !important;
+    letter-spacing: 0.11em !important;
+  }
+
+  /* utm-grid: más compacto */
+  .dh-utm-cell {
+    padding: 8px 6px 9px !important;
+    border-radius: 9px !important;
+  }
+  .dh-utm-cell__label {
+    font-size: 6px !important;
+    margin-bottom: 3px !important;
+    letter-spacing: 0.09em !important;
+  }
+  .dh-utm-cell__val {
+    font-size: 9.5px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     6. DENSIDAD MÓVIL — compactar sin perder claridad
+     ───────────────────────────────────────────────────────────── */
+
+  /* main: menos margen superior */
+  main {
+    margin-top: 1rem !important;
+    padding-bottom: 5rem !important;
+  }
+
+  /* resultsCard gap: compacto */
+  #resultsCard {
+    gap: 8px !important;
+  }
+
+  /* mainInputs: gap compactado */
+  #mainInputs {
+    gap: 14px !important;
+  }
+
+  /* space-y-3 dentro de card-section: compactar */
+  .card-section.space-y-3 > * + * {
+    margin-top: 0.375rem;
+  }
+  .card-section .space-y-2 > * + * {
+    margin-top: 0.25rem;
+  }
+
+  /* UTM ticker: menos padding */
+  #utmTicker {
+    padding-bottom: 6px !important;
+  }
+  .utm-card-premium {
+    padding: 5px 10px 6px !important;
+  }
+  .utm-card-value-row .utm-val-main {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  /* year-tab: más compacto */
+  .year-tab {
+    padding: 6px 13px !important;
+    font-size: 11px !important;
+    border-radius: 9px !important;
+  }
+
+  /* month-btn: menos padding vertical */
+  .month-btn {
+    padding: 10px 4px !important;
+    font-size: 10.5px !important;
+    border-radius: 9px !important;
+  }
+
+  /* abono/parcial list: compacta */
+  .abono-item,
+  .hist-item {
+    padding: 7px 11px !important;
+    border-radius: 9px !important;
+    margin-bottom: 3px !important;
+  }
+
+  /* Help buttons de sección: unificados */
+  [class*="w-5"][class*="h-5"][class*="rounded-full"][onclick*="Help"],
+  [class*="w-5"][class*="h-5"][class*="rounded-full"][onclick*="showHelp"],
+  [class*="w-5"][class*="h-5"][class*="rounded-full"][onclick*="showHelpModal"] {
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 9px !important;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     7. RESPONSIVE — preservar ajustes en tablet/desktop
+     ───────────────────────────────────────────────────────────── */
+  @media (min-width: 768px) {
+    main { margin-top: 1rem !important; }
+    #mainInputs { gap: 12px !important; }
+    .liq-total-amount { font-size: clamp(42px, 7vw, 68px) !important; }
+    .dh-result-total__val { font-size: 26px !important; }
+    .input-base,
+    .input-number,
+    .input-currency { padding: 0.3rem 0.75rem !important; font-size: 0.875rem !important; min-height: 34px !important; max-height: 38px !important; }
+    .input-date { padding: 0.25rem 0.75rem !important; min-height: 40px !important; max-height: 40px !important; height: 40px !important; line-height: normal !important; justify-content: center !important; overflow: hidden !important; }
+  }
+  @media (min-width: 1024px) {
+    #mainInputs { gap: 14px !important; }
+  }
+
+  /* ============================================================
+     REFINAMIENTO UI PREMIUM — ETAPA 3
+     Objetivo: dh-result-card con misma jerarquía que liq-card.
+     Total como protagonista absoluto. Capital/Interés secundarios.
+     SIN modificar IDs, JS, lógica ni responsive.
+     ============================================================ */
+
+  /* ── Contenedor principal: mismo estilo que liq-card ────────── */
+  .dh-result-card {
+    border-radius: 18px !important;
+    border: 1px solid rgba(234,88,12,0.08) !important;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.04),
+      0 10px 32px rgba(0,0,0,0.06) !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    animation: dhResultFadeIn 0.30s cubic-bezier(.4,0,.2,1) both !important;
+  }
+
+  /* ── Head: badge centrado + días a la derecha — compacto ────── */
+  .dh-result-card__head {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 10px 14px 9px !important;
+    background: transparent !important;
+    border-bottom: none !important;
+    position: relative !important;
+  }
+  .dh-result-card__head-label {
+    font-size: 6.5px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.16em !important;
+    color: rgba(90,99,128,0.42) !important;
+  }
+  .dh-days-badge {
+    font-size: 7.5px !important;
+    font-weight: 700 !important;
+    padding: 2px 8px !important;
+    border-radius: 20px !important;
+    background: rgba(234,88,12,0.07) !important;
+    color: #c2410c !important;
+    border: 1px solid rgba(234,88,12,0.14) !important;
+  }
+
+  /* ── Fila secundaria: Capital (izq) + Interés (der) ─────────── */
+  /* Reemplaza el grid 2 columnas por flex fila compacta */
+  .dh-result-grid {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding: 0 16px 0 !important;
+    background: transparent !important;
+    border-bottom: none !important;
+    gap: 8px !important;
+  }
+  .dh-result-cell {
+    padding: 0 0 6px !important;
+    text-align: left !important;
+    background: transparent !important;
+    border: none !important;
+    flex: 1 !important;
+  }
+  /* Interés: alineado a la derecha */
+  .dh-result-cell + .dh-result-cell {
+    border-left: none !important;
+    text-align: right !important;
+  }
+  .dh-result-cell__label {
+    font-size: 6.5px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    color: rgba(90,99,128,0.40) !important;
+    margin-bottom: 2px !important;
+  }
+  .dh-result-cell__val {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #2a2f45 !important;
+    letter-spacing: -0.02em !important;
+  }
+  .dh-result-cell__val--orange {
+    color: #c2410c !important;
+  }
+
+  /* ── Zona central: Total como protagonista absoluto ──────────── */
+  .dh-result-total {
+    text-align: center !important;
+    padding: 2px 16px 18px !important;
+    background: transparent !important;
+    border-top: none !important;
+  }
+  .dh-result-total__label {
+    font-size: 6.5px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.16em !important;
+    color: rgba(234,88,12,0.40) !important;
+    margin-bottom: 4px !important;
+    opacity: 1 !important;
+  }
+  .dh-result-total__val {
+    font-size: clamp(30px, 9vw, 52px) !important;
+    font-weight: 800 !important;
+    color: #c2410c !important;
+    letter-spacing: -0.05em !important;
+    line-height: 1 !important;
+    display: block !important;
+  }
+
+  /* UTM sub-label del total DH — agregado via CSS ::after en el contenedor */
+  /* (el JS ya pone el valor en consolidadaTotalLabel, la UTM la añade updateDebtDetailPanel) */
+
+  /* ── Separador sutil entre head y fila secundaria ────────────── */
+  /* Línea muy tenue entre el badge y los datos */
+  .dh-result-card__head + .dh-result-grid {
+    padding-top: 4px !important;
+  }
+
+  /* ── Divisor elegante entre capital/interés y total ─────────── */
+  .dh-result-grid + .dh-result-total {
+    position: relative !important;
+    margin-top: 8px !important;
+  }
+  .dh-result-grid + .dh-result-total::before {
+    content: '' !important;
+    display: block !important;
+    height: 1px !important;
+    margin: 0 20px 14px !important;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(234,88,12,0.08) 20%,
+      rgba(234,88,12,0.12) 50%,
+      rgba(234,88,12,0.08) 80%,
+      transparent 100%) !important;
+  }
+
+  /* ── Responsive: tablet/desktop ─────────────────────────────── */
+  @media (min-width: 768px) {
+    .dh-result-total__val {
+      font-size: clamp(36px, 6vw, 58px) !important;
+    }
+    .dh-result-grid { padding: 0 20px !important; }
+    .dh-result-total { padding: 2px 20px 20px !important; }
+    .dh-result-card__head { padding: 12px 20px 10px !important; }
+  }
+
+  /* ============================================================
+     FIN REFINAMIENTO UI PREMIUM — ETAPA 3
+     ============================================================ */
+
+  /* DEUDA HISTÓRICA — MÓDULO UX v5.0 */
+  :root {
+    --dh-accent:#ea580c; --dh-accent-light:#f97316;
+    --dh-bg:rgba(234,88,12,0.05); --dh-bg-hover:rgba(234,88,12,0.08);
+    --dh-border:rgba(234,88,12,0.14); --dh-border-strong:rgba(234,88,12,0.28);
+    --dh-text:#c2410c;
+  }
+  .dh-card{background:var(--color-bg-surface);border:1px solid var(--dh-border);border-radius:var(--radius-2xl);box-shadow:var(--shadow-card);overflow:hidden;transition:border-color var(--transition-base);}
+  .dh-card__header{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 8px;border-bottom:1px solid var(--dh-border);background:var(--dh-bg);}
+  .dh-card__header-left{display:flex;align-items:center;gap:9px;}
+  .dh-card__icon{width:30px;height:30px;border-radius:10px;background:rgba(234,88,12,0.10);border:1px solid rgba(234,88,12,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .dh-card__title{font-size:10px;font-weight:700;color:var(--dh-text);text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;}
+  .dh-card__subtitle{font-size:8.5px;color:var(--color-text-muted);font-weight:500;margin-top:1px;}
+  .dh-card__header-right{display:flex;align-items:center;gap:7px;}
+  .dh-mode-toggle{display:flex;align-items:center;background:var(--color-bg-elevated);border:1px solid rgba(0,0,0,0.08);border-radius:var(--radius-full);padding:2px;gap:0;}
+  .dh-mode-btn{padding:5px 12px;border-radius:var(--radius-full);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--color-text-muted);cursor:pointer;border:1px solid transparent;background:transparent;font-family:var(--font-main);transition:all var(--transition-base);white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+  .dh-mode-btn:active{transform:scale(0.94);}
+  .dh-mode-btn.is-active{background:var(--color-bg-surface);color:var(--color-text-primary);border-color:rgba(0,0,0,0.09);box-shadow:0 1px 4px rgba(0,0,0,0.09);}
+  .dh-body{padding:10px;}
+  .dh-section{margin-bottom:8px;}
+  .dh-section:last-child{margin-bottom:0;}
+  .dh-section__label{font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:var(--color-text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .dh-section__label::after{content:'';flex:1;height:1px;background:var(--color-border);}
+  .dh-sep{height:1px;background:linear-gradient(90deg,transparent,var(--dh-border) 30%,var(--dh-border) 70%,transparent);margin:8px 0;}
+  .dh-help-btn{width:22px;height:22px;border-radius:var(--radius-full);background:rgba(234,88,12,0.10);border:1px solid rgba(234,88,12,0.22);color:var(--dh-accent);font-weight:700;font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all var(--transition-fast);flex-shrink:0;}
+  .dh-help-btn:hover{background:rgba(234,88,12,0.20);}
+  .dh-help-btn:active{transform:scale(0.90);}
+  .dh-settings-group{background:#f7f8fb;border:1px solid rgba(0,0,0,0.07);border-radius:var(--radius-lg);overflow:hidden;}
+  .dh-setting-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;transition:background var(--transition-fast);}
+  .dh-setting-row+.dh-setting-row{border-top:1px solid rgba(0,0,0,0.06);}
+  .dh-setting-row:hover{background:rgba(0,0,0,0.02);}
+  .dh-setting-row__text{flex:1;min-width:0;padding-right:12px;}
+  .dh-setting-row__title{font-size:11px;font-weight:600;color:var(--color-text-primary);line-height:1.2;}
+  .dh-setting-row__desc{font-size:8.5px;color:var(--color-text-muted);margin-top:2px;line-height:1.4;}
+  .dh-tasa-indicator{display:flex;align-items:center;gap:7px;padding:8px 12px;background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.16);transition:all var(--transition-base);border-radius:0 0 12px 12px;border-top:1px solid rgba(0,0,0,0.06);}
+  .dh-tasa-indicator__dot{width:6px;height:6px;border-radius:50%;background:var(--color-accent-light);flex-shrink:0;transition:background var(--transition-base);}
+  .dh-tasa-indicator__text{font-size:8.5px;font-weight:700;color:var(--color-accent-light);transition:color var(--transition-base);}
+  .dh-tasa-indicator.is-maxima{background:rgba(234,88,12,0.07);border-color:rgba(234,88,12,0.20);}
+  .dh-tasa-indicator.is-maxima .dh-tasa-indicator__dot{background:#ea580c;}
+  .dh-tasa-indicator.is-maxima .dh-tasa-indicator__text{color:#ea580c;}
+  .dh-result-card{border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--dh-border-strong);animation:dhResultFadeIn 0.30s cubic-bezier(.4,0,.2,1) both;}
+  @keyframes dhResultFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .dh-result-card__head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 8px;background:var(--dh-bg);border-bottom:1px solid var(--dh-border);}
+  .dh-result-card__head-label{font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:var(--color-text-muted);}
+  .dh-days-badge{font-size:8px;font-weight:700;padding:3px 9px;border-radius:var(--radius-full);background:rgba(234,88,12,0.12);color:var(--dh-text);border:1px solid rgba(234,88,12,0.24);white-space:nowrap;}
+  .dh-result-grid{display:grid;grid-template-columns:1fr 1fr;background:var(--color-bg-surface);}
+  .dh-result-cell{padding:11px 14px 12px;text-align:center;}
+  .dh-result-cell+.dh-result-cell{border-left:1px solid var(--color-border);}
+  .dh-result-cell__label{font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--color-text-muted);margin-bottom:4px;}
+  .dh-result-cell__val{font-size:12.5px;font-weight:700;color:var(--color-text-primary);letter-spacing:-0.02em;}
+  .dh-result-cell__val--orange{color:var(--dh-accent);}
+  .dh-result-total{padding:11px 14px 13px;text-align:center;background:rgba(234,88,12,0.07);border-top:1px solid var(--dh-border);}
+  .dh-result-total__label{font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--dh-text);margin-bottom:4px;opacity:0.8;}
+  .dh-result-total__val{font-size:18px;font-weight:700;color:var(--dh-accent);letter-spacing:-0.03em;line-height:1;}
+  .dh-utm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .dh-utm-cell{background:#f7f8fb;border:1px solid rgba(0,0,0,0.07);border-radius:var(--radius-md);padding:9px 8px 10px;text-align:center;transition:border-color var(--transition-fast);}
+  .dh-utm-cell.is-total{background:rgba(37,99,235,0.06);border-color:rgba(37,99,235,0.18);}
+  .dh-utm-cell__label{font-size:6.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--color-text-muted);margin-bottom:4px;line-height:1.2;}
+  .dh-utm-cell__val{font-size:10px;font-weight:700;color:var(--color-accent-muted);font-family:var(--font-mono);}
+  .dh-utm-cell.is-total .dh-utm-cell__val{color:var(--color-accent);}
+  .dh-microcopy{font-size:8px;color:var(--color-text-muted);font-weight:500;line-height:1.5;text-align:center;padding:0 4px;}
+  .dh-detail-toggle-btn{width:100%;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:var(--radius-md);background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.16);color:var(--color-accent-light);font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;font-family:var(--font-main);cursor:pointer;transition:all var(--transition-fast);-webkit-tap-highlight-color:transparent;}
+  .dh-detail-toggle-btn:hover{background:rgba(37,99,235,0.10);}
+  .dh-detail-toggle-btn:active{transform:scale(0.98);}
+  .dh-chevron{width:14px;height:14px;transition:transform var(--transition-slow);flex-shrink:0;}
+  .dh-chevron.is-open{transform:rotate(180deg);}
+  .dh-detail-panel{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.38s cubic-bezier(.4,0,.2,1),opacity 0.28s ease;}
+  .dh-detail-panel.is-open{max-height:520px;opacity:1;}
+  .dh-breakdown-table{border:1px solid rgba(37,99,235,0.16);border-radius:var(--radius-md);overflow:hidden;margin-top:10px;}
+  .dh-breakdown-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid rgba(0,0,0,0.05);transition:background var(--transition-fast);}
+  .dh-breakdown-row:last-child{border-bottom:none;}
+  .dh-breakdown-row:hover{background:rgba(0,0,0,0.015);}
+  .dh-breakdown-row.is-total{background:rgba(37,99,235,0.07);border-top:1px solid rgba(37,99,235,0.18);}
+  .dh-breakdown-row__label{font-size:8px;font-weight:600;color:var(--color-text-muted);}
+  .dh-breakdown-row.is-total .dh-breakdown-row__label{font-size:8.5px;font-weight:700;text-transform:uppercase;color:var(--color-accent-muted);}
+  .dh-breakdown-row__val{font-size:9px;font-weight:700;color:var(--color-text-primary);font-family:var(--font-main);}
+  .dh-breakdown-row.is-total .dh-breakdown-row__val{font-size:9.5px;color:var(--color-accent);}
+  .dh-breakdown-row__val--orange{color:var(--dh-accent);}
+  .dh-technical-note{font-size:7.5px;font-weight:600;color:var(--color-text-muted);line-height:1.55;padding:8px 2px 0;}
+  .dh-summary-card{border-radius:var(--radius-xl);border:1px solid rgba(37,99,235,0.18);overflow:hidden;animation:dhResultFadeIn 0.30s cubic-bezier(.4,0,.2,1) both;}
+  .dh-summary-card__head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px 8px;background:rgba(37,99,235,0.05);border-bottom:1px solid rgba(37,99,235,0.12);}
+  .dh-summary-card__title{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:var(--color-accent-muted);}
+  .dh-summary-badge{font-size:7.5px;font-weight:700;padding:3px 9px;border-radius:var(--radius-full);background:rgba(37,99,235,0.12);color:var(--color-accent);border:1px solid rgba(37,99,235,0.22);}
+  .dh-summary-card__body{padding:12px 14px;background:var(--color-bg-surface);}
+  .dh-utm-warn{display:flex;align-items:center;gap:8px;background:rgba(220,38,38,0.07);border:1px solid rgba(220,38,38,0.20);border-radius:var(--radius-md);padding:9px 12px;margin-top:10px;}
+  .dh-utm-warn__text{font-size:9px;font-weight:700;color:#dc2626;line-height:1.4;}
+  @media(max-width:380px){.dh-mode-btn{padding:5px 9px;font-size:8.5px;}.dh-utm-cell__val{font-size:9px;}.dh-result-total__val{font-size:16px;}.dh-result-cell__val{font-size:11.5px;}.dh-body{padding:13px;}}
+
+  /* ============================================================
+     COMPACTACIÓN FINAL — v6.1
+     Máxima densidad sin perder legibilidad.
+     Anula todos los paddings/alturas excesivos previos.
+     ============================================================ */
+
+  /* ── Margen superior de main ─────────────────────────────────── */
+  main {
+    margin-top: 6px !important;
+    padding-bottom: 4.5rem !important;
+  }
+
+  /* ── Gap entre tarjetas del feed ─────────────────────────────── */
+  #resultsCard {
+    gap: 6px !important;
+  }
+  #mainInputs {
+    gap: 6px !important;
+  }
+
+  /* ── Cards de sección: padding mínimo ───────────────────────── */
+  .card-section {
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+  }
+  .card-base {
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+  }
+
+  /* ── Tarjeta hero izquierda (Total Adeudado) ─────────────────── */
+  .hero-total-card {
+    min-height: 110px !important;
+    padding: 11px 13px 10px !important;
+  }
+  .hero-total-card__label {
+    font-size: 7.5px !important;
+    letter-spacing: 0.10em !important;
+  }
+  .hero-total-card__amount-row {
+    margin-top: 1px !important;
+  }
+  .hero-total-card__amount {
+    font-size: clamp(26px, 8.5vw, 40px) !important;
+    line-height: 1 !important;
+  }
+  .hero-total-card__sign {
+    font-size: clamp(10px, 2.5vw, 14px) !important;
+    margin-top: 3px !important;
+  }
+  .hero-total-card__utm {
+    font-size: 8.5px !important;
+    margin-top: 2px !important;
+  }
+
+  /* ── Tarjeta derecha Capital + Intereses ─────────────────────── */
+  .hero-stat-card {
+    width: 132px !important;
+  }
+  .hero-stat-row {
+    padding: 7px 9px !important;
+    gap: 7px !important;
+  }
+  .hero-stat-icon {
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 6px !important;
+  }
+  .hero-stat-icon svg {
+    width: 12px !important;
+    height: 12px !important;
+  }
+  .hero-stat-text__label {
+    font-size: 6px !important;
+  }
+  .hero-stat-text__val {
+    font-size: 11px !important;
+  }
+  .hero-stat-text__utm {
+    font-size: 6.5px !important;
+  }
+
+  /* ── Liq-card (card de liquidación total) ────────────────────── */
+  .liq-header {
+    padding: 7px 11px 5px !important;
+  }
+  .liq-amount-zone {
+    padding: 0 10px 5px !important;
+  }
+  .liq-total-amount {
+    font-size: clamp(28px, 8.5vw, 50px) !important;
+  }
+  .liq-utm-label {
+    font-size: 8px !important;
+    margin-top: 3px !important;
+  }
+  .liq-cell {
+    padding: 5px 11px 6px !important;
+  }
+  .liq-abono-row {
+    padding: 5px 14px 6px !important;
+  }
+
+  /* ── Inputs: altura mínima funcional ─────────────────────────── */
+  .input-base,
+  .input-number,
+  .input-currency {
+    min-height: 36px !important;
+    padding: 0.4rem 0.65rem !important;
+    font-size: 0.875rem !important;
+    border-radius: 10px !important;
+  }
+  .input-date {
+    padding: 0.2rem 0.6rem 0.28rem !important;
+    border-radius: 10px !important;
+  }
+  .input-date__sublabel {
+    font-size: 6.5px !important;
+  }
+  .input-date__value {
+    font-size: 11px !important;
+    margin-top: 0 !important;
+  }
+  .input-sm {
+    min-height: 36px !important;
+    width: 2.75rem !important;
+  }
+
+  /* ── UTM ticker (header) ─────────────────────────────────────── */
+  #utmTicker {
+    padding: 0 10px 5px !important;
+    gap: 5px !important;
+  }
+  .utm-card-premium {
+    padding: 4px 9px 5px !important;
+    border-radius: 8px !important;
+  }
+  .utm-card-value-row {
+    margin-top: 1px !important;
+  }
+  .utm-card-value-row .utm-val-main {
+    font-size: 13px !important;
+  }
+  .utm-card-label {
+    font-size: 6px !important;
+  }
+
+  /* ── DH card body ────────────────────────────────────────────── */
+  .dh-body {
+    padding: 11px 12px !important;
+  }
+  .dh-section {
+    margin-bottom: 10px !important;
+  }
+  .dh-setting-row {
+    padding: 8px 12px !important;
+  }
+  .dh-card__header {
+    padding: 9px 12px 8px !important;
+  }
+  .dh-result-total {
+    padding: 2px 14px 12px !important;
+  }
+  .dh-result-cell {
+    padding: 8px 12px 9px !important;
+  }
+
+  /* ── Collapsible sections ───────────────────────────────────── */
+  .collapsible-body {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition: grid-template-rows 0.18s cubic-bezier(.4,0,.2,1), opacity 0.15s ease;
+    will-change: grid-template-rows;
+  }
+  .collapsible-body > * {
+    overflow: hidden;
+  }
+  .collapsible-body.is-collapsed {
+    grid-template-rows: 0fr !important;
+    opacity: 0;
+  }
+  .collapse-chevron {
+    transition: transform 0.18s cubic-bezier(.4,0,.2,1);
+    flex-shrink: 0;
+  }
+  .collapse-chevron.is-collapsed {
+    transform: rotate(-90deg);
+  }
+  .detail-card {
+    min-height: 70px !important;
+    padding: 0.55rem 0.65rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* ── Year tabs ───────────────────────────────────────────────── */
+  .year-tab {
+    padding: 5px 11px !important;
+    font-size: 10.5px !important;
+    border-radius: 8px !important;
+  }
+
+  /* ── Espaciado interior de card-section ─────────────────────── */
+  .card-section .space-y-3 > * + * {
+    margin-top: 7px !important;
+  }
+  .card-section .space-y-2 > * + * {
+    margin-top: 5px !important;
+  }
+
+  /* ── Responsive tablet: recuperar algo de espacio ────────────── */
+  @media (min-width: 768px) {
+    main { margin-top: 10px !important; }
+    .card-section { padding: 14px 16px !important; border-radius: 16px !important; }
+    .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
+    #mainInputs   { gap: 10px !important; }
+    #resultsCard  { gap: 10px !important; }
+    .hero-total-card { min-height: 120px !important; padding: 13px 15px 12px !important; }
+    .hero-stat-row { padding: 9px 11px !important; }
+    .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
+  }
+
+  /* ============================================================
+     FIN COMPACTACIÓN FINAL v6.1
+     ============================================================ */
+
+  /* ============================================================
+     SIDEBAR PERSISTENTE EN DESKTOP — Parte 1
+     En pantallas ≥ 1024px el sidebar coexiste con la interfaz
+     como un panel lateral fijo. No se usa overlay.
+     ============================================================ */
+
+  @media (min-width: 1024px) {
+
+    /* ── Wrapper raíz: flex row, ocupa todo el viewport ── */
+    #desktop-layout {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      min-height: 100vh;
+      background: #e8eaf0;
+    }
+
+    /* ── Sidebar: sticky panel izquierdo ── */
+    #sidebar {
+      position: sticky !important;
+      top: 0 !important;
+      left: auto !important;
+      bottom: auto !important;
+      transform: none !important;
+      width: 220px !important;
+      min-width: 220px !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      max-height: 100vh !important;
+      max-height: 100dvh !important;
+      flex-shrink: 0;
+      box-shadow: 1px 0 0 rgba(0,0,0,0.07), 4px 0 20px rgba(0,0,0,0.06) !important;
+      border-right: 1px solid rgba(0,0,0,0.08) !important;
+      z-index: 10 !important;
+      transition: none !important;
+      overflow: hidden !important;
+    }
+
+    /* Siempre visible en desktop, ignorar clase .open */
+    #sidebar { display: flex !important; flex-direction: column !important; }
+    /* Lista de casos: ocupa todo el espacio disponible y scrollea */
+    #casosList { flex: 1 !important; overflow-y: auto !important; }
+
+    /* ── Overlay: nunca visible en desktop ── */
+    #sidebarOverlay {
+      display: none !important;
+    }
+
+    /* ── Botón hamburguesa: oculto cuando sidebar es persistente ── */
+    button[onclick="openSidebar()"] {
+      display: none !important;
+    }
+
+    /* ── App-container: ocupa el resto del ancho ── */
+    #app-container {
+      flex: 1 !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      border-left: 1px solid rgba(0,0,0,0.06) !important;
+    }
+
+    /* Header pegado al tope */
+    #app-container > header {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 20 !important;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    #sidebar {
+      width: 260px !important;
+      min-width: 260px !important;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    #sidebar {
+      width: 280px !important;
+      min-width: 280px !important;
+    }
+  }
+
+#app-container,#desktop-layout{visibility:hidden}body.auth-ready #app-container,body.auth-ready #desktop-layout{visibility:visible}
