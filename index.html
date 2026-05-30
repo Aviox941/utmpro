@@ -1477,6 +1477,15 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
  </div>
  </div>
+ <div class="flex justify-between items-center border-t border-white/7 pt-3">
+ <div>
+ <p class="text-[10px] font-black uppercase text-[#93c5fd]">Fecha de Liquidación</p>
+ <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
+ </div>
+ <div class="flex items-center gap-2">
+ <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
+ </div>
+ </div>
  </div>
  </div>
  </main>
@@ -1589,7 +1598,7 @@ const TIC_REAJ = {
 2026:[0.0439,0.043,0.0413,0.0375,0.033,null,null,null,null,null,null,null],
 };
 
-// TMC reajustable (para recargo Art. 14 Ley 14.908 cuando mora ≥ 365 días)
+// TMC reajustable (disponible como referencia; el recargo Art. 14 Ley 14.908 multiplica la TIC × 1.5)
 const TMC_REAJ = {
 2014:[0.0618,0.0504,0.0562,0.0433,0.0464,0.0419,0.0511,0.0569,0.0496,0.0398,0.0423,0.0491],
 2015:[0.0609,0.0639,0.0497,0.0382,0.0411,0.0443,0.0446,0.0399,0.0362,0.0384,0.044,0.0532],
@@ -1721,6 +1730,19 @@ function getDiaVencimiento() {
 const raw = parseInt(document.getElementById('diaVencimiento')?.value);
 if (!raw || isNaN(raw) || raw < 1) return 5;
 return Math.min(raw, 28);
+}
+function getFechaLiquidacion() {
+  // Si el usuario ingresó una fecha de liquidación, usarla; si no, usar hoy.
+  const raw = document.getElementById('fechaLiquidacion')?.value; // "YYYY-MM-DD"
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    const fecha = new Date(y, m - 1, d);
+    fecha.setHours(0, 0, 0, 0);
+    if (!isNaN(fecha.getTime())) return fecha;
+  }
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return hoy;
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -2359,10 +2381,11 @@ function tryRegisterConsolidada() {
   };
   // Calcular preview
   const hoy = new Date();
+  const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(monto, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy);
+    const res = calcularInteresConsolidadaMensual(monto, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy, aplicarRecargoPreview);
     interes = res.interes;
     diasMora = res.diasMora;
   }
@@ -2382,7 +2405,7 @@ function tryRegisterConsolidada() {
 // la TIC/TMC real de cada mes (igual que las pensiones regulares).
 // Devuelve { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada }
 // ============================================================
-function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy) {
+function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo) {
   let interesTotal = 0;
   let diasMoraTotal = 0;
   let sumaPonderada = 0;
@@ -2402,10 +2425,13 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
       const utmMes = (utmData.find(d => d.y === curAnio && d.monthIdx === curMes) || {v:1}).v;
       const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, montoCLP, utmMes, diasMoraTotal);
       if (tasaInfo.esAproximada) hayTasaAproximada = true;
-      const intTramo = montoCLP * (tasaInfo.valor / 365) * diasTramo; // Base 365 — estándar judicial SITFA
+      // Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
+      const recargoAplicaTramo = aplicarRecargo && diasMoraTotal > 0;
+      const tasaEfectiva = recargoAplicaTramo ? tasaInfo.valor * 1.5 : tasaInfo.valor;
+      const intTramo = montoCLP * (tasaEfectiva / 365) * diasTramo; // Base 365 — estándar judicial SITFA
       interesTotal += intTramo;
       diasMoraTotal += diasTramo;
-      sumaPonderada += tasaInfo.valor * diasTramo;
+      sumaPonderada += tasaEfectiva * diasTramo;
     }
     curMes++;
     if (curMes > 11) { curMes = 0; curAnio++; }
@@ -2413,7 +2439,7 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
   return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
 }
-function calculateConsolidada(hoy) {
+function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
   const { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima } = consolidadaData;
   let interes = 0;
@@ -2421,7 +2447,7 @@ function calculateConsolidada(hoy) {
   let tasaPromedio = 0;
   let tasaAproximada = false;
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy);
+    const res = calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo);
     interes = res.interes;
     diasMora = res.diasMora;
     tasaPromedio = res.tasaPromedioPonderada;
@@ -3243,8 +3269,8 @@ const tasaHistorica = _tasaInfo.valor;
 const tasaEsAproximada = _tasaInfo.esAproximada;
 const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
 const tasaBase = tasaHistorica;
-// Ley 14.908 Art. 14: el recargo 50% sobre TIC aplica solo cuando la mora supera 1 año (365 días).
-const recargoAplica = aplicarRecargo && diasMora >= 365;
+// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
+const recargoAplica = aplicarRecargo && diasMora > 0;
 const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
 const interesMes = calcularInteres(capNeto, tasaAnual, diasMora);
 capital += capNeto;
@@ -3297,8 +3323,8 @@ const _tasaInfoH = getTasaAnualInfo(tasaAnioH, tasaMesH, false, modoEsPesosDeuda
 const tasaHistorica = _tasaInfoH.valor;
 const tasaEsAproximada = _tasaInfoH.esAproximada;
 const tasaBaseHist = tasaHistorica;
-// Ley 14.908 Art. 14: recargo 50% solo cuando mora supera 365 días.
-const recargoAplicaH = aplicarRecargo && diasMora >= 365;
+// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
+const recargoAplicaH = aplicarRecargo && diasMora > 0;
 const tasaAnual = recargoAplicaH ? tasaBaseHist * 1.5 : tasaBaseHist;
 const interesPesosMes = calcularInteres(capitalPesosMes, tasaAnual, diasMora);
 capitalPesosTotal += capitalPesosMes;
@@ -3423,7 +3449,7 @@ function imputarAbonosArt1595(detalles, abonos) {
   }
   // Saldo final = capital pendiente + intereses recalculados a HOY sobre el saldo remanente
   // (intPendiente quedó calculado a la fecha del último abono; hay que actualizarlo a hoy)
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const hoy = getFechaLiquidacion();
   const diaVencFinal = getDiaVencimiento();
   const meses = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
   let saldoFinal = 0;
@@ -3452,15 +3478,14 @@ if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'
 const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
 if (_noRange) { dbg('CALC: sin rango definido — abortando sin error'); return; }
 dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len=' + utmData.length + ' utm=' + (document.getElementById('utmAmount').value||'?'));
-const hoy = new Date();
-hoy.setHours(0, 0, 0, 0);
+const hoy = getFechaLiquidacion();
 const aplicarRecargo = document.getElementById('recargoLey').checked;
 const utmHoy = getUtmActualVal();
 // Nota: los pagos parciales ya están descontados del capital en calculatePensiones()
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
 const resPensiones = calculatePensiones(aplicarRecargo, hoy);
 const resHistorical = histMode === 'consolidada'
-  ? calculateConsolidada(hoy)
+  ? calculateConsolidada(hoy, aplicarRecargo)
   : calculateHistoricalDebt(aplicarRecargo, hoy);
 const totalCap = resPensiones.capital + resHistorical.capital;
 const totalInt = resPensiones.intereses + resHistorical.intereses;

@@ -13,7 +13,8 @@ const PAGE_W = 210, MARGIN = 14, CONTENT_W = PAGE_W - MARGIN * 2;
 let y = 14;
 const utmHoy = getUtmActualVal();
 const utmHoyMes = getUtmActual();
-const fechaDoc = new Date().toLocaleDateString('es-CL');
+const fechaLiq = getFechaLiquidacion();
+const fechaDoc = fechaLiq.toLocaleDateString('es-CL');
 const usarTicActualPDF = document.getElementById('ticActual')?.checked || false;
 const aplicarRecargoPDF = document.getElementById('recargoLey')?.checked || false;
 const tasaLabel = usarTicActualPDF
@@ -571,6 +572,7 @@ recargoLey: document.getElementById('recargoLey').checked,
 tasaMaxima: false,
 ticActual: document.getElementById('ticActual')?.checked || false,
 diaVencimiento: document.getElementById('diaVencimiento')?.value || '5',
+fechaLiquidacion: document.getElementById('fechaLiquidacion')?.value || '',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension,
@@ -648,6 +650,7 @@ si.classList.toggle('opacity-40', s.useIMM || false);
 document.getElementById('recargoLey').checked = s.recargoLey || false;
 if (document.getElementById('ticActual')) document.getElementById('ticActual').checked = s.ticActual || false;
 if (document.getElementById('diaVencimiento')) document.getElementById('diaVencimiento').value = s.diaVencimiento || '5';
+if (document.getElementById('fechaLiquidacion')) document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion || '';
 // Restaurar indices de periodo: usar startPeriod/endPeriod (anio+mes) si existen,
 // con fallback a startIndex/endIndex legacy para sesiones guardadas anteriormente.
 if (s.startPeriod) {
