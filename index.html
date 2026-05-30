@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0528.1880">
+ <meta name="app-version" content="2.0530.1881">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v74 · FIX PERIODOS CLP + ANIMACION + SUPABASE SYNC v1880</title>
+ <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1881</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1559,13 +1559,21 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 </div>
  <script>
 // ============================================================
-// BASE DE DATOS TIC/TMC — 4 CATEGORÍAS CMF (2014-2026)
-// Fuente: CMF Chile. Valores en % mensual (× 100 desde tabla).
-// Detección automática de categoría según modalidad y monto.
+// TABLA TIC — Tasa de Interés Corriente para Operaciones
+// Reajustables en MN (única categoría aplicable a pensiones
+// alimenticias según Art. 19 Ley 14.908 y práctica SITFA/PJUD).
+//
+// Fuente: CMF Chile — valores decimales anuales (ej: 0.0416 = 4.16% anual).
+// Índices base 0: [0]=Ene, [1]=Feb, ..., [11]=Dic.
+//
+// METODOLOGÍA CONFIRMADA por ingeniería inversa sobre liquidación
+// oficial del Poder Judicial (RIT Z-617-2024, Juzgado de Familia Talca):
+//   - Una sola tasa: TIC reajustable, sin distinción de plazo.
+//   - Sin categorías CAT 1A, 3A, 3B ni escalonamiento por mora.
+//   - Interés simple diario: Capital_UTM × (TIC_anual / 365) × días_mora.
+//   - Vencimiento: día D del MISMO mes del período (no del siguiente).
 // ============================================================
-
-// Cat. 3.a — Reajustable en MN, < 1 año (UTM, mora corta)
-const TIC_3A = {
+const TIC_REAJ = {
 2014:[0.0412,0.0336,0.0362,0.0233,0.0264,0.0219,0.0311,0.0369,0.0296,0.0198,0.0223,0.0291],
 2015:[0.0406,0.0426,0.0297,0.0182,0.0211,0.0243,0.0246,0.0199,0.0162,0.0184,0.024,0.0332],
 2016:[0.0365,0.0303,0.0233,0.0223,0.0253,0.024,0.0245,0.0263,0.0271,0.0278,0.0314,0.0388],
@@ -1577,11 +1585,12 @@ const TIC_3A = {
 2022:[0.024,0.0253,0.0301,0.0268,0.0232,0.0253,0.0257,0.0255,0.0275,0.0298,0.04,0.0442],
 2023:[0.051,0.0676,0.0694,0.0722,0.0718,0.0936,0.0962,0.0972,0.0792,0.074,0.0698,0.0828],
 2024:[0.0758,0.0846,0.0634,0.0524,0.0532,0.0534,0.053,0.0472,0.0384,0.0381,0.0387,0.0361],
-2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0388,0.0384,0.0394,0.046],
-2026:[0.0462,0.048,0.0464,0.0369,0.0287,null,null,null,null,null,null,null],
+2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0426,0.0428,0.0433,0.0439],
+2026:[0.0439,0.043,0.0413,0.0375,0.033,null,null,null,null,null,null,null],
 };
 
-const TMC_3A = {
+// TMC reajustable (para recargo Art. 14 Ley 14.908 cuando mora ≥ 365 días)
+const TMC_REAJ = {
 2014:[0.0618,0.0504,0.0562,0.0433,0.0464,0.0419,0.0511,0.0569,0.0496,0.0398,0.0423,0.0491],
 2015:[0.0609,0.0639,0.0497,0.0382,0.0411,0.0443,0.0446,0.0399,0.0362,0.0384,0.044,0.0532],
 2016:[0.0565,0.0503,0.0433,0.0423,0.0453,0.044,0.0445,0.0463,0.0471,0.0478,0.0514,0.0588],
@@ -1593,129 +1602,104 @@ const TMC_3A = {
 2022:[0.044,0.0453,0.0501,0.0468,0.0432,0.0453,0.0457,0.0455,0.0475,0.0498,0.06,0.0663],
 2023:[0.0765,0.1014,0.1041,0.1083,0.1077,0.1404,0.1443,0.1458,0.1188,0.111,0.1047,0.1242],
 2024:[0.1137,0.1269,0.0951,0.0786,0.0798,0.0801,0.0795,0.0708,0.0584,0.0581,0.0587,0.0561],
-2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.0588,0.0584,0.0594,0.069],
-2026:[0.0693,0.072,0.0696,0.0569,0.0487,null,null,null,null,null,null,null],
+2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.064,0.0642,0.0647,0.0653],
+2026:[0.0653,0.0644,0.0627,0.0589,0.0544,null,null,null,null,null,null,null],
 };
 
-// Cat. 3.b — Reajustable en MN, ≥ 1 año, ≤ 2.000 UF (UTM, mora larga)
-const TIC_3B = {
-2014:[0.047,0.0466,0.0466,0.0446,0.046,0.045,0.0416,0.04,0.0382,0.04,0.0396,0.0399],
-2015:[0.0404,0.041,0.0408,0.0402,0.0396,0.0396,0.0398,0.0389,0.0399,0.0398,0.04,0.0406],
-2016:[0.0412,0.0414,0.0414,0.041,0.041,0.0412,0.0412,0.041,0.0408,0.0404,0.0394,0.0391],
-2017:[0.0396,0.0396,0.039,0.0384,0.038,0.0378,0.037,0.0363,0.0357,0.0355,0.0356,0.037],
-2018:[0.0384,0.0386,0.0391,0.0386,0.0384,0.0383,0.0379,0.0377,0.037,0.0374,0.0366,0.0363],
-2019:[0.0365,0.0359,0.0357,0.0354,0.034,0.0329,0.0321,0.0302,0.0281,0.0263,0.0246,0.0241],
-2020:[0.0258,0.0278,0.0289,0.0306,0.0277,0.0309,0.0319,0.0269,0.0296,0.0286,0.0281,0.0266],
-2021:[0.026,0.0258,0.0255,0.0254,0.0259,0.0268,0.0286,0.032,0.0349,0.0378,0.0416,0.0454],
-2022:[0.046,0.0464,0.0476,0.0476,0.047,0.0458,0.0446,0.044,0.043,0.0432,0.0452,0.0466],
-2023:[0.0452,0.043,0.0426,0.0424,0.0426,0.0422,0.0418,0.0424,0.0424,0.0434,0.0468,0.0512],
-2024:[0.0522,0.0506,0.0502,0.0498,0.0495,0.0504,0.0508,0.051,0.0502,0.049,0.0476,0.0462],
-2025:[0.0452,0.0454,0.0444,0.0444,0.0448,0.045,0.0452,0.0452,0.045,0.0444,0.0444,0.0442],
-2026:[0.0444,0.0446,0.0438,0.0426,0.0426,null,null,null,null,null,null,null],
-};
-
-const TMC_3B = {
-2014:[0.0705,0.0699,0.0699,0.0669,0.069,0.0675,0.0624,0.06,0.0582,0.06,0.0596,0.0599],
-2015:[0.0606,0.0615,0.0612,0.0603,0.0596,0.0596,0.0598,0.0589,0.0599,0.0598,0.06,0.0609],
-2016:[0.0618,0.0621,0.0621,0.0615,0.0615,0.0618,0.0618,0.0615,0.0612,0.0606,0.0594,0.0591],
-2017:[0.0596,0.0596,0.059,0.0584,0.058,0.0578,0.057,0.0563,0.0557,0.0555,0.0556,0.057],
-2018:[0.0584,0.0586,0.0591,0.0586,0.0584,0.0583,0.0579,0.0577,0.057,0.0574,0.0566,0.0563],
-2019:[0.0565,0.0559,0.0557,0.0554,0.054,0.0529,0.0521,0.0502,0.0481,0.0463,0.0446,0.0441],
-2020:[0.0458,0.0478,0.0489,0.0506,0.0477,0.0509,0.0519,0.0469,0.0496,0.0486,0.0481,0.0466],
-2021:[0.046,0.0458,0.0455,0.0454,0.0459,0.0468,0.0486,0.052,0.0549,0.0578,0.0624,0.0681],
-2022:[0.069,0.0696,0.0714,0.0714,0.0705,0.0687,0.0669,0.066,0.0645,0.0648,0.0678,0.0699],
-2023:[0.0678,0.0645,0.0639,0.0636,0.0639,0.0633,0.0627,0.0636,0.0636,0.0651,0.0702,0.0768],
-2024:[0.0783,0.0759,0.0753,0.0747,0.0743,0.0756,0.0762,0.0765,0.0753,0.0735,0.0714,0.0693],
-2025:[0.0678,0.0681,0.0666,0.0666,0.0672,0.0675,0.0678,0.0678,0.0675,0.0666,0.0666,0.0663],
-2026:[0.0666,0.0669,0.0657,0.0639,0.0639,null,null,null,null,null,null,null],
-};
-
-
-
 // ============================================================
-// DETECCIÓN DE TASA CMF PARA TRIBUNALES DE FAMILIA
+// CACHÉ DINÁMICA — Tasas obtenidas de la API CMF en tiempo real
+// Se complementa con TIC_REAJ (tabla estática de respaldo).
+// Clave: "YYYY-MM" (mes base 1).  Valor: decimal anual.
 // ============================================================
-// CAMBIO JUDICIAL (Art. 19 Ley 14.908 — Obligación de Orden Público):
-//   Toda pensión alimenticia es una obligación reajustable (expresada en UTM),
-//   SIN IMPORTAR si el usuario ingresó el monto en pesos, % sueldo o UTM.
-//   Los Tribunales de Familia NO aplican tasas comerciales (Cat. 1.a / 1.b).
-//   Solo se diferencia el TRAMO TEMPORAL de la operación reajustable:
-//     mora < 365 días  → Cat. 3.a (Reajustable, operación menor a 1 año)
-//     mora ≥ 365 días  → Cat. 3.b (Reajustable, operación mayor a 1 año)
-//
-//   Parámetros modoEsPesos, capitalCLP y utmPeriodo se conservan para
-//   compatibilidad de firma, pero ya NO condicionan la categoría.
-// ============================================================
-function detectarCategoria(modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
-  // Siempre reajustable: solo diferenciamos por tramo temporal (3.a / 3.b).
-  return (diasMora !== undefined && diasMora >= 365) ? '3b' : '3a';
-}
+const _ticCache = {};   // { "2026-05": 0.0330 }
+const _ticFetching = new Set(); // evita peticiones duplicadas
 
-// Retorna { tic, tmc, label } según categoría — solo reajustables (3.a / 3.b)
-function getTablasCategoria(cat) {
-  switch(cat) {
-    case '3a': return { tic: TIC_3A, tmc: TMC_3A, label: 'Cat. 3.a' };
-    case '3b': return { tic: TIC_3B, tmc: TMC_3B, label: 'Cat. 3.b' };
-    default:   return { tic: TIC_3A, tmc: TMC_3A, label: 'Cat. 3.a' }; // fallback siempre reajustable
+async function _fetchTicCMF(year, monthBase1) {
+  const key = `${year}-${String(monthBase1).padStart(2,'0')}`;
+  if (_ticCache[key] !== undefined) return;
+  if (_ticFetching.has(key)) return;
+  _ticFetching.add(key);
+  try {
+    // Endpoint CMF: TIC para operaciones reajustables en MN
+    // Tipo 21 = TIC reajustable (confirmado por CMF)
+    const url = `https://api.cmfchile.cl/api-sbifv3/recursos/v1/periodo/${year}/${String(monthBase1).padStart(2,'0')}/tic.json?tipoindicador=21&apikey=l7aee24393f1e64b60e7d7eb714571d4e1e3b`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    // La API devuelve TICMes[0].Valor en % mensual → convertir a decimal anual
+    const pctMensual = parseFloat((data?.TICMes?.[0]?.Valor || '').replace(',','.'));
+    if (!isNaN(pctMensual) && pctMensual > 0) {
+      _ticCache[key] = (pctMensual / 100) * 12; // % mensual → decimal anual
+      console.log('[CMF API] TIC ' + key + ': ' + pctMensual + '% mensual → ' + (_ticCache[key]*100).toFixed(4) + '% anual');
+      // Actualizar tabla estática para fallback inmediato
+      if (!TIC_REAJ[year]) TIC_REAJ[year] = new Array(12).fill(null);
+      TIC_REAJ[year][monthBase1 - 1] = _ticCache[key];
+    }
+  } catch(e) {
+    console.warn('[CMF API] Error fetching TIC ' + key + ':', e.message);
+  } finally {
+    _ticFetching.delete(key);
   }
 }
 
-function _normalizarMes(month) {
-if (month === undefined || month === null) return 11;
-const raw = Math.floor(month);
-// FIX Bug 1: Se elimina la conversión raw-1 que causaba desfase de un mes.
-// El sistema siempre usa índices base 0 (0=Enero…11=Diciembre).
-return Math.min(Math.max(raw, 0), 11);
-}
+// Pre-cargar TIC de los últimos 24 meses al iniciar la app
+(function _precargarTicReciente() {
+  const hoy = new Date();
+  for (let i = 0; i < 24; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+    _fetchTicCMF(d.getFullYear(), d.getMonth() + 1);
+  }
+})();
 
 // ============================================================
-// getTasaAnualInfo — siempre usa tasa reajustable (Cat. 3.a / 3.b)
-// modoEsPesos/capitalCLP/utmPeriodo se conservan en firma por
-// compatibilidad, pero la categoría se determina solo por diasMora.
+// getTasaAnualInfo — tasa única reajustable (sin categorías)
+// Firma compatible con código existente; parámetros modoEsPesos/
+// capitalCLP/utmPeriodo/diasMora se ignoran en la lógica nueva.
 // ============================================================
+function _normalizarMes(month) {
+  if (month === undefined || month === null) return 11;
+  return Math.min(Math.max(Math.floor(month), 0), 11);
+}
+
 function getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
   const m = _normalizarMes(month);
-  // Detectar categoría automáticamente
-  const cat = detectarCategoria(
-    modoEsPesos !== undefined ? modoEsPesos : false,
-    capitalCLP  || 0,
-    utmPeriodo  || 1,
-    diasMora    !== undefined ? diasMora : 0 // FIX: default 0 (sin mora) → Cat. 3.a, no 3.b
-  );
-  const tablas = getTablasCategoria(cat);
-  const tabla = usarMaxima ? tablas.tmc : tablas.tic;
-  const tipoTasa = usarMaxima ? 'máxima' : 'corriente';
-  // Buscar valor exacto
+  const tabla = usarMaxima ? TMC_REAJ : TIC_REAJ;
+  const label = 'TIC Reaj.';
+
+  // Disparar fetch asíncrono para tener datos frescos en próximos cálculos
+  _fetchTicCMF(year, m + 1);
+
+  // Buscar valor en tabla (puede haber sido actualizado por _fetchTicCMF)
   if (tabla[year]) {
     const exacta = tabla[year][m];
     if (exacta !== null && exacta !== undefined) {
-      return { valor: exacta, esAproximada: false, categoria: cat, categoriaLabel: tablas.label };
+      return { valor: exacta, esAproximada: false, categoria: 'reaj', categoriaLabel: label };
     }
-    // Fallback dentro del mismo año (mes anterior más cercano)
+    // Fallback mes anterior del mismo año
     for (let i = m - 1; i >= 0; i--) {
       const v = tabla[year][i];
       if (v !== null && v !== undefined) {
-        console.warn('[getTasaAnual] Tasa ' + tipoTasa + ' ' + cat + ' ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1));
-        return { valor: v, esAproximada: true, categoria: cat, categoriaLabel: tablas.label };
+        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1));
+        return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
       }
     }
   }
-  // Fallback a año anterior más reciente
-  const allYears = Object.keys(tabla).map(Number).sort((a, b) => b - a);
+  // Fallback año anterior
+  const allYears = Object.keys(tabla).map(Number).sort((a,b) => b - a);
   for (const py of allYears.filter(y => y < year)) {
     for (let i = 11; i >= 0; i--) {
       const v = tabla[py][i];
       if (v !== null && v !== undefined) {
-        console.warn('[getTasaAnual] Tasa ' + tipoTasa + ' ' + cat + ' ' + year + '/' + (m+1) + ' → fallback ' + py + '/' + (i+1));
-        return { valor: v, esAproximada: true, categoria: cat, categoriaLabel: tablas.label };
+        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + py + '/' + (i+1));
+        return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
       }
     }
   }
-  const firstYear = allYears[allYears.length - 1];
-  const fallback = tabla[firstYear]?.find(v => v !== null && v !== undefined) || 0.04;
-  console.warn('[getTasaAnual] Tasa ' + tipoTasa + ' ' + cat + ' ' + year + '/' + (m+1) + ' → fallback absoluto (' + fallback + '%)');
-  return { valor: fallback, esAproximada: true, categoria: cat, categoriaLabel: tablas.label };
+  const fallback = 0.04;
+  console.warn('[TIC] fallback absoluto ' + (fallback*100) + '%');
+  return { valor: fallback, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
 }
+
 function getTasaAnual(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
   return getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora).valor;
 }
@@ -1970,26 +1954,18 @@ try {
 renderUtmTicker();
 }
 async function fetchTasasCMF() {
-  // JUDICIAL (Art. 19 Ley 14.908): solo se necesitan tasas REAJUSTABLES.
-  // Tipos CMF reajustables: 21 = Cat. 3.a (<1 año), 24 = Cat. 3.b (≥1 año).
-  // Los tipos 25 (Cat. 1.b) y 26 (Cat. 1.a) son tasas comerciales de consumo
-  // y NO se usan en liquidaciones de pensiones alimenticias.
+  // JUDICIAL (Art. 19 Ley 14.908): solo tasa reajustable única.
+  // Tipo 21 = TIC para operaciones reajustables en MN (única usada por PJUD).
   const CMF_KEY = 'ab35052100de900ef5d4ee73030e1a56f3a27f13';
-  const TASAS_CACHE_KEY = 'cmf_tasas_cache_v1';
-  const TASAS_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
+  const TASAS_CACHE_KEY = 'cmf_tasas_cache_v2'; // v2: tabla unificada
+  const TASAS_CACHE_TTL = 28 * 24 * 60 * 60 * 1000;
   const TIPO_MAP = {
-    tip: { 21: TIC_3A, 24: TIC_3B },
-    tmc: { 21: TMC_3A, 24: TMC_3B },
+    tip: { 21: TIC_REAJ },
+    tmc: { 21: TMC_REAJ },
   };
-  const NOMBRE_MAP = {
-    tip: { 21: 'TIC_3A', 24: 'TIC_3B' },
-    tmc: { 21: 'TMC_3A', 24: 'TMC_3B' },
-  };
-  const tablasPorNombre = { TIC_3A, TIC_3B, TMC_3A, TMC_3B };
+  const tablasPorNombre = { TIC_REAJ, TMC_REAJ };
 
-  // ── CACHÉ: localStorage primero, luego Supabase, luego API CMF ──
-
-  // 1. localStorage (sin latencia)
+  // 1. localStorage
   try {
     const raw = localStorage.getItem(TASAS_CACHE_KEY);
     if (raw) {
@@ -2025,7 +2001,6 @@ async function fetchTasasCMF() {
             meses.forEach((v, i) => { if (v !== null && tabla[anio][i] === null) tabla[anio][i] = v; });
           });
         });
-        // Propagar a localStorage
         try { localStorage.setItem(TASAS_CACHE_KEY, JSON.stringify({ ts: Date.now(), datos: sbDatos })); } catch(e) {}
         const el = document.getElementById('cmfTasasStatus');
         if (el) { el.textContent = '✓ Al día'; el.style.color = 'rgba(134,239,172,0.8)'; }
@@ -2033,10 +2008,9 @@ async function fetchTasasCMF() {
       }
     } catch(e) { console.warn('[fetchTasasCMF] sbGetTasasCache error:', e); }
   }
-  // 3. Sin caché → llamar API CMF y actualizar Supabase para todos
 
-  // Detectar qué años/meses tienen null en alguna tabla
-  const tablasConNull = [TIC_3A, TIC_3B, TMC_3A, TMC_3B]; // solo reajustables
+  // 3. Sin caché → llamar API CMF
+  const tablasConNull = [TIC_REAJ, TMC_REAJ];
   const aniosConNull = new Set();
   tablasConNull.forEach(t => {
     Object.entries(t).forEach(([y, meses]) => {
@@ -2060,10 +2034,10 @@ async function fetchTasasCMF() {
         items.forEach(item => {
           const tipo = parseInt(item.Tipo);
           const tabla = TIPO_MAP[endpoint]?.[tipo];
-          if (!tabla) return;
+          if (!tabla) return; // ignorar tipos distintos a 21
           const fecha = item.Fecha || '';
           const y = parseInt(fecha.slice(0, 4));
-          const m = parseInt(fecha.slice(5, 7)) - 1; // 0-based
+          const m = parseInt(fecha.slice(5, 7)) - 1;
           if (isNaN(y) || isNaN(m) || y !== anio) return;
           if (!tabla[y]) tabla[y] = Array(12).fill(null);
           if (tabla[y][m] === null) {
@@ -2088,7 +2062,6 @@ async function fetchTasasCMF() {
     if (lastCalculationData.length > 0) calculate();
     const el = document.getElementById('cmfTasasStatus');
     if (el) el.textContent = '✓ Tasas CMF actualizadas';
-    // ── Guardar en caché los datos obtenidos ──
     try {
       const snapshot = {};
       Object.entries(tablasPorNombre).forEach(([nombre, tabla]) => {
@@ -2099,7 +2072,6 @@ async function fetchTasasCMF() {
       });
       localStorage.setItem(TASAS_CACHE_KEY, JSON.stringify({ ts: Date.now(), datos: snapshot }));
     } catch(e) {}
-    // Subir a Supabase para que todos los usuarios aprovechen el dato fresco
     if (typeof sbSetTasasCache === 'function') sbSetTasasCache(snapshot);
   }
 }
@@ -2426,7 +2398,7 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
     const finEfectivo = finTramo < hoy ? finTramo : hoy;
     const diasTramo = Math.floor((finEfectivo - inicioTramo) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {
-      // Consolidada en UTM → reajustable; usar Cat. 3.a/3.b (modoEsPesos=false)
+      // Consolidada en UTM → reajustable; usar TIC reajustable única (modoEsPesos=false)
       const utmMes = (utmData.find(d => d.y === curAnio && d.monthIdx === curMes) || {v:1}).v;
       const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, montoCLP, utmMes, diasMoraTotal);
       if (tasaInfo.esAproximada) hayTasaAproximada = true;
@@ -3188,7 +3160,7 @@ const base = useIMM
 : (parseInt((document.getElementById('salaryAmount').value || '').replace(/\./g, '')) || 0);
 cuotaMensualCLP = base * (porcentaje / 100);
 cuotaMensualUTM = cuotaMensualCLP / utmActual;
-modoEsPesos = true; // % sueldo es monto en pesos, pero sigue usando tasa reajustable (Cat. 3.a/3.b)
+modoEsPesos = true; // % sueldo es monto en pesos, pero sigue usando TIC reajustable única
 }
 return { cuotaMensualCLP, cuotaMensualUTM, modoEsPesos };
 }
@@ -3249,8 +3221,11 @@ if (periodoOverride) {
 }
 const cuotaUTMReal  = cuotaUTMEfectiva;
 const montoPesosMes = modoEsPesosEfectivo ? cuotaCLPEfectiva : (cuotaUTMEfectiva * utmMesHistorico);
-const mesVenc = item.monthIdx + 1 > 11 ? 0 : item.monthIdx + 1;
-const anioVenc = item.monthIdx + 1 > 11 ? item.y + 1 : item.y;
+// CORRECCIÓN JUDICIAL: la cuota del mes M vence el día D del MISMO mes M,
+// no del mes siguiente. Ej: cuota oct-2025 vence el 05-10-2025.
+// Confirmado por ingeniería inversa sobre liquidación oficial SITFA/PJUD.
+const mesVenc = item.monthIdx; // mismo mes del período (base 0)
+const anioVenc = item.y;
 const fechaVenc = new Date(anioVenc, mesVenc, diaVenc);
 const diasMora = calcularDiasMora(fechaVenc, hoy);
 const periodoKey = `${item.y}-${String(item.monthIdx + 1).padStart(2, '0')}`;
@@ -3308,14 +3283,15 @@ const monthIdx = absMonth % 12; // 0=Jan
 const item = utmData.find(d => d.y === y && d.monthIdx === monthIdx);
 if (!item) { mesesOmitidos++; continue; }
 const capitalPesosMes = debt.utm * item.v;
-const mesVenc = monthIdx + 1 > 11 ? 0 : monthIdx + 1;
-const anioVenc = monthIdx + 1 > 11 ? y + 1 : y;
+// CORRECCIÓN JUDICIAL: vence el día D del MISMO mes del período
+const mesVenc = monthIdx; // base 0, mismo mes
+const anioVenc = y;
 const fechaVenc = new Date(anioVenc, mesVenc, diaVenc);
 const diasMora = calcularDiasMora(fechaVenc, hoy);
 const usarTicActualH = document.getElementById('ticActual')?.checked || false;
 const tasaAnioH = usarTicActualH ? hoy.getFullYear() : y;
 const tasaMesH = usarTicActualH ? hoy.getMonth() : monthIdx;
-// Deuda histórica ingresada siempre en UTM → modoEsPesos=false (reajustable) → Cat. 3.a / 3.b según mora
+// Deuda histórica ingresada siempre en UTM → modoEsPesos=false (reajustable, TIC única)
 const modoEsPesosDeudaHist = false; // debt.utm existe siempre; no hay deuda histórica en pesos en este flujo
 const _tasaInfoH = getTasaAnualInfo(tasaAnioH, tasaMesH, false, modoEsPesosDeudaHist, capitalPesosMes, item.v, diasMora);
 const tasaHistorica = _tasaInfoH.valor;
@@ -3400,11 +3376,10 @@ function imputarAbonosArt1595(detalles, abonos) {
       // CORRECCIÓN Art. 1595: recalcular interés devengado HASTA la fecha del abono,
       // no hasta hoy. La mora se mide desde el vencimiento de la cuota hasta el abono.
       // Usamos la misma tasa y capital pendiente de esa cuota.
-      // FIX Bug C: la fecha de vencimiento real es el diaVenc del mes SIGUIENTE al período,
-      // igual que en calculatePensiones. Usar el día 1 del período sobrestimaba la mora ~35 días.
+      // CORRECCIÓN JUDICIAL: vence el día D del MISMO mes del período.
       const diaVencImput = getDiaVencimiento();
-      const mesVencImput = cuotaMes + 1 > 11 ? 0 : cuotaMes + 1;
-      const anioVencImput = cuotaMes + 1 > 11 ? cuotaAnio + 1 : cuotaAnio;
+      const mesVencImput = cuotaMes;       // mismo mes, base 0
+      const anioVencImput = cuotaAnio;
       const fechaVencReal = new Date(anioVencImput, mesVencImput, diaVencImput);
       // Si la cuota aún no venció a la fecha del abono, no imputar a intereses (no devengados)
       if (fechaVencReal > fechaAbono) continue;
@@ -3458,8 +3433,8 @@ function imputarAbonosArt1595(detalles, abonos) {
     const partes = (c.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
     const cMes = meses[partes[0]] ?? 0;
     const cAnio = parseInt(partes[1]) || (c.year||2000);
-    const mesVenc = cMes + 1 > 11 ? 0 : cMes + 1;
-    const anioVenc = cMes + 1 > 11 ? cAnio + 1 : cAnio;
+    const mesVenc = cMes;           // CORRECCIÓN: mismo mes del período
+    const anioVenc = cAnio;
     const fechaVencC = new Date(anioVenc, mesVenc, diaVencFinal);
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
     const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
@@ -4506,6 +4481,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
+<script src="export.js"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
@@ -5607,6 +5583,6 @@ window._keepAliveInterval = setInterval(async () => {
 window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
 </script>
 </div><!-- /#desktop-layout -->
-<script src="export.js"></script>
+
 </body>
 </html>
