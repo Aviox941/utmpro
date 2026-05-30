@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1881">
+ <meta name="app-version" content="2.0530.1890">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1881</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1442,6 +1442,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  <span id="tempParcialLabel" class="input-date__value">Seleccionar</span>
  </button>
  </div>
+ <div class="flex items-center gap-2">
+ <label class="text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Día del pago</label>
+ <input type="number" id="tempParcialDia" min="1" max="31" placeholder="Día" inputmode="numeric"
+   oninput="checkBtnParcial()"
+   class="input-number input-sm" style="width:64px">
+ <span class="text-[9px] text-slate-500">(del mes seleccionado)</span>
+ </div>
  <div id="parcialesListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
  </div><!-- /parcialesBody inner -->
  </div><!-- /parcialesBody -->
@@ -2576,6 +2583,9 @@ function checkBtnParcial() {
 const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempParcialMes').value;
 const anio = document.getElementById('tempParcialAnio').value;
+const dia = parseInt(document.getElementById('tempParcialDia')?.value) || 0;
+const btn = document.getElementById('btnAddParcial');
+if (btn) btn.disabled = !(amount > 0 && mes && anio && dia >= 1 && dia <= 31);
 // Si el calendario está abierto en modo parcial, actualizar su botón
 const calModal = document.getElementById('calendarModal');
 if (calModal && calModal.classList.contains('flex') && calendarMode === 'parcial') {
@@ -2587,7 +2597,11 @@ const raw = document.getElementById('tempParcialClp').value.replace(/\./g, '');
 const amount = parseInt(raw) || 0;
 const mes = document.getElementById('tempParcialMes').value;
 const anio = document.getElementById('tempParcialAnio').value;
-if (amount <= 0 || !mes || !anio) return;
+const dia = parseInt(document.getElementById('tempParcialDia')?.value) || 0;
+if (amount <= 0 || !mes || !anio || dia < 1 || dia > 31) return;
+// Construir fecha exacta del pago: YYYY-MM-DD
+const diaStr = String(dia).padStart(2, '0');
+const date = `${anio}-${mes}-${diaStr}`;
 const periodo = anio + '-' + mes;
 const mIdx = parseInt(mes) - 1;
 const periodoLabel = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mIdx] + ' ' + anio;
@@ -2604,10 +2618,11 @@ if (cuotaMensualUTM > 0 && utmMes) {
     if (!continuar) return;
   }
 }
-pagosParciales.push({ periodo, periodoLabel, amount });
+pagosParciales.push({ periodo, periodoLabel, amount, date });
 document.getElementById('tempParcialClp').value = '';
 document.getElementById('tempParcialMes').value = '';
 document.getElementById('tempParcialAnio').value = '';
+if (document.getElementById('tempParcialDia')) document.getElementById('tempParcialDia').value = '';
 const lblP = document.getElementById('tempParcialLabel');
 lblP.innerText = 'Mes / Año';
 lblP.classList.add('text-slate-400');
@@ -3255,10 +3270,10 @@ const anioVenc = item.y;
 const fechaVenc = new Date(anioVenc, mesVenc, diaVenc);
 const diasMora = calcularDiasMora(fechaVenc, hoy);
 const periodoKey = `${item.y}-${String(item.monthIdx + 1).padStart(2, '0')}`;
-const pagoParcialMes = pagosParciales
-.filter(p => p.periodo === periodoKey)
-.reduce((s, p) => s + p.amount, 0);
-const capNeto = Math.max(0, montoPesosMes - pagoParcialMes);
+// Los pagos parciales ya NO se descuentan aquí del capital.
+// Se tratan como abonos en imputarAbonosArt1595() → Art. 1595 CC:
+// primero cubren intereses devengados a su fecha, luego capital pendiente.
+const capNeto = montoPesosMes;
 // Si no hay cuota para este mes (ni manual ni por período), omitir
 if (capNeto === 0 && !periodoOverride && cuotaMensualUTM === 0 && cuotaMensualCLP === 0) return;
 const usarTicActual = document.getElementById('ticActual')?.checked || false;
@@ -3278,7 +3293,7 @@ capitalUTM += capNeto / item.v;
 intereses += interesMes;
 detalles.push({
 id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
-cap: capNeto, capOriginal: montoPesosMes, pagoParcial: pagoParcialMes,
+cap: capNeto, capOriginal: montoPesosMes,
 tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
 mora: diasMora, inte: interesMes,
 sub: capNeto + interesMes, year: item.y, isDebt: false,
@@ -3359,12 +3374,28 @@ return { capital: capitalPesosTotal, intereses: interesesPesosTotal, capitalUTM:
 //        luego capital, cuota por cuota en orden cronológico.
 // ============================================================
 function imputarAbonosArt1595(detalles, abonos) {
-  if (!abonos || abonos.length === 0) {
+  // Fusionar pagos parciales (con fecha exacta) como abonos internos.
+  // Cada pago parcial tiene { periodo, periodoLabel, amount, date } donde date = 'YYYY-MM-DD'.
+  // Los parciales sin fecha (registros legacy sin campo date) se tratan con el día de vencimiento.
+  const diaVencImput = getDiaVencimiento();
+  const parcialesComoAbonos = (pagosParciales || [])
+    .filter(p => p.amount > 0)
+    .map(p => {
+      let date = p.date; // 'YYYY-MM-DD' si existe
+      if (!date) {
+        // Legacy: solo tiene periodo 'YYYY-MM' → usar día de vencimiento
+        const [anioP, mesP] = p.periodo.split('-');
+        date = `${anioP}-${mesP}-${String(diaVencImput).padStart(2,'0')}`;
+      }
+      return { amount: p.amount, date, esParcial: true, periodo: p.periodo };
+    });
+  const todosAbonos = [...(abonos || []), ...parcialesComoAbonos];
+  if (todosAbonos.length === 0) {
     const saldo = detalles.reduce((s, d) => s + d.cap + d.inte, 0);
-    return { saldoFinal: Math.max(0, saldo), totalAbonado: 0, interesesPagados: 0, capitalPagado: 0, detalleImputacion: [] };
+    return { saldoFinal: Math.max(0, saldo), totalAbonado: 0, interesesPagados: 0, capitalPagado: 0, detalleImputacion: [], cuotasResultado: detalles.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte })) };
   }
-  // Ordenar abonos cronológicamente por fecha (YYYY-MM)
-  const abonosOrdenados = [...abonos].sort((a, b) => a.date.localeCompare(b.date));
+  // Ordenar todos los abonos cronológicamente por fecha exacta
+  const abonosOrdenados = todosAbonos.sort((a, b) => a.date.localeCompare(b.date));
   // Clonar detalles para no mutar el array original.
   // intPendiente se recalculará a la fecha de cada abono (Art. 1595: intereses devengados
   // hasta la fecha del pago, no hasta hoy).
@@ -3380,9 +3411,12 @@ function imputarAbonosArt1595(detalles, abonos) {
   for (const abono of abonosOrdenados) {
     let remanente = abono.amount;
     totalAbonado += abono.amount;
-    const [anioAbono, mesAbono] = abono.date.split('-').map(Number);
-    const fechaAbono = new Date(anioAbono, mesAbono - 1, 1);
-    const imputThis = { fecha: abono.date, monto: abono.amount, porCuota: [] };
+    const partesDate = abono.date.split('-').map(Number);
+    const anioAbono = partesDate[0];
+    const mesAbono = partesDate[1];
+    const diaAbono = partesDate[2] || 1; // día exacto si existe (parciales), 1 para abonos legacy
+    const fechaAbono = new Date(anioAbono, mesAbono - 1, diaAbono);
+    const imputThis = { fecha: abono.date, monto: abono.amount, porCuota: [], esParcial: abono.esParcial || false };
     for (const cuota of cuotas) {
       if (remanente <= 0) break;
       // Solo imputar a cuotas vencidas antes o en el mes del abono
@@ -4495,7 +4529,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0528.1920</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0530.1890</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
