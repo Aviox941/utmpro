@@ -253,16 +253,22 @@ if (imputacionPDF.detalleImputacion && imputacionPDF.detalleImputacion.length > 
 if (pagosParciales.length > 0) {
 seccion('PAGOS PARCIALES POR MES (descontados del capital)', [124,58,237]);
 const parcialTotal = totalParcialesTabla;
-const parcialTotalUTM = parcialTotal / utmHoy;
+const { cuotaMensualUTM } = getMonthlyValues ? getMonthlyValues() : { cuotaMensualUTM: 0 };
 doc.autoTable({
 startY: y,
-head: [['N°','Período','Monto ($)','Equiv. UTM']],
-body: pagosParciales.map((p,i) => [i+1, p.periodoLabel, fmt(p.amount), (p.amount/utmHoy).toFixed(3)+' UTM']),
-foot: [['', 'TOTAL', fmt(parcialTotal), parcialTotalUTM.toFixed(4)+' UTM']],
+head: [['N°','Período','Monto ($)','UTM Período','Equiv. Pago UTM','Remanente UTM']],
+body: pagosParciales.map((p,i) => {
+  const utmP = p.utmVal || utmHoy;
+  const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
+  const rem = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amtUtm) : null;
+  return [i+1, p.periodoLabel, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(4)+' UTM', rem !== null ? rem.toFixed(4)+' UTM' : '—'];
+}),
+foot: [['', 'TOTAL', fmt(parcialTotal), '', (pagosParciales.reduce((s,p) => { const utmP=p.utmVal||utmHoy; return s+(p.amountUtm!==null&&p.amountUtm!==undefined?p.amountUtm:(p.amount/utmP)); },0)).toFixed(4)+' UTM', '']],
 theme:'grid',
 headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
 footStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
 styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
+columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:18},2:{halign:'right',cellWidth:24},3:{halign:'center',cellWidth:22},4:{halign:'center',cellWidth:24},5:{halign:'center',cellWidth:24}},
 margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;

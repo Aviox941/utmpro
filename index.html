@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1891">
+ <meta name="app-version" content="2.0530.1892">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1881</title>
+ <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1892</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2615,13 +2615,18 @@ function syncParcialUtm() {
   const clp = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
   const utm = clp > 0 ? (clp / utmMes.v) : 0;
   const utmEl = document.getElementById('tempParcialUtm');
-  if (utmEl) utmEl.value = utm > 0 ? utm.toFixed(5) : '';
+  if (utmEl) utmEl.value = utm > 0 ? utm.toFixed(4) : '';
 }
 // Cuando se cambia UTM → recalcular CLP usando el mes seleccionado
 function syncParcialClpFromUtm() {
   const mes = document.getElementById('tempParcialMes').value;
   const anio = document.getElementById('tempParcialAnio').value;
-  if (!mes || !anio) return; // Sin fecha aún, se convertirá al elegir mes
+  if (!mes || !anio) {
+    // Sin fecha: limpiar CLP pero mantener UTM ingresada; se convertirá al elegir fecha
+    const clpEl = document.getElementById('tempParcialClp');
+    if (clpEl) clpEl.value = '';
+    return;
+  }
   const mIdx = parseInt(mes) - 1;
   const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
   if (!utmMes || !utmMes.v) return;
@@ -2649,7 +2654,7 @@ function updateParcialUtmFromDate() {
     if (clpEl) clpEl.value = clpCalc.toLocaleString('es-CL');
   } else if (clp > 0) {
     // Vino CLP → mostrar UTM equivalente
-    if (utmEl) utmEl.value = (clp / utmMes.v).toFixed(5);
+    if (utmEl) utmEl.value = (clp / utmMes.v).toFixed(4);
   }
   // Actualizar placeholder con valor UTM del mes como referencia
   if (utmEl) utmEl.placeholder = `UTM ${utmMes.v.toLocaleString('es-CL')}`;
@@ -2680,7 +2685,11 @@ if (cuotaMensualUTM > 0 && utmMes) {
     if (!continuar) return;
   }
 }
-pagosParciales.push({ periodo, periodoLabel, amount, date });
+// Calcular y guardar UTM del período y equivalencia
+const utmMesPeriodo = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+const utmValPeriodo = (utmMesPeriodo && utmMesPeriodo.v) ? utmMesPeriodo.v : null;
+const amountUtm = utmValPeriodo ? (amount / utmValPeriodo) : null;
+pagosParciales.push({ periodo, periodoLabel, amount, date, utmVal: utmValPeriodo, amountUtm });
 document.getElementById('tempParcialClp').value = '';
 document.getElementById('tempParcialMes').value = '';
 document.getElementById('tempParcialAnio').value = '';
@@ -2707,14 +2716,34 @@ const container = document.getElementById('parcialesListContainer');
 if (!container) return;
 container.innerHTML = '';
 if (pagosParciales.length === 0) return;
-const utmHoy = getUtmActualVal();
 pagosParciales.forEach((p, i) => {
-const utmEquiv = (p.amount / utmHoy).toFixed(3);
-const div = document.createElement('div');
-div.className = 'abono-item animate-fadeIn';
-div.style.borderColor = '#ddd6fe';
-div.innerHTML = `<div class="text-[10px] font-black"><span class="text-[#93c5fd] font-black">${p.periodoLabel}</span><span class="mx-1 text-slate-300">|</span><span class="text-white font-black">${format(p.amount)}</span><span class="ml-1 text-[9px] text-[#93c5fd] font-bold">${utmEquiv} UTM</span></div><button onclick="removePagoParcial(${i})" class="text-red-500 font-bold px-2">x</button>`;
-container.appendChild(div);
+  // Usar UTM del período guardada en el objeto; fallback a utmHoy si no existe (registros legacy)
+  const utmValUsado = p.utmVal || getUtmActualVal();
+  const amountUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmValUsado);
+  const amountUtmStr = amountUtm.toFixed(4);
+  // Remanente = cuota UTM del mes - pago en UTM
+  const { cuotaMensualUTM } = getMonthlyValues();
+  const remanente = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amountUtm) : null;
+  const remanenteClp = (remanente !== null && utmValUsado) ? Math.round(remanente * utmValUsado) : null;
+  const remanenteHtml = remanente !== null
+    ? `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">Rem: <span class="text-[#c084fc]">${remanente.toFixed(4)} UTM</span>${remanenteClp ? ` ≈ <span class="text-slate-300">${format(remanenteClp)}</span>` : ''}</span></div>`
+    : '';
+  const div = document.createElement('div');
+  div.className = 'abono-item animate-fadeIn';
+  div.style.borderColor = '#ddd6fe';
+  div.innerHTML = `
+    <div style="flex:1;min-width:0;">
+      <div class="text-[10px] font-black flex flex-wrap items-center gap-1">
+        <span class="text-[#93c5fd] font-black">${p.periodoLabel}</span>
+        <span class="text-slate-300">|</span>
+        <span class="text-white font-black">${format(p.amount)}</span>
+        <span class="text-[9px] text-[#c084fc] font-bold">${amountUtmStr} UTM</span>
+      </div>
+      <div class="text-[8px] text-slate-400 font-bold mt-0.5">UTM ${p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—'} · Equiv. <span class="text-slate-300">${format(p.amount)}</span></div>
+      ${remanenteHtml}
+    </div>
+    <button onclick="removePagoParcial(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
+  container.appendChild(div);
 });
 }
 // ============================================================
@@ -4658,7 +4687,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0530.1891</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0530.1892</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
