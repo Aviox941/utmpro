@@ -13,7 +13,7 @@ const PAGE_W = 210, MARGIN = 14, CONTENT_W = PAGE_W - MARGIN * 2;
 let y = 14;
 const utmHoy = getUtmActualVal();
 const utmHoyMes = getUtmActual();
-const fechaLiq = getFechaLiquidacion();
+const fechaLiq = (typeof getFechaLiquidacion === 'function') ? getFechaLiquidacion() : new Date();
 const fechaDoc = fechaLiq.toLocaleDateString('es-CL');
 const usarTicActualPDF = document.getElementById('ticActual')?.checked || false;
 const aplicarRecargoPDF = document.getElementById('recargoLey')?.checked || false;
@@ -1946,3 +1946,29 @@ async function exportarExcel() {
     alert('Error al generar el Excel: ' + e.message);
   }
 }
+
+// ── Extender saveCurrentCasoNow para sincronizar con Supabase ──
+// Se ejecuta al final de export.js, cuando saveCurrentCasoNow ya existe.
+(function() {
+  const _orig = saveCurrentCasoNow;
+  window.saveCurrentCasoNow = function() {
+    _orig();
+    if (typeof sbCurrentUser !== 'undefined' && sbCurrentUser &&
+        typeof activeCasoId !== 'undefined' && activeCasoId &&
+        typeof _deletedCasoIds !== 'undefined' && !_deletedCasoIds.has(activeCasoId) &&
+        typeof queueSave === 'function') {
+      queueSave(activeCasoId);
+    }
+  };
+})();
+
+// ── Extender crearCaso para sincronizar con Supabase ──
+(function() {
+  const _orig = crearCaso;
+  window.crearCaso = function() {
+    _orig();
+    if (typeof sbCurrentUser !== 'undefined' && sbCurrentUser && typeof queueSave === 'function') {
+      setTimeout(() => { if (typeof activeCasoId !== 'undefined' && activeCasoId) queueSave(activeCasoId); }, 800);
+    }
+  };
+})();

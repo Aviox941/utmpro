@@ -1437,17 +1437,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  <input type="text" id="tempParcialClp" placeholder="0.00" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnParcial()" class="input-currency">
  <input type="hidden" id="tempParcialMes" value="">
  <input type="hidden" id="tempParcialAnio" value="">
+ <input type="hidden" id="tempParcialDia" value="">
  <button onclick="openCalendar('parcial')" id="tempParcialPickerBtn" class="input-date">
- <span class="input-date__sublabel">Mes / Año</span>
- <span id="tempParcialLabel" class="input-date__value">Seleccionar</span>
+ <span class="input-date__sublabel">Fecha del pago</span>
+ <span id="tempParcialLabel" class="input-date__value">Día / Mes / Año</span>
  </button>
- </div>
- <div class="flex items-center gap-2">
- <label class="text-[9px] font-bold text-slate-400 uppercase whitespace-nowrap">Día del pago</label>
- <input type="number" id="tempParcialDia" min="1" max="31" placeholder="Día" inputmode="numeric"
-   oninput="checkBtnParcial()"
-   class="input-number input-sm" style="width:64px">
- <span class="text-[9px] text-slate-500">(del mes seleccionado)</span>
  </div>
  <div id="parcialesListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
  </div><!-- /parcialesBody inner -->
@@ -1516,12 +1510,22 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div>
  <div id="calendarModal" class="fixed inset-0 z-[100] bg-[#1a1d2e]/45 backdrop-blur-sm hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
  <div class="bg-white border w-full max-w-sm rounded-[2.5rem] p-8" style="border-color:rgba(0,0,0,0.07);box-shadow:0 8px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06)">
- <div class="flex items-center justify-between p-4 rounded-2xl mb-6" style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.10)">
+ <!-- Header año (visible en modo mes) -->
+ <div id="calendarYearNav" class="flex items-center justify-between p-4 rounded-2xl mb-6" style="background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.10)">
  <button onclick="changeYear(-1)" class="font-black text-[#2563eb] px-4">❮</button>
-            <span id="calendarYear" class="font-black text-xl text-[#1a1d2e]"></span>
+ <span id="calendarYear" class="font-black text-xl text-[#1a1d2e]"></span>
  <button onclick="changeYear(1)" class="font-black text-[#2563eb] px-4">❯</button>
  </div>
+ <!-- Grid meses -->
  <div id="calendarMonths" class="month-grid"></div>
+ <!-- Grid días (solo modo parcial, segunda etapa) -->
+ <div id="calendarDays" class="hidden">
+ <div class="flex items-center gap-2 mb-4">
+ <button onclick="backToMonths()" class="text-[#2563eb] font-black text-sm px-2">❮</button>
+ <p id="calendarDayTitle" class="text-[13px] font-black text-[#1a1d2e]"></p>
+ </div>
+ <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1"></div>
+ </div>
  <button id="calendarActionBtn" onclick="calendarAction()" class="btn-base btn-ghost btn-full mt-6">Cerrar</button>
  </div>
  </div>
@@ -2585,12 +2589,9 @@ const mes = document.getElementById('tempParcialMes').value;
 const anio = document.getElementById('tempParcialAnio').value;
 const dia = parseInt(document.getElementById('tempParcialDia')?.value) || 0;
 const btn = document.getElementById('btnAddParcial');
+// El botón manual solo se habilita si hay monto + fecha completa.
+// Normalmente el registro ocurre automáticamente al elegir día en el calendario.
 if (btn) btn.disabled = !(amount > 0 && mes && anio && dia >= 1 && dia <= 31);
-// Si el calendario está abierto en modo parcial, actualizar su botón
-const calModal = document.getElementById('calendarModal');
-if (calModal && calModal.classList.contains('flex') && calendarMode === 'parcial') {
-updateCalendarActionBtn();
-}
 }
 async function addPagoParcial() {
 const raw = document.getElementById('tempParcialClp').value.replace(/\./g, '');
@@ -2622,9 +2623,9 @@ pagosParciales.push({ periodo, periodoLabel, amount, date });
 document.getElementById('tempParcialClp').value = '';
 document.getElementById('tempParcialMes').value = '';
 document.getElementById('tempParcialAnio').value = '';
-if (document.getElementById('tempParcialDia')) document.getElementById('tempParcialDia').value = '';
+document.getElementById('tempParcialDia').value = '';
 const lblP = document.getElementById('tempParcialLabel');
-lblP.innerText = 'Mes / Año';
+lblP.innerText = 'Día / Mes / Año';
 lblP.classList.add('text-slate-400');
 lblP.classList.remove('text-white');
 checkBtnParcial();
@@ -3932,6 +3933,12 @@ selectedYear = currentIdx !== -1 ? utmData[currentIdx].y : CURRENT_YEAR;
 renderCalendar();
 document.getElementById('calendarModal').classList.replace('hidden', 'flex'); lockBody();
 if (m === 'abono' || m === 'parcial') updateCalendarActionBtn();
+// Asegurarse de que el selector de días esté oculto al abrir
+if (m === 'parcial') {
+  document.getElementById('calendarDays').classList.add('hidden');
+  document.getElementById('calendarMonths').classList.remove('hidden');
+  document.getElementById('calendarYearNav').classList.remove('hidden');
+}
 }
 function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
 function changeYear(v) {
@@ -4099,11 +4106,8 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempParcialMes').value = mesVal;
 document.getElementById('tempParcialAnio').value = String(selectedYear);
-document.getElementById('tempParcialLabel').innerText = `${name} ${selectedYear}`;
-document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
-document.getElementById('tempParcialLabel').classList.add('text-white');
-updateCalendarActionBtn();
-renderCalendar();
+// Mostrar selector de días
+renderDaySelector(selectedYear, i);
 return;
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -4154,6 +4158,63 @@ container.appendChild(btn);
 }
 function updateYearSelects() {
 // Los selects fueron reemplazados por pickers de calendario; no se requiere acción.
+}
+function renderDaySelector(anio, mesIdx) {
+  // Ocultar grid de meses y nav de año, mostrar grid de días
+  document.getElementById('calendarMonths').classList.add('hidden');
+  document.getElementById('calendarYearNav').classList.add('hidden');
+  document.getElementById('calendarDays').classList.remove('hidden');
+  const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('calendarDayTitle').textContent = mNames[mesIdx] + ' ' + anio;
+  // Calcular días válidos del mes
+  const diasEnMes = new Date(anio, mesIdx + 1, 0).getDate();
+  const grid = document.getElementById('calendarDaysGrid');
+  grid.innerHTML = '';
+  const diaSeleccionado = parseInt(document.getElementById('tempParcialDia').value) || 0;
+  for (let d = 1; d <= diasEnMes; d++) {
+    const btn = document.createElement('button');
+    btn.textContent = d;
+    btn.className = `w-full aspect-square rounded-xl text-[11px] font-bold transition-all active:scale-90 ${d === diaSeleccionado
+      ? 'bg-[#2563eb] text-white'
+      : 'bg-[#f1f5f9] text-[#1a1d2e] hover:bg-[#dbeafe]'}`;
+    btn.onclick = async () => {
+      const mesVal = document.getElementById('tempParcialMes').value;
+      const anioVal = document.getElementById('tempParcialAnio').value;
+      const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
+      if (amount <= 0) {
+        closeCalendar();
+        alert('Ingresa primero el monto del pago parcial.');
+        return;
+      }
+      // Guardar día seleccionado
+      document.getElementById('tempParcialDia').value = String(d);
+      const mIdx = parseInt(mesVal) - 1;
+      const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      document.getElementById('tempParcialLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
+      document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
+      document.getElementById('tempParcialLabel').classList.add('text-white');
+      // Registrar y cerrar
+      closeCalendar();
+      await addPagoParcial();
+    };
+    grid.appendChild(btn);
+  }
+  // Botón acción solo cierra
+  const actionBtn = document.getElementById('calendarActionBtn');
+  actionBtn.textContent = 'Cancelar';
+  actionBtn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+}
+function backToMonths() {
+  // Volver al grid de meses desde el selector de días
+  document.getElementById('calendarDays').classList.add('hidden');
+  document.getElementById('calendarMonths').classList.remove('hidden');
+  document.getElementById('calendarYearNav').classList.remove('hidden');
+  // Limpiar selección de mes/día para que el usuario vuelva a elegir
+  document.getElementById('tempParcialMes').value = '';
+  document.getElementById('tempParcialAnio').value = '';
+  document.getElementById('tempParcialDia').value = '';
+  updateCalendarActionBtn();
+  renderCalendar();
 }
 function updateLabels(skipCalculate) {
 document.getElementById('startLabel').innerText = startIndex >= 0 ? `${utmData[startIndex].m} ${utmData[startIndex].y}` : "Seleccionar";
@@ -4285,7 +4346,7 @@ if (isDesktop()) renderCasosList();
 // Guardar el caso activo al salir/cerrar
 window.addEventListener('beforeunload', () => {
 if (!activeCasoId) return;
-saveCurrentCasoNow();
+if (typeof saveCurrentCasoNow === 'function') saveCurrentCasoNow();
 localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // La cola (queueSave) maneja la sincronización con Supabase.
 // No se lanza fetch PATCH aquí — evita race conditions con operaciones en vuelo.
@@ -4313,7 +4374,7 @@ document.addEventListener('visibilitychange', async () => {
   }
   try {
     // 1. Guardar en localStorage de forma síncrona
-    saveCurrentCasoNow();
+    if (typeof saveCurrentCasoNow === 'function') saveCurrentCasoNow();
     localStorage.setItem('pension_utm_last_caso', activeCasoId);
     // 2. Encolar sincronización con Supabase vía la cola única
     // Nota: sbSaveCaso usa el SDK de Supabase (no fetch keepalive), por lo que
@@ -5544,26 +5605,6 @@ function queueDelete(id) {
   dbg('SYNC: eliminando directo ' + id.slice(0,8));
   _sbDeleteCasoCore(id).catch(e => dbg('SYNC DELETE error: ' + e.message));
 }
-
-// ── Parchear saveCurrentCasoNow para también sincronizar con Supabase ──
-const _origSaveCurrentCasoNow = saveCurrentCasoNow;
-window.saveCurrentCasoNow = function() {
-  _origSaveCurrentCasoNow();
-  if (sbCurrentUser && activeCasoId && !_deletedCasoIds.has(activeCasoId)) {
-    queueSave(activeCasoId);
-  }
-};
-
-// ── Parchear crearCaso para guardar el nuevo caso en Supabase ──
-const _origCrearCaso = crearCaso;
-window.crearCaso = function() {
-  _origCrearCaso();
-  if (sbCurrentUser) {
-    setTimeout(() => {
-      if (activeCasoId) queueSave(activeCasoId);
-    }, 800);
-  }
-};
 
 // ── Keep-alive: ping cada 4 días para no pausar el proyecto ──
 // Se guarda la referencia para poder cancelarlo al hacer sign-out.
