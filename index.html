@@ -2621,16 +2621,17 @@ function syncParcialUtm() {
 function syncParcialClpFromUtm() {
   const mes = document.getElementById('tempParcialMes').value;
   const anio = document.getElementById('tempParcialAnio').value;
-  if (!mes || !anio) return;
+  if (!mes || !anio) return; // Sin fecha aún, se convertirá al elegir mes
   const mIdx = parseInt(mes) - 1;
   const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
   if (!utmMes || !utmMes.v) return;
   const utmVal = parseFloat((document.getElementById('tempParcialUtm').value || '').replace(',', '.')) || 0;
   const clp = utmVal > 0 ? Math.round(utmVal * utmMes.v) : 0;
   const clpEl = document.getElementById('tempParcialClp');
-  if (clpEl) clpEl.value = clp > 0 ? clp.toLocaleString('es-CL') : '';
+  if (clpEl && clp > 0) clpEl.value = clp.toLocaleString('es-CL');
+  else if (clpEl && utmVal <= 0) clpEl.value = '';
 }
-// Actualizar UTM automáticamente cuando se selecciona la fecha en el calendario
+// Actualizar campos al seleccionar fecha en el calendario
 function updateParcialUtmFromDate() {
   const mes = document.getElementById('tempParcialMes').value;
   const anio = document.getElementById('tempParcialAnio').value;
@@ -2638,15 +2639,20 @@ function updateParcialUtmFromDate() {
   const mIdx = parseInt(mes) - 1;
   const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
   if (!utmMes || !utmMes.v) return;
-  const clp = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
   const utmEl = document.getElementById('tempParcialUtm');
-  if (!utmEl) return;
-  if (clp > 0) {
-    utmEl.value = (clp / utmMes.v).toFixed(5);
-  } else {
-    // Si no hay CLP, mostrar el valor UTM del mes como referencia en placeholder
-    utmEl.placeholder = `UTM ${utmMes.v.toLocaleString('es-CL')}`;
+  const clpEl = document.getElementById('tempParcialClp');
+  const clp = parseInt((clpEl?.value || '').replace(/\./g, '')) || 0;
+  const utmIngresado = parseFloat((utmEl?.value || '').replace(',', '.')) || 0;
+  if (utmIngresado > 0 && clp <= 0) {
+    // Vino UTM → convertir a CLP con el UTM del mes elegido
+    const clpCalc = Math.round(utmIngresado * utmMes.v);
+    if (clpEl) clpEl.value = clpCalc.toLocaleString('es-CL');
+  } else if (clp > 0) {
+    // Vino CLP → mostrar UTM equivalente
+    if (utmEl) utmEl.value = (clp / utmMes.v).toFixed(5);
   }
+  // Actualizar placeholder con valor UTM del mes como referencia
+  if (utmEl) utmEl.placeholder = `UTM ${utmMes.v.toLocaleString('es-CL')}`;
 }
 async function addPagoParcial() {
 const raw = document.getElementById('tempParcialClp').value.replace(/\./g, '');
@@ -4163,6 +4169,8 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempParcialMes').value = mesVal;
 document.getElementById('tempParcialAnio').value = String(selectedYear);
+// Convertir UTM↔CLP con el valor del mes apenas se elige
+updateParcialUtmFromDate();
 // Mostrar selector de días
 renderDaySelector(selectedYear, i);
 return;
@@ -4237,22 +4245,23 @@ function renderDaySelector(anio, mesIdx) {
     btn.onclick = async () => {
       const mesVal = document.getElementById('tempParcialMes').value;
       const anioVal = document.getElementById('tempParcialAnio').value;
+      // Sincronizar UTM con la fecha seleccionada ANTES de validar
+      document.getElementById('tempParcialDia').value = String(d);
+      updateParcialUtmFromDate();
+      // Si vino UTM sin CLP, convertir ahora
+      const utmVal = parseFloat((document.getElementById('tempParcialUtm').value || '').replace(',', '.')) || 0;
+      if (utmVal > 0) syncParcialClpFromUtm();
       const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
       if (amount <= 0) {
         closeCalendar();
-        alert('Ingresa primero el monto del pago parcial.');
+        alert('Ingresa un monto válido (CLP o UTM).');
         return;
       }
-      // Guardar día seleccionado
-      document.getElementById('tempParcialDia').value = String(d);
       const mIdx = parseInt(mesVal) - 1;
       const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
       document.getElementById('tempParcialLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
       document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
       document.getElementById('tempParcialLabel').classList.add('text-white');
-      // Sincronizar UTM con la fecha seleccionada
-      updateParcialUtmFromDate();
-      // Registrar y cerrar
       closeCalendar();
       await addPagoParcial();
     };
