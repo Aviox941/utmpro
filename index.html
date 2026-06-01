@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1890">
+ <meta name="app-version" content="2.0530.1891">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1881</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1433,12 +1433,25 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div>
  <div id="parcialesBody" class="collapsible-body">
  <div class="dh-body space-y-3" style="padding:12px 14px">
+ <div class="space-y-2">
  <div class="grid grid-cols-2 gap-2">
- <input type="text" id="tempParcialClp" placeholder="0.00" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnParcial()" class="input-currency">
+ <div class="relative">
+ <input type="text" id="tempParcialClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
+   oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); syncParcialUtm(); checkBtnParcial()"
+   class="input-currency w-full">
+ <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+ </div>
+ <div class="relative">
+ <input type="text" id="tempParcialUtm" placeholder="— UTM" inputmode="decimal"
+   oninput="syncParcialClpFromUtm(); checkBtnParcial()"
+   class="input-currency w-full">
+ <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+ </div>
+ </div>
  <input type="hidden" id="tempParcialMes" value="">
  <input type="hidden" id="tempParcialAnio" value="">
  <input type="hidden" id="tempParcialDia" value="">
- <button onclick="openCalendar('parcial')" id="tempParcialPickerBtn" class="input-date">
+ <button onclick="openCalendar('parcial')" id="tempParcialPickerBtn" class="input-date w-full">
  <span class="input-date__sublabel">Fecha del pago</span>
  <span id="tempParcialLabel" class="input-date__value">Día / Mes / Año</span>
  </button>
@@ -2589,9 +2602,51 @@ const mes = document.getElementById('tempParcialMes').value;
 const anio = document.getElementById('tempParcialAnio').value;
 const dia = parseInt(document.getElementById('tempParcialDia')?.value) || 0;
 const btn = document.getElementById('btnAddParcial');
-// El botón manual solo se habilita si hay monto + fecha completa.
-// Normalmente el registro ocurre automáticamente al elegir día en el calendario.
 if (btn) btn.disabled = !(amount > 0 && mes && anio && dia >= 1 && dia <= 31);
+}
+// Cuando se cambia CLP → recalcular UTM usando el mes seleccionado
+function syncParcialUtm() {
+  const mes = document.getElementById('tempParcialMes').value;
+  const anio = document.getElementById('tempParcialAnio').value;
+  if (!mes || !anio) return; // Sin fecha, no se puede convertir
+  const mIdx = parseInt(mes) - 1;
+  const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+  if (!utmMes || !utmMes.v) return;
+  const clp = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
+  const utm = clp > 0 ? (clp / utmMes.v) : 0;
+  const utmEl = document.getElementById('tempParcialUtm');
+  if (utmEl) utmEl.value = utm > 0 ? utm.toFixed(5) : '';
+}
+// Cuando se cambia UTM → recalcular CLP usando el mes seleccionado
+function syncParcialClpFromUtm() {
+  const mes = document.getElementById('tempParcialMes').value;
+  const anio = document.getElementById('tempParcialAnio').value;
+  if (!mes || !anio) return;
+  const mIdx = parseInt(mes) - 1;
+  const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+  if (!utmMes || !utmMes.v) return;
+  const utmVal = parseFloat((document.getElementById('tempParcialUtm').value || '').replace(',', '.')) || 0;
+  const clp = utmVal > 0 ? Math.round(utmVal * utmMes.v) : 0;
+  const clpEl = document.getElementById('tempParcialClp');
+  if (clpEl) clpEl.value = clp > 0 ? clp.toLocaleString('es-CL') : '';
+}
+// Actualizar UTM automáticamente cuando se selecciona la fecha en el calendario
+function updateParcialUtmFromDate() {
+  const mes = document.getElementById('tempParcialMes').value;
+  const anio = document.getElementById('tempParcialAnio').value;
+  if (!mes || !anio) return;
+  const mIdx = parseInt(mes) - 1;
+  const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+  if (!utmMes || !utmMes.v) return;
+  const clp = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
+  const utmEl = document.getElementById('tempParcialUtm');
+  if (!utmEl) return;
+  if (clp > 0) {
+    utmEl.value = (clp / utmMes.v).toFixed(5);
+  } else {
+    // Si no hay CLP, mostrar el valor UTM del mes como referencia en placeholder
+    utmEl.placeholder = `UTM ${utmMes.v.toLocaleString('es-CL')}`;
+  }
 }
 async function addPagoParcial() {
 const raw = document.getElementById('tempParcialClp').value.replace(/\./g, '');
@@ -2624,6 +2679,8 @@ document.getElementById('tempParcialClp').value = '';
 document.getElementById('tempParcialMes').value = '';
 document.getElementById('tempParcialAnio').value = '';
 document.getElementById('tempParcialDia').value = '';
+const utmEl = document.getElementById('tempParcialUtm');
+if (utmEl) { utmEl.value = ''; utmEl.placeholder = '— UTM'; }
 const lblP = document.getElementById('tempParcialLabel');
 lblP.innerText = 'Día / Mes / Año';
 lblP.classList.add('text-slate-400');
@@ -4193,6 +4250,8 @@ function renderDaySelector(anio, mesIdx) {
       document.getElementById('tempParcialLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
       document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
       document.getElementById('tempParcialLabel').classList.add('text-white');
+      // Sincronizar UTM con la fecha seleccionada
+      updateParcialUtmFromDate();
       // Registrar y cerrar
       closeCalendar();
       await addPagoParcial();
@@ -4590,7 +4649,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0530.1890</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0530.1891</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
