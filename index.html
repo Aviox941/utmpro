@@ -3620,17 +3620,6 @@ excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagado
 });
 });
 }
-// Restar abonos LAV: se acumulan en UTM del mes del depósito y se descuentan del capital total
-if (typeof abonosLav !== 'undefined' && abonosLav.length > 0) {
-  abonosLav.forEach(p => {
-    const utmP = p.utmVal || (utmData.length ? utmData[utmData.length-1].v : 1);
-    const utmMonto = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
-    capitalUTM -= utmMonto;
-    capital    -= p.amount;
-  });
-  capital    = Math.max(0, capital);
-  capitalUTM = Math.max(0, capitalUTM);
-}
 return { capital, intereses, capitalUTM, detalles };
 }
 function calculateHistoricalDebt(aplicarRecargo, hoy) {
@@ -3860,7 +3849,12 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
   });
 }
 if (lastCalculationData.length > 0) {
-const totalFinal = imputacion.saldoFinal;
+// Restar abonos LAV del saldo final (igual que el tribunal: suma UTM de cada depósito)
+const totalLavCLP = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
+  ? abonosLav.reduce((s, p) => s + p.amount, 0) : 0;
+const totalLavUTM = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
+  ? abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0) : 0;
+const totalFinal = Math.max(0, imputacion.saldoFinal - totalLavCLP);
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
@@ -3881,10 +3875,10 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
   }
 })();
 // Mostrar capital e intereses brutos (antes de imputación) en los sub-totales
-document.getElementById('totalCap').innerText = format(totalCap);
+document.getElementById('totalCap').innerText = format(Math.max(0, totalCap - totalLavCLP));
 document.getElementById('totalInt').innerText = format(totalInt);
 document.getElementById('totalGrandUtm').innerText = `${(totalFinal / utmHoy).toFixed(2)} UTM`;
-document.getElementById('totalCapUtm').innerText = `${totalCapUTM.toFixed(2)} UTM`;
+document.getElementById('totalCapUtm').innerText = `${Math.max(0, totalCapUTM - totalLavUTM).toFixed(2)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${(totalInt / utmHoy).toFixed(2)} UTM`;
 const abonoRow = document.getElementById('abonoResultRow');
 if (totalAbonosSum > 0) {
