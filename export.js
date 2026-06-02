@@ -135,18 +135,25 @@ const pensSub = pensCap + pensInt;
 const pensCapUTM = pensiones.reduce((s,d) => s + (d.capUTM||(d.capOriginalBruto??d.cap)/d.utmVal), 0);
 doc.autoTable({
 startY: y,
-head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Subtotal ($)']],
-body: pensiones.map(d => { const cap0=d.capOriginalBruto??d.cap; const int0=d.intOriginal??d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), fmt(cap0+int0)]; }),
-foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), fmt(pensSub)]],
+head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
+body: pensiones.map(d => { const cap0=d.capOriginalBruto??d.cap; const int0=d.intOriginal??d.inte; const intUtm=(int0/d.utmVal).toFixed(5); const periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; return [periodoLabel, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(cap0+int0)]; }),
+foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.intOriginal??d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
 showFoot: 'lastPage',
 theme:'grid',
-headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6.5,fontStyle:'bold',halign:'center'},
-footStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6.5,fontStyle:'bold',halign:'right'},
-styles:{fontSize:6.5,cellPadding:1.5,textColor:[15,23,42]},
-columnStyles:{0:{cellWidth:22},1:{halign:'right'},2:{halign:'right'},3:{halign:'center',cellWidth:12},4:{halign:'center',cellWidth:14},5:{halign:'right'},6:{halign:'right'}},
+headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'center'},
+footStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'right'},
+styles:{fontSize:6,cellPadding:1.5,textColor:[15,23,42]},
+columnStyles:{0:{cellWidth:20},1:{halign:'right'},2:{halign:'right',cellWidth:14},3:{halign:'center',cellWidth:11},4:{halign:'center',cellWidth:13},5:{halign:'right'},6:{halign:'right',cellWidth:16},7:{halign:'right'}},
 margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
-y = doc.lastAutoTable.finalY + 8;
+y = doc.lastAutoTable.finalY + 4;
+// Nota al pie si hay meses con pago parcial (interés calculado sobre remanente)
+if (pensiones.some(d => d.hayParcialConRemanente)) {
+  doc.setFontSize(6); doc.setTextColor(80,80,80);
+  doc.text('* Interés calculado sobre el saldo remanente (cuota − pago parcial), conforme metodología SITFA/PJUD (RIT Z-617-2024).', MARGIN, y);
+  y += 6;
+}
+y += 4;
 }
 if (historicas.length > 0) {
 seccion('DEUDA HISTORICA CONSOLIDADA', [245,158,11]);

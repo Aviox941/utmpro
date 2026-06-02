@@ -3380,7 +3380,25 @@ const tasaBase = tasaHistorica;
 // Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
 const recargoAplica = aplicarRecargo && diasMora > 0;
 const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
-const interesMes = calcularInteres(capNeto, tasaAnual, diasMora);
+// CORRECCIÓN JUDICIAL (confirmada RIT Z-617-2024):
+// Si existe pago parcial para este mes, el interés se calcula SOLO sobre el remanente
+// (cuota UTM − pagado en UTM), no sobre la cuota completa.
+const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`;
+const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
+let capParaInteres = capNeto;
+let hayParcialConRemanente = false;
+if (pagoParcialMes.length > 0) {
+  const totalPagadoUTM = pagoParcialMes.reduce((s, p) => {
+    const utmP = p.utmVal || item.v;
+    return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP));
+  }, 0);
+  const remanenteUTM = Math.max(0, cuotaUTMReal - totalPagadoUTM);
+  if (remanenteUTM < cuotaUTMReal) {
+    capParaInteres = remanenteUTM * item.v;
+    hayParcialConRemanente = true;
+  }
+}
+const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
 capital += capNeto;
 capitalUTM += capNeto / item.v;
 intereses += interesMes;
@@ -3390,7 +3408,8 @@ cap: capNeto, capOriginal: montoPesosMes,
 tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
 mora: diasMora, inte: interesMes,
 sub: capNeto + interesMes, year: item.y, isDebt: false,
-capUTM: capNeto / item.v, usarMaxima: false, ticActual: usarTicActual
+capUTM: capNeto / item.v, usarMaxima: false, ticActual: usarTicActual,
+capParaInteres, hayParcialConRemanente
 });
 });
 }
