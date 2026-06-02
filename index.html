@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1892">
+ <meta name="app-version" content="2.0530.1893">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1892</title>
+ <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1893</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -699,11 +699,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         <div class="flex justify-between"><span class="text-slate-400">Pago ingresado</span><span id="parcialWarnPago" class="text-[#bfdbfe] font-bold"></span></div>
         <div class="flex justify-between border-t border-slate-700 pt-1 mt-1"><span class="text-slate-400">Exceso</span><span id="parcialWarnExceso" class="text-red-400 font-bold"></span></div>
       </div>
-      <p class="text-slate-400 text-[10px]">El exceso <span class="text-[#bfdbfe] font-bold">no se imputa automáticamente</span> a otro mes ni a intereses.</p>
+      <p class="text-slate-400 text-[10px]">El excedente de <span id="parcialWarnExcesoUtm" class="text-emerald-400 font-bold"></span> UTM se <span class="text-emerald-400 font-bold">descontará automáticamente del capital</span> del mes siguiente.</p>
     </div>
     <div class="px-5 pb-4 pt-1 grid grid-cols-2 gap-2">
       <button id="parcialWarnCancel" class="btn-base btn-ghost btn-flex">Cancelar</button>
-      <button id="parcialWarnConfirm" class="btn-base btn-secondary btn-flex">Registrar igual</button>
+      <button id="parcialWarnConfirm" class="btn-base btn-secondary btn-flex">Registrar</button>
     </div>
   </div>
  </div>
@@ -2265,12 +2265,14 @@ function showHelpModal(tipo) {
 }
 function showParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('hidden','flex'); lockBody(); }
 function hideParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('flex','hidden'); unlockBody(); }
-function showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso) {
+function showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal) {
   const fmt = n => new Intl.NumberFormat('es-CL', {style:'currency', currency:'CLP', maximumFractionDigits:0}).format(n);
-  document.getElementById('parcialWarnMsg').textContent = `El pago parcial de ${periodoLabel} excede la cuota del mes.`;
+  document.getElementById('parcialWarnMsg').textContent = `El pago de ${periodoLabel} supera la cuota del mes.`;
   document.getElementById('parcialWarnCuota').textContent = fmt(capitalMes);
   document.getElementById('parcialWarnPago').textContent = fmt(totalConNuevo);
   document.getElementById('parcialWarnExceso').textContent = fmt(exceso);
+  const excUtmEl = document.getElementById('parcialWarnExcesoUtm');
+  if (excUtmEl) excUtmEl.textContent = utmMesVal ? (exceso / utmMesVal).toFixed(4) : '—';
   document.getElementById('parcialWarnModal').classList.replace('hidden','flex'); lockBody();
   return new Promise(resolve => {
     document.getElementById('parcialWarnConfirm').onclick = () => { document.getElementById('parcialWarnModal').classList.replace('flex','hidden'); unlockBody(); resolve(true); };
@@ -2672,16 +2674,16 @@ const date = `${anio}-${mes}-${diaStr}`;
 const periodo = anio + '-' + mes;
 const mIdx = parseInt(mes) - 1;
 const periodoLabel = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mIdx] + ' ' + anio;
-// Validar que el pago no exceda el capital del mes
+// Si el pago supera la cuota, advertir que el excedente descontará capital del mes siguiente
 const { cuotaMensualUTM } = getMonthlyValues();
-const utmMes = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
-if (cuotaMensualUTM > 0 && utmMes) {
-  const capitalMes = cuotaMensualUTM * utmMes.v;
+const utmMesVal = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+if (cuotaMensualUTM > 0 && utmMesVal) {
+  const capitalMes = cuotaMensualUTM * utmMesVal.v;
   const yaRegistrado = pagosParciales.filter(p => p.periodo === periodo).reduce((s,p) => s + p.amount, 0);
   const totalConNuevo = yaRegistrado + amount;
   if (totalConNuevo > capitalMes) {
     const exceso = totalConNuevo - capitalMes;
-    const continuar = await showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso);
+    const continuar = await showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal.v);
     if (!continuar) return;
   }
 }
@@ -2721,13 +2723,25 @@ pagosParciales.forEach((p, i) => {
   const utmValUsado = p.utmVal || getUtmActualVal();
   const amountUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmValUsado);
   const amountUtmStr = amountUtm.toFixed(4);
-  // Remanente = cuota UTM del mes - pago en UTM
+  // Remanente o excedente respecto a la cuota del mes
   const { cuotaMensualUTM } = getMonthlyValues();
-  const remanente = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amountUtm) : null;
-  const remanenteClp = (remanente !== null && utmValUsado) ? Math.round(remanente * utmValUsado) : null;
-  const remanenteHtml = remanente !== null
-    ? `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">Rem: <span class="text-[#c084fc]">${remanente.toFixed(4)} UTM</span>${remanenteClp ? ` ≈ <span class="text-slate-300">${format(remanenteClp)}</span>` : ''}</span></div>`
-    : '';
+  let remanenteHtml = '';
+  if (cuotaMensualUTM > 0) {
+    const diff = cuotaMensualUTM - amountUtm; // positivo = remanente; negativo = excedente
+    if (diff > 0.0001) {
+      // Pago menor que la cuota → remanente (interés sobre este saldo)
+      const remanenteClp = Math.round(diff * utmValUsado);
+      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">Rem: <span class="text-[#c084fc]">${diff.toFixed(4)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span></span></div>`;
+    } else if (diff < -0.0001) {
+      // Pago mayor que la cuota → excedente se arrastra al mes siguiente
+      const excedenteUTM = Math.abs(diff);
+      const excedenteClp = Math.round(excedenteUTM * utmValUsado);
+      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente: ${excedenteUTM.toFixed(4)} UTM ≈ ${format(excedenteClp)} → descuenta próx. mes</span></div>`;
+    } else {
+      // Pago exacto
+      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">✓ Cuota cubierta exactamente</span></div>`;
+    }
+  }
   const div = document.createElement('div');
   div.className = 'abono-item animate-fadeIn';
   div.style.borderColor = '#ddd6fe';
@@ -3317,6 +3331,8 @@ function calculatePensiones(aplicarRecargo, hoy) {
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
+// Excedente acumulado de pagos parciales que superaron la cuota (en UTM) → se arrastra al mes siguiente
+let excedenteParcialAcumUTM = 0;
 // Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
 const hayPeriodos = periodosPension.length > 0;
 // Rango efectivo = unión del rango del formulario activo + rango acumulado de períodos.
@@ -3387,29 +3403,45 @@ const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')
 const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
 let capParaInteres = capNeto;
 let hayParcialConRemanente = false;
+// Sumar excedente acumulado de meses anteriores al pago de este mes
+let totalPagadoUTMEfectivo = excedenteParcialAcumUTM;
+excedenteParcialAcumUTM = 0; // reiniciar: se recalculará abajo
 if (pagoParcialMes.length > 0) {
-  const totalPagadoUTM = pagoParcialMes.reduce((s, p) => {
+  const pagadoEsteMes = pagoParcialMes.reduce((s, p) => {
     const utmP = p.utmVal || item.v;
     return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP));
   }, 0);
-  const remanenteUTM = Math.max(0, cuotaUTMReal - totalPagadoUTM);
-  if (remanenteUTM < cuotaUTMReal) {
+  totalPagadoUTMEfectivo += pagadoEsteMes;
+}
+if (totalPagadoUTMEfectivo > 0) {
+  const remanenteUTM = cuotaUTMReal - totalPagadoUTMEfectivo;
+  if (remanenteUTM <= 0) {
+    // Pago >= cuota: cuota cubierta, posible excedente para el próximo mes
+    excedenteParcialAcumUTM = Math.max(0, -remanenteUTM);
+    capParaInteres = 0;
+    hayParcialConRemanente = false;
+  } else {
+    // Pago < cuota: interés solo sobre el remanente
     capParaInteres = remanenteUTM * item.v;
     hayParcialConRemanente = true;
   }
 }
+// Capital efectivo del mes = cuota menos lo ya cubierto por el pago (mínimo 0)
+const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
+const capEfectivoCLP = capEfectivoUTM * item.v;
 const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
-capital += capNeto;
-capitalUTM += capNeto / item.v;
+capital += capEfectivoCLP;
+capitalUTM += capEfectivoUTM;
 intereses += interesMes;
 detalles.push({
 id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
-cap: capNeto, capOriginal: montoPesosMes,
+cap: capEfectivoCLP, capOriginal: montoPesosMes,
 tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
 mora: diasMora, inte: interesMes,
-sub: capNeto + interesMes, year: item.y, isDebt: false,
-capUTM: capNeto / item.v, usarMaxima: false, ticActual: usarTicActual,
-capParaInteres, hayParcialConRemanente
+sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
+capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
+capParaInteres, hayParcialConRemanente,
+excedenteParcialAplicado: totalPagadoUTMEfectivo > 0 ? totalPagadoUTMEfectivo : 0
 });
 });
 }
