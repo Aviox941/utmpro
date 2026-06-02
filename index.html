@@ -1460,6 +1460,46 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div><!-- /parcialesBody inner -->
  </div><!-- /parcialesBody -->
  </div><!-- /dh-card parciales -->
+ <!-- ── Tarjeta Abonos LAV ── -->
+ <div class="dh-card" style="--dh-border:rgba(16,185,129,0.25);--dh-bg:rgba(16,185,129,0.05);--dh-text:#34d399;">
+ <div class="dh-card__header" onclick="toggleSection('lavBody','lavChevron')" style="cursor:pointer">
+   <div class="dh-card__header-left">
+     <div class="dh-card__icon" style="background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.20);">
+       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+     </div>
+     <p class="dh-card__title">Abonos LAV</p>
+   </div>
+   <div class="dh-card__header-right">
+     <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+   </div>
+ </div>
+ <div id="lavBody" class="collapsible-body">
+ <div class="dh-body space-y-3" style="padding:12px 14px">
+ <p class="text-[9px] text-slate-400 leading-relaxed">Ingresa cada depósito LAV con su fecha exacta. La app usará la UTM del mes del depósito, igual que el tribunal.</p>
+ <div class="space-y-2">
+ <div class="relative">
+ <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
+   oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); checkBtnLav()"
+   class="input-currency w-full">
+ <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+ </div>
+ <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="input-date w-full">
+   <span class="input-date__sublabel">Fecha del depósito</span>
+   <span id="tempLavLabel" class="input-date__value">Día / Mes / Año</span>
+ </button>
+ <input type="hidden" id="tempLavMes" value="">
+ <input type="hidden" id="tempLavAnio" value="">
+ <input type="hidden" id="tempLavDia" value="">
+ <button id="btnAddLav" onclick="addAbonoLav()" disabled
+   class="w-full py-2 rounded-xl text-[11px] font-black tracking-wide transition-all active:scale-95"
+   style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">
+   + Agregar depósito
+ </button>
+ </div>
+ <div id="lavListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
+ </div>
+ </div>
+ </div><!-- /dh-card lav -->
  <div class="card-base space-y-3">
  <div class="flex justify-between items-center">
  <div>
@@ -1788,6 +1828,7 @@ let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
+let abonosLav = []; // Depósitos LAV: { date, periodo, periodoLabel, amount, utmVal, amountUtm }
 // ── Períodos de pensión variables ──────────────────────────
 // Cada entrada: { id, desde:{mes,anio}, hasta:{mes,anio}|null,
 //                utm, porcentaje, sueldo, usaIMM }
@@ -2713,6 +2754,131 @@ renderPagosParciales();
 calculate();
 saveSession();
 }
+// ============================================================
+// ABONOS LAV
+// Depósitos bancarios individuales con fecha exacta.
+// Se convierten a UTM del mes del depósito y se restan
+// del capital total igual que el tribunal.
+// ============================================================
+function checkBtnLav() {
+  const amount = parseInt((document.getElementById('tempLavClp').value||'').replace(/\./g,'')) || 0;
+  const mes = document.getElementById('tempLavMes').value;
+  const anio = document.getElementById('tempLavAnio').value;
+  const dia = parseInt(document.getElementById('tempLavDia')?.value) || 0;
+  const btn = document.getElementById('btnAddLav');
+  if (btn) btn.disabled = !(amount > 0 && mes && anio && dia >= 1 && dia <= 31);
+}
+function renderDaySelectorLav(anioVal, mIdx) {
+  const daysInMonth = new Date(anioVal, mIdx + 1, 0).getDate();
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  document.getElementById('calendarMonths').classList.add('hidden');
+  document.getElementById('calendarYearNav').classList.add('hidden');
+  const daysContainer = document.getElementById('calendarDays');
+  daysContainer.classList.remove('hidden');
+  daysContainer.innerHTML = `
+    <button onclick="backToMonthsLav()" class="mb-2 text-[10px] text-slate-400 font-bold flex items-center gap-1">
+      ← ${mNamesShort[mIdx]} ${anioVal}
+    </button>
+    <div class="grid grid-cols-7 gap-1" id="lavDayGrid"></div>`;
+  const grid = document.getElementById('lavDayGrid');
+  for (let d = 1; d <= daysInMonth; d++) {
+    const btn = document.createElement('button');
+    btn.textContent = d;
+    btn.className = 'text-[11px] font-bold py-1 rounded-lg bg-[#f1f5f9] text-[#1a1d2e] hover:bg-[#dbeafe]';
+    btn.onclick = () => {
+      const mesVal = document.getElementById('tempLavMes').value;
+      const anioV  = document.getElementById('tempLavAnio').value;
+      const mIdx2  = parseInt(mesVal) - 1;
+      document.getElementById('tempLavDia').value = String(d);
+      document.getElementById('tempLavLabel').innerText = `${d} ${mNamesShort[mIdx2]} ${anioV}`;
+      document.getElementById('tempLavLabel').classList.remove('text-slate-400');
+      document.getElementById('tempLavLabel').classList.add('text-white');
+      closeCalendar();
+      checkBtnLav();
+    };
+    grid.appendChild(btn);
+  }
+  const actionBtn = document.getElementById('calendarActionBtn');
+  actionBtn.textContent = 'Cancelar';
+  actionBtn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+}
+function backToMonthsLav() {
+  document.getElementById('calendarDays').classList.add('hidden');
+  document.getElementById('calendarMonths').classList.remove('hidden');
+  document.getElementById('calendarYearNav').classList.remove('hidden');
+  document.getElementById('tempLavMes').value = '';
+  document.getElementById('tempLavAnio').value = '';
+  document.getElementById('tempLavDia').value = '';
+  renderCalendar();
+}
+function addAbonoLav() {
+  const raw    = document.getElementById('tempLavClp').value.replace(/\./g, '');
+  const amount = parseInt(raw) || 0;
+  const mes    = document.getElementById('tempLavMes').value;
+  const anio   = document.getElementById('tempLavAnio').value;
+  const dia    = parseInt(document.getElementById('tempLavDia')?.value) || 0;
+  if (amount <= 0 || !mes || !anio || dia < 1 || dia > 31) return;
+  const mIdx = parseInt(mes) - 1;
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const periodoLabel = mNamesShort[mIdx] + ' ' + anio;
+  const periodo = anio + '-' + mes;
+  const date    = `${anio}-${mes}-${String(dia).padStart(2,'0')}`;
+  const utmMes  = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
+  const utmVal  = utmMes ? utmMes.v : null;
+  const amountUtm = utmVal ? amount / utmVal : null;
+  abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+  // Limpiar inputs
+  document.getElementById('tempLavClp').value = '';
+  document.getElementById('tempLavMes').value = '';
+  document.getElementById('tempLavAnio').value = '';
+  document.getElementById('tempLavDia').value = '';
+  document.getElementById('tempLavLabel').innerText = 'Día / Mes / Año';
+  document.getElementById('tempLavLabel').classList.add('text-slate-400');
+  document.getElementById('tempLavLabel').classList.remove('text-white');
+  const btn = document.getElementById('btnAddLav');
+  if (btn) btn.disabled = true;
+  renderAbonosLav();
+  calculate();
+  saveSession();
+}
+function removeAbonoLav(index) {
+  abonosLav.splice(index, 1);
+  renderAbonosLav();
+  calculate();
+  saveSession();
+}
+function renderAbonosLav() {
+  const container = document.getElementById('lavListContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  if (abonosLav.length === 0) return;
+  // Total en UTM
+  const totalUtm = abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0);
+  abonosLav.forEach((p, i) => {
+    const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) : '—';
+    const div = document.createElement('div');
+    div.className = 'abono-item animate-fadeIn';
+    div.style.borderColor = 'rgba(16,185,129,0.3)';
+    div.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div class="text-[10px] font-black flex flex-wrap items-center gap-1">
+          <span style="color:#6ee7b7" class="font-black">${p.date}</span>
+          <span class="text-slate-300">|</span>
+          <span class="text-white font-black">${format(p.amount)}</span>
+          <span class="text-[9px] font-bold" style="color:#34d399">${utmStr} UTM</span>
+        </div>
+        <div class="text-[8px] text-slate-400 font-bold mt-0.5">UTM ${p.utmVal ? '$'+p.utmVal.toLocaleString('es-CL') : '—'}</div>
+      </div>
+      <button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
+    container.appendChild(div);
+  });
+  // Mostrar total UTM al pie
+  const tot = document.createElement('div');
+  tot.className = 'text-[9px] font-black text-right mt-1';
+  tot.style.color = '#34d399';
+  tot.innerText = `Total: ${totalUtm.toFixed(5)} UTM`;
+  container.appendChild(tot);
+}
 function renderPagosParciales() {
 const container = document.getElementById('parcialesListContainer');
 if (!container) return;
@@ -3336,9 +3502,8 @@ return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
-// Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
-let excedenteParcialTotalUTM = 0;
-let excedenteParcialTotalCLP = 0;
+// Excedente de pagos parciales: se arrastra al mes siguiente en CLP (usando UTM del mes pagado).
+let excedenteParcialAcumCLP = 0;
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
 // Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
@@ -3411,33 +3576,34 @@ const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')
 const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
 let capParaInteres = capNeto;
 let hayParcialConRemanente = false;
-// Solo pagos de este período (sin arrastre de excedentes — el excedente se maneja
-// en imputarAbonosArt1595 contra el capital total, evitando doble contabilidad)
-let totalPagadoUTMEfectivo = 0;
+// Pagado este mes en CLP: pago directo + excedente arrastrado del mes anterior
+let totalPagadoCLPEfectivo = excedenteParcialAcumCLP;
+excedenteParcialAcumCLP = 0;
 if (pagoParcialMes.length > 0) {
-  totalPagadoUTMEfectivo = pagoParcialMes.reduce((s, p) => {
-    const utmP = p.utmVal || item.v;
-    return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP));
-  }, 0);
+  totalPagadoCLPEfectivo += pagoParcialMes.reduce((s, p) => s + p.amount, 0);
 }
-if (totalPagadoUTMEfectivo > 0) {
-  const remanenteUTM = cuotaUTMReal - totalPagadoUTMEfectivo;
-  if (remanenteUTM <= 0) {
-    // Pago >= cuota: cuota cubierta. El excedente se acumula para restar del capital total.
-    const _excUTM = Math.abs(remanenteUTM);
-    excedenteParcialTotalUTM += _excUTM;
-    excedenteParcialTotalCLP += _excUTM * item.v;
+// Cuota del mes en CLP
+const cuotaMesCLP = cuotaUTMReal * item.v;
+let capEfectivoCLP, totalPagadoUTMEfectivo = 0;
+if (totalPagadoCLPEfectivo > 0) {
+  const remanenteCLP = cuotaMesCLP - totalPagadoCLPEfectivo;
+  if (remanenteCLP <= 0) {
+    // Pago >= cuota: cuota cubierta, excedente en CLP se arrastra al siguiente mes
+    excedenteParcialAcumCLP = Math.abs(remanenteCLP);
+    capEfectivoCLP = 0;
     capParaInteres = 0;
     hayParcialConRemanente = false;
   } else {
-    // Pago < cuota: interés solo sobre el remanente
-    capParaInteres = remanenteUTM * item.v;
+    // Pago < cuota: interés sobre el remanente
+    capEfectivoCLP = remanenteCLP;
+    capParaInteres = remanenteCLP;
     hayParcialConRemanente = true;
   }
+  totalPagadoUTMEfectivo = totalPagadoCLPEfectivo / item.v;
+} else {
+  capEfectivoCLP = cuotaMesCLP;
 }
-// Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
-const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
-const capEfectivoCLP = capEfectivoUTM * item.v;
+const capEfectivoUTM = capEfectivoCLP / item.v;
 const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
 capital += capEfectivoCLP;
 capitalUTM += capEfectivoUTM;
@@ -3454,10 +3620,18 @@ excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagado
 });
 });
 }
-// Restar el excedente acumulado de pagos parciales directamente del capital total
-capital = Math.max(0, capital - excedenteParcialTotalCLP);
-capitalUTM = Math.max(0, capitalUTM - excedenteParcialTotalUTM);
-return { capital, intereses, capitalUTM, detalles, excedenteParcialTotalUTM };
+// Restar abonos LAV: se acumulan en UTM del mes del depósito y se descuentan del capital total
+if (typeof abonosLav !== 'undefined' && abonosLav.length > 0) {
+  abonosLav.forEach(p => {
+    const utmP = p.utmVal || (utmData.length ? utmData[utmData.length-1].v : 1);
+    const utmMonto = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
+    capitalUTM -= utmMonto;
+    capital    -= p.amount;
+  });
+  capital    = Math.max(0, capital);
+  capitalUTM = Math.max(0, capitalUTM);
+}
+return { capital, intereses, capitalUTM, detalles };
 }
 function calculateHistoricalDebt(aplicarRecargo, hoy) {
 let capitalPesosTotal = 0, interesesPesosTotal = 0, totalMonthsAll = 0, totalCapUtmAll = 0, detalles = [];
@@ -3852,7 +4026,39 @@ const hayAbono = (d.intImputado > 0 || d.capImputado > 0);
 document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
 <div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
-${d.pagoParcial > 0 ? `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(d.pagoParcial)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(d.capOriginalBruto ?? capOriginalModal)}</span><span class='text-[9px] font-bold'>${((d.capOriginalBruto ?? capOriginalModal) / d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
+${(() => {
+  // Buscar pagos parciales de este período
+  const periodoKey = (() => {
+    const meses = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
+    const partes = d.periodo.split(' ');
+    if (partes.length === 2) {
+      const m = String(meses[partes[0]] || 0).padStart(2,'0');
+      return `${partes[1]}-${m}`;
+    }
+    return '';
+  })();
+  const pagosDelMes = periodoKey ? (pagosParciales || []).filter(p => p.periodo === periodoKey) : [];
+  if (pagosDelMes.length === 0) return '';
+  const totalPagadoCLP = pagosDelMes.reduce((s,p) => s + p.amount, 0);
+  const totalPagadoUTM = pagosDelMes.reduce((s,p) => {
+    const uv = p.utmVal || d.utmVal;
+    return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / uv));
+  }, 0);
+  const cuotaUTM = capOriginalModal / d.utmVal;
+  const excUTM = totalPagadoUTM - cuotaUTM;
+  const remanUTM = cuotaUTM - totalPagadoUTM;
+  let html = `<div class='flex justify-between border-b pb-2 text-[#a78bfa]'><span>Pago${pagosDelMes.length>1?'s':''} parcial${pagosDelMes.length>1?'es':''} registrado${pagosDelMes.length>1?'s':''}</span><div class='text-right'><span class='font-bold block text-[#c4b5fd]'>-${format(totalPagadoCLP)}</span><span class='text-[9px] font-bold text-[#a78bfa]'>${totalPagadoUTM.toFixed(5)} UTM</span></div></div>`;
+  if (remanUTM > 0.0001) {
+    const remanCLP = Math.round(remanUTM * d.utmVal);
+    html += `<div class='flex justify-between border-b pb-2 text-[#c084fc]'><span>Remanente del mes</span><div class='text-right'><span class='font-bold block'>${format(remanCLP)}</span><span class='text-[9px] font-bold'>${remanUTM.toFixed(5)} UTM</span></div></div>`;
+  } else if (excUTM > 0.0001) {
+    const excCLP = Math.round(excUTM * d.utmVal);
+    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>↪ Excedente → descuenta siguiente mes</span><div class='text-right'><span class='font-bold block'>${format(excCLP)}</span><span class='text-[9px] font-bold'>${excUTM.toFixed(5)} UTM</span></div></div>`;
+  } else {
+    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>✓ Cuota cubierta exactamente</span><span class='font-bold'>—</span></div>`;
+  }
+  return html;
+})()}
 ${d.isConsolidada ? `
 <div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 <div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
@@ -4040,13 +4246,17 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
+// Resetear siempre: ocultar días, mostrar meses y nav de año
+document.getElementById('calendarDays').classList.add('hidden');
+document.getElementById('calendarMonths').classList.remove('hidden');
+document.getElementById('calendarYearNav').classList.remove('hidden');
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
-if (m === 'abono' || m === 'parcial') {
+if (m === 'abono' || m === 'parcial' || m === 'lav') {
 // Si no hay período definido, no abrir
 if (startIndex < 0 || endIndex < 0) {
 alert('Primero define el período "Desde / Hasta".');
@@ -4074,9 +4284,9 @@ selectedYear = currentIdx !== -1 ? utmData[currentIdx].y : CURRENT_YEAR;
 }
 renderCalendar();
 document.getElementById('calendarModal').classList.replace('hidden', 'flex'); lockBody();
-if (m === 'abono' || m === 'parcial') updateCalendarActionBtn();
+if (m === 'abono' || m === 'parcial' || m === 'lav') updateCalendarActionBtn();
 // Asegurarse de que el selector de días esté oculto al abrir
-if (m === 'parcial') {
+if (m === 'parcial' || m === 'lav') {
   document.getElementById('calendarDays').classList.add('hidden');
   document.getElementById('calendarMonths').classList.remove('hidden');
   document.getElementById('calendarYearNav').classList.remove('hidden');
@@ -4086,7 +4296,7 @@ function closeCalendar() { document.getElementById('calendarModal').classList.re
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
 // Para modos abono/parcial, limitar la navegación al rango del período
-if (calendarMode === 'abono' || calendarMode === 'parcial') {
+if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
 if (startIndex < 0 || endIndex < 0) return;
 const rangeStart = Math.min(startIndex, endIndex);
 const rangeEnd = Math.max(startIndex, endIndex);
@@ -4127,7 +4337,7 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
   const now = new Date(); const CURR_YEAR = now.getFullYear();
   const minYearData = utmData.length > 0 ? utmData[0].y : 2010;
   let minY = minYearData, maxY = CURR_YEAR;
-  if (calendarMode === 'abono' || calendarMode === 'parcial') {
+  if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
     if (startIndex >= 0 && endIndex >= 0) {
       minY = utmData[Math.min(startIndex,endIndex)].y;
       maxY = utmData[Math.max(startIndex,endIndex)].y;
@@ -4195,6 +4405,10 @@ isActive = document.getElementById('tempAbonoMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('tempParcialMes').value === mesVal
 && document.getElementById('tempParcialAnio').value === String(selectedYear);
+} else if (calendarMode === 'lav') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('tempLavMes').value === mesVal
+&& document.getElementById('tempLavAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -4248,10 +4462,14 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempParcialMes').value = mesVal;
 document.getElementById('tempParcialAnio').value = String(selectedYear);
-// Convertir UTM↔CLP con el valor del mes apenas se elige
 updateParcialUtmFromDate();
-// Mostrar selector de días
 renderDaySelector(selectedYear, i);
+return;
+} else if (calendarMode === 'lav') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('tempLavMes').value = mesVal;
+document.getElementById('tempLavAnio').value = String(selectedYear);
+renderDaySelectorLav(selectedYear, i);
 return;
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
