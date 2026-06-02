@@ -2723,22 +2723,29 @@ pagosParciales.forEach((p, i) => {
   const utmValUsado = p.utmVal || getUtmActualVal();
   const amountUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmValUsado);
   const amountUtmStr = amountUtm.toFixed(4);
-  // Remanente o excedente respecto a la cuota del mes
+  // Remanente o excedente: calcular sobre el TOTAL del mes, no el pago individual
   const { cuotaMensualUTM } = getMonthlyValues();
   let remanenteHtml = '';
   if (cuotaMensualUTM > 0) {
-    const diff = cuotaMensualUTM - amountUtm; // positivo = remanente; negativo = excedente
+    // Sumar todos los pagos del mismo período para calcular el estado real del mes
+    const totalUtmMes = pagosParciales
+      .filter(x => x.periodo === p.periodo)
+      .reduce((s, x) => {
+        const uv = x.utmVal || getUtmActualVal();
+        return s + (x.amountUtm !== null && x.amountUtm !== undefined ? x.amountUtm : (x.amount / uv));
+      }, 0);
+    const diff = cuotaMensualUTM - totalUtmMes; // positivo = remanente; negativo = excedente
     if (diff > 0.0001) {
-      // Pago menor que la cuota → remanente (interés sobre este saldo)
+      // Pago total del mes menor que la cuota → remanente
       const remanenteClp = Math.round(diff * utmValUsado);
-      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">Rem: <span class="text-[#c084fc]">${diff.toFixed(4)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span></span></div>`;
+      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">Rem. mes: <span class="text-[#c084fc]">${diff.toFixed(4)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span></span></div>`;
     } else if (diff < -0.0001) {
-      // Pago mayor que la cuota → excedente se arrastra al mes siguiente
+      // Pago total del mes mayor que la cuota → excedente
       const excedenteUTM = Math.abs(diff);
       const excedenteClp = Math.round(excedenteUTM * utmValUsado);
-      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente: ${excedenteUTM.toFixed(4)} UTM ≈ ${format(excedenteClp)} → descuenta próx. mes</span></div>`;
+      remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente mes: ${excedenteUTM.toFixed(4)} UTM ≈ ${format(excedenteClp)} → descuenta capital total</span></div>`;
     } else {
-      // Pago exacto
+      // Cuota cubierta exactamente
       remanenteHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">✓ Cuota cubierta exactamente</span></div>`;
     }
   }
@@ -3329,10 +3336,11 @@ return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
+// Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
+let excedenteParcialTotalUTM = 0;
+let excedenteParcialTotalCLP = 0;
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
-// Excedente acumulado de pagos parciales que superaron la cuota (en UTM) → se arrastra al mes siguiente
-let excedenteParcialAcumUTM = 0;
 // Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
 const hayPeriodos = periodosPension.length > 0;
 // Rango efectivo = unión del rango del formulario activo + rango acumulado de períodos.
@@ -3403,21 +3411,22 @@ const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')
 const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
 let capParaInteres = capNeto;
 let hayParcialConRemanente = false;
-// Sumar excedente acumulado de meses anteriores al pago de este mes
-let totalPagadoUTMEfectivo = excedenteParcialAcumUTM;
-excedenteParcialAcumUTM = 0; // reiniciar: se recalculará abajo
+// Solo pagos de este período (sin arrastre de excedentes — el excedente se maneja
+// en imputarAbonosArt1595 contra el capital total, evitando doble contabilidad)
+let totalPagadoUTMEfectivo = 0;
 if (pagoParcialMes.length > 0) {
-  const pagadoEsteMes = pagoParcialMes.reduce((s, p) => {
+  totalPagadoUTMEfectivo = pagoParcialMes.reduce((s, p) => {
     const utmP = p.utmVal || item.v;
     return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP));
   }, 0);
-  totalPagadoUTMEfectivo += pagadoEsteMes;
 }
 if (totalPagadoUTMEfectivo > 0) {
   const remanenteUTM = cuotaUTMReal - totalPagadoUTMEfectivo;
   if (remanenteUTM <= 0) {
-    // Pago >= cuota: cuota cubierta, posible excedente para el próximo mes
-    excedenteParcialAcumUTM = Math.max(0, -remanenteUTM);
+    // Pago >= cuota: cuota cubierta. El excedente se acumula para restar del capital total.
+    const _excUTM = Math.abs(remanenteUTM);
+    excedenteParcialTotalUTM += _excUTM;
+    excedenteParcialTotalCLP += _excUTM * item.v;
     capParaInteres = 0;
     hayParcialConRemanente = false;
   } else {
@@ -3426,7 +3435,7 @@ if (totalPagadoUTMEfectivo > 0) {
     hayParcialConRemanente = true;
   }
 }
-// Capital efectivo del mes = cuota menos lo ya cubierto por el pago (mínimo 0)
+// Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
 const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
 const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
@@ -3441,11 +3450,14 @@ mora: diasMora, inte: interesMes,
 sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
 capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
 capParaInteres, hayParcialConRemanente,
-excedenteParcialAplicado: totalPagadoUTMEfectivo > 0 ? totalPagadoUTMEfectivo : 0
+excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagadoUTMEfectivo - cuotaUTMReal) : 0
 });
 });
 }
-return { capital, intereses, capitalUTM, detalles };
+// Restar el excedente acumulado de pagos parciales directamente del capital total
+capital = Math.max(0, capital - excedenteParcialTotalCLP);
+capitalUTM = Math.max(0, capitalUTM - excedenteParcialTotalUTM);
+return { capital, intereses, capitalUTM, detalles, excedenteParcialTotalUTM };
 }
 function calculateHistoricalDebt(aplicarRecargo, hoy) {
 let capitalPesosTotal = 0, interesesPesosTotal = 0, totalMonthsAll = 0, totalCapUtmAll = 0, detalles = [];
@@ -3518,22 +3530,9 @@ return { capital: capitalPesosTotal, intereses: interesesPesosTotal, capitalUTM:
 //        luego capital, cuota por cuota en orden cronológico.
 // ============================================================
 function imputarAbonosArt1595(detalles, abonos) {
-  // Fusionar pagos parciales (con fecha exacta) como abonos internos.
-  // Cada pago parcial tiene { periodo, periodoLabel, amount, date } donde date = 'YYYY-MM-DD'.
-  // Los parciales sin fecha (registros legacy sin campo date) se tratan con el día de vencimiento.
-  const diaVencImput = getDiaVencimiento();
-  const parcialesComoAbonos = (pagosParciales || [])
-    .filter(p => p.amount > 0)
-    .map(p => {
-      let date = p.date; // 'YYYY-MM-DD' si existe
-      if (!date) {
-        // Legacy: solo tiene periodo 'YYYY-MM' → usar día de vencimiento
-        const [anioP, mesP] = p.periodo.split('-');
-        date = `${anioP}-${mesP}-${String(diaVencImput).padStart(2,'0')}`;
-      }
-      return { amount: p.amount, date, esParcial: true, periodo: p.periodo };
-    });
-  const todosAbonos = [...(abonos || []), ...parcialesComoAbonos];
+  // Los pagos parciales ya se descuentan en calculatePensiones() directamente del capital.
+  // NO se fusionan aquí como abonos para evitar doble contabilidad.
+  const todosAbonos = [...(abonos || [])];
   if (todosAbonos.length === 0) {
     const saldo = detalles.reduce((s, d) => s + d.cap + d.inte, 0);
     return { saldoFinal: Math.max(0, saldo), totalAbonado: 0, interesesPagados: 0, capitalPagado: 0, detalleImputacion: [], cuotasResultado: detalles.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte })) };

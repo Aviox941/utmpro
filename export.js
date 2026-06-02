@@ -156,7 +156,7 @@ if (pensiones.some(d => d.hayParcialConRemanente)) {
 // Nota al pie si hay meses con excedente arrastrado al mes siguiente
 if (pensiones.some(d => d.excedenteParcialAplicado > 0)) {
   doc.setFontSize(6); doc.setTextColor(21,128,61);
-  doc.text('† Excedente de pago parcial descontado del capital de este mes (arrastre del mes anterior).', MARGIN, y);
+  doc.text('† Excedente de pago parcial descontado del capital total adeudado.', MARGIN, y);
   y += 5;
 }
 y += 4;
@@ -1458,7 +1458,18 @@ function buildResumenContent() {
     const wrapP = document.createElement('div');
     wrapP.className = 'rounded-xl overflow-hidden';
     wrapP.style.border = '1px solid rgba(124,58,237,0.2)';
-    pagosParciales.forEach((p, i) => {
+    // Agrupar por período (puede haber múltiples pagos en el mismo mes)
+    const agrupados = [];
+    const vistoPeriodos = {};
+    pagosParciales.forEach(p => {
+      if (vistoPeriodos[p.periodo] !== undefined) {
+        agrupados[vistoPeriodos[p.periodo]].amount += p.amount;
+      } else {
+        vistoPeriodos[p.periodo] = agrupados.length;
+        agrupados.push({ periodo: p.periodo, periodoLabel: p.periodoLabel, amount: p.amount });
+      }
+    });
+    agrupados.forEach((p, i) => {
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
@@ -1667,7 +1678,7 @@ async function exportarExcel() {
       ints.push(Math.round(int0));
       const row = ws.getRow(currentRow);
       row.height = 18;
-      const excedente = (d.excedenteParcialAplicado||0) > 0 ? Math.round(d.excedenteParcialAplicado * (d.utmVal||1)) : 0;
+      const excedente = (d.excedenteParcialAplicado||0) > 0 ? Math.round(d.excedenteParcialAplicado * (d.utmVal||1)) : 0; // UTM excess × UTM del mes
       ws.getCell(currentRow,1).value = periodoClean;
       ws.getCell(currentRow,2).value = d.utmVal||0;
       ws.getCell(currentRow,3).value = capUTM;
