@@ -286,6 +286,30 @@ margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;
 }
+// ── Tabla Abonos LAV en PDF ──
+if (typeof abonosLav !== 'undefined' && abonosLav.length > 0) {
+checkPage(40);
+seccion('ABONOS LAV (descontados del capital total)', [5,150,105]);
+const lavTotal = abonosLav.reduce((s,p) => s + p.amount, 0);
+const lavTotalUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
+doc.autoTable({
+  startY: y,
+  head: [['N°','Fecha depósito','Monto ($)','UTM mes','Equiv. UTM']],
+  body: abonosLav.map((p,i) => {
+    const utmP = p.utmVal || utmHoy;
+    const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
+    return [i+1, p.date, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
+  }),
+  foot: [['','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
+  theme:'grid',
+  headStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
+  footStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
+  styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
+  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:24},2:{halign:'right',cellWidth:28},3:{halign:'center',cellWidth:22},4:{halign:'center',cellWidth:28}},
+  margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
+});
+y = doc.lastAutoTable.finalY + 8;
+}
 checkPage(50);
 doc.setFillColor(18, 38, 71);
 doc.rect(MARGIN, y, CONTENT_W, 8, 'F');

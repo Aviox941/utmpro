@@ -3979,12 +3979,28 @@ card.style.borderColor = '';
 card.style.color = '';
 }
 card.onclick = () => openDetailModal(d.id);
-const parcialDetalle = d.pagoParcial > 0
-? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">
-<p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚡ Pago parcial: -${format(d.pagoParcial)} / -${(d.pagoParcial / d.utmVal).toFixed(4)} UTM</p>
-<p class="text-[8px] font-black text-violet-200 uppercase">Remanente: ${format(d.capOriginalBruto ?? d.cap)} / ${((d.capOriginalBruto ?? d.cap) / d.utmVal).toFixed(4)} UTM</p>
-</div>`
-: '';
+const lavMesUTM = d.disponibleLavEsteMes || 0;
+const lavMesCLP = lavMesUTM > 0.000001 ? Math.round(lavMesUTM * d.utmVal) : 0;
+const parcialMesUTM = d.pagadoParcialUTM || 0;
+const parcialMesCLP = parcialMesUTM > 0.000001 ? Math.round(parcialMesUTM * d.utmVal) : 0;
+const cuotaUTM = (d.capOriginal || 0) / d.utmVal;
+const totalPagadoUTM = lavMesUTM + parcialMesUTM;
+const remanUTM = Math.max(0, cuotaUTM - totalPagadoUTM);
+const remanCLP = remanUTM > 0.000001 ? Math.round(remanUTM * d.utmVal) : 0;
+
+const lavDetalle = lavMesUTM > 0.000001
+  ? `<p class="text-[8px] font-black uppercase" style="color:#10b981">🏦 Abono LAV: ${lavMesUTM.toFixed(5)} UTM / ${format(lavMesCLP)}</p>`
+  : '';
+const parcialDetalle = parcialMesUTM > 0.000001
+  ? `<p class="text-[8px] font-black uppercase" style="color:#a78bfa">💜 Pago parcial: ${parcialMesUTM.toFixed(5)} UTM / ${format(parcialMesCLP)}</p>`
+  : '';
+const remanDetalle = (remanUTM > 0.000001 && totalPagadoUTM > 0.000001)
+  ? `<p class="text-[8px] font-black uppercase" style="color:#c084fc">Remanente: ${remanUTM.toFixed(5)} UTM / ${format(remanCLP)}</p>`
+  : '';
+const pagoResumen = (lavDetalle || parcialDetalle)
+  ? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">${lavDetalle}${parcialDetalle}${remanDetalle}</div>`
+  : '';
+
 const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 ? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">
 <p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚖️ Abono imputado: -${format((d.intImputado||0)+(d.capImputado||0))}</p>
@@ -4015,7 +4031,7 @@ card.innerHTML = `
 <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
   ${recargoBadge}
 </div>
-${parcialDetalle}${abonoDetalle}`;
+${pagoResumen}${abonoDetalle}`;
 list.appendChild(card);
 });
 }
@@ -4031,16 +4047,19 @@ document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
 <div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
 ${(() => {
-  // Buscar pagos parciales de este período
-  const periodoKey = (() => {
-    const meses = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
-    const partes = d.periodo.split(' ');
-    if (partes.length === 2) {
-      const m = String(meses[partes[0]] || 0).padStart(2,'0');
-      return `${partes[1]}-${m}`;
-    }
-    return '';
-  })();
+  // Abono LAV imputado a este mes
+  const lavMes = d.disponibleLavEsteMes || 0;
+  if (lavMes >= 0.000001) {
+    const lavCLP = Math.round(lavMes * d.utmVal);
+    return `<div class='flex justify-between border-b pb-2' style='color:#10b981'><span>🏦 Abono LAV imputado</span><div class='text-right'><span class='font-bold block'>-${format(lavCLP)}</span><span class='text-[9px] font-bold'>${lavMes.toFixed(5)} UTM</span></div></div>`;
+  }
+  return '';
+})()}
+${(() => {
+  // Pagos parciales del mes
+  const meses = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
+  const partes = d.periodo.split(' ');
+  const periodoKey = partes.length === 2 ? `${partes[1]}-${String(meses[partes[0]]||0).padStart(2,'0')}` : '';
   const pagosDelMes = periodoKey ? (pagosParciales || []).filter(p => p.periodo === periodoKey) : [];
   if (pagosDelMes.length === 0) return '';
   const totalPagadoCLP = pagosDelMes.reduce((s,p) => s + p.amount, 0);
@@ -4051,13 +4070,13 @@ ${(() => {
   const cuotaUTM = capOriginalModal / d.utmVal;
   const excUTM = totalPagadoUTM - cuotaUTM;
   const remanUTM = cuotaUTM - totalPagadoUTM;
-  let html = `<div class='flex justify-between border-b pb-2 text-[#a78bfa]'><span>Pago${pagosDelMes.length>1?'s':''} parcial${pagosDelMes.length>1?'es':''} registrado${pagosDelMes.length>1?'s':''}</span><div class='text-right'><span class='font-bold block text-[#c4b5fd]'>-${format(totalPagadoCLP)}</span><span class='text-[9px] font-bold text-[#a78bfa]'>${totalPagadoUTM.toFixed(5)} UTM</span></div></div>`;
+  let html = `<div class='flex justify-between border-b pb-2 text-[#a78bfa]'><span>💜 Pago${pagosDelMes.length>1?'s':''} parcial${pagosDelMes.length>1?'es':''}</span><div class='text-right'><span class='font-bold block text-[#c4b5fd]'>-${format(totalPagadoCLP)}</span><span class='text-[9px] font-bold text-[#a78bfa]'>${totalPagadoUTM.toFixed(5)} UTM</span></div></div>`;
   if (remanUTM > 0.0001) {
     const remanCLP = Math.round(remanUTM * d.utmVal);
     html += `<div class='flex justify-between border-b pb-2 text-[#c084fc]'><span>Remanente del mes</span><div class='text-right'><span class='font-bold block'>${format(remanCLP)}</span><span class='text-[9px] font-bold'>${remanUTM.toFixed(5)} UTM</span></div></div>`;
   } else if (excUTM > 0.0001) {
     const excCLP = Math.round(excUTM * d.utmVal);
-    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>↪ Excedente → descuenta siguiente mes</span><div class='text-right'><span class='font-bold block'>${format(excCLP)}</span><span class='text-[9px] font-bold'>${excUTM.toFixed(5)} UTM</span></div></div>`;
+    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>↪ Excedente → mes siguiente</span><div class='text-right'><span class='font-bold block'>${format(excCLP)}</span><span class='text-[9px] font-bold'>${excUTM.toFixed(5)} UTM</span></div></div>`;
   } else {
     html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>✓ Cuota cubierta exactamente</span><span class='font-bold'>—</span></div>`;
   }
