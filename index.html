@@ -1470,6 +1470,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
      <p class="dh-card__title">Abonos LAV</p>
    </div>
    <div class="dh-card__header-right">
+     <button onclick="event.stopPropagation();showHelpModal('lav')" class="w-5 h-5 rounded-full bg-[#10b981]/10 border border-[#10b981]/25 text-[#34d399] font-black text-[10px] flex items-center justify-center hover:bg-[#10b981]/30 transition-all active:scale-90 mr-1">?</button>
      <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
    </div>
  </div>
@@ -2301,9 +2302,16 @@ function showHelpModal(tipo) {
       blk('⚙️ ¿Cómo afecta el cálculo?', 'Los <span class="text-white font-bold">días de mora</span> se calculan desde esta fecha de vencimiento hasta hoy. Por ejemplo, si la cuota de enero vence el día 5 y hoy es 15 de mayo, los días de mora son los transcurridos desde el 5 de enero.') +
       blk('🧮 Ejemplo', 'Con día de vencimiento = 5: la cuota de <span class="text-[#bfdbfe] font-bold">enero</span> vence el 05/01. Si hoy es 15/05, la mora es de aprox. <span class="text-white font-bold">130 días</span>. Si cambias a día 1, la mora sube a 134 días, aumentando el interés.') +
       blk('⚠️ Rango permitido', 'Se admiten valores entre <span class="text-white font-bold">1 y 28</span> para evitar conflictos con meses cortos (febrero). Si la resolución indica día 30 o 31, usa 28 como aproximación conservadora.');
+  } else if (tipo === 'lav') {
+    icon.textContent = '🏦';
+    title.textContent = 'Abonos LAV';
+    body.innerHTML =
+      blk('📌 ¿Qué es LAV?', 'LAV significa <span class="text-white font-bold">Libreta de Ahorro Vista</span>, generalmente una cuenta Banco Estado donde el alimentante deposita las pensiones de alimentos.') +
+      blk('📥 ¿Cómo funciona?', 'Cada depósito se ingresa con su <span class="text-white font-bold">fecha exacta</span> y monto en pesos. La app busca automáticamente la <span class="text-[#6ee7b7] font-bold">UTM del mes del depósito</span> y convierte el monto, igual que lo hace el tribunal.') +
+      blk('🧮 ¿Cómo se imputa?', 'Los abonos se aplican <span class="text-white font-bold">cronológicamente</span>, cubriendo los meses adeudados más antiguos primero. Si un depósito cubre más de una cuota, el excedente se arrastra al mes siguiente.') +
+      blk('⚖️ ¿Por qué en UTM?', 'El tribunal suma todos los depósitos en UTM usando el valor UTM del mes de cada depósito. Esto evita pérdidas por redondeo al operar en pesos y permite comparar montos de distintas fechas en una unidad común.') +
+      blk('📋 Ejemplo', 'Un depósito de <span class="text-white font-bold">$150.000</span> el 01-04-2024 con UTM=$65.182 equivale a <span class="text-[#6ee7b7] font-bold">2.30125 UTM</span>. Si la cuota es 2.33 UTM, queda un remanente de 0.02875 UTM adeudado para ese mes.');
   }
-  modal.classList.replace('hidden','flex');
-}
 function showParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('hidden','flex'); lockBody(); }
 function hideParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('flex','hidden'); unlockBody(); }
 function showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal) {
