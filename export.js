@@ -619,7 +619,16 @@ fechaLiquidacion: document.getElementById('fechaLiquidacion')?.value || '',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension, abonosLav,
-histMode, consolidadaData
+histMode, consolidadaData,
+// _hasData: marca que este snapshot fue construido con datos reales del DOM/estado.
+// Permite que applySession detecte corrupción: si _hasData=true pero todo quedó en cero,
+// fue una race condition y NO se debe subir a Supabase.
+_hasData: (startIndex >= 0) || (endIndex >= 0) ||
+          (periodosPension && periodosPension.length > 0) ||
+          (historicalDebts && historicalDebts.length > 0) ||
+          (abonos && abonos.length > 0) ||
+          !!(document.getElementById('utmAmount')?.value) ||
+          !!(document.getElementById('clpAmount')?.value)
 // BUG 5 FIX: saved_at y updated_at los estampa el llamador (saveSession / saveCurrentCasoNow)
 // para garantizar que objeto e índice tengan el mismo timestamp exacto.
 };
@@ -779,9 +788,22 @@ document.getElementById('saveIndicator').classList.add('hidden');
 // En este punto el DOM está 100% restaurado y calculate() ya corrió.
 // Si Supabase tiene datos (sbCurrentUser existe), guardamos el snapshot
 // completo — esto corrige casos que llegaron vacíos desde otro dispositivo.
+// FIX RACE CONDITION: solo subir a Supabase si la restauración fue exitosa.
+// Lógica: si el snapshot guardado tenía datos (_hasData=true) pero tras applySession
+// todo quedó en cero (startIndex=-1, sin períodos ni deudas), fue una race condition
+// con INITIAL_SESSION (utmData vacío). Bloquear queueSave protege Supabase.
 _isRestoringSession = false;
-if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId)) {
+const _snapshotTeniaDatos = !!(s && s._hasData);
+const _estadoActualTieneDatos = (startIndex !== -1) || (endIndex !== -1) ||
+  (periodosPension && periodosPension.length > 0) ||
+  (historicalDebts && historicalDebts.length > 0) ||
+  (abonos && abonos.length > 0);
+// Si el snapshot decía tener datos pero el estado actual está vacío → race condition
+const _restoreOk = !_snapshotTeniaDatos || _estadoActualTieneDatos;
+if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId) && _restoreOk) {
   queueSave(activeCasoId);
+} else if (!_restoreOk) {
+  dbg('applySession: ⚠️ _hasData=true pero estado vacío — race condition detectada, queueSave bloqueado');
 }
 }
 function resetAllSilent() {

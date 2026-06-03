@@ -1943,6 +1943,10 @@ sortKey: new Date(parseInt(anio), mes, 1).getTime(), monthIdx: mes
 });
 utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 }
+// FIX RACE CONDITION: poblar utmData en tiempo de parseo, ANTES de que onAuthStateChange
+// pueda disparar INITIAL_SESSION y llamar switchCaso → applySession con utmData vacío.
+// fetchUTM() también llama cargarUTMLocal() (idempotente — sin efecto negativo).
+cargarUTMLocal();
 async function fetchUTM() {
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
