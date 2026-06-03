@@ -1946,6 +1946,7 @@ utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 async function fetchUTM() {
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
+renderUtmTicker(); // FIX Bug 1: mostrar datos locales de inmediato sin esperar la red
 setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
@@ -2036,7 +2037,16 @@ try {
     try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
     if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
   } else {
-    dbg('CMF API: sin cambios en utmData');
+    // FIX Bug 2: guardar caché aunque no haya cambios en utmData.
+    // Si CMF devuelve meses ya hardcodeados (v > 0), changed=false pero valoresNuevos tiene datos.
+    // Sin este fix, localStorage nunca se guarda -> cada carga sin auth vuelve a llamar CMF.
+    if (Object.keys(valoresNuevos).length > 0) {
+      try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
+      if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
+      dbg('CMF API: sin cambios en utmData, cache guardado (' + Object.keys(valoresNuevos).length + ' entradas)');
+    } else {
+      dbg('CMF API: sin cambios y sin valores nuevos');
+    }
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
