@@ -1250,13 +1250,11 @@ function buildResumenContent() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesosBruto = lastCalculationData.reduce((s,d) => s + d.cap, 0);
+  const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // ya descontados LAV
   const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal??d.inte), 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
-  const totalLavCLPModal = (typeof abonosLav !== 'undefined' && abonosLav.length > 0) ? abonosLav.reduce((s,p) => s + p.amount, 0) : 0;
-  const totalCapPesos = Math.max(0, totalCapPesosBruto - totalLavCLPModal);
-  const totalFinalReal = imputacion ? Math.max(0, imputacion.saldoFinal - totalLavCLPModal) : Math.max(0, totalCapPesos + totalIntPesos - totalAbonosCLP);
+  const totalFinalReal = imputacion ? imputacion.saldoFinal : Math.max(0, totalCapPesos + totalIntPesos - totalAbonosCLP);
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 

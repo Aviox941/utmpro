@@ -3502,124 +3502,137 @@ return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
-// Excedente de pagos parciales: se arrastra al mes siguiente en CLP (usando UTM del mes pagado).
-let excedenteParcialAcumCLP = 0;
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
-// Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
 const hayPeriodos = periodosPension.length > 0;
-// Rango efectivo = unión del rango del formulario activo + rango acumulado de períodos.
-// Garantiza que todos los períodos registrados siempre queden dentro del rango calculado,
-// incluso cuando el usuario está seleccionando un nuevo período en el formulario.
 const _fS = startIndex !== -1 ? Math.min(startIndex, endIndex) : calcStartIndex;
 const _fE = endIndex   !== -1 ? Math.max(startIndex, endIndex) : calcEndIndex;
 const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
 const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
 const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
 const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
-if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
+if (efectivoStart === -1 || efectivoEnd === -1) return { capital, intereses, capitalUTM, detalles };
+if (cuotaMensualUTM === 0 && !(modoEsPesos && cuotaMensualCLP > 0) && !hayPeriodos) return { capital, intereses, capitalUTM, detalles };
+
 const start = Math.min(efectivoStart, efectivoEnd);
-const end = Math.max(efectivoStart, efectivoEnd);
+const end   = Math.max(efectivoStart, efectivoEnd);
 const slice = utmData.slice(start, end + 1);
-slice.forEach((item, idx) => {
-// Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
-const utmMesHistorico = item.v; // UTM del mes de la cuota
-// ── Períodos variables: sobreescribir cuota si hay un período registrado ──
-const periodoOverride = getPeriodoCuotaParaMes(item.y, item.monthIdx);
-let cuotaUTMEfectiva, cuotaCLPEfectiva, modoEsPesosEfectivo;
-if (periodoOverride) {
-  modoEsPesosEfectivo = periodoOverride.modoEsPesos;
-  if (modoEsPesosEfectivo) {
-    cuotaCLPEfectiva  = periodoOverride.cuotaCLP;
-    cuotaUTMEfectiva  = cuotaCLPEfectiva / utmMesHistorico;
-  } else {
-    cuotaUTMEfectiva  = periodoOverride.cuotaUTM;
-    cuotaCLPEfectiva  = cuotaUTMEfectiva * utmMesHistorico;
-    modoEsPesosEfectivo = false;
-  }
-} else {
-  modoEsPesosEfectivo = modoEsPesos;
-  cuotaUTMEfectiva    = modoEsPesos ? (cuotaMensualCLP / utmMesHistorico) : cuotaMensualUTM;
-  cuotaCLPEfectiva    = modoEsPesos ? cuotaMensualCLP : (cuotaMensualUTM * utmMesHistorico);
-}
-const cuotaUTMReal  = cuotaUTMEfectiva;
-const montoPesosMes = modoEsPesosEfectivo ? cuotaCLPEfectiva : (cuotaUTMEfectiva * utmMesHistorico);
-// CORRECCIÓN JUDICIAL: la cuota del mes M vence el día D del MISMO mes M,
-// no del mes siguiente. Ej: cuota oct-2025 vence el 05-10-2025.
-// Confirmado por ingeniería inversa sobre liquidación oficial SITFA/PJUD.
-const mesVenc = item.monthIdx; // mismo mes del período (base 0)
-const anioVenc = item.y;
-const fechaVenc = new Date(anioVenc, mesVenc, diaVenc);
-const diasMora = calcularDiasMora(fechaVenc, hoy);
-const periodoKey = `${item.y}-${String(item.monthIdx + 1).padStart(2, '0')}`;
-// Los pagos parciales ya NO se descuentan aquí del capital.
-// Se tratan como abonos en imputarAbonosArt1595() → Art. 1595 CC:
-// primero cubren intereses devengados a su fecha, luego capital pendiente.
-const capNeto = montoPesosMes;
-// Si no hay cuota para este mes (ni manual ni por período), omitir
-if (capNeto === 0 && !periodoOverride && cuotaMensualUTM === 0 && cuotaMensualCLP === 0) return;
 const usarTicActual = document.getElementById('ticActual')?.checked || false;
-const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
-const tasaMes = usarTicActual ? hoy.getMonth() : item.monthIdx;
-const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, modoEsPesosEfectivo, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
-const tasaHistorica = _tasaInfo.valor;
-const tasaEsAproximada = _tasaInfo.esAproximada;
-const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
-const tasaBase = tasaHistorica;
-// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
-const recargoAplica = aplicarRecargo && diasMora > 0;
-const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
-// CORRECCIÓN JUDICIAL (confirmada RIT Z-617-2024):
-// Si existe pago parcial para este mes, el interés se calcula SOLO sobre el remanente
-// (cuota UTM − pagado en UTM), no sobre la cuota completa.
-const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`;
-const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
-let capParaInteres = capNeto;
-let hayParcialConRemanente = false;
-// Pagado este mes en CLP: pago directo + excedente arrastrado del mes anterior
-let totalPagadoCLPEfectivo = excedenteParcialAcumCLP;
-excedenteParcialAcumCLP = 0;
-if (pagoParcialMes.length > 0) {
-  totalPagadoCLPEfectivo += pagoParcialMes.reduce((s, p) => s + p.amount, 0);
-}
-// Cuota del mes en CLP
-const cuotaMesCLP = cuotaUTMReal * item.v;
-let capEfectivoCLP, totalPagadoUTMEfectivo = 0;
-if (totalPagadoCLPEfectivo > 0) {
-  const remanenteCLP = cuotaMesCLP - totalPagadoCLPEfectivo;
-  if (remanenteCLP <= 0) {
-    // Pago >= cuota: cuota cubierta, excedente en CLP se arrastra al siguiente mes
-    excedenteParcialAcumCLP = Math.abs(remanenteCLP);
-    capEfectivoCLP = 0;
-    capParaInteres = 0;
-    hayParcialConRemanente = false;
+
+// ── PASO 1: Calcular cargos totales en UTM (igual que el tribunal) ──
+// Suma la cuota de cada mes en UTM del mes → total CARGOS
+let totalCargosUTM = 0;
+const mesesInfo = []; // info de cada mes para el paso 3
+slice.forEach((item, idx) => {
+  const utmMes = item.v;
+  const periodoOverride = getPeriodoCuotaParaMes(item.y, item.monthIdx);
+  let cuotaUTM, cuotaCLP, modoEsPesosEfectivo;
+  if (periodoOverride) {
+    modoEsPesosEfectivo = periodoOverride.modoEsPesos;
+    cuotaCLP = modoEsPesosEfectivo ? periodoOverride.cuotaCLP : periodoOverride.cuotaUTM * utmMes;
+    cuotaUTM = modoEsPesosEfectivo ? cuotaCLP / utmMes : periodoOverride.cuotaUTM;
   } else {
-    // Pago < cuota: interés sobre el remanente
-    capEfectivoCLP = remanenteCLP;
-    capParaInteres = remanenteCLP;
-    hayParcialConRemanente = true;
+    modoEsPesosEfectivo = modoEsPesos;
+    cuotaUTM = modoEsPesos ? (cuotaMensualCLP / utmMes) : cuotaMensualUTM;
+    cuotaCLP = modoEsPesos ? cuotaMensualCLP : cuotaUTM * utmMes;
   }
-  totalPagadoUTMEfectivo = totalPagadoCLPEfectivo / item.v;
-} else {
-  capEfectivoCLP = cuotaMesCLP;
-}
-const capEfectivoUTM = capEfectivoCLP / item.v;
-const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
-capital += capEfectivoCLP;
-capitalUTM += capEfectivoUTM;
-intereses += interesMes;
-detalles.push({
-id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
-cap: capEfectivoCLP, capOriginal: montoPesosMes,
-tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
-mora: diasMora, inte: interesMes,
-sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
-capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
-capParaInteres, hayParcialConRemanente,
-excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagadoUTMEfectivo - cuotaUTMReal) : 0
+  if (cuotaUTM === 0 && !periodoOverride) return;
+  totalCargosUTM += cuotaUTM;
+  mesesInfo.push({ item, idx, cuotaUTM, cuotaCLP, modoEsPesosEfectivo });
 });
-});
+
+// ── PASO 2: Calcular abonos totales en UTM ──
+// LAV: cada depósito con su UTM exacta del mes del depósito
+const lavUTM = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
+  ? abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0) : 0;
+// Pagos parciales: también se suman como abonos (con su UTM del mes)
+let parcialesUTMTotal = 0;
+if (pagosParciales && pagosParciales.length > 0) {
+  pagosParciales.forEach(p => {
+    const uv = p.utmVal || 1;
+    parcialesUTMTotal += (p.amountUtm !== null && p.amountUtm !== undefined) ? p.amountUtm : (p.amount / uv);
+  });
 }
+const totalAbonosUTM = lavUTM + parcialesUTMTotal;
+
+// ── PASO 3: Imputar abonos mes a mes (cronológico, igual que el tribunal) ──
+// El tribunal imputa primero los meses más antiguos.
+// Los pagos parciales se aplican al mes exacto que corresponden.
+// Los LAV se aplican cronológicamente cubriendo mes a mes.
+// Construir lista de abonos LAV ordenada por fecha
+const lavOrdenados = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
+  ? [...abonosLav].sort((a, b) => a.date.localeCompare(b.date)) : [];
+
+// Saldo LAV disponible en UTM para imputar mes a mes
+let saldoLavUTM = lavUTM;
+// Excedente de pago parcial que se arrastra al mes siguiente
+let excedenteParcialUTM = 0;
+
+mesesInfo.forEach(({ item, idx, cuotaUTM, cuotaCLP }) => {
+  const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`;
+  const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
+
+  // Pago parcial del mes en UTM + excedente arrastrado
+  let pagadoParcialUTM = excedenteParcialUTM;
+  excedenteParcialUTM = 0;
+  if (pagoParcialMes.length > 0) {
+    pagadoParcialUTM += pagoParcialMes.reduce((s, p) => {
+      const uv = p.utmVal || item.v;
+      return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / uv));
+    }, 0);
+  }
+
+  // Imputar LAV a este mes si hay saldo disponible
+  const disponibleLavEsteMes = Math.min(saldoLavUTM, Math.max(0, cuotaUTM - pagadoParcialUTM));
+  saldoLavUTM = Math.max(0, saldoLavUTM - disponibleLavEsteMes);
+  const totalPagadoUTM = pagadoParcialUTM + disponibleLavEsteMes;
+
+  // Calcular remanente adeudado en UTM
+  const adeudadoUTM = Math.max(0, cuotaUTM - totalPagadoUTM);
+  const adeudadoCLP = adeudadoUTM * item.v;
+
+  // Excedente: si se pagó más que la cuota, arrastra al mes siguiente
+  if (totalPagadoUTM > cuotaUTM + 0.000001) {
+    excedenteParcialUTM = totalPagadoUTM - cuotaUTM;
+  }
+
+  // ── PASO 4: Calcular interés solo sobre el remanente adeudado ──
+  const mesVenc = item.monthIdx;
+  const fechaVenc = new Date(item.y, mesVenc, diaVenc);
+  const diasMora = calcularDiasMora(fechaVenc, hoy);
+  const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
+  const tasaMes  = usarTicActual ? hoy.getMonth()    : item.monthIdx;
+  const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, false, cuotaCLP, item.v, diasMora);
+  const tasaHistorica = _tasaInfo.valor;
+  const tasaEsAproximada = _tasaInfo.esAproximada;
+  const tasaBase = tasaHistorica;
+  const recargoAplica = aplicarRecargo && diasMora > 0;
+  const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
+
+  // Solo calcular interés si hay algo adeudado
+  const interesMes = adeudadoUTM > 0.000001 ? calcularInteres(adeudadoCLP, tasaAnual, diasMora) : 0;
+
+  capital    += adeudadoCLP;
+  capitalUTM += adeudadoUTM;
+  intereses  += interesMes;
+
+  const hayParcialConRemanente = pagadoParcialUTM > 0 && adeudadoUTM > 0.000001;
+  const excedenteParcialAplicado = totalPagadoUTM > cuotaUTM + 0.000001 ? (totalPagadoUTM - cuotaUTM) : 0;
+
+  detalles.push({
+    id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
+    cap: adeudadoCLP, capOriginal: cuotaCLP,
+    tasa: tasaAnual, tasaBase, tasaHist: tasaHistorica, tasaEsAproximada,
+    mora: diasMora, inte: interesMes,
+    sub: adeudadoCLP + interesMes, year: item.y, isDebt: false,
+    capUTM: adeudadoUTM, usarMaxima: false, ticActual: usarTicActual,
+    capParaInteres: adeudadoCLP, hayParcialConRemanente,
+    excedenteParcialAplicado,
+    // Para el modal de detalle
+    totalPagadoUTM, pagadoParcialUTM, disponibleLavEsteMes
+  });
+});
+
 return { capital, intereses, capitalUTM, detalles };
 }
 function calculateHistoricalDebt(aplicarRecargo, hoy) {
@@ -3849,12 +3862,9 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
   });
 }
 if (lastCalculationData.length > 0) {
-// Restar abonos LAV del saldo final (igual que el tribunal: suma UTM de cada depósito)
-const totalLavCLP = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
-  ? abonosLav.reduce((s, p) => s + p.amount, 0) : 0;
-const totalLavUTM = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
-  ? abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0) : 0;
-const totalFinal = Math.max(0, imputacion.saldoFinal - totalLavCLP);
+const totalLavCLP = 0; // LAV ya descontado en calculatePensiones mes a mes
+const totalLavUTM = 0;
+const totalFinal = Math.max(0, imputacion.saldoFinal);
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
@@ -3875,10 +3885,10 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
   }
 })();
 // Mostrar capital e intereses brutos (antes de imputación) en los sub-totales
-document.getElementById('totalCap').innerText = format(Math.max(0, totalCap - totalLavCLP));
+document.getElementById('totalCap').innerText = format(totalCap);
 document.getElementById('totalInt').innerText = format(totalInt);
 document.getElementById('totalGrandUtm').innerText = `${(totalFinal / utmHoy).toFixed(2)} UTM`;
-document.getElementById('totalCapUtm').innerText = `${Math.max(0, totalCapUTM - totalLavUTM).toFixed(2)} UTM`;
+document.getElementById('totalCapUtm').innerText = `${totalCapUTM.toFixed(2)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${(totalInt / utmHoy).toFixed(2)} UTM`;
 const abonoRow = document.getElementById('abonoResultRow');
 if (totalAbonosSum > 0) {
@@ -4553,8 +4563,8 @@ function renderDaySelector(anio, mesIdx) {
       document.getElementById('tempParcialLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
       document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
       document.getElementById('tempParcialLabel').classList.add('text-white');
-      closeCalendar();
       await addPagoParcial();
+      closeCalendar();
     };
     grid.appendChild(btn);
   }
