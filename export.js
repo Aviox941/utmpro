@@ -2250,7 +2250,7 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     }
     imageContent.push({ type: 'text', text: prompt });
 
-    const response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/openrouter-proxy', {
+    const response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/smooth-responder', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
