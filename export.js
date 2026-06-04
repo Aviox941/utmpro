@@ -2236,12 +2236,13 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
   // La API key de OpenRouter vive en los secrets de Supabase, no en el código.
   // ────────────────────────────────────────────────────────────────
 
+  const _ocrLog = [];
   try {
     // Obtener token de sesión activa
-    dbg('OCR: obteniendo sesion...');
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) throw new Error('No hay sesion activa. Por favor inicia sesion.');
-    dbg('OCR: sesion OK, llamando proxy...');
+    _ocrLog.push('1. obteniendo token...');
+    const _token = window.sbAccessToken;
+    if (!_token) throw new Error('No hay sesion activa.');
+    _ocrLog.push('2. token OK: ' + _token.slice(0,10) + '...');
 
     // Construir content para OpenRouter (formato OpenAI compatible)
     const imageContent = [];
@@ -2252,11 +2253,12 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     }
     imageContent.push({ type: 'text', text: prompt });
 
+    _ocrLog.push('3. llamando proxy...');
     const response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/smooth-responder', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+        'Authorization': `Bearer ${_token}`
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-exp:free',
@@ -2266,10 +2268,15 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       })
     });
 
-    dbg('OCR: proxy respondio HTTP ' + response.status);
-    if (!response.ok) throw new Error('Proxy HTTP ' + response.status);
+    _ocrLog.push('4. proxy HTTP ' + response.status);
+    if (!response.ok) {
+      const errText = await response.text();
+      _ocrLog.push('ERR body: ' + errText.slice(0,200));
+      alert('OCR log:\n' + _ocrLog.join('\n'));
+      throw new Error('Proxy HTTP ' + response.status);
+    }
     const data = await response.json();
-    dbg('OCR: respuesta recibida, procesando...');
+    _ocrLog.push('5. respuesta OK');
     const raw = data?.choices?.[0]?.message?.content || '';
 
     // Limpiar posibles backticks
