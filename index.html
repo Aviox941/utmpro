@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1893">
+ <meta name="app-version" content="2.0530.1894">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1893</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1470,6 +1470,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
      <p class="dh-card__title">Abonos LAV</p>
    </div>
    <div class="dh-card__header-right">
+     <button onclick="event.stopPropagation();openOcrLav()" title="Importar desde documento" class="flex items-center gap-1 px-2 h-6 rounded-lg bg-[#10b981]/10 border border-[#10b981]/25 text-[#34d399] text-[9px] font-black uppercase tracking-wide hover:bg-[#10b981]/20 transition-all active:scale-90 mr-1" style="letter-spacing:0.04em">
+       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+       <span>Escanear</span>
+     </button>
      <button onclick="event.stopPropagation();showHelpModal('lav')" class="w-5 h-5 rounded-full bg-[#10b981]/10 border border-[#10b981]/25 text-[#34d399] font-black text-[10px] flex items-center justify-center hover:bg-[#10b981]/30 transition-all active:scale-90 mr-1">?</button>
      <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
    </div>
@@ -1943,10 +1947,6 @@ sortKey: new Date(parseInt(anio), mes, 1).getTime(), monthIdx: mes
 });
 utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 }
-// FIX RACE CONDITION: poblar utmData en tiempo de parseo, ANTES de que onAuthStateChange
-// pueda disparar INITIAL_SESSION y llamar switchCaso → applySession con utmData vacío.
-// fetchUTM() también llama cargarUTMLocal() (idempotente — sin efecto negativo).
-cargarUTMLocal();
 async function fetchUTM() {
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
@@ -6095,6 +6095,112 @@ window._keepAliveInterval = setInterval(async () => {
 window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
 </script>
 </div><!-- /#desktop-layout -->
+
+
+<!-- ══════════════════════════════════════════════════
+     MODAL OCR LAV
+     ══════════════════════════════════════════════════ -->
+<div id="ocrLavModal" class="fixed inset-0 z-[200] flex items-end justify-center hidden" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+  <div class="w-full max-w-lg rounded-t-2xl overflow-hidden" style="background:#0f172a;border-top:1px solid rgba(16,185,129,0.2);">
+    <!-- header -->
+    <div class="flex items-center justify-between px-4 pt-4 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-black text-white uppercase tracking-wide">Importar Abonos LAV</p>
+          <p class="text-[9px] text-slate-400">Liquidación PJUD o cartola bancaria</p>
+        </div>
+      </div>
+      <button onclick="closeOcrLav()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05);">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- body -->
+    <div class="px-4 py-4 space-y-3" id="ocrLavBody">
+
+      <!-- tipo doc tabs -->
+      <div id="ocrStepUpload">
+        <div class="flex gap-2 mb-3">
+          <button id="ocrTabPjud" onclick="setOcrTab('pjud')"
+            class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95"
+            style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
+            Liquidación PJUD
+          </button>
+          <button id="ocrTabCartola" onclick="setOcrTab('cartola')"
+            class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95"
+            style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">
+            Cartola bancaria
+          </button>
+        </div>
+
+        <!-- instruccion -->
+        <p id="ocrInstruccion" class="text-[9px] text-slate-400 leading-relaxed mb-3">
+          Sube el PDF o imagen de la liquidación. La app extraerá automáticamente los abonos LAV de la sección V.
+        </p>
+
+        <!-- drop zone -->
+        <label id="ocrDropZone" for="ocrFileInput"
+          class="flex flex-col items-center justify-center gap-2 w-full rounded-xl cursor-pointer transition-all active:scale-98"
+          style="border:1.5px dashed rgba(16,185,129,0.3);background:rgba(16,185,129,0.04);min-height:96px;"
+          ondragover="event.preventDefault();this.style.background='rgba(16,185,129,0.10)'"
+          ondragleave="this.style.background='rgba(16,185,129,0.04)'"
+          ondrop="handleOcrDrop(event)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <p class="text-[10px] font-black text-[#10b981]" style="opacity:0.8">Subir archivo</p>
+          <p class="text-[8px] text-slate-500">PDF, JPG o PNG · máx 10 MB</p>
+        </label>
+        <input type="file" id="ocrFileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="handleOcrFile(this.files[0])">
+
+        <!-- nombre archivo seleccionado -->
+        <p id="ocrFileName" class="text-[9px] text-slate-400 mt-2 text-center hidden"></p>
+
+        <!-- btn analizar -->
+        <button id="btnOcrAnalizar" onclick="runOcrAnalysis()" disabled
+          class="w-full mt-3 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all active:scale-95"
+          style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
+          Analizar documento
+        </button>
+      </div>
+
+      <!-- loading -->
+      <div id="ocrStepLoading" class="hidden flex flex-col items-center gap-3 py-6">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);">
+          <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        </div>
+        <p class="text-[10px] font-black text-white">Analizando documento...</p>
+        <p class="text-[9px] text-slate-400">Esto puede tomar unos segundos</p>
+      </div>
+
+      <!-- error -->
+      <div id="ocrStepError" class="hidden rounded-xl p-3" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
+        <p class="text-[10px] font-black text-red-400 mb-1">No se pudo procesar el documento</p>
+        <p id="ocrErrorMsg" class="text-[9px] text-slate-400 leading-relaxed"></p>
+        <button onclick="ocrReset()" class="mt-2 text-[9px] text-[#10b981] font-black underline">Intentar nuevamente</button>
+      </div>
+
+      <!-- preview resultados -->
+      <div id="ocrStepPreview" class="hidden space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-[10px] font-black text-white">Movimientos detectados</p>
+          <span id="ocrPreviewCount" class="text-[9px] font-black px-2 py-0.5 rounded-full" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.25);"></span>
+        </div>
+        <div id="ocrPreviewList" class="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar"></div>
+        <div class="flex gap-2 pt-1">
+          <button onclick="ocrReset()" class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95" style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">
+            Cancelar
+          </button>
+          <button onclick="ocrConfirmar()" class="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95" style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
+            ✓ Agregar todos
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /body -->
+  </div>
+</div>
 
 </body>
 </html>

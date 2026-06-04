@@ -619,16 +619,7 @@ fechaLiquidacion: document.getElementById('fechaLiquidacion')?.value || '',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension, abonosLav,
-histMode, consolidadaData,
-// _hasData: marca que este snapshot fue construido con datos reales del DOM/estado.
-// Permite que applySession detecte corrupción: si _hasData=true pero todo quedó en cero,
-// fue una race condition y NO se debe subir a Supabase.
-_hasData: (startIndex >= 0) || (endIndex >= 0) ||
-          (periodosPension && periodosPension.length > 0) ||
-          (historicalDebts && historicalDebts.length > 0) ||
-          (abonos && abonos.length > 0) ||
-          !!(document.getElementById('utmAmount')?.value) ||
-          !!(document.getElementById('clpAmount')?.value)
+histMode, consolidadaData
 // BUG 5 FIX: saved_at y updated_at los estampa el llamador (saveSession / saveCurrentCasoNow)
 // para garantizar que objeto e índice tengan el mismo timestamp exacto.
 };
@@ -788,22 +779,9 @@ document.getElementById('saveIndicator').classList.add('hidden');
 // En este punto el DOM está 100% restaurado y calculate() ya corrió.
 // Si Supabase tiene datos (sbCurrentUser existe), guardamos el snapshot
 // completo — esto corrige casos que llegaron vacíos desde otro dispositivo.
-// FIX RACE CONDITION: solo subir a Supabase si la restauración fue exitosa.
-// Lógica: si el snapshot guardado tenía datos (_hasData=true) pero tras applySession
-// todo quedó en cero (startIndex=-1, sin períodos ni deudas), fue una race condition
-// con INITIAL_SESSION (utmData vacío). Bloquear queueSave protege Supabase.
 _isRestoringSession = false;
-const _snapshotTeniaDatos = !!(s && s._hasData);
-const _estadoActualTieneDatos = (startIndex !== -1) || (endIndex !== -1) ||
-  (periodosPension && periodosPension.length > 0) ||
-  (historicalDebts && historicalDebts.length > 0) ||
-  (abonos && abonos.length > 0);
-// Si el snapshot decía tener datos pero el estado actual está vacío → race condition
-const _restoreOk = !_snapshotTeniaDatos || _estadoActualTieneDatos;
-if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId) && _restoreOk) {
+if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_deletedCasoIds?.has(activeCasoId)) {
   queueSave(activeCasoId);
-} else if (!_restoreOk) {
-  dbg('applySession: ⚠️ _hasData=true pero estado vacío — race condition detectada, queueSave bloqueado');
 }
 }
 function resetAllSilent() {
@@ -2107,3 +2085,316 @@ async function exportarExcel() {
     }
   };
 })();
+
+// ══════════════════════════════════════════════════════════════════
+// OCR LAV — Importación de abonos desde documento (Claude API)
+// ══════════════════════════════════════════════════════════════════
+
+let _ocrTab = 'pjud';         // 'pjud' | 'cartola'
+let _ocrFile = null;          // File object
+let _ocrBase64 = null;        // base64 del archivo
+let _ocrMime = null;          // 'application/pdf' | 'image/jpeg' | 'image/png'
+let _ocrResultados = [];      // [{ date, amount, description }]
+
+function openOcrLav() {
+  ocrReset();
+  document.getElementById('ocrLavModal').classList.remove('hidden');
+}
+function closeOcrLav() {
+  document.getElementById('ocrLavModal').classList.add('hidden');
+  ocrReset();
+}
+
+function setOcrTab(tab) {
+  _ocrTab = tab;
+  const isPjud = tab === 'pjud';
+  const btnPjud    = document.getElementById('ocrTabPjud');
+  const btnCartola = document.getElementById('ocrTabCartola');
+  const activeStyle  = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);';
+  const inactiveStyle = 'background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);';
+  btnPjud.style.cssText    = isPjud  ? activeStyle : inactiveStyle;
+  btnCartola.style.cssText = !isPjud ? activeStyle : inactiveStyle;
+  document.getElementById('ocrInstruccion').textContent = isPjud
+    ? 'Sube el PDF o imagen de la liquidación. La app extraerá los abonos LAV de la sección V.'
+    : 'Sube la cartola bancaria. La app filtrará los movimientos del alimentante o alimentario según los datos del caso.';
+}
+
+function handleOcrDrop(e) {
+  e.preventDefault();
+  document.getElementById('ocrDropZone').style.background = 'rgba(16,185,129,0.04)';
+  const file = e.dataTransfer.files[0];
+  if (file) handleOcrFile(file);
+}
+
+function handleOcrFile(file) {
+  if (!file) return;
+  const allowed = ['application/pdf','image/jpeg','image/png','image/jpg'];
+  if (!allowed.includes(file.type)) {
+    alert('Formato no soportado. Usa PDF, JPG o PNG.');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    alert('El archivo supera los 10 MB.');
+    return;
+  }
+  _ocrFile = file;
+  _ocrMime = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
+  document.getElementById('ocrFileName').textContent = '📄 ' + file.name;
+  document.getElementById('ocrFileName').classList.remove('hidden');
+  // FIX Bug2: deshabilitar botón hasta que FileReader.onload termine (era race condition)
+  const btn = document.getElementById('btnOcrAnalizar');
+  btn.disabled = true;
+  btn.style.cssText = 'background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);';
+  const reader = new FileReader();
+  reader.onload = e => {
+    _ocrBase64 = e.target.result.split(',')[1];
+    btn.disabled = false;
+    btn.style.cssText = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);';
+  };
+  reader.onerror = () => {
+    dbg('OCR FileReader error');
+    document.getElementById('ocrErrorMsg').textContent = 'No se pudo leer el archivo.';
+    _ocrShowStep('ocrStepError');
+  };
+  reader.readAsDataURL(file);
+}
+
+function _ocrShowStep(step) {
+  ['ocrStepUpload','ocrStepLoading','ocrStepError','ocrStepPreview']
+    .forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById(step).classList.remove('hidden');
+}
+
+function ocrReset() {
+  _ocrFile = null; _ocrBase64 = null; _ocrMime = null; _ocrResultados = [];
+  document.getElementById('ocrFileInput').value = '';
+  document.getElementById('ocrFileName').classList.add('hidden');
+  const btn = document.getElementById('btnOcrAnalizar');
+  btn.disabled = true;
+  btn.style.cssText = 'background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);';
+  _ocrShowStep('ocrStepUpload');
+}
+
+async function runOcrAnalysis() {
+  if (!_ocrBase64) return;
+  _ocrShowStep('ocrStepLoading');
+
+  // Obtener nombres/rut del caso activo
+  const casoMeta = getCasosIndex().find(x => x.id === activeCasoId)?.meta || {};
+  const alimentante  = casoMeta.alimentante  || '';
+  const rutAlim      = casoMeta.rutAlimentante || '';
+  const alimentario  = casoMeta.alimentario  || '';
+  const rutAlimario  = casoMeta.rutAlimentario || '';
+
+  const isPjud = _ocrTab === 'pjud';
+
+  // FIX Bug5: cartola requiere datos del caso — avisar si están vacíos
+  if (!isPjud && !alimentante && !alimentario) {
+    document.getElementById('ocrErrorMsg').textContent =
+      'El caso no tiene nombre de alimentante ni alimentario en la ficha. Completa esos datos primero para que la app pueda filtrar los movimientos.';
+    _ocrShowStep('ocrStepError');
+    return;
+  }
+
+  // Construir prompt según tipo de documento
+  const promptPjud = `Eres un asistente especializado en documentos judiciales chilenos de pensión alimenticia.
+Se te entrega una liquidación del Poder Judicial de Chile (PJUD).
+Debes extraer los abonos de DOS secciones:
+1. "IV. Otros abonos": tabla con columnas Fecha movimiento / Tipo movimiento / Referencia / Monto UTM. El monto está en UTM, NO en pesos. Usa monto_utm en lugar de monto_pesos para estas filas.
+2. "V. Abonos LAV": tabla con columnas Fecha movimiento / Tipo movimiento / Monto pesos / Monto UTM. El monto está en pesos.
+Combina ambas secciones en un único array. Para cada movimiento indica de qué sección proviene.
+Devuelve SOLO un JSON array (sin texto adicional, sin markdown) con este formato exacto:
+[
+  {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":null,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
+  {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
+]
+Reglas:
+- Si el monto está en pesos (sección V): pon monto_pesos como entero, monto_utm como null.
+- Si el monto está en UTM (sección IV): pon monto_utm como decimal, monto_pesos como null.
+- Si el monto en pesos viene con puntos de miles (ej: 150.000), conviértelo a entero (150000).
+- Si alguna sección está vacía o tiene Total 0, no incluyas sus filas.
+- Usa formato de fecha DD-MM-YYYY.
+- Si no hay movimientos en ninguna sección, devuelve [].`;
+
+  const promptCartola = `Eres un asistente especializado en análisis de cartolas bancarias chilenas.
+Se te entrega una cartola bancaria.
+Debes identificar ÚNICAMENTE los movimientos (cargos o abonos) que correspondan a pagos de pensión alimenticia relacionados con estas personas:
+- Alimentante: "${alimentante}"${rutAlim ? ` (RUT: ${rutAlim})` : ''}
+- Alimentario/a: "${alimentario}"${rutAlimario ? ` (RUT: ${rutAlimario})` : ''}
+Busca en la columna "Descripción" cualquier mención del nombre (parcial o completo) o RUT de cualquiera de las dos partes.
+El período de la cartola está en el encabezado del documento; úsalo para completar el año de cada movimiento si solo aparece día/mes.
+Para cada movimiento encontrado, extrae la fecha exacta, el monto en pesos y la descripción.
+Devuelve SOLO un JSON array (sin texto adicional, sin markdown):
+[{"fecha":"DD-MM-YYYY","monto_pesos":150000,"descripcion":"TEF A MARIA JOSE MUNOZ VALDES"}]
+Si no encuentras movimientos relevantes, devuelve [].
+Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
+
+  const prompt = isPjud ? promptPjud : promptCartola;
+
+  // ── OCR ENGINE ──────────────────────────────────────────────────
+  // Gemini Flash (gratuito: 1500 req/día). Para cambiar a Claude Sonnet,
+  // comentar el bloque Gemini y descomentar el bloque Claude más abajo.
+  const GEMINI_KEY = 'AQ.Ab8RN6JrnywGutCQJhuig7XRcsjHN3UYw9bpqmcyWcTbrYhZBA';
+
+  try {
+    // Construir parts para Gemini
+    const geminiParts = [];
+    if (_ocrMime === 'application/pdf') {
+      geminiParts.push({ inline_data: { mime_type: 'application/pdf', data: _ocrBase64 } });
+    } else {
+      geminiParts.push({ inline_data: { mime_type: _ocrMime, data: _ocrBase64 } });
+    }
+    geminiParts.push({ text: prompt });
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: geminiParts }],
+          generationConfig: { temperature: 0, maxOutputTokens: 2000 }
+        })
+      }
+    );
+
+    if (!response.ok) throw new Error('Gemini HTTP ' + response.status);
+    const data = await response.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    /* ── Claude Sonnet (producción) — descomentar cuando se tenga API key propia ──
+    const CLAUDE_KEY = ''; // tu key aquí
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: contentBlocks }]
+      })
+    });
+    if (!response.ok) throw new Error('Claude HTTP ' + response.status);
+    const data = await response.json();
+    const raw = (data.content || []).map(b => b.text || '').join('').trim();
+    ── fin Claude ── */
+
+    // Limpiar posibles backticks
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    if (!Array.isArray(parsed)) throw new Error('Respuesta inesperada del modelo');
+    if (parsed.length === 0) {
+      document.getElementById('ocrErrorMsg').textContent =
+        isPjud ? 'No se encontraron abonos LAV en el documento.'
+                : 'No se encontraron movimientos del alimentante o alimentario en la cartola.';
+      _ocrShowStep('ocrStepError');
+      return;
+    }
+
+    _ocrResultados = parsed;
+    _ocrRenderPreview(parsed);
+    _ocrShowStep('ocrStepPreview');
+
+  } catch(err) {
+    dbg('OCR error: ' + err.message);
+    document.getElementById('ocrErrorMsg').textContent = 'Error al procesar: ' + err.message;
+    _ocrShowStep('ocrStepError');
+  }
+}
+
+function _ocrRenderPreview(items) {
+  const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  document.getElementById('ocrPreviewCount').textContent = items.length + (items.length === 1 ? ' movimiento' : ' movimientos');
+  const container = document.getElementById('ocrPreviewList');
+  container.innerHTML = items.map((item, i) => {
+    const fechaNorm6 = _ocrNormalizeFecha(item.fecha) || item.fecha;
+    const [dd, mm, yyyy] = fechaNorm6.split('-');
+    const mIdx = parseInt(mm) - 1;
+    const utmEntry = utmData.find(d => d.y === parseInt(yyyy) && d.monthIdx === mIdx);
+    const utmVal = utmEntry ? utmEntry.v : null;
+    let montoStr, utmStr;
+    if (item.monto_pesos != null && item.monto_pesos > 0) {
+      montoStr = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(item.monto_pesos);
+      utmStr = utmVal ? (item.monto_pesos / utmVal).toFixed(5) + ' UTM' : '— UTM';
+    } else if (item.monto_utm != null && item.monto_utm > 0) {
+      utmStr = item.monto_utm.toFixed(5) + ' UTM';
+      montoStr = utmVal ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(Math.round(item.monto_utm * utmVal)) : '— CLP';
+    } else {
+      montoStr = '—'; utmStr = '—';
+    }
+    const seccionBadge = item.seccion === 'otros_abonos'
+      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otro abono</span>'
+      : '';
+    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
+      <div class="min-w-0 flex-1 mr-2">
+        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}</p>
+        <p class="text-[8px] text-slate-400 truncate">${item.descripcion || ''} · ${utmStr}</p>
+      </div>
+      <button onclick="_ocrRemoveItem(${i})" class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors" style="background:rgba(255,255,255,0.05);">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function _ocrRemoveItem(i) {
+  // FIX Bug3: guard against stale index (double-tap or async re-render race)
+  if (i < 0 || i >= _ocrResultados.length) return;
+  _ocrResultados.splice(i, 1);
+  if (_ocrResultados.length === 0) { ocrReset(); return; }
+  _ocrRenderPreview(_ocrResultados);
+}
+
+function _ocrNormalizeFecha(fecha) {
+  // FIX Bug6: el modelo puede devolver YYYY-MM-DD o DD-MM-YYYY — normalizar a DD-MM-YYYY
+  if (!fecha) return null;
+  const parts = fecha.split('-');
+  if (parts.length !== 3) return null;
+  if (parts[0].length === 4) {
+    // YYYY-MM-DD → invertir
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return fecha; // ya es DD-MM-YYYY
+}
+function ocrConfirmar() {
+  const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  let added = 0;
+  _ocrResultados.forEach(item => {
+    const fechaNorm = _ocrNormalizeFecha(item.fecha);
+    if (!fechaNorm) return;
+    const [dd, mm, yyyy] = fechaNorm.split('-');
+    const mIdx = parseInt(mm) - 1;
+    const dia = parseInt(dd);
+    const anio = parseInt(yyyy);
+    if (!mm || !yyyy || dia < 1) return;
+    const periodoLabel = mNames[mIdx] + ' ' + yyyy;
+    const periodo = yyyy + '-' + mm;
+    const date = `${yyyy}-${mm}-${String(dia).padStart(2,'0')}`;
+    const utmEntry = utmData.find(d => d.y === anio && d.monthIdx === mIdx);
+    const utmVal = utmEntry ? utmEntry.v : null;
+    let amount, amountUtm;
+    if (item.monto_pesos != null && item.monto_pesos > 0) {
+      // Sección V LAV: monto en pesos, UTM calculada
+      amount = item.monto_pesos;
+      amountUtm = utmVal ? amount / utmVal : null;
+    } else if (item.monto_utm != null && item.monto_utm > 0) {
+      // Sección IV otros abonos: monto en UTM, pesos calculados desde UTM del mes
+      amountUtm = item.monto_utm;
+      amount = utmVal ? Math.round(amountUtm * utmVal) : null;
+    } else {
+      return; // sin monto válido
+    }
+    if (!amount || amount <= 0) return;
+    abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+    added++;
+  });
+  if (added > 0) {
+    // Ordenar por fecha
+    abonosLav.sort((a, b) => a.date.localeCompare(b.date));
+    renderAbonosLav();
+    calculate();
+    saveSession();
+    dbg('OCR LAV: ' + added + ' abonos importados');
+  }
+  closeOcrLav();
+}
