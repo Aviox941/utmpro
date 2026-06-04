@@ -5179,7 +5179,7 @@ const sb = window.sb = supabase.createClient(SB_URL, SB_KEY, {
 });
 
 let sbCurrentUser = null;
-let sbAccessToken = null;
+let sbAccessToken = window.sbAccessToken = null;
 // IDs eliminados localmente pero cuyo UPDATE en Supabase aún puede estar en vuelo.
 // Permite bloquear sbSaveCaso de forma síncrona, sin esperar la red.
 const _deletedCasoIds = new Set();
@@ -5195,7 +5195,7 @@ function _persistSyncQueue() {}
 // Limpiar cola antigua de localStorage si existe
 try { localStorage.removeItem('sync_queue'); } catch(e) {}
 // Token de sesión — se actualiza en onAuthStateChange
-let _sbAccessToken = null;
+let _sbAccessToken = window.sbAccessToken = null;
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -5521,7 +5521,7 @@ async function sbSignOut() {
 
   // 2. Limpiar estado local
   sbCurrentUser = null;
-  sbAccessToken = null;
+  sbAccessToken = window.sbAccessToken = null;
   activeCasoId = null;
 
   // 3. Limpiar tokens del storage ANTES de llamar a signOut
@@ -5961,7 +5961,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
     sbCurrentUser = session.user;
-    sbAccessToken = session.access_token || null;
+    sbAccessToken = window.sbAccessToken = session.access_token || null;
     const email = session.user.email || '—';
     const emailEl = document.getElementById('sidebarUserEmail');
     if (emailEl) emailEl.textContent = email;
@@ -5986,7 +5986,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
-    sbAccessToken = null;
+    sbAccessToken = window.sbAccessToken = null;
     // Cancelar keep-alive para no acumular intervalos entre sesiones
     if (window._keepAliveInterval) {
       clearInterval(window._keepAliveInterval);
