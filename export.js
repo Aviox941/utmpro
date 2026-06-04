@@ -2240,7 +2240,18 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
   try {
     // Obtener token de sesión activa
     _ocrLog.push('1. obteniendo token...');
-    const _token = window.sbAccessToken;
+    // Intentar token en memoria primero, luego localStorage como fallback
+    let _token = window.sbAccessToken;
+    if (!_token) {
+      try {
+        const lsKeys = Object.keys(localStorage).filter(k => k.includes('supabase') || k.includes('auth-token'));
+        for (const k of lsKeys) {
+          const val = JSON.parse(localStorage.getItem(k) || '{}');
+          if (val?.access_token) { _token = val.access_token; break; }
+          if (val?.session?.access_token) { _token = val.session.access_token; break; }
+        }
+      } catch(e) {}
+    }
     if (!_token) throw new Error('No hay sesion activa.');
     _ocrLog.push('2. token OK: ' + _token.slice(0,10) + '...');
 
