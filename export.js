@@ -2238,7 +2238,7 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
   try {
     // Obtener token de sesión activa
-    const { data: { session } } = await window._supabase.auth.getSession();
+    const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('No hay sesión activa. Por favor inicia sesión.');
 
     // Construir content para OpenRouter (formato OpenAI compatible)
