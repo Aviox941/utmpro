@@ -2234,33 +2234,39 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
   // ── OCR ENGINE ──────────────────────────────────────────────────
   // Gemini Flash (gratuito: 1500 req/día). Para cambiar a Claude Sonnet,
   // comentar el bloque Gemini y descomentar el bloque Claude más abajo.
-  const GEMINI_KEY = 'AQ.Ab8RN6JrnywGutCQJhuig7XRcsjHN3UYw9bpqmcyWcTbrYhZBA';
+  // ── API KEY ──────────────────────────────────────────────────────
+  const OR_KEY = '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';
 
   try {
-    // Construir parts para Gemini
-    const geminiParts = [];
+    // Construir content para OpenRouter (formato OpenAI compatible)
+    const imageContent = [];
     if (_ocrMime === 'application/pdf') {
-      geminiParts.push({ inline_data: { mime_type: 'application/pdf', data: _ocrBase64 } });
+      // PDF como base64 data URL
+      imageContent.push({ type: 'image_url', image_url: { url: `data:application/pdf;base64,${_ocrBase64}` } });
     } else {
-      geminiParts.push({ inline_data: { mime_type: _ocrMime, data: _ocrBase64 } });
+      imageContent.push({ type: 'image_url', image_url: { url: `data:${_ocrMime};base64,${_ocrBase64}` } });
     }
-    geminiParts.push({ text: prompt });
+    imageContent.push({ type: 'text', text: prompt });
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: geminiParts }],
-          generationConfig: { temperature: 0, maxOutputTokens: 2000 }
-        })
-      }
-    );
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OR_KEY}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Pension Alimenticia App'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp:free',
+        max_tokens: 2000,
+        temperature: 0,
+        messages: [{ role: 'user', content: imageContent }]
+      })
+    });
 
-    if (!response.ok) throw new Error('Gemini HTTP ' + response.status);
+    if (!response.ok) throw new Error('OpenRouter HTTP ' + response.status);
     const data = await response.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const raw = data?.choices?.[0]?.message?.content || '';
 
     /* ── Claude Sonnet (producción) — descomentar cuando se tenga API key propia ──
     const CLAUDE_KEY = ''; // tu key aquí
@@ -2270,7 +2276,12 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 2000,
-        messages: [{ role: 'user', content: contentBlocks }]
+        messages: [{ role: 'user', content: [
+          _ocrMime === 'application/pdf'
+            ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ocrBase64 } }
+            : { type: 'image', source: { type: 'base64', media_type: _ocrMime, data: _ocrBase64 } },
+          { type: 'text', text: prompt }
+        ]}]
       })
     });
     if (!response.ok) throw new Error('Claude HTTP ' + response.status);
