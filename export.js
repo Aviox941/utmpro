@@ -2232,29 +2232,29 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
   const prompt = isPjud ? promptPjud : promptCartola;
 
   // ── OCR ENGINE ──────────────────────────────────────────────────
-  // Gemini Flash (gratuito: 1500 req/día). Para cambiar a Claude Sonnet,
-  // comentar el bloque Gemini y descomentar el bloque Claude más abajo.
-  // ── API KEY ──────────────────────────────────────────────────────
-  const OR_KEY = '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';
+  // Llama a la Edge Function de Supabase (proxy seguro).
+  // La API key de OpenRouter vive en los secrets de Supabase, no en el código.
+  // ────────────────────────────────────────────────────────────────
 
   try {
+    // Obtener token de sesión activa
+    const { data: { session } } = await window._supabase.auth.getSession();
+    if (!session) throw new Error('No hay sesión activa. Por favor inicia sesión.');
+
     // Construir content para OpenRouter (formato OpenAI compatible)
     const imageContent = [];
     if (_ocrMime === 'application/pdf') {
-      // PDF como base64 data URL
       imageContent.push({ type: 'image_url', image_url: { url: `data:application/pdf;base64,${_ocrBase64}` } });
     } else {
       imageContent.push({ type: 'image_url', image_url: { url: `data:${_ocrMime};base64,${_ocrBase64}` } });
     }
     imageContent.push({ type: 'text', text: prompt });
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/openrouter-proxy', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OR_KEY}`,
-        'HTTP-Referer': window.location.origin,
-        'X-Title': 'Pension Alimenticia App'
+        'Authorization': `Bearer ${session.access_token}`
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-exp:free',
@@ -2264,30 +2264,9 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       })
     });
 
-    if (!response.ok) throw new Error('OpenRouter HTTP ' + response.status);
+    if (!response.ok) throw new Error('Proxy HTTP ' + response.status);
     const data = await response.json();
     const raw = data?.choices?.[0]?.message?.content || '';
-
-    /* ── Claude Sonnet (producción) — descomentar cuando se tenga API key propia ──
-    const CLAUDE_KEY = ''; // tu key aquí
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': CLAUDE_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [{ role: 'user', content: [
-          _ocrMime === 'application/pdf'
-            ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: _ocrBase64 } }
-            : { type: 'image', source: { type: 'base64', media_type: _ocrMime, data: _ocrBase64 } },
-          { type: 'text', text: prompt }
-        ]}]
-      })
-    });
-    if (!response.ok) throw new Error('Claude HTTP ' + response.status);
-    const data = await response.json();
-    const raw = (data.content || []).map(b => b.text || '').join('').trim();
-    ── fin Claude ── */
 
     // Limpiar posibles backticks
     const clean = raw.replace(/```json|```/g, '').trim();
