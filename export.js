@@ -2254,21 +2254,15 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
   const _ocrLog = [];
   try {
-    // Obtener token de sesión activa
+    // Obtener token siempre desde sb.auth.getSession() — fuente de verdad
     _ocrLog.push('1. obteniendo token...');
-    // Intentar token en memoria primero, luego localStorage como fallback
-    let _token = window.sbAccessToken;
-    if (!_token) {
-      try {
-        const lsKeys = Object.keys(localStorage).filter(k => k.includes('supabase') || k.includes('auth-token'));
-        for (const k of lsKeys) {
-          const val = JSON.parse(localStorage.getItem(k) || '{}');
-          if (val?.access_token) { _token = val.access_token; break; }
-          if (val?.session?.access_token) { _token = val.session.access_token; break; }
-        }
-      } catch(e) {}
-    }
-    if (!_token) throw new Error('No hay sesion activa.');
+    let _token = null;
+    try {
+      const { data: _sessionData } = await sb.auth.getSession();
+      _token = _sessionData?.session?.access_token || null;
+    } catch(e) { dbg('OCR getSession error: ' + e.message); }
+    if (!_token) _token = window.sbAccessToken || null;
+    if (!_token) throw new Error('No hay sesion activa. Cierra y vuelve a abrir la app.');
     _ocrLog.push('2. token OK: ' + _token.slice(0,10) + '...');
 
     // Construir content para Groq (texto primero, imagen después — orden requerido por llama-4-scout)
