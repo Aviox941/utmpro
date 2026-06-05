@@ -2254,18 +2254,28 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
   const _ocrLog = [];
   try {
-    // Obtener token siempre desde sb.auth.getSession() — fuente de verdad
+    // ── Token: leer desde la clave exacta que usa el cliente Supabase ──
     _ocrLog.push('1. obteniendo token...');
-    let _token = null;
-    try {
-      const { data: _sessionData } = await sb.auth.getSession();
-      _token = _sessionData?.session?.access_token || null;
-    } catch(e) { dbg('OCR getSession error: ' + e.message); }
-    if (!_token) _token = window.sbAccessToken || null;
-    if (!_token) throw new Error('No hay sesion activa. Cierra y vuelve a abrir la app.');
+    let _token = window.sbAccessToken || null;
+    if (!_token) {
+      try {
+        const raw = localStorage.getItem('pension_utm_auth');
+        if (raw) {
+          const p = JSON.parse(raw);
+          _token = p?.access_token || p?.session?.access_token || null;
+        }
+      } catch(e) {}
+    }
+    if (!_token) {
+      try {
+        const { data: _sd } = await sb.auth.getSession();
+        _token = _sd?.session?.access_token || null;
+      } catch(e) {}
+    }
+    if (!_token) throw new Error('No hay sesión activa. Recarga la app.');
     _ocrLog.push('2. token OK: ' + _token.slice(0,10) + '...');
 
-    // Construir content para Groq (texto primero, imagen después — orden requerido por llama-4-scout)
+    // ── Construir content: texto primero, imagen después (requerido por Groq) ──
     const imageContent = [];
     imageContent.push({ type: 'text', text: prompt });
     if (_ocrMime === 'application/pdf') {
@@ -2274,12 +2284,10 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       imageContent.push({ type: 'image_url', image_url: { url: `data:${_ocrMime};base64,${_ocrBase64}` } });
     }
 
+    // ── Llamar proxy con timeout de 40s ──
     _ocrLog.push('3. llamando proxy...');
     const _ocrAbort = new AbortController();
-    const _ocrTimeout = setTimeout(() => {
-      _ocrAbort.abort();
-      dbg('OCR: timeout 40s — abortando fetch');
-    }, 40000);
+    const _ocrTimeout = setTimeout(() => { _ocrAbort.abort(); }, 40000);
 
     let response;
     try {
@@ -2288,7 +2296,7 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
         signal: _ocrAbort.signal,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+          'Authorization': 'Bearer ' + _token,
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w'
         },
         body: JSON.stringify({
@@ -2299,16 +2307,15 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       });
     } catch(fetchErr) {
       clearTimeout(_ocrTimeout);
-      const isTimeout = fetchErr.name === 'AbortError';
-      throw new Error(isTimeout ? 'El servidor tardó demasiado (timeout 40s). Intenta con una imagen más pequeña.' : 'Error de red: ' + fetchErr.message);
+      throw new Error(fetchErr.name === 'AbortError' ? 'Timeout: el servidor tardó demasiado.' : 'Error de red: ' + fetchErr.message);
     }
     clearTimeout(_ocrTimeout);
 
     _ocrLog.push('4. proxy HTTP ' + response.status);
     if (!response.ok) {
       const errText = await response.text();
-      _ocrLog.push('ERR body: ' + errText.slice(0,200));
-      throw new Error('Proxy error ' + response.status + ': ' + errText.slice(0,120));
+      _ocrLog.push('ERR body: ' + errText.slice(0,300));
+      throw new Error('Proxy ' + response.status + ': ' + errText.slice(0,200));
     }
     const data = await response.json();
     _ocrLog.push('5. respuesta OK');
