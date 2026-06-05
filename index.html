@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1893">
+ <meta name="app-version" content="2.0530.1894">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1893</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2015,9 +2015,13 @@ sortKey: new Date(parseInt(anio), mes, 1).getTime(), monthIdx: mes
 });
 utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 }
+// FIX RACE CONDITION: poblar utmData en tiempo de parseo, ANTES de que onAuthStateChange
+// dispare INITIAL_SESSION y llame switchCaso → applySession con utmData vacío.
+cargarUTMLocal();
 async function fetchUTM() {
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
+renderUtmTicker(); // FIX: mostrar datos locales de inmediato sin esperar la red
 setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
@@ -2108,7 +2112,16 @@ try {
     try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
     if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
   } else {
-    dbg('CMF API: sin cambios en utmData');
+    // FIX: guardar caché aunque no haya cambios en utmData.
+    // Si CMF devuelve meses ya hardcodeados (v>0), changed=false pero hay datos válidos.
+    // Sin este fix, localStorage nunca se guarda → CMF se llama en cada carga.
+    if (Object.keys(valoresNuevos).length > 0) {
+      try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
+      if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
+      dbg('CMF API: sin cambios en utmData, caché guardado (' + Object.keys(valoresNuevos).length + ' entradas)');
+    } else {
+      dbg('CMF API: sin cambios y sin valores nuevos');
+    }
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
@@ -3861,8 +3874,14 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
 }
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
-const capNetoUTM = Math.max(0, totalCapUTM - lavTotalUTM);
-const totalFinal = Math.max(0, (capNetoUTM * utmHoy) + totalInt);
+// FIX LAV: restar del capital post-imputación (no del bruto totalCapUTM).
+// capPostImputacion = capital bruto - lo que ya fue imputado como capital por abonos Art.1595.
+const capImputadoTotal = imputacion ? (imputacion.capitalPagado || 0) : 0;
+const capPostImputUTM = Math.max(0, totalCapUTM - (capImputadoTotal / utmHoy));
+const capNetoUTM = Math.max(0, capPostImputUTM - lavTotalUTM);
+// totalFinal: capital neto + intereses que quedaron tras imputación
+const intPostImputacion = Math.max(0, totalInt - (imputacion ? (imputacion.interesesPagados || 0) : 0));
+const totalFinal = Math.max(0, (capNetoUTM * utmHoy) + intPostImputacion);
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
