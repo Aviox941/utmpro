@@ -3687,7 +3687,8 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
 }
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
-const totalFinal = Math.max(0, imputacion.saldoFinal - (lavTotalUTM * utmHoy));
+const capNetoUTM = Math.max(0, totalCapUTM - lavTotalUTM);
+const totalFinal = Math.max(0, (capNetoUTM * utmHoy) + totalInt);
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
@@ -3714,18 +3715,24 @@ document.getElementById('totalGrandUtm').innerText = `${(totalFinal / utmHoy).to
 document.getElementById('totalCapUtm').innerText = `${totalCapUTM.toFixed(2)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${(totalInt / utmHoy).toFixed(2)} UTM`;
 const abonoRow = document.getElementById('abonoResultRow');
-if (totalAbonosSum > 0) {
+if (totalAbonosSum > 0 || lavTotalUTM > 0) {
 abonoRow.classList.remove('hidden');
-// Mostrar desglose de imputación: intereses pagados + capital pagado
 const intImputado = imputacion.interesesPagados;
 const capImputado  = imputacion.capitalPagado;
-let abonoLabel = `-${format(totalAbonosSum)}`;
-if (intImputado > 0 && capImputado > 0) {
-  abonoLabel += ` (int: ${format(intImputado)} · cap: ${format(capImputado)})`;
-} else if (intImputado > 0) {
-  abonoLabel += ` (solo intereses)`;
-} else if (capImputado > 0) {
-  abonoLabel += ` (solo capital)`;
+let abonoLabel = '';
+if (lavTotalUTM > 0 && totalAbonosSum > 0) {
+  abonoLabel = `-${format(lavTotalUTM * utmHoy)} LAV · -${format(totalAbonosSum)} abonos`;
+} else if (lavTotalUTM > 0) {
+  abonoLabel = `-${format(lavTotalUTM * utmHoy)} (${lavTotalUTM.toFixed(5)} UTM)`;
+} else {
+  abonoLabel = `-${format(totalAbonosSum)}`;
+  if (intImputado > 0 && capImputado > 0) {
+    abonoLabel += ` (int: ${format(intImputado)} · cap: ${format(capImputado)})`;
+  } else if (intImputado > 0) {
+    abonoLabel += ` (solo intereses)`;
+  } else if (capImputado > 0) {
+    abonoLabel += ` (solo capital)`;
+  }
 }
 document.getElementById('totalAbonoDisplay').innerText = abonoLabel;
 // Ocultar el aviso estático (ya no aplica — el cálculo es correcto)
