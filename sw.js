@@ -1,6 +1,6 @@
 // ── Pensión UTM Pro — Service Worker ────────────────────────────────────────
 // Repo: Aviox941/utmpro → https://aviox941.github.io/utmpro/
-const CACHE_NAME = 'pension-utm-v75';
+const CACHE_NAME = 'pension-utm-v76';
 const BASE = '/utmpro/';
 
 // Dominios que van directo a red (nunca cachear)

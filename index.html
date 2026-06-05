@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1894">
+ <meta name="app-version" content="2.0530.1893">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
  <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1893</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1460,51 +1460,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div><!-- /parcialesBody inner -->
  </div><!-- /parcialesBody -->
  </div><!-- /dh-card parciales -->
- <!-- ── Tarjeta Abonos LAV ── -->
- <div class="dh-card" style="--dh-border:rgba(16,185,129,0.25);--dh-bg:rgba(16,185,129,0.05);--dh-text:#34d399;">
- <div class="dh-card__header" onclick="toggleSection('lavBody','lavChevron')" style="cursor:pointer">
-   <div class="dh-card__header-left">
-     <div class="dh-card__icon" style="background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.20);">
-       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-     </div>
-     <p class="dh-card__title">Abonos LAV</p>
-   </div>
-   <div class="dh-card__header-right">
-     <button onclick="event.stopPropagation();openOcrLav()" title="Importar desde documento" class="flex items-center gap-1 px-2 h-6 rounded-lg bg-[#10b981]/10 border border-[#10b981]/25 text-[#34d399] text-[9px] font-black uppercase tracking-wide hover:bg-[#10b981]/20 transition-all active:scale-90 mr-1" style="letter-spacing:0.04em">
-       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-       <span>Escanear</span>
-     </button>
-     <button onclick="event.stopPropagation();showHelpModal('lav')" class="w-5 h-5 rounded-full bg-[#10b981]/10 border border-[#10b981]/25 text-[#34d399] font-black text-[10px] flex items-center justify-center hover:bg-[#10b981]/30 transition-all active:scale-90 mr-1">?</button>
-     <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-   </div>
- </div>
- <div id="lavBody" class="collapsible-body">
- <div class="dh-body space-y-3" style="padding:12px 14px">
- <p class="text-[9px] text-slate-400 leading-relaxed">Ingresa cada depósito LAV con su fecha exacta. La app usará la UTM del mes del depósito, igual que el tribunal.</p>
- <div class="space-y-2">
- <div class="relative">
- <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
-   oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); checkBtnLav()"
-   class="input-currency w-full">
- <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
- </div>
- <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="input-date w-full">
-   <span class="input-date__sublabel">Fecha del depósito</span>
-   <span id="tempLavLabel" class="input-date__value">Día / Mes / Año</span>
- </button>
- <input type="hidden" id="tempLavMes" value="">
- <input type="hidden" id="tempLavAnio" value="">
- <input type="hidden" id="tempLavDia" value="">
- <button id="btnAddLav" onclick="addAbonoLav()" disabled
-   class="w-full py-2 rounded-xl text-[11px] font-black tracking-wide transition-all active:scale-95"
-   style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);">
-   + Agregar depósito
- </button>
- </div>
- <div id="lavListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
- </div>
- </div>
- </div><!-- /dh-card lav -->
  <div class="card-base space-y-3">
  <div class="flex justify-between items-center">
  <div>
@@ -1833,7 +1788,6 @@ let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
-let abonosLav = []; // Depósitos LAV: { date, periodo, periodoLabel, amount, utmVal, amountUtm }
 // ── Períodos de pensión variables ──────────────────────────
 // Cada entrada: { id, desde:{mes,anio}, hasta:{mes,anio}|null,
 //                utm, porcentaje, sueldo, usaIMM }
@@ -1950,7 +1904,6 @@ utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 async function fetchUTM() {
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
-renderUtmTicker(); // FIX Bug 1: mostrar datos locales de inmediato sin esperar la red
 setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
@@ -2041,16 +1994,7 @@ try {
     try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
     if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
   } else {
-    // FIX Bug 2: guardar caché aunque no haya cambios en utmData.
-    // Si CMF devuelve meses ya hardcodeados (v > 0), changed=false pero valoresNuevos tiene datos.
-    // Sin este fix, localStorage nunca se guarda -> cada carga sin auth vuelve a llamar CMF.
-    if (Object.keys(valoresNuevos).length > 0) {
-      try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: valoresNuevos })); } catch(e) {}
-      if (typeof sbSetUtmCache === 'function') sbSetUtmCache(valoresNuevos);
-      dbg('CMF API: sin cambios en utmData, cache guardado (' + Object.keys(valoresNuevos).length + ' entradas)');
-    } else {
-      dbg('CMF API: sin cambios y sin valores nuevos');
-    }
+    dbg('CMF API: sin cambios en utmData');
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
@@ -2316,15 +2260,6 @@ function showHelpModal(tipo) {
       blk('⚙️ ¿Cómo afecta el cálculo?', 'Los <span class="text-white font-bold">días de mora</span> se calculan desde esta fecha de vencimiento hasta hoy. Por ejemplo, si la cuota de enero vence el día 5 y hoy es 15 de mayo, los días de mora son los transcurridos desde el 5 de enero.') +
       blk('🧮 Ejemplo', 'Con día de vencimiento = 5: la cuota de <span class="text-[#bfdbfe] font-bold">enero</span> vence el 05/01. Si hoy es 15/05, la mora es de aprox. <span class="text-white font-bold">130 días</span>. Si cambias a día 1, la mora sube a 134 días, aumentando el interés.') +
       blk('⚠️ Rango permitido', 'Se admiten valores entre <span class="text-white font-bold">1 y 28</span> para evitar conflictos con meses cortos (febrero). Si la resolución indica día 30 o 31, usa 28 como aproximación conservadora.');
-  } else if (tipo === 'lav') {
-    icon.textContent = '🏦';
-    title.textContent = 'Abonos LAV';
-    body.innerHTML =
-      blk('📌 ¿Qué es LAV?', 'LAV significa <span class="text-white font-bold">Libreta de Ahorro Vista</span>, generalmente una cuenta Banco Estado donde el alimentante deposita las pensiones de alimentos.') +
-      blk('📥 ¿Cómo funciona?', 'Cada depósito se ingresa con su <span class="text-white font-bold">fecha exacta</span> y monto en pesos. La app busca automáticamente la <span class="text-[#6ee7b7] font-bold">UTM del mes del depósito</span> y convierte el monto, igual que lo hace el tribunal.') +
-      blk('🧮 ¿Cómo se imputa?', 'Los abonos se aplican <span class="text-white font-bold">cronológicamente</span>, cubriendo los meses adeudados más antiguos primero. Si un depósito cubre más de una cuota, el excedente se arrastra al mes siguiente.') +
-      blk('⚖️ ¿Por qué en UTM?', 'El tribunal suma todos los depósitos en UTM usando el valor UTM del mes de cada depósito. Esto evita pérdidas por redondeo al operar en pesos y permite comparar montos de distintas fechas en una unidad común.') +
-      blk('📋 Ejemplo', 'Un depósito de <span class="text-white font-bold">$150.000</span> el 01-04-2024 con UTM=$65.182 equivale a <span class="text-[#6ee7b7] font-bold">2.30125 UTM</span>. Si la cuota es 2.33 UTM, queda un remanente de 0.02875 UTM adeudado para ese mes.');
   }
   modal.classList.replace('hidden','flex');
 }
@@ -2777,131 +2712,6 @@ pagosParciales.splice(index, 1);
 renderPagosParciales();
 calculate();
 saveSession();
-}
-// ============================================================
-// ABONOS LAV
-// Depósitos bancarios individuales con fecha exacta.
-// Se convierten a UTM del mes del depósito y se restan
-// del capital total igual que el tribunal.
-// ============================================================
-function checkBtnLav() {
-  const amount = parseInt((document.getElementById('tempLavClp').value||'').replace(/\./g,'')) || 0;
-  const mes = document.getElementById('tempLavMes').value;
-  const anio = document.getElementById('tempLavAnio').value;
-  const dia = parseInt(document.getElementById('tempLavDia')?.value) || 0;
-  const btn = document.getElementById('btnAddLav');
-  if (btn) btn.disabled = !(amount > 0 && mes && anio && dia >= 1 && dia <= 31);
-}
-function renderDaySelectorLav(anioVal, mIdx) {
-  const daysInMonth = new Date(anioVal, mIdx + 1, 0).getDate();
-  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  document.getElementById('calendarMonths').classList.add('hidden');
-  document.getElementById('calendarYearNav').classList.add('hidden');
-  const daysContainer = document.getElementById('calendarDays');
-  daysContainer.classList.remove('hidden');
-  daysContainer.innerHTML = `
-    <button onclick="backToMonthsLav()" class="mb-2 text-[10px] text-slate-400 font-bold flex items-center gap-1">
-      ← ${mNamesShort[mIdx]} ${anioVal}
-    </button>
-    <div class="grid grid-cols-7 gap-1" id="lavDayGrid"></div>`;
-  const grid = document.getElementById('lavDayGrid');
-  for (let d = 1; d <= daysInMonth; d++) {
-    const btn = document.createElement('button');
-    btn.textContent = d;
-    btn.className = 'text-[11px] font-bold py-1 rounded-lg bg-[#f1f5f9] text-[#1a1d2e] hover:bg-[#dbeafe]';
-    btn.onclick = () => {
-      const mesVal = document.getElementById('tempLavMes').value;
-      const anioV  = document.getElementById('tempLavAnio').value;
-      const mIdx2  = parseInt(mesVal) - 1;
-      document.getElementById('tempLavDia').value = String(d);
-      document.getElementById('tempLavLabel').innerText = `${d} ${mNamesShort[mIdx2]} ${anioV}`;
-      document.getElementById('tempLavLabel').classList.remove('text-slate-400');
-      document.getElementById('tempLavLabel').classList.add('text-white');
-      closeCalendar();
-      checkBtnLav();
-    };
-    grid.appendChild(btn);
-  }
-  const actionBtn = document.getElementById('calendarActionBtn');
-  actionBtn.textContent = 'Cancelar';
-  actionBtn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
-}
-function backToMonthsLav() {
-  document.getElementById('calendarDays').classList.add('hidden');
-  document.getElementById('calendarMonths').classList.remove('hidden');
-  document.getElementById('calendarYearNav').classList.remove('hidden');
-  document.getElementById('tempLavMes').value = '';
-  document.getElementById('tempLavAnio').value = '';
-  document.getElementById('tempLavDia').value = '';
-  renderCalendar();
-}
-function addAbonoLav() {
-  const raw    = document.getElementById('tempLavClp').value.replace(/\./g, '');
-  const amount = parseInt(raw) || 0;
-  const mes    = document.getElementById('tempLavMes').value;
-  const anio   = document.getElementById('tempLavAnio').value;
-  const dia    = parseInt(document.getElementById('tempLavDia')?.value) || 0;
-  if (amount <= 0 || !mes || !anio || dia < 1 || dia > 31) return;
-  const mIdx = parseInt(mes) - 1;
-  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  const periodoLabel = mNamesShort[mIdx] + ' ' + anio;
-  const periodo = anio + '-' + mes;
-  const date    = `${anio}-${mes}-${String(dia).padStart(2,'0')}`;
-  const utmMes  = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
-  const utmVal  = utmMes ? utmMes.v : null;
-  const amountUtm = utmVal ? amount / utmVal : null;
-  abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
-  // Limpiar inputs
-  document.getElementById('tempLavClp').value = '';
-  document.getElementById('tempLavMes').value = '';
-  document.getElementById('tempLavAnio').value = '';
-  document.getElementById('tempLavDia').value = '';
-  document.getElementById('tempLavLabel').innerText = 'Día / Mes / Año';
-  document.getElementById('tempLavLabel').classList.add('text-slate-400');
-  document.getElementById('tempLavLabel').classList.remove('text-white');
-  const btn = document.getElementById('btnAddLav');
-  if (btn) btn.disabled = true;
-  renderAbonosLav();
-  calculate();
-  saveSession();
-}
-function removeAbonoLav(index) {
-  abonosLav.splice(index, 1);
-  renderAbonosLav();
-  calculate();
-  saveSession();
-}
-function renderAbonosLav() {
-  const container = document.getElementById('lavListContainer');
-  if (!container) return;
-  container.innerHTML = '';
-  if (abonosLav.length === 0) return;
-  // Total en UTM
-  const totalUtm = abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0);
-  abonosLav.forEach((p, i) => {
-    const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) : '—';
-    const div = document.createElement('div');
-    div.className = 'abono-item animate-fadeIn';
-    div.style.borderColor = 'rgba(16,185,129,0.3)';
-    div.innerHTML = `
-      <div style="flex:1;min-width:0;">
-        <div class="text-[10px] font-black flex flex-wrap items-center gap-1">
-          <span style="color:#6ee7b7" class="font-black">${p.date}</span>
-          <span class="text-slate-300">|</span>
-          <span class="text-white font-black">${format(p.amount)}</span>
-          <span class="text-[9px] font-bold" style="color:#34d399">${utmStr} UTM</span>
-        </div>
-        <div class="text-[8px] text-slate-400 font-bold mt-0.5">UTM ${p.utmVal ? '$'+p.utmVal.toLocaleString('es-CL') : '—'}</div>
-      </div>
-      <button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
-    container.appendChild(div);
-  });
-  // Mostrar total UTM al pie
-  const tot = document.createElement('div');
-  tot.className = 'text-[9px] font-black text-right mt-1';
-  tot.style.color = '#34d399';
-  tot.innerText = `Total: ${totalUtm.toFixed(5)} UTM`;
-  container.appendChild(tot);
 }
 function renderPagosParciales() {
 const container = document.getElementById('parcialesListContainer');
@@ -3526,138 +3336,128 @@ return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
+// Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
+let excedenteParcialTotalUTM = 0;
+let excedenteParcialTotalCLP = 0;
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
+// Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
 const hayPeriodos = periodosPension.length > 0;
+// Rango efectivo = unión del rango del formulario activo + rango acumulado de períodos.
+// Garantiza que todos los períodos registrados siempre queden dentro del rango calculado,
+// incluso cuando el usuario está seleccionando un nuevo período en el formulario.
 const _fS = startIndex !== -1 ? Math.min(startIndex, endIndex) : calcStartIndex;
 const _fE = endIndex   !== -1 ? Math.max(startIndex, endIndex) : calcEndIndex;
 const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
 const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
 const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
 const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
-if (efectivoStart === -1 || efectivoEnd === -1) return { capital, intereses, capitalUTM, detalles };
-if (cuotaMensualUTM === 0 && !(modoEsPesos && cuotaMensualCLP > 0) && !hayPeriodos) return { capital, intereses, capitalUTM, detalles };
-
+if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
 const start = Math.min(efectivoStart, efectivoEnd);
-const end   = Math.max(efectivoStart, efectivoEnd);
+const end = Math.max(efectivoStart, efectivoEnd);
 const slice = utmData.slice(start, end + 1);
-const usarTicActual = document.getElementById('ticActual')?.checked || false;
-
-// ── PASO 1: Calcular cargos totales en UTM (igual que el tribunal) ──
-// Suma la cuota de cada mes en UTM del mes → total CARGOS
-let totalCargosUTM = 0;
-const mesesInfo = []; // info de cada mes para el paso 3
 slice.forEach((item, idx) => {
-  const utmMes = item.v;
-  const periodoOverride = getPeriodoCuotaParaMes(item.y, item.monthIdx);
-  let cuotaUTM, cuotaCLP, modoEsPesosEfectivo;
-  if (periodoOverride) {
-    modoEsPesosEfectivo = periodoOverride.modoEsPesos;
-    cuotaCLP = modoEsPesosEfectivo ? periodoOverride.cuotaCLP : periodoOverride.cuotaUTM * utmMes;
-    cuotaUTM = modoEsPesosEfectivo ? cuotaCLP / utmMes : periodoOverride.cuotaUTM;
+// Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
+const utmMesHistorico = item.v; // UTM del mes de la cuota
+// ── Períodos variables: sobreescribir cuota si hay un período registrado ──
+const periodoOverride = getPeriodoCuotaParaMes(item.y, item.monthIdx);
+let cuotaUTMEfectiva, cuotaCLPEfectiva, modoEsPesosEfectivo;
+if (periodoOverride) {
+  modoEsPesosEfectivo = periodoOverride.modoEsPesos;
+  if (modoEsPesosEfectivo) {
+    cuotaCLPEfectiva  = periodoOverride.cuotaCLP;
+    cuotaUTMEfectiva  = cuotaCLPEfectiva / utmMesHistorico;
   } else {
-    modoEsPesosEfectivo = modoEsPesos;
-    cuotaUTM = modoEsPesos ? (cuotaMensualCLP / utmMes) : cuotaMensualUTM;
-    cuotaCLP = modoEsPesos ? cuotaMensualCLP : cuotaUTM * utmMes;
+    cuotaUTMEfectiva  = periodoOverride.cuotaUTM;
+    cuotaCLPEfectiva  = cuotaUTMEfectiva * utmMesHistorico;
+    modoEsPesosEfectivo = false;
   }
-  if (cuotaUTM === 0 && !periodoOverride) return;
-  totalCargosUTM += cuotaUTM;
-  mesesInfo.push({ item, idx, cuotaUTM, cuotaCLP, modoEsPesosEfectivo });
-});
-
-// ── PASO 2: Calcular abonos totales en UTM ──
-// LAV: cada depósito con su UTM exacta del mes del depósito
-const lavUTM = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
-  ? abonosLav.reduce((s, p) => s + (p.amountUtm || 0), 0) : 0;
-// Pagos parciales: también se suman como abonos (con su UTM del mes)
-let parcialesUTMTotal = 0;
-if (pagosParciales && pagosParciales.length > 0) {
-  pagosParciales.forEach(p => {
-    const uv = p.utmVal || 1;
-    parcialesUTMTotal += (p.amountUtm !== null && p.amountUtm !== undefined) ? p.amountUtm : (p.amount / uv);
-  });
+} else {
+  modoEsPesosEfectivo = modoEsPesos;
+  cuotaUTMEfectiva    = modoEsPesos ? (cuotaMensualCLP / utmMesHistorico) : cuotaMensualUTM;
+  cuotaCLPEfectiva    = modoEsPesos ? cuotaMensualCLP : (cuotaMensualUTM * utmMesHistorico);
 }
-const totalAbonosUTM = lavUTM + parcialesUTMTotal;
-
-// ── PASO 3: Imputar abonos mes a mes (cronológico, igual que el tribunal) ──
-// El tribunal imputa primero los meses más antiguos.
-// Los pagos parciales se aplican al mes exacto que corresponden.
-// Los LAV se aplican cronológicamente cubriendo mes a mes.
-// Construir lista de abonos LAV ordenada por fecha
-const lavOrdenados = (typeof abonosLav !== 'undefined' && abonosLav.length > 0)
-  ? [...abonosLav].sort((a, b) => a.date.localeCompare(b.date)) : [];
-
-// Saldo LAV disponible en UTM para imputar mes a mes
-let saldoLavUTM = lavUTM;
-// Excedente de pago parcial que se arrastra al mes siguiente
-let excedenteParcialUTM = 0;
-
-mesesInfo.forEach(({ item, idx, cuotaUTM, cuotaCLP }) => {
-  const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`;
-  const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
-
-  // Pago parcial del mes en UTM + excedente arrastrado
-  let pagadoParcialUTM = excedenteParcialUTM;
-  excedenteParcialUTM = 0;
-  if (pagoParcialMes.length > 0) {
-    pagadoParcialUTM += pagoParcialMes.reduce((s, p) => {
-      const uv = p.utmVal || item.v;
-      return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / uv));
-    }, 0);
+const cuotaUTMReal  = cuotaUTMEfectiva;
+const montoPesosMes = modoEsPesosEfectivo ? cuotaCLPEfectiva : (cuotaUTMEfectiva * utmMesHistorico);
+// CORRECCIÓN JUDICIAL: la cuota del mes M vence el día D del MISMO mes M,
+// no del mes siguiente. Ej: cuota oct-2025 vence el 05-10-2025.
+// Confirmado por ingeniería inversa sobre liquidación oficial SITFA/PJUD.
+const mesVenc = item.monthIdx; // mismo mes del período (base 0)
+const anioVenc = item.y;
+const fechaVenc = new Date(anioVenc, mesVenc, diaVenc);
+const diasMora = calcularDiasMora(fechaVenc, hoy);
+const periodoKey = `${item.y}-${String(item.monthIdx + 1).padStart(2, '0')}`;
+// Los pagos parciales ya NO se descuentan aquí del capital.
+// Se tratan como abonos en imputarAbonosArt1595() → Art. 1595 CC:
+// primero cubren intereses devengados a su fecha, luego capital pendiente.
+const capNeto = montoPesosMes;
+// Si no hay cuota para este mes (ni manual ni por período), omitir
+if (capNeto === 0 && !periodoOverride && cuotaMensualUTM === 0 && cuotaMensualCLP === 0) return;
+const usarTicActual = document.getElementById('ticActual')?.checked || false;
+const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
+const tasaMes = usarTicActual ? hoy.getMonth() : item.monthIdx;
+const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, modoEsPesosEfectivo, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
+const tasaHistorica = _tasaInfo.valor;
+const tasaEsAproximada = _tasaInfo.esAproximada;
+const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
+const tasaBase = tasaHistorica;
+// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
+const recargoAplica = aplicarRecargo && diasMora > 0;
+const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
+// CORRECCIÓN JUDICIAL (confirmada RIT Z-617-2024):
+// Si existe pago parcial para este mes, el interés se calcula SOLO sobre el remanente
+// (cuota UTM − pagado en UTM), no sobre la cuota completa.
+const periodoKeyParcial = `${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`;
+const pagoParcialMes = (pagosParciales || []).filter(p => p.periodo === periodoKeyParcial);
+let capParaInteres = capNeto;
+let hayParcialConRemanente = false;
+// Solo pagos de este período (sin arrastre de excedentes — el excedente se maneja
+// en imputarAbonosArt1595 contra el capital total, evitando doble contabilidad)
+let totalPagadoUTMEfectivo = 0;
+if (pagoParcialMes.length > 0) {
+  totalPagadoUTMEfectivo = pagoParcialMes.reduce((s, p) => {
+    const utmP = p.utmVal || item.v;
+    return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP));
+  }, 0);
+}
+if (totalPagadoUTMEfectivo > 0) {
+  const remanenteUTM = cuotaUTMReal - totalPagadoUTMEfectivo;
+  if (remanenteUTM <= 0) {
+    // Pago >= cuota: cuota cubierta. El excedente se acumula para restar del capital total.
+    const _excUTM = Math.abs(remanenteUTM);
+    excedenteParcialTotalUTM += _excUTM;
+    excedenteParcialTotalCLP += _excUTM * item.v;
+    capParaInteres = 0;
+    hayParcialConRemanente = false;
+  } else {
+    // Pago < cuota: interés solo sobre el remanente
+    capParaInteres = remanenteUTM * item.v;
+    hayParcialConRemanente = true;
   }
-
-  // Imputar LAV a este mes si hay saldo disponible
-  const disponibleLavEsteMes = Math.min(saldoLavUTM, Math.max(0, cuotaUTM - pagadoParcialUTM));
-  saldoLavUTM = Math.max(0, saldoLavUTM - disponibleLavEsteMes);
-  const totalPagadoUTM = pagadoParcialUTM + disponibleLavEsteMes;
-
-  // Calcular remanente adeudado en UTM
-  const adeudadoUTM = Math.max(0, cuotaUTM - totalPagadoUTM);
-  const adeudadoCLP = adeudadoUTM * item.v;
-
-  // Excedente: si se pagó más que la cuota, arrastra al mes siguiente
-  if (totalPagadoUTM > cuotaUTM + 0.000001) {
-    excedenteParcialUTM = totalPagadoUTM - cuotaUTM;
-  }
-
-  // ── PASO 4: Calcular interés solo sobre el remanente adeudado ──
-  const mesVenc = item.monthIdx;
-  const fechaVenc = new Date(item.y, mesVenc, diaVenc);
-  const diasMora = calcularDiasMora(fechaVenc, hoy);
-  const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
-  const tasaMes  = usarTicActual ? hoy.getMonth()    : item.monthIdx;
-  const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, false, cuotaCLP, item.v, diasMora);
-  const tasaHistorica = _tasaInfo.valor;
-  const tasaEsAproximada = _tasaInfo.esAproximada;
-  const tasaBase = tasaHistorica;
-  const recargoAplica = aplicarRecargo && diasMora > 0;
-  const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
-
-  // Solo calcular interés si hay algo adeudado
-  const interesMes = adeudadoUTM > 0.000001 ? calcularInteres(adeudadoCLP, tasaAnual, diasMora) : 0;
-
-  capital    += adeudadoCLP;
-  capitalUTM += adeudadoUTM;
-  intereses  += interesMes;
-
-  const hayParcialConRemanente = pagadoParcialUTM > 0 && adeudadoUTM > 0.000001;
-  const excedenteParcialAplicado = totalPagadoUTM > cuotaUTM + 0.000001 ? (totalPagadoUTM - cuotaUTM) : 0;
-
-  detalles.push({
-    id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
-    cap: adeudadoCLP, capOriginal: cuotaCLP,
-    tasa: tasaAnual, tasaBase, tasaHist: tasaHistorica, tasaEsAproximada,
-    mora: diasMora, inte: interesMes,
-    sub: adeudadoCLP + interesMes, year: item.y, isDebt: false,
-    capUTM: adeudadoUTM, usarMaxima: false, ticActual: usarTicActual,
-    capParaInteres: adeudadoCLP, hayParcialConRemanente,
-    excedenteParcialAplicado,
-    // Para el modal de detalle
-    totalPagadoUTM, pagadoParcialUTM, disponibleLavEsteMes
-  });
+}
+// Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
+const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
+const capEfectivoCLP = capEfectivoUTM * item.v;
+const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
+capital += capEfectivoCLP;
+capitalUTM += capEfectivoUTM;
+intereses += interesMes;
+detalles.push({
+id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
+cap: capEfectivoCLP, capOriginal: montoPesosMes,
+tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
+mora: diasMora, inte: interesMes,
+sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
+capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
+capParaInteres, hayParcialConRemanente,
+excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagadoUTMEfectivo - cuotaUTMReal) : 0
 });
-
-return { capital, intereses, capitalUTM, detalles };
+});
+}
+// Restar el excedente acumulado de pagos parciales directamente del capital total
+capital = Math.max(0, capital - excedenteParcialTotalCLP);
+capitalUTM = Math.max(0, capitalUTM - excedenteParcialTotalUTM);
+return { capital, intereses, capitalUTM, detalles, excedenteParcialTotalUTM };
 }
 function calculateHistoricalDebt(aplicarRecargo, hoy) {
 let capitalPesosTotal = 0, interesesPesosTotal = 0, totalMonthsAll = 0, totalCapUtmAll = 0, detalles = [];
@@ -3886,9 +3686,8 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
   });
 }
 if (lastCalculationData.length > 0) {
-const totalLavCLP = 0; // LAV ya descontado en calculatePensiones mes a mes
-const totalLavUTM = 0;
-const totalFinal = Math.max(0, imputacion.saldoFinal);
+const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
+const totalFinal = Math.max(0, imputacion.saldoFinal - (lavTotalUTM * utmHoy));
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
@@ -4003,28 +3802,12 @@ card.style.borderColor = '';
 card.style.color = '';
 }
 card.onclick = () => openDetailModal(d.id);
-const lavMesUTM = d.disponibleLavEsteMes || 0;
-const lavMesCLP = lavMesUTM > 0.000001 ? Math.round(lavMesUTM * d.utmVal) : 0;
-const parcialMesUTM = d.pagadoParcialUTM || 0;
-const parcialMesCLP = parcialMesUTM > 0.000001 ? Math.round(parcialMesUTM * d.utmVal) : 0;
-const cuotaUTM = (d.capOriginal || 0) / d.utmVal;
-const totalPagadoUTM = lavMesUTM + parcialMesUTM;
-const remanUTM = Math.max(0, cuotaUTM - totalPagadoUTM);
-const remanCLP = remanUTM > 0.000001 ? Math.round(remanUTM * d.utmVal) : 0;
-
-const lavDetalle = lavMesUTM > 0.000001
-  ? `<p class="text-[8px] font-black uppercase" style="color:#10b981">🏦 Abono LAV: ${lavMesUTM.toFixed(5)} UTM / ${format(lavMesCLP)}</p>`
-  : '';
-const parcialDetalle = parcialMesUTM > 0.000001
-  ? `<p class="text-[8px] font-black uppercase" style="color:#a78bfa">💜 Pago parcial: ${parcialMesUTM.toFixed(5)} UTM / ${format(parcialMesCLP)}</p>`
-  : '';
-const remanDetalle = (remanUTM > 0.000001 && totalPagadoUTM > 0.000001)
-  ? `<p class="text-[8px] font-black uppercase" style="color:#c084fc">Remanente: ${remanUTM.toFixed(5)} UTM / ${format(remanCLP)}</p>`
-  : '';
-const pagoResumen = (lavDetalle || parcialDetalle)
-  ? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">${lavDetalle}${parcialDetalle}${remanDetalle}</div>`
-  : '';
-
+const parcialDetalle = d.pagoParcial > 0
+? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">
+<p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚡ Pago parcial: -${format(d.pagoParcial)} / -${(d.pagoParcial / d.utmVal).toFixed(4)} UTM</p>
+<p class="text-[8px] font-black text-violet-200 uppercase">Remanente: ${format(d.capOriginalBruto ?? d.cap)} / ${((d.capOriginalBruto ?? d.cap) / d.utmVal).toFixed(4)} UTM</p>
+</div>`
+: '';
 const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 ? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">
 <p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚖️ Abono imputado: -${format((d.intImputado||0)+(d.capImputado||0))}</p>
@@ -4055,7 +3838,7 @@ card.innerHTML = `
 <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
   ${recargoBadge}
 </div>
-${pagoResumen}${abonoDetalle}`;
+${parcialDetalle}${abonoDetalle}`;
 list.appendChild(card);
 });
 }
@@ -4070,42 +3853,7 @@ const hayAbono = (d.intImputado > 0 || d.capImputado > 0);
 document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
 <div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
-${(() => {
-  // Abono LAV imputado a este mes
-  const lavMes = d.disponibleLavEsteMes || 0;
-  if (lavMes >= 0.000001) {
-    const lavCLP = Math.round(lavMes * d.utmVal);
-    return `<div class='flex justify-between border-b pb-2' style='color:#10b981'><span>🏦 Abono LAV imputado</span><div class='text-right'><span class='font-bold block'>-${format(lavCLP)}</span><span class='text-[9px] font-bold'>${lavMes.toFixed(5)} UTM</span></div></div>`;
-  }
-  return '';
-})()}
-${(() => {
-  // Pagos parciales del mes
-  const meses = {Ene:1,Feb:2,Mar:3,Abr:4,May:5,Jun:6,Jul:7,Ago:8,Sep:9,Oct:10,Nov:11,Dic:12};
-  const partes = d.periodo.split(' ');
-  const periodoKey = partes.length === 2 ? `${partes[1]}-${String(meses[partes[0]]||0).padStart(2,'0')}` : '';
-  const pagosDelMes = periodoKey ? (pagosParciales || []).filter(p => p.periodo === periodoKey) : [];
-  if (pagosDelMes.length === 0) return '';
-  const totalPagadoCLP = pagosDelMes.reduce((s,p) => s + p.amount, 0);
-  const totalPagadoUTM = pagosDelMes.reduce((s,p) => {
-    const uv = p.utmVal || d.utmVal;
-    return s + (p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / uv));
-  }, 0);
-  const cuotaUTM = capOriginalModal / d.utmVal;
-  const excUTM = totalPagadoUTM - cuotaUTM;
-  const remanUTM = cuotaUTM - totalPagadoUTM;
-  let html = `<div class='flex justify-between border-b pb-2 text-[#a78bfa]'><span>💜 Pago${pagosDelMes.length>1?'s':''} parcial${pagosDelMes.length>1?'es':''}</span><div class='text-right'><span class='font-bold block text-[#c4b5fd]'>-${format(totalPagadoCLP)}</span><span class='text-[9px] font-bold text-[#a78bfa]'>${totalPagadoUTM.toFixed(5)} UTM</span></div></div>`;
-  if (remanUTM > 0.0001) {
-    const remanCLP = Math.round(remanUTM * d.utmVal);
-    html += `<div class='flex justify-between border-b pb-2 text-[#c084fc]'><span>Remanente del mes</span><div class='text-right'><span class='font-bold block'>${format(remanCLP)}</span><span class='text-[9px] font-bold'>${remanUTM.toFixed(5)} UTM</span></div></div>`;
-  } else if (excUTM > 0.0001) {
-    const excCLP = Math.round(excUTM * d.utmVal);
-    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>↪ Excedente → mes siguiente</span><div class='text-right'><span class='font-bold block'>${format(excCLP)}</span><span class='text-[9px] font-bold'>${excUTM.toFixed(5)} UTM</span></div></div>`;
-  } else {
-    html += `<div class='flex justify-between border-b pb-2 text-emerald-400'><span>✓ Cuota cubierta exactamente</span><span class='font-bold'>—</span></div>`;
-  }
-  return html;
-})()}
+${d.pagoParcial > 0 ? `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(d.pagoParcial)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(d.capOriginalBruto ?? capOriginalModal)}</span><span class='text-[9px] font-bold'>${((d.capOriginalBruto ?? capOriginalModal) / d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
 ${d.isConsolidada ? `
 <div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 <div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
@@ -4293,17 +4041,13 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
-// Resetear siempre: ocultar días, mostrar meses y nav de año
-document.getElementById('calendarDays').classList.add('hidden');
-document.getElementById('calendarMonths').classList.remove('hidden');
-document.getElementById('calendarYearNav').classList.remove('hidden');
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
-if (m === 'abono' || m === 'parcial' || m === 'lav') {
+if (m === 'abono' || m === 'parcial') {
 // Si no hay período definido, no abrir
 if (startIndex < 0 || endIndex < 0) {
 alert('Primero define el período "Desde / Hasta".');
@@ -4331,9 +4075,9 @@ selectedYear = currentIdx !== -1 ? utmData[currentIdx].y : CURRENT_YEAR;
 }
 renderCalendar();
 document.getElementById('calendarModal').classList.replace('hidden', 'flex'); lockBody();
-if (m === 'abono' || m === 'parcial' || m === 'lav') updateCalendarActionBtn();
+if (m === 'abono' || m === 'parcial') updateCalendarActionBtn();
 // Asegurarse de que el selector de días esté oculto al abrir
-if (m === 'parcial' || m === 'lav') {
+if (m === 'parcial') {
   document.getElementById('calendarDays').classList.add('hidden');
   document.getElementById('calendarMonths').classList.remove('hidden');
   document.getElementById('calendarYearNav').classList.remove('hidden');
@@ -4343,7 +4087,7 @@ function closeCalendar() { document.getElementById('calendarModal').classList.re
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
 // Para modos abono/parcial, limitar la navegación al rango del período
-if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
+if (calendarMode === 'abono' || calendarMode === 'parcial') {
 if (startIndex < 0 || endIndex < 0) return;
 const rangeStart = Math.min(startIndex, endIndex);
 const rangeEnd = Math.max(startIndex, endIndex);
@@ -4384,7 +4128,7 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
   const now = new Date(); const CURR_YEAR = now.getFullYear();
   const minYearData = utmData.length > 0 ? utmData[0].y : 2010;
   let minY = minYearData, maxY = CURR_YEAR;
-  if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
+  if (calendarMode === 'abono' || calendarMode === 'parcial') {
     if (startIndex >= 0 && endIndex >= 0) {
       minY = utmData[Math.min(startIndex,endIndex)].y;
       maxY = utmData[Math.max(startIndex,endIndex)].y;
@@ -4452,10 +4196,6 @@ isActive = document.getElementById('tempAbonoMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('tempParcialMes').value === mesVal
 && document.getElementById('tempParcialAnio').value === String(selectedYear);
-} else if (calendarMode === 'lav') {
-const mesVal = String(i + 1).padStart(2, '0');
-isActive = document.getElementById('tempLavMes').value === mesVal
-&& document.getElementById('tempLavAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -4509,14 +4249,10 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempParcialMes').value = mesVal;
 document.getElementById('tempParcialAnio').value = String(selectedYear);
+// Convertir UTM↔CLP con el valor del mes apenas se elige
 updateParcialUtmFromDate();
+// Mostrar selector de días
 renderDaySelector(selectedYear, i);
-return;
-} else if (calendarMode === 'lav') {
-const mesVal = String(i + 1).padStart(2, '0');
-document.getElementById('tempLavMes').value = mesVal;
-document.getElementById('tempLavAnio').value = String(selectedYear);
-renderDaySelectorLav(selectedYear, i);
 return;
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -4606,8 +4342,8 @@ function renderDaySelector(anio, mesIdx) {
       document.getElementById('tempParcialLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
       document.getElementById('tempParcialLabel').classList.remove('text-slate-400');
       document.getElementById('tempParcialLabel').classList.add('text-white');
-      await addPagoParcial();
       closeCalendar();
+      await addPagoParcial();
     };
     grid.appendChild(btn);
   }
@@ -5168,7 +4904,7 @@ async function sbSetTasasCache(snapshot) {
 // ══════════════════════════════════════════════════════════
 const SB_URL  = 'https://pipfpwpkzjajgmwcdrsv.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w';
-const sb = window.sb = supabase.createClient(SB_URL, SB_KEY, {
+const sb      = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     storageKey: 'pension_utm_auth',
@@ -5179,7 +4915,7 @@ const sb = window.sb = supabase.createClient(SB_URL, SB_KEY, {
 });
 
 let sbCurrentUser = null;
-let sbAccessToken = window.sbAccessToken = null;
+let sbAccessToken = null;
 // IDs eliminados localmente pero cuyo UPDATE en Supabase aún puede estar en vuelo.
 // Permite bloquear sbSaveCaso de forma síncrona, sin esperar la red.
 const _deletedCasoIds = new Set();
@@ -5195,7 +4931,7 @@ function _persistSyncQueue() {}
 // Limpiar cola antigua de localStorage si existe
 try { localStorage.removeItem('sync_queue'); } catch(e) {}
 // Token de sesión — se actualiza en onAuthStateChange
-let _sbAccessToken = window.sbAccessToken = null;
+let _sbAccessToken = null;
 
 // ── Mostrar / ocultar pantalla de login ──
 function showLoginScreen() {
@@ -5521,7 +5257,7 @@ async function sbSignOut() {
 
   // 2. Limpiar estado local
   sbCurrentUser = null;
-  sbAccessToken = window.sbAccessToken = null;
+  sbAccessToken = null;
   activeCasoId = null;
 
   // 3. Limpiar tokens del storage ANTES de llamar a signOut
@@ -5961,7 +5697,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     const isFirstLoad = !sbCurrentUser;
     sbCurrentUser = session.user;
-    sbAccessToken = window.sbAccessToken = session.access_token || null;
+    sbAccessToken = session.access_token || null;
     const email = session.user.email || '—';
     const emailEl = document.getElementById('sidebarUserEmail');
     if (emailEl) emailEl.textContent = email;
@@ -5986,7 +5722,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     }
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
-    sbAccessToken = window.sbAccessToken = null;
+    sbAccessToken = null;
     // Cancelar keep-alive para no acumular intervalos entre sesiones
     if (window._keepAliveInterval) {
       clearInterval(window._keepAliveInterval);
@@ -6095,112 +5831,6 @@ window._keepAliveInterval = setInterval(async () => {
 window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
 </script>
 </div><!-- /#desktop-layout -->
-
-
-<!-- ══════════════════════════════════════════════════
-     MODAL OCR LAV
-     ══════════════════════════════════════════════════ -->
-<div id="ocrLavModal" class="fixed inset-0 z-[200] flex items-center justify-center hidden" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);padding:1rem;">
-  <div class="w-full max-w-lg rounded-2xl overflow-hidden" style="background:#0f172a;border:1px solid rgba(16,185,129,0.2);">
-    <!-- header -->
-    <div class="flex items-center justify-between px-4 pt-4 pb-3" style="border-bottom:1px solid rgba(255,255,255,0.06);">
-      <div class="flex items-center gap-2">
-        <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
-        <div>
-          <p class="text-[11px] font-black text-white uppercase tracking-wide">Importar Abonos LAV</p>
-          <p class="text-[9px] text-slate-400">Liquidación PJUD o cartola bancaria</p>
-        </div>
-      </div>
-      <button onclick="closeOcrLav()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors" style="background:rgba(255,255,255,0.05);">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-
-    <!-- body -->
-    <div class="px-4 py-4 space-y-3" id="ocrLavBody">
-
-      <!-- tipo doc tabs -->
-      <div id="ocrStepUpload">
-        <div class="flex gap-2 mb-3">
-          <button id="ocrTabPjud" onclick="setOcrTab('pjud')"
-            class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95"
-            style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
-            Liquidación PJUD
-          </button>
-          <button id="ocrTabCartola" onclick="setOcrTab('cartola')"
-            class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95"
-            style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">
-            Cartola bancaria
-          </button>
-        </div>
-
-        <!-- instruccion -->
-        <p id="ocrInstruccion" class="text-[9px] text-slate-400 leading-relaxed mb-3">
-          Sube el PDF o imagen de la liquidación. La app extraerá automáticamente los abonos LAV de la sección V.
-        </p>
-
-        <!-- drop zone -->
-        <label id="ocrDropZone" for="ocrFileInput"
-          class="flex flex-col items-center justify-center gap-2 w-full rounded-xl cursor-pointer transition-all active:scale-98"
-          style="border:1.5px dashed rgba(16,185,129,0.3);background:rgba(16,185,129,0.04);min-height:96px;"
-          ondragover="event.preventDefault();this.style.background='rgba(16,185,129,0.10)'"
-          ondragleave="this.style.background='rgba(16,185,129,0.04)'"
-          ondrop="handleOcrDrop(event)">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <p class="text-[10px] font-black text-[#10b981]" style="opacity:0.8">Subir archivo</p>
-          <p class="text-[8px] text-slate-500">PDF, JPG o PNG · máx 10 MB</p>
-        </label>
-        <input type="file" id="ocrFileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="handleOcrFile(this.files[0])">
-
-        <!-- nombre archivo seleccionado -->
-        <p id="ocrFileName" class="text-[9px] text-slate-400 mt-2 text-center hidden"></p>
-
-        <!-- btn analizar -->
-        <button id="btnOcrAnalizar" onclick="runOcrAnalysis()" disabled
-          class="w-full mt-3 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide transition-all active:scale-95"
-          style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
-          Analizar documento
-        </button>
-      </div>
-
-      <!-- loading -->
-      <div id="ocrStepLoading" class="hidden flex flex-col items-center gap-3 py-6">
-        <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);">
-          <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        </div>
-        <p class="text-[10px] font-black text-white">Analizando documento...</p>
-        <p class="text-[9px] text-slate-400">Esto puede tomar unos segundos</p>
-      </div>
-
-      <!-- error -->
-      <div id="ocrStepError" class="hidden rounded-xl p-3" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
-        <p class="text-[10px] font-black text-red-400 mb-1">No se pudo procesar el documento</p>
-        <p id="ocrErrorMsg" class="text-[9px] text-slate-400 leading-relaxed"></p>
-        <button onclick="ocrReset()" class="mt-2 text-[9px] text-[#10b981] font-black underline">Intentar nuevamente</button>
-      </div>
-
-      <!-- preview resultados -->
-      <div id="ocrStepPreview" class="hidden space-y-3">
-        <div class="flex items-center justify-between">
-          <p class="text-[10px] font-black text-white">Movimientos detectados</p>
-          <span id="ocrPreviewCount" class="text-[9px] font-black px-2 py-0.5 rounded-full" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.25);"></span>
-        </div>
-        <div id="ocrPreviewList" class="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar"></div>
-        <div class="flex gap-2 pt-1">
-          <button onclick="ocrReset()" class="flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95" style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">
-            Cancelar
-          </button>
-          <button onclick="ocrConfirmar()" class="flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wide transition-all active:scale-95" style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
-            ✓ Agregar todos
-          </button>
-        </div>
-      </div>
-
-    </div><!-- /body -->
-  </div>
-</div>
 
 </body>
 </html>
