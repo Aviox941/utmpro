@@ -2256,44 +2256,65 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
   try {
     // Obtener token de sesión activa
     _ocrLog.push('1. obteniendo token...');
-    let _token = null;
-    try {
-      const { data: _sess } = await sb.auth.getSession();
-      _token = _sess?.session?.access_token || null;
-    } catch(e) { _ocrLog.push('getSession error: ' + e.message); }
-    if (!_token) _token = window.sbAccessToken || null;
+    // Intentar token en memoria primero, luego localStorage como fallback
+    let _token = window.sbAccessToken;
+    if (!_token) {
+      try {
+        const lsKeys = Object.keys(localStorage).filter(k => k.includes('supabase') || k.includes('auth-token'));
+        for (const k of lsKeys) {
+          const val = JSON.parse(localStorage.getItem(k) || '{}');
+          if (val?.access_token) { _token = val.access_token; break; }
+          if (val?.session?.access_token) { _token = val.session.access_token; break; }
+        }
+      } catch(e) {}
+    }
     if (!_token) throw new Error('No hay sesion activa.');
     _ocrLog.push('2. token OK: ' + _token.slice(0,10) + '...');
 
-    // Construir content para OpenRouter (formato OpenAI compatible)
+    // Construir content para Groq (texto primero, imagen después — orden requerido por llama-4-scout)
     const imageContent = [];
+    imageContent.push({ type: 'text', text: prompt });
     if (_ocrMime === 'application/pdf') {
       imageContent.push({ type: 'image_url', image_url: { url: `data:application/pdf;base64,${_ocrBase64}` } });
     } else {
       imageContent.push({ type: 'image_url', image_url: { url: `data:${_ocrMime};base64,${_ocrBase64}` } });
     }
-    imageContent.push({ type: 'text', text: prompt });
 
     _ocrLog.push('3. llamando proxy...');
-    const response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/ocr-proxy', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${_token}`,
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w'
-      },
-      body: JSON.stringify({
-        max_tokens: 2000,
-        temperature: 0,
-        messages: [{ role: 'user', content: imageContent }]
-      })
-    });
+    const _ocrAbort = new AbortController();
+    const _ocrTimeout = setTimeout(() => {
+      _ocrAbort.abort();
+      dbg('OCR: timeout 40s — abortando fetch');
+    }, 40000);
+
+    let response;
+    try {
+      response = await fetch('https://pipfpwpkzjajgmwcdrsv.supabase.co/functions/v1/ocr-proxy', {
+        method: 'POST',
+        signal: _ocrAbort.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w'
+        },
+        body: JSON.stringify({
+          max_tokens: 2000,
+          temperature: 0,
+          messages: [{ role: 'user', content: imageContent }]
+        })
+      });
+    } catch(fetchErr) {
+      clearTimeout(_ocrTimeout);
+      const isTimeout = fetchErr.name === 'AbortError';
+      throw new Error(isTimeout ? 'El servidor tardó demasiado (timeout 40s). Intenta con una imagen más pequeña.' : 'Error de red: ' + fetchErr.message);
+    }
+    clearTimeout(_ocrTimeout);
 
     _ocrLog.push('4. proxy HTTP ' + response.status);
     if (!response.ok) {
       const errText = await response.text();
       _ocrLog.push('ERR body: ' + errText.slice(0,200));
-      throw new Error('Proxy HTTP ' + response.status + ' — ' + errText.slice(0,100));
+      throw new Error('Proxy error ' + response.status + ': ' + errText.slice(0,120));
     }
     const data = await response.json();
     _ocrLog.push('5. respuesta OK');
@@ -2318,8 +2339,6 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
   } catch(err) {
     dbg('OCR error: ' + err.message);
-    // Mostrar log completo en alert para debugging
-    if (_ocrLog.length > 0) alert('OCR log:\n' + _ocrLog.join('\n') + '\nERROR: ' + err.message);
     document.getElementById('ocrErrorMsg').textContent = 'Error al procesar: ' + err.message;
     _ocrShowStep('ocrStepError');
   }
