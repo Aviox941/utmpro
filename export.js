@@ -2269,7 +2269,7 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${_token}`
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w'
       },
       body: JSON.stringify({
         model: 'google/gemini-2.0-flash-exp:free',
