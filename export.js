@@ -136,7 +136,7 @@ const pensCapUTM = pensiones.reduce((s,d) => s + (d.capUTM||d.cap/d.utmVal), 0);
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
-body: pensiones.map(d => { const cap0=d.cap; const int0=d.intOriginal??d.inte; const intUtm=(int0/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; return [periodoLabel, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(cap0+int0)]; }),
+body: pensiones.map(d => { const capMostrado=d.esLav?0:d.cap; const cap0=d.cap; const int0=d.intOriginal??d.inte; const intUtm=(int0/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; if (d.esLav) periodoLabel += ' ✓'; return [periodoLabel, fmt(capMostrado), d.esLav?'0.000':(d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(capMostrado+int0)]; }),
 foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.intOriginal??d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
 showFoot: 'lastPage',
 theme:'grid',
@@ -1435,17 +1435,19 @@ function buildResumenContent() {
 
       const row = document.createElement('div');
       row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-sky-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${rowIndex%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${d.esLav?'#f0fdf4':(rowIndex%2===0?'#ffffff':'#f8fafc')};border-top:1px solid #e2e8f0`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
-      const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
+      const capMostrado = d.esLav ? 0 : cap0;
+      const capUTM = d.esLav ? '0.00' : ((d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—');
+      const lavTag = d.esLav ? `<span style="color:#10b981;font-size:7.5px;font-weight:900"> ✓LAV</span>` : '';
       row.innerHTML = `
-        <span class="truncate" style="color:#1e293b">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}</span>
+        <span class="truncate" style="color:#1e293b">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}</span>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
-        <span style="color:#334155">${fmt(cap0)}</span>
+        <span style="color:${d.esLav?'#10b981':'#334155'}">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
         <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
         <span class="text-right" style="color:#0369a1">${fmt(int0)}</span>
-        <span class="text-right font-black" style="color:#0f172a">${fmt(cap0+int0)}</span>`;
+        <span class="text-right font-black" style="color:#0f172a">${fmt(capMostrado+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
       wrap.appendChild(row);
       rowIndex++;
@@ -1756,9 +1758,10 @@ async function exportarExcel() {
 
     datos.forEach((d, i) => {
       const cap0   = d.cap;
+      const capMostrado = d.esLav ? 0 : cap0;
       const int0   = d.intOriginal ?? d.inte;
-      const capUTM = (d.utmVal && d.utmVal > 0) ? parseFloat((cap0/d.utmVal).toFixed(2)) : 0;
-      const periodoClean = d.periodo.replace(/^HIST /,'').replace(/^CONS /,'');
+      const capUTM = d.esLav ? 0 : ((d.utmVal && d.utmVal > 0) ? parseFloat((cap0/d.utmVal).toFixed(2)) : 0);
+      const periodoClean = (d.periodo.replace(/^HIST /,'').replace(/^CONS /,'')) + (d.esLav ? ' ✓' : '');
       periodos.push(periodoClean);
       caps.push(Math.round(cap0));
       ints.push(Math.round(int0));
@@ -1768,18 +1771,18 @@ async function exportarExcel() {
       ws.getCell(currentRow,1).value = periodoClean;
       ws.getCell(currentRow,2).value = d.utmVal||0;
       ws.getCell(currentRow,3).value = capUTM;
-      ws.getCell(currentRow,4).value = fmtN(cap0);
+      ws.getCell(currentRow,4).value = fmtN(capMostrado);
       if (tieneExcedentes) {
         ws.getCell(currentRow,5).value = excedente > 0 ? -excedente : 0;
         ws.getCell(currentRow,6).value = d.mora;
         ws.getCell(currentRow,7).value = fmtPct(d.tasa);
         ws.getCell(currentRow,8).value = fmtN(int0);
-        ws.getCell(currentRow,9).value = fmtN(cap0+int0);
+        ws.getCell(currentRow,9).value = fmtN(capMostrado+int0);
       } else {
         ws.getCell(currentRow,5).value = d.mora;
         ws.getCell(currentRow,6).value = fmtPct(d.tasa);
         ws.getCell(currentRow,7).value = fmtN(int0);
-        ws.getCell(currentRow,8).value = fmtN(cap0+int0);
+        ws.getCell(currentRow,8).value = fmtN(capMostrado+int0);
       }
       const even = i%2===0;
       const totalCols = tieneExcedentes ? 9 : 8;
@@ -2451,16 +2454,23 @@ function ocrConfirmar() {
       return; // sin monto válido
     }
     if (!amount || amount <= 0) return;
-    abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
-    added++;
+    if (item.seccion === 'otros_abonos') {
+      // Sección IV "Otros abonos" → imputación Art. 1595 CC (primero intereses, luego capital)
+      abonos.push({ amount, date: yyyy + '-' + mm });
+      added++;
+    } else {
+      // Sección V "Abonos LAV" → descuento directo por depósito cuenta vista
+      abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+      added++;
+    }
   });
   if (added > 0) {
-    // Reasignar períodos: si dos depósitos caen en el mismo mes, el segundo pasa al siguiente
     reasignarPeriodosLav();
     renderAbonosLav();
+    renderAbonosList();
     calculate();
     saveSession();
-    dbg('OCR LAV: ' + added + ' abonos importados');
+    dbg('OCR: ' + added + ' abonos importados (LAV + Art.1595)');
   }
   closeOcrLav();
 }

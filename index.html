@@ -3684,12 +3684,20 @@ if (totalPagadoUTMEfectivo > 0) {
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
 const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
-// LAV: si existe cualquier abono LAV para este período, el mes no genera intereses.
-// El remanente (cuota − abono) queda como deuda de capital puro sin mora,
-// igual a la metodología del tribunal (SITFA/PJUD).
-const mesEstaLav = (typeof abonosLav !== 'undefined' ? abonosLav : [])
-  .some(lav => lav.periodo === periodoKey);
-const interesMes = mesEstaLav ? 0 : calcularInteres(capParaInteres, tasaAnual, diasMora);
+// LAV: si existe abono LAV para este período, el interés se calcula solo por los días
+// entre el vencimiento y la fecha del depósito (si el depósito es posterior al vencimiento).
+// Si el depósito es anterior o igual al vencimiento, no genera interés (0 días de mora).
+// Metodología SITFA/PJUD: el pago extingue la mora desde su fecha, no desde inicio del mes.
+const lavDelMes = (typeof abonosLav !== 'undefined' ? abonosLav : [])
+  .find(lav => lav.periodo === periodoKey);
+let interesMes;
+if (lavDelMes) {
+  const fechaDepLav = lavDelMes.date ? new Date(lavDelMes.date) : null;
+  const diasHastaLav = fechaDepLav ? calcularDiasMora(fechaVenc, fechaDepLav) : 0;
+  interesMes = diasHastaLav > 0 ? calcularInteres(capParaInteres, tasaAnual, diasHastaLav) : 0;
+} else {
+  interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
+}
 capital += capEfectivoCLP;
 capitalUTM += capEfectivoUTM;
 intereses += interesMes;
@@ -3701,6 +3709,7 @@ mora: diasMora, inte: interesMes,
 sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
 capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
 capParaInteres, hayParcialConRemanente,
+esLav: !!lavDelMes,
 excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagadoUTMEfectivo - cuotaUTMReal) : 0
 });
 });
@@ -4082,18 +4091,24 @@ const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
 ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">⚖ +50% ley</p>`
 : (d.usarMaxima ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">📊 Tasa máx.</p>` : '');
+const lavBadge = d.esLav
+? `<p class="text-[8px] font-black uppercase" style="color:#10b981">✓ LAV</p>`
+: '';
 const isDebt = d.isDebt;
 const labelColor = isDebt ? 'color:#7c3a00;font-weight:900' : '';
-const valueColor = isDebt ? 'color:#3b1a00' : '';
+const valueColor = isDebt ? 'color:#3b1a00' : (d.esLav ? 'color:#6ee7b7' : '');
 const subColor   = isDebt ? 'color:#a05000' : 'opacity:0.6';
 const badgeColor = isDebt ? 'color:#7c3a00' : 'color:#bfdbfe';
 const borderColor = isDebt ? 'border-color:rgba(160,80,0,0.25)' : 'border-color:rgba(59,130,246,0.2)';
+// Meses LAV: mostrar $0 como capital efectivo (cubierto por depósito LAV)
+const capMostrado = d.esLav ? 0 : d.sub;
+const capUtmMostrado = d.esLav ? 0 : (d.sub / d.utmVal);
 card.innerHTML = `
 <p class="text-[9px] font-black uppercase mb-1.5" style="${labelColor}">${d.periodo}</p>
 <div class="flex items-start justify-between gap-2">
   <div class="flex-1 min-w-0">
-    <p class="text-sm font-black leading-tight" style="${valueColor}">${format(d.sub)}</p>
-    <p class="text-[8px] font-bold uppercase mt-0.5" style="${subColor}">${(d.sub/d.utmVal).toFixed(2)} UTM</p>
+    <p class="text-sm font-black leading-tight" style="${valueColor}">${format(capMostrado)}</p>
+    <p class="text-[8px] font-bold uppercase mt-0.5" style="${subColor}">${capUtmMostrado.toFixed(2)} UTM</p>
   </div>
   <div class="text-right flex-shrink-0">
     <p class="text-[8.5px] font-black uppercase" style="${subColor}">INT</p>
@@ -4102,7 +4117,7 @@ card.innerHTML = `
   </div>
 </div>
 <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
-  ${recargoBadge}
+  ${recargoBadge}${lavBadge}
 </div>
 ${parcialDetalle}${abonoDetalle}`;
 list.appendChild(card);
