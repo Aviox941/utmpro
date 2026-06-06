@@ -2114,10 +2114,12 @@ let _ocrResultados = [];      // [{ date, amount, description }]
 
 function openOcrLav() {
   ocrReset();
-  document.getElementById('ocrLavModal').classList.remove('hidden');
+  const m = document.getElementById('ocrLavModal');
+  m.style.display = 'flex';
 }
 function closeOcrLav() {
-  document.getElementById('ocrLavModal').classList.add('hidden');
+  const m = document.getElementById('ocrLavModal');
+  m.style.display = 'none';
   ocrReset();
 }
 
