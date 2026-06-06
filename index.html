@@ -2739,6 +2739,29 @@ function checkBtnLav() {
     ? 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);'
     : 'background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);';
 }
+// Reasigna períodos LAV: si dos abonos caen en el mismo mes, el segundo
+// se desplaza al mes siguiente, y así sucesivamente (regla de negocio).
+function reasignarPeriodosLav() {
+  const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  abonosLav.sort((a, b) => a.date.localeCompare(b.date));
+  const periodosUsados = new Set();
+  abonosLav.forEach(lav => {
+    let [yyyy, mm] = lav.periodo.split('-').map(Number);
+    while (periodosUsados.has(`${yyyy}-${String(mm).padStart(2,'0')}`)) {
+      mm++;
+      if (mm > 12) { mm = 1; yyyy++; }
+    }
+    const periodoKey = `${yyyy}-${String(mm).padStart(2,'0')}`;
+    periodosUsados.add(periodoKey);
+    lav.periodo = periodoKey;
+    lav.periodoLabel = mNames[mm - 1] + ' ' + yyyy;
+    const utmEntry = utmData.find(d => d.y === yyyy && d.monthIdx === mm - 1);
+    if (utmEntry) {
+      lav.utmVal = utmEntry.v;
+      lav.amountUtm = lav.amount / utmEntry.v;
+    }
+  });
+}
 function addAbonoLav() {
   const amount = parseInt((document.getElementById('tempLavClp').value || '').replace(/\./g, '')) || 0;
   const mes  = document.getElementById('tempLavMes').value;
@@ -2753,7 +2776,7 @@ function addAbonoLav() {
   const utmVal = utmEntry ? utmEntry.v : null;
   const amountUtm = utmVal ? amount / utmVal : null;
   abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
-  abonosLav.sort((a, b) => a.date.localeCompare(b.date));
+  reasignarPeriodosLav();
   document.getElementById('tempLavClp').value = '';
   document.getElementById('tempLavMes').value = '';
   document.getElementById('tempLavAnio').value = '';
@@ -3840,6 +3863,8 @@ function imputarAbonosArt1595(detalles, abonos) {
   return { saldoFinal, totalAbonado, interesesPagados, capitalPagado, detalleImputacion, cuotasResultado: cuotas };
 }
 function calculate() {
+// Reasignar períodos LAV retroactivamente antes de calcular
+if (typeof reasignarPeriodosLav === 'function' && abonosLav && abonosLav.length > 0) reasignarPeriodosLav();
 if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 // Guard: si utmData aún no cargó, no hay nada que calcular
 if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }

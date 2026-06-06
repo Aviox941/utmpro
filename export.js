@@ -184,7 +184,9 @@ y = doc.lastAutoTable.finalY + 8;
 }
 // Reutilizar imputación ya calculada en calculate() — NO recalcular sobre datos mutados
 const imputacionPDF = lastImputacion;
-const totalFinalReal = imputacionPDF.saldoFinal;
+// Restar abonos LAV del saldo final, igual que en calculate() para la pantalla
+const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amount||0), 0);
+const totalFinalReal = Math.max(0, imputacionPDF.saldoFinal - lavTotalCLPpdf);
 const totalFinalRealUTM = totalFinalReal / utmHoy;
 const intImputadoPDF = imputacionPDF.interesesPagados;
 const capImputadoPDF  = imputacionPDF.capitalPagado;
@@ -350,6 +352,14 @@ filasDesglose.push([
 '(-) Abonos imputados a capital (Art. 1595 CC)',
 '-' + fmt(capImputadoPDF),
 '-' + (capImputadoPDF / utmHoy).toFixed(4) + ' UTM',
+''
+]);
+}
+if (lavTotalCLPpdf > 0) {
+filasDesglose.push([
+'(-) Abonos LAV (depósitos cuenta vista)',
+'-' + fmt(lavTotalCLPpdf),
+'-' + (lavTotalCLPpdf / utmHoy).toFixed(4) + ' UTM',
 ''
 ]);
 }
@@ -2434,8 +2444,8 @@ function ocrConfirmar() {
     added++;
   });
   if (added > 0) {
-    // Ordenar por fecha
-    abonosLav.sort((a, b) => a.date.localeCompare(b.date));
+    // Reasignar períodos: si dos depósitos caen en el mismo mes, el segundo pasa al siguiente
+    reasignarPeriodosLav();
     renderAbonosLav();
     calculate();
     saveSession();
