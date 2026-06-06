@@ -2745,11 +2745,47 @@ function reasignarPeriodosLav() {
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   abonosLav.sort((a, b) => a.date.localeCompare(b.date));
   const periodosUsados = new Set();
+
+  // Construir conjunto de períodos con cuota dentro del rango efectivo de la deuda
+  const _fS = startIndex !== -1 ? Math.min(startIndex, endIndex) : calcStartIndex;
+  const _fE = endIndex   !== -1 ? Math.max(startIndex, endIndex) : calcEndIndex;
+  const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
+  const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
+  const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
+  const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
+  const periodosEnRango = new Set();
+  if (efectivoStart !== -1 && efectivoEnd !== -1) {
+    const sliceRango = utmData.slice(
+      Math.min(efectivoStart, efectivoEnd),
+      Math.max(efectivoStart, efectivoEnd) + 1
+    );
+    sliceRango.forEach(item => {
+      periodosEnRango.add(`${item.y}-${String(item.monthIdx + 1).padStart(2,'0')}`);
+    });
+  }
+
   abonosLav.forEach(lav => {
     let [yyyy, mm] = lav.periodo.split('-').map(Number);
+    const periodoOriginal = lav.periodo;
+    const estaEnRango = periodosEnRango.size === 0 || periodosEnRango.has(periodoOriginal);
+
+    // Solo resolver colisiones avanzando al siguiente mes disponible.
+    // Si el período original está dentro del rango: buscar el siguiente mes DENTRO del rango.
+    // Si el período original está fuera del rango: solo evitar colisiones, sin forzar al rango.
+    const MAX_ITER = 120;
+    let iter = 0;
     while (periodosUsados.has(`${yyyy}-${String(mm).padStart(2,'0')}`)) {
       mm++;
       if (mm > 12) { mm = 1; yyyy++; }
+      // Si el período original estaba en rango, el destino también debe estar en rango
+      if (estaEnRango && periodosEnRango.size > 0) {
+        while (!periodosEnRango.has(`${yyyy}-${String(mm).padStart(2,'0')}`)) {
+          mm++;
+          if (mm > 12) { mm = 1; yyyy++; }
+          if (++iter > MAX_ITER) break;
+        }
+      }
+      if (++iter > MAX_ITER) break;
     }
     const periodoKey = `${yyyy}-${String(mm).padStart(2,'0')}`;
     periodosUsados.add(periodoKey);
