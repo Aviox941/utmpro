@@ -1039,8 +1039,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 </div><!-- /dh-card lav -->
 
 <!-- ── MODAL: OCR LAV ────────────────────────────────────── -->
-<div id="ocrLavModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
-  <div class="card-modal card-modal--sm" style="max-width:420px;width:100%;">
+<div id="ocrLavModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="display:none;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal card-modal--sm" style="max-width:480px;width:100%;border-radius:0 !important;">
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
@@ -1098,7 +1098,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     <!-- Step: Preview -->
     <div id="ocrStepPreview" class="hidden space-y-2">
       <p class="text-[9px] font-black text-[#10b981]">Encontrados: <span id="ocrPreviewCount"></span></p>
-      <div id="ocrPreviewList" class="space-y-1 max-h-48 overflow-y-auto no-scrollbar"></div>
+      <div id="ocrPreviewList" class="space-y-1 overflow-y-auto no-scrollbar" style="max-height:55vh;"></div>
       <div class="grid grid-cols-2 gap-2 pt-1">
         <button onclick="ocrReset()" class="btn-base btn-secondary text-[10px]">Cancelar</button>
         <button onclick="ocrConfirmar()"
@@ -3625,7 +3625,12 @@ if (totalPagadoUTMEfectivo > 0) {
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
 const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
-const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
+// LAV: si existe cualquier abono LAV para este período, el mes no genera intereses.
+// El remanente (cuota − abono) queda como deuda de capital puro sin mora,
+// igual a la metodología del tribunal (SITFA/PJUD).
+const mesEstaLav = (typeof abonosLav !== 'undefined' ? abonosLav : [])
+  .some(lav => lav.periodo === periodoKey);
+const interesMes = mesEstaLav ? 0 : calcularInteres(capParaInteres, tasaAnual, diasMora);
 capital += capEfectivoCLP;
 capitalUTM += capEfectivoUTM;
 intereses += interesMes;
