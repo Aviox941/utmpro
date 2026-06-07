@@ -3978,12 +3978,16 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
     grandEl.style.fontSize = fs + 'px';
   }
 })();
-// Mostrar capital e intereses brutos (antes de imputación) en los sub-totales
+// Sub-totales: capital bruto (pre-imputación), interés corregido post-imputación (Opción A)
+// totalInt bruto subvalúa intereses de meses LAV; usar cuotasResultado para el valor correcto.
+const totalIntPostImput = imputacion.cuotasResultado
+  ? imputacion.cuotasResultado.reduce((s, c) => s + (c.intPendiente || 0), 0)
+  : totalInt;
 document.getElementById('totalCap').innerText = format(totalCap);
-document.getElementById('totalInt').innerText = format(totalInt);
+document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `${(totalFinal / utmHoy).toFixed(2)} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(2)} UTM`;
-document.getElementById('totalIntUtm').innerText = `${(totalInt / utmHoy).toFixed(2)} UTM`;
+document.getElementById('totalIntUtm').innerText = `${(totalIntPostImput / utmHoy).toFixed(2)} UTM`;
 const abonoRow = document.getElementById('abonoResultRow');
 if (totalAbonosSum > 0 || lavTotalUTM > 0) {
 abonoRow.classList.remove('hidden');

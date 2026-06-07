@@ -356,11 +356,11 @@ filasDesglose.push([
 ''
 ]);
 }
-if (lavTotalCLPpdf > 0) {
+if (lavTotalUTMpdf > 0) {
 filasDesglose.push([
 '(-) Abonos LAV (depósitos cuenta vista)',
-'-' + fmt(lavTotalCLPpdf),
-'-' + (lavTotalCLPpdf / utmHoy).toFixed(4) + ' UTM',
+'-' + fmt(Math.round(lavTotalUTMpdf * utmHoy)),
+'-' + lavTotalUTMpdf.toFixed(4) + ' UTM',
 ''
 ]);
 }
@@ -1306,9 +1306,9 @@ function buildResumenContent() {
   const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
-  const lavTotalCLP = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amount||0), 0);
+  const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
   const saldoPostImput = imputacion ? imputacion.saldoFinal : Math.max(0, totalCapPesos + totalIntPesos - totalAbonosCLP);
-  const totalFinalReal = Math.max(0, saldoPostImput - lavTotalCLP);
+  const totalFinalReal = Math.max(0, saldoPostImput - (lavTotalUTM_h * utmHoy));
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
@@ -1575,8 +1575,8 @@ function buildResumenContent() {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
     resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -capImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
-  if (lavTotalCLP > 0) {
-    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLP, labelColor: '#059669', valColor: '#059669', bold: false });
+  if (lavTotalUTM_h > 0) {
+    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -(lavTotalUTM_h * utmHoy), labelColor: '#059669', valColor: '#059669', bold: false });
   }
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
@@ -1641,9 +1641,9 @@ async function exportarExcel() {
   const totalCapPesos  = lastCalculationData.reduce((s,d) => s+d.cap, 0);
   const totalIntPesos  = lastCalculationData.reduce((s,d) => s+d.inte, 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s+a.amount, 0);
-  const lavTotalCLP    = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s+(p.amount||0), 0);
+  const lavTotalUTM_x  = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s+(p.amountUtm||0), 0);
   const saldoPostImput = imputacion ? imputacion.saldoFinal : (totalCapPesos+totalIntPesos-totalAbonosCLP);
-  const totalFinalReal = Math.max(0, saldoPostImput - lavTotalCLP);
+  const totalFinalReal = Math.max(0, saldoPostImput - (lavTotalUTM_x * utmHoy));
   const intImputado    = imputacion ? imputacion.interesesPagados : 0;
   const capImputado    = imputacion ? imputacion.capitalPagado : 0;
   const hoy = new Date();
@@ -1929,8 +1929,8 @@ async function exportarExcel() {
     conceptos.push({ label:'(-) Abonos a intereses (Art. 1595 CC)', val:-intImputado, bold:false, desc:true });
     conceptos.push({ label:'(-) Abonos a capital (Art. 1595 CC)',   val:-capImputado, bold:false, desc:true });
   }
-  if (lavTotalCLP > 0) {
-    conceptos.push({ label:'(-) Abonos LAV (depósitos cuenta vista)', val:-lavTotalCLP, bold:false, desc:true });
+  if (lavTotalUTM_x > 0) {
+    conceptos.push({ label:'(-) Abonos LAV (depósitos cuenta vista)', val:-(lavTotalUTM_x * utmHoy), bold:false, desc:true });
   }
   conceptos.forEach((c, i) => {
     const bg = c.sep ? COLORS.azulClaro : i%2===0 ? COLORS.azulFila : COLORS.blanco;
