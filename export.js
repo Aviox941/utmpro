@@ -184,9 +184,10 @@ y = doc.lastAutoTable.finalY + 8;
 }
 // Reutilizar imputación ya calculada en calculate() — NO recalcular sobre datos mutados
 const imputacionPDF = lastImputacion;
-// Restar abonos LAV del saldo final, igual que en calculate() para la pantalla
-const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amount||0), 0);
-const totalFinalReal = Math.max(0, imputacionPDF.saldoFinal - lavTotalCLPpdf);
+// Restar LAV en UTM históricas × UTM actual (igual que en calculate() — Opción A).
+// NO usar suma de pesos nominales LAV: las UTM históricas valen más que a UTM de hoy.
+const lavTotalUTMpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
+const totalFinalReal = Math.max(0, imputacionPDF.saldoFinal - (lavTotalUTMpdf * utmHoy));
 const totalFinalRealUTM = totalFinalReal / utmHoy;
 const intImputadoPDF = imputacionPDF.interesesPagados;
 const capImputadoPDF  = imputacionPDF.capitalPagado;

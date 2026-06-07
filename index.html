@@ -3891,8 +3891,10 @@ function imputarAbonosArt1595(detalles, abonos) {
   const meses = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
   let saldoFinal = 0;
   cuotas.forEach(c => {
-    if (c.capPendiente <= 0) return;
-    // Recalcular interés a hoy sobre el capital pendiente
+    // Opción A (replica al tribunal): recalcular intPendiente a hoy para TODAS las cuotas,
+    // incluidos meses LAV cuyo capPendiente puede ser 0 pero generan interés sobre su capital
+    // original (el descuento LAV ocurre solo en el resumen final via lavTotalUTM).
+    // Las cuotas no-LAV con capPendiente = 0 también pasan: calcularInteres(0,...) = 0, sin efecto.
     const partes = (c.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
     const cMes = meses[partes[0]] ?? 0;
     const cAnio = parseInt(partes[1]) || (c.year||2000);
@@ -3953,9 +3955,10 @@ const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((
 // NO usar totalCapUTM bruto ni restar capImputadoTotal/utmHoy (mezcla UTM históricas con UTM actual).
 const totalCapUTMPostImput = lastCalculationData.reduce((s,d) => s + (d.utmVal && d.utmVal > 0 ? d.cap / d.utmVal : 0), 0);
 const capNetoUTM = Math.max(0, totalCapUTMPostImput - lavTotalUTM);
-// totalFinal: capital neto + intereses que quedaron tras imputación
-const intPostImputacion = Math.max(0, totalInt - (imputacion ? (imputacion.interesesPagados || 0) : 0));
-const totalFinal = Math.max(0, (capNetoUTM * utmHoy) + intPostImputacion);
+// totalFinal: usar saldoFinal de imputarAbonosArt1595 (cap+int correctos post-imputación,
+// incluye interés de meses LAV — Opción A) y restar LAV en UTM históricas × UTM actual.
+// Replica la lógica del tribunal: CARGOS(UTM) − ABONOS(UTM) = TOTAL(UTM).
+const totalFinal = Math.max(0, imputacion.saldoFinal - (lavTotalUTM * utmHoy));
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
