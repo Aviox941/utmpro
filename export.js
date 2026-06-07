@@ -25,7 +25,7 @@ const tasaLabel = usarTicActualPDF
 const pensiones = lastCalculationData.filter(d => !d.isDebt);
 const historicas = lastCalculationData.filter(d => d.isDebt);
 const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0);
-const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal??d.inte), 0);
+const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0);
 const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
 // Nota: totalParciales NO se resta del totalFinalReal — los pagos parciales ya están
 // incorporados en el cap neto de cada cuota (capNeto = cuota - pagoParcial).
@@ -130,14 +130,14 @@ y += 10;
 if (pensiones.length > 0) {
 seccion('PENSIONES MENSUALES IMPAGAS', [37,99,155]);
 const pensCap = pensiones.reduce((s,d) => s + d.cap, 0);
-const pensInt = pensiones.reduce((s,d) => s + (d.intOriginal??d.inte), 0);
+const pensInt = pensiones.reduce((s,d) => s + d.inte, 0);
 const pensSub = pensCap + pensInt;
 const pensCapUTM = pensiones.reduce((s,d) => s + (d.capUTM||d.cap/d.utmVal), 0);
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
-body: pensiones.map(d => { const capMostrado=d.esLav?0:d.cap; const cap0=d.cap; const int0=d.intOriginal??d.inte; const intUtm=(int0/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; if (d.esLav) periodoLabel += ' ✓'; return [periodoLabel, fmt(capMostrado), d.esLav?'0.000':(d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(capMostrado+int0)]; }),
-foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.intOriginal??d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
+body: pensiones.map(d => { const capMostrado=d.esLav?0:d.cap; const cap0=d.cap; const int0=d.inte; const intUtm=(int0/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; if (d.esLav) periodoLabel += ' ✓'; return [periodoLabel, fmt(capMostrado), d.esLav?'0.000':(d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(capMostrado+int0)]; }),
+foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
 showFoot: 'lastPage',
 theme:'grid',
 headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'center'},
@@ -164,13 +164,13 @@ y += 4;
 if (historicas.length > 0) {
 seccion('DEUDA HISTORICA CONSOLIDADA', [245,158,11]);
 const histCap = historicas.reduce((s,d) => s + (d.capOriginal??d.capOriginalBruto??d.cap), 0);
-const histInt = historicas.reduce((s,d) => s + (d.intOriginal??d.inte), 0);
+const histInt = historicas.reduce((s,d) => s + d.inte, 0);
 const histSub = histCap + histInt;
 const histCapUTM = historicas.reduce((s,d) => s + (d.capUTM||(d.capOriginal??d.capOriginalBruto??d.cap)/d.utmVal), 0);
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Subtotal ($)']],
-body: historicas.map(d => { const cap0=d.capOriginal??d.capOriginalBruto??d.cap; const int0=d.intOriginal??d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)]; }),
+body: historicas.map(d => { const cap0=d.capOriginal??d.capOriginalBruto??d.cap; const int0=d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)]; }),
 foot: [['TOTAL', fmt(histCap), histCapUTM.toFixed(3)+' UTM', '', '', fmt(histInt), fmt(histSub)]],
 showFoot: 'lastPage',
 theme:'grid',
@@ -1302,7 +1302,7 @@ function buildResumenContent() {
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
   const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // ya descontados LAV
-  const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal??d.inte), 0);
+  const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalCLP = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amount||0), 0);
@@ -1411,7 +1411,7 @@ function buildResumenContent() {
     datos.forEach((d) => {
       // Usar cap efectivo si el mes fue reducido por excedente de pago parcial
       const cap0 = (d.hayParcialConRemanente || (d.excedenteParcialAplicado||0) > 0 || d.cap < (d.capOriginal??d.capOriginalBruto??d.cap)) ? d.cap : (d.capOriginal ?? d.capOriginalBruto ?? d.cap);
-      const int0 = d.intOriginal ?? d.inte;
+      const int0 = d.inte;
       // Extraer año del período (ej: "Ene 2020" → 2020)
       const periodoClean = d.periodo.replace(/^HIST /,'').replace(/^CONS /,'');
       const yearMatch = periodoClean.match(/\d{4}/);
@@ -1460,7 +1460,7 @@ function buildResumenContent() {
     wrap.appendChild(subHead);
     // Footer totales
     const totCap = datos.reduce((s,d) => s+d.cap,0);
-    const totInt = datos.reduce((s,d) => s+(d.intOriginal??d.inte),0);
+    const totInt = datos.reduce((s,d) => s+d.inte,0);
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
     foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}18;border-top:2px solid ${colorHeader}50;color:#0f172a`;
@@ -1638,7 +1638,7 @@ async function exportarExcel() {
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
   const totalCapPesos  = lastCalculationData.reduce((s,d) => s+d.cap, 0);
-  const totalIntPesos  = lastCalculationData.reduce((s,d) => s+(d.intOriginal??d.inte), 0);
+  const totalIntPesos  = lastCalculationData.reduce((s,d) => s+d.inte, 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s+a.amount, 0);
   const lavTotalCLP    = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s+(p.amount||0), 0);
   const saldoPostImput = imputacion ? imputacion.saldoFinal : (totalCapPesos+totalIntPesos-totalAbonosCLP);
@@ -1804,7 +1804,7 @@ async function exportarExcel() {
 
     // Fila TOTAL
     const totCap = datos.reduce((s,d)=>s+d.cap,0);
-    const totInt = datos.reduce((s,d)=>s+(d.intOriginal??d.inte),0);
+    const totInt = datos.reduce((s,d)=>s+d.inte,0);
     const totUTM = datos.reduce((s,d)=>s+((d.utmVal&&d.utmVal>0)?d.cap/d.utmVal:0),0);
     const totExcedente = datos.reduce((s,d)=>s+((d.excedenteParcialAplicado||0)*(d.utmVal||1)),0);
     const lastDataRow = currentRow - 1;
