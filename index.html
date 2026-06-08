@@ -2716,10 +2716,14 @@ saveSession();
 function renderAbonosList() {
 const container = document.getElementById('abonosListContainer');
 container.innerHTML = '';
-const utmHoy = getUtmActualVal();
 abonos.forEach((a, i) => {
-const utmEquiv = (a.amount / utmHoy).toFixed(3);
 const [anio, mes, dia = '01'] = a.date.split('-');
+// Usar UTM del mes del abono, igual que LAV (no la UTM actual)
+const _mIdx = parseInt(mes) - 1;
+const _monthKey = parseInt(anio) * 100 + _mIdx;
+const _utmEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _monthKey);
+const _utmAbono = (_utmEntry && _utmEntry.v > 0) ? _utmEntry.v : getUtmActualVal();
+const utmEquiv = (a.amount / _utmAbono).toFixed(3);
 const mIdx = parseInt(mes) - 1;
 const periodoLabel = dia + '/' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mIdx] + '/' + anio;
 const div = document.createElement('div');
@@ -4431,6 +4435,14 @@ if (startIndex < 0 || endIndex < 0) {
 alert('Primero define el período "Desde / Hasta".');
 return;
 }
+// Siempre limpiar fecha previa al abrir (evita que quede seleccionada la última fecha usada)
+if (m === 'abono') {
+  document.getElementById('tempAbonoMes').value = '';
+  document.getElementById('tempAbonoAnio').value = '';
+  document.getElementById('tempAbonoDia').value = '';
+  const _lbl = document.getElementById('tempAbonoLabel');
+  if (_lbl) { _lbl.innerText = 'Día / Mes / Año'; _lbl.classList.add('text-slate-400'); _lbl.classList.remove('text-white'); }
+}
 // Partir en el año del inicio del período
 const rangeStart = Math.min(startIndex, endIndex);
 selectedYear = utmData[rangeStart].y;
@@ -4476,12 +4488,10 @@ selectedYear = currentIdx !== -1 ? utmData[currentIdx].y : CURRENT_YEAR;
 renderCalendar();
 document.getElementById('calendarModal').classList.replace('hidden', 'flex'); lockBody();
 if (m === 'abono' || m === 'parcial') updateCalendarActionBtn();
-// Asegurarse de que el selector de días esté oculto al abrir
-if (m === 'parcial' || m === 'abono') {
-  document.getElementById('calendarDays').classList.add('hidden');
-  document.getElementById('calendarMonths').classList.remove('hidden');
-  document.getElementById('calendarYearNav').classList.remove('hidden');
-}
+// Siempre resetear a vista de meses al abrir (evita que quede el selector de días de una operación anterior)
+document.getElementById('calendarDays').classList.add('hidden');
+document.getElementById('calendarMonths').classList.remove('hidden');
+document.getElementById('calendarYearNav').classList.remove('hidden');
 }
 function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
 function changeYear(v) {

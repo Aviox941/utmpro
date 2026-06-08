@@ -1349,6 +1349,12 @@ function buildResumenContent() {
   const container = document.getElementById('resumenContent');
   container.innerHTML = '';
   const utmHoy = getUtmActualVal();
+  // UTM del mes de la fecha de liquidación (igual que calculate() y generarPDF())
+  const fechaLiqModal = (typeof getFechaLiquidacion === 'function') ? getFechaLiquidacion() : new Date();
+  const _liqMonthKeyM = fechaLiqModal.getFullYear() * 100 + fechaLiqModal.getMonth();
+  const _utmLiqEntryM = (typeof utmData !== 'undefined' ? utmData : []).slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _liqMonthKeyM);
+  const utmLiq = (_utmLiqEntryM && _utmLiqEntryM.v > 0) ? _utmLiqEntryM.v : utmHoy;
+  const utmLiqMes = _utmLiqEntryM || { m: '', y: '' };
   const fmt = n => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
   const fmtPct = v => (v * 100).toFixed(2) + '%';
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
@@ -1366,7 +1372,7 @@ function buildResumenContent() {
     const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
     return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
   }, 0);
-  const totalFinalReal = Math.max(0, totalDeudaUTM_h) * utmHoy;
+  const totalFinalReal = Math.max(0, totalDeudaUTM_h) * utmLiq; // UTM del mes de liquidación
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
@@ -1548,8 +1554,8 @@ function buildResumenContent() {
     wrapA.className = 'rounded-xl overflow-hidden';
     wrapA.style.border = '1px solid rgba(8,145,178,0.25)';
     abonos.forEach((a, i) => {
-      const [anio, mes] = a.date.split('-');
-      const label = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(mes)-1] + ' ' + anio;
+      const [anio, mes, dia = '01'] = a.date.split('-');
+      const label = dia + '/' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(mes)-1] + '/' + anio;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
@@ -1662,7 +1668,7 @@ function buildResumenContent() {
     <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
     <p class="font-black text-white" style="font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
     <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${totalDeudaUTM_h.toFixed(5)} UTM</p>
-    <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmHoy)}</p>`;
+    <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmLiq)} (${utmLiqMes.m} ${utmLiqMes.y})</p>`;
   wrapR.appendChild(totalRow);
   container.appendChild(wrapR);
 
