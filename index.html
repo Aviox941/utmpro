@@ -3891,18 +3891,20 @@ function imputarAbonosArt1595(detalles, abonos) {
   const meses = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
   let saldoFinal = 0;
   cuotas.forEach(c => {
-    // Opción A (replica al tribunal): recalcular intPendiente a hoy para TODAS las cuotas,
-    // incluidos meses LAV cuyo capPendiente puede ser 0 pero generan interés sobre su capital
-    // original (el descuento LAV ocurre solo en el resumen final via lavTotalUTM).
-    // Las cuotas no-LAV con capPendiente = 0 también pasan: calcularInteres(0,...) = 0, sin efecto.
+    // Recalcular intPendiente a hoy sobre el capital efectivamente pendiente.
+    // Meses LAV: el abono LAV cubre virtualmente su capital, por lo que el interés
+    // se calcula sobre capPendiente = 0 (sin mora sobre capital ya "cubierto").
+    // El capPendiente real se conserva en el objeto para que la resta lavTotalUTM*utmHoy
+    // en calculate() lo cancele correctamente. Meses no-LAV sin capital: igual, interés = 0.
     const partes = (c.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
     const cMes = meses[partes[0]] ?? 0;
     const cAnio = parseInt(partes[1]) || (c.year||2000);
-    const mesVenc = cMes;           // CORRECCIÓN: mismo mes del período
+    const mesVenc = cMes;
     const anioVenc = cAnio;
     const fechaVencC = new Date(anioVenc, mesVenc, diaVencFinal);
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
-    const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
+    const capParaInteres = c.esLav ? 0 : c.capPendiente;
+    const intHoy = diasMoraHoy > 0 ? calcularInteres(capParaInteres, c.tasa, diasMoraHoy) : 0;
     c.intPendiente = intHoy;
     saldoFinal += c.capPendiente + intHoy;
   });

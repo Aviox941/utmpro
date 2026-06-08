@@ -1,4 +1,5 @@
 async function generarPDF() {
+try {
 if (typeof window.jspdf === 'undefined') {
 alert('Librería PDF no disponible. Verifica tu conexión a internet.');
 return;
@@ -479,6 +480,7 @@ pdfLink.href = pdfBase64;
 pdfLink.download = 'Liquidacion_' + fechaDoc.replace(/\//g, '-') + '.pdf';
 document.body.appendChild(pdfLink); pdfLink.click();
 document.body.removeChild(pdfLink);
+} catch(e) { console.error("[generarPDF] Error:", e); alert("Error al generar PDF: " + e.message); }
 }
 // ============================================================
 // SISTEMA DE CASOS MÚLTIPLES
