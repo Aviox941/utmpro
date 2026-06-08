@@ -16,6 +16,11 @@ const utmHoy = getUtmActualVal();
 const utmHoyMes = getUtmActual();
 const fechaLiq = (typeof getFechaLiquidacion === 'function') ? getFechaLiquidacion() : new Date();
 const fechaDoc = fechaLiq.toLocaleDateString('es-CL');
+// UTM del mes de la fecha de liquidación (metodología tribunal: conversión final usa UTM del mes de corte)
+const _liqMonthKey = fechaLiq.getFullYear() * 100 + fechaLiq.getMonth(); // getMonth() = 0-based monthIdx
+const _utmLiqEntry = (typeof utmData !== 'undefined' ? utmData : []).slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _liqMonthKey);
+const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
+const utmLiqMes = _utmLiqEntry || utmHoyMes;
 const usarTicActualPDF = document.getElementById('ticActual')?.checked || false;
 const aplicarRecargoPDF = document.getElementById('recargoLey')?.checked || false;
 const tasaLabel = usarTicActualPDF
@@ -53,7 +58,7 @@ doc.setFontSize(7.5); doc.setFont('helvetica','normal');
 doc.setTextColor(107, 114, 142);
 doc.text('Calculo referencial — Pension UTM Pro | ' + tasaLabel, PAGE_W/2, 20, {align:'center'});
 doc.setTextColor(107, 114, 142);
-doc.text('Generado: ' + fechaDoc + ' | UTM ref: ' + fmt(utmHoy) + ' (' + (utmHoyMes?.m||'') + ' ' + (utmHoyMes?.y||'') + ')', PAGE_W/2, 26, {align:'center'});
+doc.text('Generado: ' + fechaDoc + ' | UTM ref: ' + fmt(utmLiq) + ' (' + (utmLiqMes?.m||'') + ' ' + (utmLiqMes?.y||'') + ')', PAGE_W/2, 26, {align:'center'});
 y = 34;
 // ── Bloque Datos del Expediente ──────────────────────────────
 (function renderExpedientePDF() {
@@ -224,7 +229,7 @@ const totalDeudaUTMpdf = Math.max(0, cuotasResPDF.reduce((s, c) => {
   const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
   return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
 }, 0));
-const totalFinalReal = totalDeudaUTMpdf * utmHoy;
+const totalFinalReal = totalDeudaUTMpdf * utmLiq; // usa UTM del mes de liquidación, no UTM actual
 const totalFinalRealUTM = totalDeudaUTMpdf;
 const intImputadoPDF = imputacionPDF.interesesPagados;
 const capImputadoPDF  = imputacionPDF.capitalPagado;
@@ -455,10 +460,10 @@ doc.setFontSize(26); doc.setFont('helvetica', 'bold');
 doc.text(fmt(totalFinalReal), PAGE_W / 2, y + 18, { align: 'center' });
 doc.setTextColor(37, 99, 155);
 doc.setFontSize(9.5); doc.setFont('helvetica', 'bold');
-doc.text(totalFinalRealUTM.toFixed(5) + ' UTM (1 UTM = ' + fmt(utmHoy) + ')', PAGE_W / 2, y + 26, { align: 'center' });
+doc.text(totalFinalRealUTM.toFixed(5) + ' UTM (1 UTM = ' + fmt(utmLiq) + ')', PAGE_W / 2, y + 26, { align: 'center' });
 doc.setTextColor(100, 116, 139);
 doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
-const notaUTM = 'UTM de referencia: ' + (utmHoyMes?.m || '') + ' ' + (utmHoyMes?.y || '') + ' = ' + fmt(utmHoy) + ' | Fecha liquidacion: ' + fechaDoc;
+const notaUTM = 'UTM de referencia: ' + (utmLiqMes?.m || '') + ' ' + (utmLiqMes?.y || '') + ' = ' + fmt(utmLiq) + ' | Fecha liquidacion: ' + fechaDoc;
 doc.text(notaUTM, PAGE_W / 2, y + 32, { align: 'center' });
 y += 38;
 checkPage(40);

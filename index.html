@@ -1523,8 +1523,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  <input type="text" id="tempAbonoClp" placeholder="0.00" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnAbono()" class="input-currency">
  <input type="hidden" id="tempAbonoMes" value="">
  <input type="hidden" id="tempAbonoAnio" value="">
+ <input type="hidden" id="tempAbonoDia" value="">
  <button onclick="openCalendar('abono')" id="tempAbonoPickerBtn" class="input-date">
- <span class="input-date__sublabel">Mes / Año</span>
+ <span class="input-date__sublabel">Día / Mes / Año</span>
  <span id="tempAbonoLabel" class="input-date__value">Seleccionar</span>
  </button>
  </div>
@@ -2677,7 +2678,8 @@ function checkBtnAbono() {
 const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempAbonoMes').value;
 const anio = document.getElementById('tempAbonoAnio').value;
-const ok = amount > 0 && mes && anio && anio.length === 4;
+const dia = parseInt(document.getElementById('tempAbonoDia')?.value) || 0;
+const ok = amount > 0 && mes && anio && anio.length === 4 && dia >= 1;
 // Si el calendario está abierto en modo abono, actualizar su botón
 const calModal = document.getElementById('calendarModal');
 if (calModal && calModal.classList.contains('flex') && calendarMode === 'abono') {
@@ -2688,14 +2690,16 @@ function addAbono() {
 const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempAbonoMes').value;
 const anio = document.getElementById('tempAbonoAnio').value;
+const dia = String(parseInt(document.getElementById('tempAbonoDia')?.value) || 1).padStart(2, '0');
 if (amount <= 0 || !mes || !anio || anio.length !== 4) return;
-const date = anio + '-' + mes;
+const date = anio + '-' + mes + '-' + dia;
 abonos.push({ amount, date });
 document.getElementById('tempAbonoClp').value = '';
 document.getElementById('tempAbonoMes').value = '';
 document.getElementById('tempAbonoAnio').value = '';
+if (document.getElementById('tempAbonoDia')) document.getElementById('tempAbonoDia').value = '';
 const lbl = document.getElementById('tempAbonoLabel');
-lbl.innerText = 'Mes / Año';
+lbl.innerText = 'Día / Mes / Año';
 lbl.classList.add('text-slate-400');
 lbl.classList.remove('text-white');
 checkBtnAbono();
@@ -2715,9 +2719,9 @@ container.innerHTML = '';
 const utmHoy = getUtmActualVal();
 abonos.forEach((a, i) => {
 const utmEquiv = (a.amount / utmHoy).toFixed(3);
-const [anio, mes] = a.date.split('-');
+const [anio, mes, dia = '01'] = a.date.split('-');
 const mIdx = parseInt(mes) - 1;
-const periodoLabel = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mIdx] + ' ' + anio;
+const periodoLabel = dia + '/' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][mIdx] + '/' + anio;
 const div = document.createElement('div');
 div.className = 'abono-item animate-fadeIn';
 div.style.borderColor = '#7dd3fc';
@@ -3902,6 +3906,10 @@ dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len='
 const hoy = getFechaLiquidacion();
 const aplicarRecargo = document.getElementById('recargoLey').checked;
 const utmHoy = getUtmActualVal();
+// UTM del mes de la fecha de liquidación (igual que export.js — conversión final a pesos)
+const _liqMonthKey = hoy.getFullYear() * 100 + hoy.getMonth();
+const _utmLiqEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _liqMonthKey);
+const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
 // Nota: los pagos parciales ya están descontados del capital en calculatePensiones()
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
 const resPensiones = calculatePensiones(aplicarRecargo, hoy);
@@ -4013,9 +4021,9 @@ const totalIntUTMPostImput = cuotasRes.reduce((s, c) => {
 // Total en UTM históricas = capital UTM + interés UTM (igual que el tribunal)
 const totalDeudaUTM = Math.max(0, totalCapUTMPostImput + totalIntUTMPostImput);
 // Convertir a CLP usando UTM de referencia (fecha de liquidación)
-const totalFinal = totalDeudaUTM * utmHoy;
-// Sub-totales en CLP para display (usando UTM actual como referencia)
-const totalIntPostImput = totalIntUTMPostImput * utmHoy;
+const totalFinal = totalDeudaUTM * utmLiq; // UTM del mes de liquidación
+// Sub-totales en CLP para display (usando UTM del mes de liquidación como referencia)
+const totalIntPostImput = totalIntUTMPostImput * utmLiq;
 const grandEl = document.getElementById('totalGrand');
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
@@ -4035,7 +4043,7 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
     grandEl.style.fontSize = fs + 'px';
   }
 })();
-document.getElementById('totalCap').innerText = format(totalCapUTMPostImput * utmHoy);
+document.getElementById('totalCap').innerText = format(totalCapUTMPostImput * utmLiq);
 document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
@@ -4236,8 +4244,9 @@ btn.style.boxShadow = '';
 } else if (calendarMode === 'abono') {
 const mes = document.getElementById('tempAbonoMes').value;
 const anio = document.getElementById('tempAbonoAnio').value;
+const dia = parseInt(document.getElementById('tempAbonoDia')?.value) || 0;
 const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
-const ready = mes && anio && amount > 0;
+const ready = mes && anio && dia >= 1 && amount > 0;
 if (ready) {
 btn.textContent = '✓ Registrar Abono';
 btn.className = 'w-full mt-6 py-3 rounded-xl font-black text-xs uppercase transition-all active:scale-95 text-white btn-ready';
@@ -4357,8 +4366,9 @@ saveSession();
 } else if (calendarMode === 'abono') {
 const mes = document.getElementById('tempAbonoMes').value;
 const anio = document.getElementById('tempAbonoAnio').value;
+const dia = parseInt(document.getElementById('tempAbonoDia')?.value) || 0;
 const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
-if (mes && anio && amount > 0) { addAbono(); }
+if (mes && anio && dia >= 1 && amount > 0) { addAbono(); }
 closeCalendar();
 } else if (calendarMode === 'parcial') {
 const mes = document.getElementById('tempParcialMes').value;
@@ -4448,6 +4458,17 @@ if (anioLav) {
   document.getElementById('tempLavAnio').value = '';
   selectedYear = CURRENT_YEAR;
 }
+} else if (m === 'abono') {
+// Igual que LAV: si ya hay año guardado, arrancar en ese año; si no, limpiar.
+const anioAbono = document.getElementById('tempAbonoAnio').value;
+if (anioAbono) {
+  selectedYear = parseInt(anioAbono);
+} else {
+  document.getElementById('tempAbonoMes').value = '';
+  document.getElementById('tempAbonoAnio').value = '';
+  document.getElementById('tempAbonoDia').value = '';
+  selectedYear = CURRENT_YEAR;
+}
 } else {
 let currentIdx = m === 'start' ? startIndex : endIndex;
 selectedYear = currentIdx !== -1 ? utmData[currentIdx].y : CURRENT_YEAR;
@@ -4456,7 +4477,7 @@ renderCalendar();
 document.getElementById('calendarModal').classList.replace('hidden', 'flex'); lockBody();
 if (m === 'abono' || m === 'parcial') updateCalendarActionBtn();
 // Asegurarse de que el selector de días esté oculto al abrir
-if (m === 'parcial') {
+if (m === 'parcial' || m === 'abono') {
   document.getElementById('calendarDays').classList.add('hidden');
   document.getElementById('calendarMonths').classList.remove('hidden');
   document.getElementById('calendarYearNav').classList.remove('hidden');
@@ -4622,11 +4643,8 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempAbonoMes').value = mesVal;
 document.getElementById('tempAbonoAnio').value = String(selectedYear);
-document.getElementById('tempAbonoLabel').innerText = `${name} ${selectedYear}`;
-document.getElementById('tempAbonoLabel').classList.remove('text-slate-400');
-document.getElementById('tempAbonoLabel').classList.add('text-white');
-updateCalendarActionBtn();
-renderCalendar();
+document.getElementById('tempAbonoDia').value = '';
+renderDaySelector(selectedYear, i);
 return;
 } else if (calendarMode === 'parcial') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -4703,7 +4721,8 @@ function renderDaySelector(anio, mesIdx) {
   const grid = document.getElementById('calendarDaysGrid');
   grid.innerHTML = '';
   const isLav = calendarMode === 'lav';
-  const diaIdRef = isLav ? 'tempLavDia' : 'tempParcialDia';
+  const isAbono = calendarMode === 'abono';
+  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : 'tempParcialDia');
   const diaSeleccionado = parseInt(document.getElementById(diaIdRef).value) || 0;
   for (let d = 1; d <= diasEnMes; d++) {
     const btn = document.createElement('button');
@@ -4726,6 +4745,20 @@ function renderDaySelector(anio, mesIdx) {
         checkBtnLav();
         closeCalendar();
         addAbonoLav();
+      } else if (isAbono) {
+        const mesVal = document.getElementById('tempAbonoMes').value;
+        const anioVal = document.getElementById('tempAbonoAnio').value;
+        document.getElementById('tempAbonoDia').value = String(d);
+        const amount = parseInt((document.getElementById('tempAbonoClp').value || '').replace(/\./g, '')) || 0;
+        if (amount <= 0) { closeCalendar(); alert('Ingresa un monto válido.'); return; }
+        const mIdx = parseInt(mesVal) - 1;
+        const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        document.getElementById('tempAbonoLabel').innerText = `${d} ${mNamesShort[mIdx]} ${anioVal}`;
+        document.getElementById('tempAbonoLabel').classList.remove('text-slate-400');
+        document.getElementById('tempAbonoLabel').classList.add('text-white');
+        updateCalendarActionBtn();
+        closeCalendar();
+        addAbono();
       } else {
         const mesVal = document.getElementById('tempParcialMes').value;
         const anioVal = document.getElementById('tempParcialAnio').value;
@@ -4759,6 +4792,10 @@ function backToMonths() {
     document.getElementById('tempLavMes').value = '';
     document.getElementById('tempLavAnio').value = '';
     document.getElementById('tempLavDia').value = '';
+  } else if (calendarMode === 'abono') {
+    document.getElementById('tempAbonoMes').value = '';
+    document.getElementById('tempAbonoAnio').value = '';
+    document.getElementById('tempAbonoDia').value = '';
   } else {
     document.getElementById('tempParcialMes').value = '';
     document.getElementById('tempParcialAnio').value = '';
