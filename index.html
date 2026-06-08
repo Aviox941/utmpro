@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0608.1901">
+ <meta name="app-version" content="2.0608.1902">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v77 · FIX CALENDAR LAV RESET v1901</title>
+ <title>Pensión UTM Pro v77 · FIX LAV NO INTERFIERE CON PAGOS PARCIALES v1902</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3951,13 +3951,18 @@ if (abonosLav && abonosLav.length > 0) {
   for (const d of lastCalculationData) {
     if (poolRestante <= 0) break;
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
-    const capUTM = d.capUTM !== undefined ? d.capUTM : (d.cap / utmMes);
-    const aplicadoUTM = Math.min(poolRestante, capUTM);
     // Guardar originales ANTES de mutar (el PDF los necesita para mostrar cargos brutos)
     d.capOriginalBruto = d.capOriginalBruto ?? d.cap;
     d.intOriginal      = d.intOriginal      ?? d.inte;
-    d.cap    = Math.max(0, d.cap - aplicadoUTM * utmMes);
-    d.capUTM = Math.max(0, capUTM - aplicadoUTM);
+    // El pool LAV consume contra la cuota BRUTA original (antes de pagos parciales).
+    // Los pagos parciales y los LAV son flujos independientes: si ambos se aplican
+    // sobre el mismo cap reducido, el pago parcial se descuenta dos veces.
+    const capBrutoUTM = d.capOriginalBruto / utmMes;
+    const aplicadoUTM = Math.min(poolRestante, capBrutoUTM);
+    // El capital pendiente post-LAV es: bruto - LAV aplicado, pero nunca < 0
+    const capPostLavUTM = Math.max(0, capBrutoUTM - aplicadoUTM);
+    d.cap    = capPostLavUTM * utmMes;
+    d.capUTM = capPostLavUTM;
     d.inte   = d.cap > 0 ? d.inte : 0; // mes cubierto → sin interés pendiente
     d.sub    = d.cap + d.inte;
     d.esLav  = (aplicadoUTM > 0);
