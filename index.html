@@ -3682,7 +3682,11 @@ if (totalPagadoUTMEfectivo > 0) {
   }
 }
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
-const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
+// Si hay LAV para este mes: capital = 0 en el detalle (el descuento se aplica en UTM al final)
+const _capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
+const lavDelMesPrev = (typeof abonosLav !== 'undefined' ? abonosLav : [])
+  .find(lav => lav.periodo === periodoKeyParcial);
+const capEfectivoUTM = lavDelMesPrev ? 0 : _capEfectivoUTM;
 const capEfectivoCLP = capEfectivoUTM * item.v;
 // LAV: si existe abono LAV para este período, el interés es 0.
 // CORRECCIÓN v2.1 (confirmada RIT Z-617-2024 / SITFA):
@@ -3954,15 +3958,8 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
 }
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
-// totalCapUTM post-imputación: recalcular desde d.cap y d.utmVal ya actualizados por imputarAbonosArt1595.
-// NO usar totalCapUTM bruto ni restar capImputadoTotal/utmHoy (mezcla UTM históricas con UTM actual).
-const totalCapUTMPostImput = lastCalculationData.reduce((s,d) => s + (d.utmVal && d.utmVal > 0 ? d.cap / d.utmVal : 0), 0);
-const capNetoUTM = Math.max(0, totalCapUTMPostImput - lavTotalUTM);
-// totalFinal: usar saldoFinal de imputarAbonosArt1595 (cap+int correctos post-imputación,
-// incluye interés de meses LAV — Opción A) y restar LAV en UTM históricas × UTM actual.
-// Replica la lógica del tribunal: CARGOS(UTM) − ABONOS(UTM) = TOTAL(UTM).
-const totalFinal = Math.max(0, imputacion.saldoFinal - (lavTotalUTM * utmHoy));
 const grandEl = document.getElementById('totalGrand');
+const totalFinal = Math.max(0, imputacion.saldoFinal);
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
 // Ajuste dinámico: reducir font-size hasta que quepa en una sola línea
