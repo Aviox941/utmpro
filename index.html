@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0607.1896">
+ <meta name="app-version" content="2.0607.1897">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v76 · FIX METODOLOGÍA UTM HISTÓRICA TRIBUNAL v1896</title>
+ <title>Pensión UTM - Liquidación Pro v77 · FIX LAV DESACOPLADO DE PERÍODOS v1897</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -2812,7 +2812,6 @@ function addAbonoLav() {
   const utmVal = utmEntry ? utmEntry.v : null;
   const amountUtm = utmVal ? amount / utmVal : null;
   abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
-  reasignarPeriodosLav();
   document.getElementById('tempLavClp').value = '';
   document.getElementById('tempLavMes').value = '';
   document.getElementById('tempLavAnio').value = '';
@@ -3684,21 +3683,10 @@ if (totalPagadoUTMEfectivo > 0) {
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
 const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
-// LAV: si existe abono LAV para este período, el interés es 0.
-// CORRECCIÓN v2.1 (confirmada RIT Z-617-2024 / SITFA):
-// El tribunal (PJUD/SITFA) trata los meses cubiertos por depósito LAV como
-// completamente pagados: Adeudado = 0, Intereses = 0.
-// NO se cobra interés proporcional a los días hasta el depósito.
-// La lógica anterior (calcularInteres con diasHastaLav) generaba intereses
-// ficticios sobre meses pagados, inflando los CARGOS y el total final.
-const lavDelMes = (typeof abonosLav !== 'undefined' ? abonosLav : [])
-  .find(lav => lav.periodo === periodoKey);
-let interesMes;
-if (lavDelMes) {
-  interesMes = 0; // mes cubierto con LAV → sin interés (metodología SITFA/PJUD)
-} else {
-  interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
-}
+// METODOLOGÍA TRIBUNAL: los LAV se restan globalmente como suma UTM al final.
+// Cada cuota entra con su capital completo e interés completo — sin marcar como LAV.
+// No hay matching 1-a-1 entre depósitos LAV y meses de cuota.
+const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
 capital += capEfectivoCLP;
 capitalUTM += capEfectivoUTM;
 intereses += interesMes;
@@ -3710,7 +3698,7 @@ mora: diasMora, inte: interesMes,
 sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
 capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
 capParaInteres, hayParcialConRemanente,
-esLav: !!lavDelMes,
+esLav: false,
 excedenteParcialAplicado: (totalPagadoUTMEfectivo > cuotaUTMReal) ? (totalPagadoUTMEfectivo - cuotaUTMReal) : 0
 });
 });
@@ -3897,24 +3885,17 @@ function imputarAbonosArt1595(detalles, abonos) {
     const cAnio = parseInt(partes[1]) || (c.year||2000);
     const fechaVencC = new Date(cAnio, cMes, diaVencFinal);
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
-    // Meses LAV: depósito cubre capital → capPendiente=0, intPendiente=0.
-    // El mecanismo anterior (conservar capPendiente para cancelar con lavTotalUTM*utmHoy)
-    // fue eliminado; ahora calculate() opera 100% en UTM históricas.
-    if (c.esLav) {
-      c.capPendiente = 0;
-      c.intPendiente = 0;
-    } else {
-      const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
-      c.intPendiente = intHoy;
-    }
+    // Todos los meses entran con su capital completo (LAV ya no marca cuotas individuales).
+    const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
+    c.intPendiente = intHoy;
     saldoFinal += c.capPendiente + c.intPendiente;
   });
   saldoFinal = Math.max(0, saldoFinal);
   return { saldoFinal, totalAbonado, interesesPagados, capitalPagado, detalleImputacion, cuotasResultado: cuotas };
 }
 function calculate() {
-// Reasignar períodos LAV retroactivamente antes de calcular
-if (typeof reasignarPeriodosLav === 'function' && abonosLav && abonosLav.length > 0) reasignarPeriodosLav();
+// Con la metodología UTM histórica, los LAV no necesitan reasignación a períodos de cuota.
+// Cada LAV mantiene su UTM del mes del depósito y se resta directamente del total UTM.
 if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 // Guard: si utmData aún no cargó, no hay nada que calcular
 if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }
