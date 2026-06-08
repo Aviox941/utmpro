@@ -201,8 +201,15 @@ const imputacionPDF = lastImputacion;
 // Restar LAV en UTM históricas × UTM actual (igual que en calculate() — Opción A).
 // NO usar suma de pesos nominales LAV: las UTM históricas valen más que a UTM de hoy.
 const lavTotalUTMpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
-const totalFinalReal = Math.max(0, imputacionPDF.saldoFinal - (lavTotalUTMpdf * utmHoy));
-const totalFinalRealUTM = totalFinalReal / utmHoy;
+// METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
+const cuotasResPDF = (imputacionPDF && imputacionPDF.cuotasResultado) ? imputacionPDF.cuotasResultado
+  : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
+const totalDeudaUTMpdf = Math.max(0, cuotasResPDF.reduce((s, c) => {
+  const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+  return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
+}, 0));
+const totalFinalReal = totalDeudaUTMpdf * utmHoy;
+const totalFinalRealUTM = totalDeudaUTMpdf;
 const intImputadoPDF = imputacionPDF.interesesPagados;
 const capImputadoPDF  = imputacionPDF.capitalPagado;
 if (abonos.length > 0) {
@@ -374,7 +381,7 @@ if (lavTotalUTMpdf > 0) {
 filasDesglose.push([
 '(-) Abonos LAV (depósitos cuenta vista)',
 '-' + fmt(Math.round(lavTotalUTMpdf * utmHoy)),
-'-' + lavTotalUTMpdf.toFixed(4) + ' UTM',
+'-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
 ''
 ]);
 }
@@ -382,7 +389,7 @@ filasDesglose.push([
 filasDesglose.push([
 'TOTAL ADEUDADO (saldo neto a la fecha)',
 fmt(Math.round(totalFinalReal)),
-totalFinalRealUTM.toFixed(4) + ' UTM',
+totalFinalRealUTM.toFixed(5) + ' UTM',
 ''
 ]);
 const idxSubtotal = 2;
@@ -426,7 +433,7 @@ doc.setFontSize(26); doc.setFont('helvetica', 'bold');
 doc.text(fmt(totalFinalReal), PAGE_W / 2, y + 18, { align: 'center' });
 doc.setTextColor(37, 99, 155);
 doc.setFontSize(9.5); doc.setFont('helvetica', 'bold');
-doc.text(totalFinalRealUTM.toFixed(4) + ' UTM (1 UTM = ' + fmt(utmHoy) + ')', PAGE_W / 2, y + 26, { align: 'center' });
+doc.text(totalFinalRealUTM.toFixed(5) + ' UTM (1 UTM = ' + fmt(utmHoy) + ')', PAGE_W / 2, y + 26, { align: 'center' });
 doc.setTextColor(100, 116, 139);
 doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
 const notaUTM = 'UTM de referencia: ' + (utmHoyMes?.m || '') + ' ' + (utmHoyMes?.y || '') + ' = ' + fmt(utmHoy) + ' | Fecha liquidacion: ' + fechaDoc;
@@ -1325,8 +1332,14 @@ function buildResumenContent() {
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
-  const saldoPostImput = imputacion ? imputacion.saldoFinal : Math.max(0, totalCapPesos + totalIntPesos - totalAbonosCLP);
-  const totalFinalReal = Math.max(0, saldoPostImput - (lavTotalUTM_h * utmHoy));
+  // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
+  const cuotasRes_h = (imputacion && imputacion.cuotasResultado) ? imputacion.cuotasResultado
+    : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
+  const totalDeudaUTM_h = cuotasRes_h.reduce((s, c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
+  }, 0);
+  const totalFinalReal = Math.max(0, totalDeudaUTM_h) * utmHoy;
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
@@ -1594,7 +1607,7 @@ function buildResumenContent() {
     resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -capImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
   if (lavTotalUTM_h > 0) {
-    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -(lavTotalUTM_h * utmHoy), labelColor: '#059669', valColor: '#059669', bold: false });
+    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -(lavTotalUTM_h * utmHoy), labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
   }
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
@@ -1603,8 +1616,10 @@ function buildResumenContent() {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
     row.style.cssText = `background:${r.sep?'#eff6ff':i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
-    row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor}">${r.label}</span>
-      <span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
+    const valDisplay = r.utmStr
+      ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
+      : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
+    row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor}">${r.label}</span>${valDisplay}`;
     wrapR.appendChild(row);
   });
   // Total final destacado
@@ -1614,7 +1629,7 @@ function buildResumenContent() {
   totalRow.innerHTML = `
     <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
     <p class="font-black text-white" style="font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
-    <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${(totalFinalReal/utmHoy).toFixed(4)} UTM</p>
+    <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${totalDeudaUTM_h.toFixed(5)} UTM</p>
     <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmHoy)}</p>`;
   wrapR.appendChild(totalRow);
   container.appendChild(wrapR);
@@ -1660,8 +1675,14 @@ async function exportarExcel() {
   const totalIntPesos  = lastCalculationData.reduce((s,d) => s+d.inte, 0);
   const totalAbonosCLP = abonos.reduce((s,a) => s+a.amount, 0);
   const lavTotalUTM_x  = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s+(p.amountUtm||0), 0);
-  const saldoPostImput = imputacion ? imputacion.saldoFinal : (totalCapPesos+totalIntPesos-totalAbonosCLP);
-  const totalFinalReal = Math.max(0, saldoPostImput - (lavTotalUTM_x * utmHoy));
+  // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
+  const cuotasRes_x = (imputacion && imputacion.cuotasResultado) ? imputacion.cuotasResultado
+    : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
+  const totalDeudaUTM_x = Math.max(0, cuotasRes_x.reduce((s, c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
+  }, 0));
+  const totalFinalReal = totalDeudaUTM_x * utmHoy;
   const intImputado    = imputacion ? imputacion.interesesPagados : 0;
   const capImputado    = imputacion ? imputacion.capitalPagado : 0;
   const hoy = new Date();
@@ -1948,7 +1969,7 @@ async function exportarExcel() {
     conceptos.push({ label:'(-) Abonos a capital (Art. 1595 CC)',   val:-capImputado, bold:false, desc:true });
   }
   if (lavTotalUTM_x > 0) {
-    conceptos.push({ label:'(-) Abonos LAV (depósitos cuenta vista)', val:-(lavTotalUTM_x * utmHoy), bold:false, desc:true });
+    conceptos.push({ label:`(-) Abonos LAV (depósitos cuenta vista) — ${lavTotalUTM_x.toFixed(5)} UTM hist.`, val:-(lavTotalUTM_x * utmHoy), bold:false, desc:true });
   }
   conceptos.forEach((c, i) => {
     const bg = c.sep ? COLORS.azulClaro : i%2===0 ? COLORS.azulFila : COLORS.blanco;
@@ -1982,8 +2003,8 @@ async function exportarExcel() {
   currentRow++;
 
   // UTM y valor UTM
-  ws.getCell(currentRow,1).value = 'Total en UTM (valor hoy)';
-  ws.getCell(currentRow,2).value = parseFloat((totalFinalReal/utmHoy).toFixed(4));
+  ws.getCell(currentRow,1).value = 'Total en UTM históricas';
+  ws.getCell(currentRow,2).value = parseFloat(totalDeudaUTM_x.toFixed(5));
   ws.mergeCells(currentRow,2,currentRow,8);
   [1,2].forEach(col => {
     const cell = ws.getCell(currentRow,col);

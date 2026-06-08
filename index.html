@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0530.1895">
+ <meta name="app-version" content="2.0607.1896">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM - Liquidación Pro v75 · FIX VENCIMIENTO MISMO MES + TIC REAJ ÚNICA v1895</title>
+ <title>Pensión UTM - Liquidación Pro v76 · FIX METODOLOGÍA UTM HISTÓRICA TRIBUNAL v1896</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3682,11 +3682,7 @@ if (totalPagadoUTMEfectivo > 0) {
   }
 }
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
-// Si hay LAV para este mes: capital = 0 en el detalle (el descuento se aplica en UTM al final)
-const _capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
-const lavDelMesPrev = (typeof abonosLav !== 'undefined' ? abonosLav : [])
-  .find(lav => lav.periodo === periodoKeyParcial);
-const capEfectivoUTM = lavDelMesPrev ? 0 : _capEfectivoUTM;
+const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
 // LAV: si existe abono LAV para este período, el interés es 0.
 // CORRECCIÓN v2.1 (confirmada RIT Z-617-2024 / SITFA):
@@ -3889,29 +3885,29 @@ function imputarAbonosArt1595(detalles, abonos) {
     }
     detalleImputacion.push(imputThis);
   }
-  // Saldo final = capital pendiente + intereses recalculados a HOY sobre el saldo remanente
-  // (intPendiente quedó calculado a la fecha del último abono; hay que actualizarlo a hoy)
+  // Saldo final = capital pendiente + intereses recalculados a HOY sobre el saldo remanente.
+  // METODOLOGÍA TRIBUNAL: los meses LAV tienen capPendiente = 0 (cubiertos por el depósito).
   const hoy = getFechaLiquidacion();
   const diaVencFinal = getDiaVencimiento();
   const meses = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
   let saldoFinal = 0;
   cuotas.forEach(c => {
-    // Recalcular intPendiente a hoy sobre el capital efectivamente pendiente.
-    // Meses LAV: el abono LAV cubre virtualmente su capital, por lo que el interés
-    // se calcula sobre capPendiente = 0 (sin mora sobre capital ya "cubierto").
-    // El capPendiente real se conserva en el objeto para que la resta lavTotalUTM*utmHoy
-    // en calculate() lo cancele correctamente. Meses no-LAV sin capital: igual, interés = 0.
     const partes = (c.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
     const cMes = meses[partes[0]] ?? 0;
     const cAnio = parseInt(partes[1]) || (c.year||2000);
-    const mesVenc = cMes;
-    const anioVenc = cAnio;
-    const fechaVencC = new Date(anioVenc, mesVenc, diaVencFinal);
+    const fechaVencC = new Date(cAnio, cMes, diaVencFinal);
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
-    const capParaInteres = c.esLav ? 0 : c.capPendiente;
-    const intHoy = diasMoraHoy > 0 ? calcularInteres(capParaInteres, c.tasa, diasMoraHoy) : 0;
-    c.intPendiente = intHoy;
-    saldoFinal += c.capPendiente + intHoy;
+    // Meses LAV: depósito cubre capital → capPendiente=0, intPendiente=0.
+    // El mecanismo anterior (conservar capPendiente para cancelar con lavTotalUTM*utmHoy)
+    // fue eliminado; ahora calculate() opera 100% en UTM históricas.
+    if (c.esLav) {
+      c.capPendiente = 0;
+      c.intPendiente = 0;
+    } else {
+      const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
+      c.intPendiente = intHoy;
+    }
+    saldoFinal += c.capPendiente + c.intPendiente;
   });
   saldoFinal = Math.max(0, saldoFinal);
   return { saldoFinal, totalAbonado, interesesPagados, capitalPagado, detalleImputacion, cuotasResultado: cuotas };
@@ -3958,8 +3954,31 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
 }
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
+// ── METODOLOGÍA TRIBUNAL (SITFA/PJUD) ────────────────────────────────────────
+// El tribunal opera 100% en UTM históricas: cada cuota y su interés se expresan
+// en la UTM del propio mes de la cuota, nunca en UTM actual.
+// Fórmula: totalUTM = Σ (capPendiente / utmMes) + Σ (intPendiente / utmMes)
+// Los LAV ya están restados de las cuotas como abonos imputados (capPendiente=0
+// para meses cubiertos), por lo que NO se restan de nuevo aquí.
+// ─────────────────────────────────────────────────────────────────────────────
+const cuotasRes = imputacion.cuotasResultado || lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
+// Capital pendiente en UTM históricas (cada cuota ÷ su UTM del mes)
+const totalCapUTMPostImput = cuotasRes.reduce((s, c) => {
+  const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+  return s + Math.max(0, c.capPendiente / utm);
+}, 0);
+// Interés pendiente en UTM históricas (cada interés ÷ UTM del mes de la cuota)
+const totalIntUTMPostImput = cuotasRes.reduce((s, c) => {
+  const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+  return s + Math.max(0, c.intPendiente / utm);
+}, 0);
+// Total en UTM históricas = capital UTM + interés UTM (igual que el tribunal)
+const totalDeudaUTM = Math.max(0, totalCapUTMPostImput + totalIntUTMPostImput);
+// Convertir a CLP usando UTM de referencia (fecha de liquidación)
+const totalFinal = totalDeudaUTM * utmHoy;
+// Sub-totales en CLP para display (usando UTM actual como referencia)
+const totalIntPostImput = totalIntUTMPostImput * utmHoy;
 const grandEl = document.getElementById('totalGrand');
-const totalFinal = Math.max(0, imputacion.saldoFinal);
 grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
 // Ajuste dinámico: reducir font-size hasta que quepa en una sola línea
@@ -3978,16 +3997,11 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
     grandEl.style.fontSize = fs + 'px';
   }
 })();
-// Sub-totales: capital bruto (pre-imputación), interés corregido post-imputación (Opción A)
-// totalInt bruto subvalúa intereses de meses LAV; usar cuotasResultado para el valor correcto.
-const totalIntPostImput = imputacion.cuotasResultado
-  ? imputacion.cuotasResultado.reduce((s, c) => s + (c.intPendiente || 0), 0)
-  : totalInt;
-document.getElementById('totalCap').innerText = format(totalCap);
+document.getElementById('totalCap').innerText = format(totalCapUTMPostImput * utmHoy);
 document.getElementById('totalInt').innerText = format(totalIntPostImput);
-document.getElementById('totalGrandUtm').innerText = `${(totalFinal / utmHoy).toFixed(2)} UTM`;
-document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(2)} UTM`;
-document.getElementById('totalIntUtm').innerText = `${(totalIntPostImput / utmHoy).toFixed(2)} UTM`;
+document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
+document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
+document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
 const abonoRow = document.getElementById('abonoResultRow');
 if (totalAbonosSum > 0 || lavTotalUTM > 0) {
 abonoRow.classList.remove('hidden');
