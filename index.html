@@ -3684,17 +3684,18 @@ if (totalPagadoUTMEfectivo > 0) {
 // Capital efectivo del mes = cuota menos lo pagado este mes (mínimo 0, sin arrastre)
 const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
-// LAV: si existe abono LAV para este período, el interés se calcula solo por los días
-// entre el vencimiento y la fecha del depósito (si el depósito es posterior al vencimiento).
-// Si el depósito es anterior o igual al vencimiento, no genera interés (0 días de mora).
-// Metodología SITFA/PJUD: el pago extingue la mora desde su fecha, no desde inicio del mes.
+// LAV: si existe abono LAV para este período, el interés es 0.
+// CORRECCIÓN v2.1 (confirmada RIT Z-617-2024 / SITFA):
+// El tribunal (PJUD/SITFA) trata los meses cubiertos por depósito LAV como
+// completamente pagados: Adeudado = 0, Intereses = 0.
+// NO se cobra interés proporcional a los días hasta el depósito.
+// La lógica anterior (calcularInteres con diasHastaLav) generaba intereses
+// ficticios sobre meses pagados, inflando los CARGOS y el total final.
 const lavDelMes = (typeof abonosLav !== 'undefined' ? abonosLav : [])
   .find(lav => lav.periodo === periodoKey);
 let interesMes;
 if (lavDelMes) {
-  const fechaDepLav = lavDelMes.date ? new Date(lavDelMes.date) : null;
-  const diasHastaLav = fechaDepLav ? calcularDiasMora(fechaVenc, fechaDepLav) : 0;
-  interesMes = diasHastaLav > 0 ? calcularInteres(capParaInteres, tasaAnual, diasHastaLav) : 0;
+  interesMes = 0; // mes cubierto con LAV → sin interés (metodología SITFA/PJUD)
 } else {
   interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
 }

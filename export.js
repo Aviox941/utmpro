@@ -25,14 +25,25 @@ const tasaLabel = usarTicActualPDF
     : 'Tasa Corriente histórica por cuota (CMF) — interés simple diario base 365 días (Art. 19 Ley 14.908)';
 const pensiones = lastCalculationData.filter(d => !d.isDebt);
 const historicas = lastCalculationData.filter(d => d.isDebt);
-const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0);
-const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0);
+// FIX v2.1: usar capOriginal (cuota bruta) para los CARGOS del resumen, igual que el tribunal.
+// d.cap está mutado por imputarAbonosArt1595 (cap pendiente post-imputación).
+// El tribunal muestra en CARGOS el total de cuotas originales + intereses, sin descontar abonos.
+const totalCapPesos = lastCalculationData.reduce((s,d) => s + (d.capOriginal ?? d.capOriginalBruto ?? d.cap), 0);
+// FIX v2.1: intereses originales (pre-imputación) para CARGOS del resumen.
+// d.inte post-imputación puede estar a 0 si el abono cubrió intereses — pero en el resumen
+// de CARGOS el tribunal muestra los intereses devengados brutos antes de descontar abonos.
+const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0);
 const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
 // Nota: totalParciales NO se resta del totalFinalReal — los pagos parciales ya están
 // incorporados en el cap neto de cada cuota (capNeto = cuota - pagoParcial).
 // Esta variable se usa solo para mostrar el total en la tabla de pagos parciales del PDF.
 const totalParcialesTabla = pagosParciales.reduce((s,p) => s + p.amount, 0);
-const totalCapUTM = totalCapPesos / utmHoy;
+// FIX v2.1: totalCapUTM en UTM históricas (suma de cuotas UTM originales por mes),
+// igual que el tribunal: 27 × 2.33 = 62.91 UTM, no totalCapPesos / utmHoy.
+const totalCapUTM = lastCalculationData.reduce((s,d) => {
+  const capBruto = d.capOriginal ?? d.capOriginalBruto ?? d.cap;
+  return s + (d.utmVal && d.utmVal > 0 ? capBruto / d.utmVal : 0);
+}, 0);
 const fmt = n => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
 // Header: solo texto sin fondo
 doc.setTextColor(15, 23, 42);
@@ -130,15 +141,17 @@ y += 10;
 }
 if (pensiones.length > 0) {
 seccion('PENSIONES MENSUALES IMPAGAS', [37,99,155]);
-const pensCap = pensiones.reduce((s,d) => s + d.cap, 0);
-const pensInt = pensiones.reduce((s,d) => s + d.inte, 0);
+// FIX v2.1: usar capOriginal para CARGOS (cuotas brutas, igual que el tribunal).
+// d.cap post-imputación es el capital pendiente, no el devengado original.
+const pensCap = pensiones.reduce((s,d) => s + (d.capOriginal ?? d.capOriginalBruto ?? d.cap), 0);
+const pensInt = pensiones.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0);
 const pensSub = pensCap + pensInt;
-const pensCapUTM = pensiones.reduce((s,d) => s + (d.capUTM||d.cap/d.utmVal), 0);
+const pensCapUTM = pensiones.reduce((s,d) => { const c = d.capOriginal ?? d.capOriginalBruto ?? d.cap; return s + (d.utmVal > 0 ? c / d.utmVal : 0); }, 0);
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
-body: pensiones.map(d => { const capMostrado=d.esLav?0:d.cap; const cap0=d.cap; const int0=d.inte; const intUtm=(int0/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; if (d.esLav) periodoLabel += ' ✓'; return [periodoLabel, fmt(capMostrado), d.esLav?'0.000':(d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(int0), intUtm, fmt(capMostrado+int0)]; }),
-foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
+body: pensiones.map(d => { const capBruto=d.capOriginal??d.capOriginalBruto??d.cap; const intBruto=d.intOriginal??d.inte; const capMostrado=d.esLav?0:capBruto; const intUtm=(intBruto/d.utmVal).toFixed(5); let periodoLabel = d.hayParcialConRemanente ? d.periodo+'*' : d.periodo; if ((d.excedenteParcialAplicado||0) > 0) periodoLabel += '†'; if (d.esLav) periodoLabel += ' ✓'; return [periodoLabel, fmt(capMostrado), d.esLav?'0.000':(d.capUTM||capBruto/d.utmVal).toFixed(3), d.mora, ((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%', fmt(intBruto), intUtm, fmt(capMostrado+intBruto)]; }),
+foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{const i=d.intOriginal??d.inte; return s+i/d.utmVal;},0)).toFixed(5)+' UTM', fmt(pensSub)]],
 showFoot: 'lastPage',
 theme:'grid',
 headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'center'},
@@ -647,6 +660,9 @@ _hasData: (startIndex >= 0) || (endIndex >= 0) ||
 // Recalcula calcStartIndex/calcEndIndex como la unión de todos los rangos en periodosPension.
 // Se llama tras restaurar sesión o eliminar un período.
 function recalcCalcRange() {
+  // FIX v2.1: si utmData aún no cargó, no calcular — evita que calcStartIndex/calcEndIndex
+  // queden en -1 o apunten a índices incorrectos cuando se restaura sesión antes del onload.
+  if (!utmData || utmData.length === 0) return;
   if (periodosPension.length === 0) {
     // Sin períodos registrados: usar el rango actual del formulario si existe
     calcStartIndex = startIndex !== -1 ? Math.min(startIndex, endIndex) : -1;
