@@ -363,25 +363,31 @@ fmt(subtotalBruto),
 (subtotalBruto / utmHoy).toFixed(4) + ' UTM',
 ''
 ]);
-if (totalAbonosCLP > 0) {
+// FIX: Los LAV ahora están dentro de imputarAbonosArt1595.
+// capImputadoPDF incluye LAV + abonos ordinarios. Se muestran separados para claridad.
+const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
+const abonosOrdCLPpdf = abonos.reduce((s,a) => s + a.amount, 0);
+if (intImputadoPDF > 0) {
 filasDesglose.push([
 '(-) Abonos imputados a intereses (Art. 1595 CC)',
 '-' + fmt(intImputadoPDF),
 '-' + (intImputadoPDF / utmHoy).toFixed(4) + ' UTM',
 ''
 ]);
+}
+if (lavTotalCLPpdf > 0) {
 filasDesglose.push([
-'(-) Abonos imputados a capital (Art. 1595 CC)',
-'-' + fmt(capImputadoPDF),
-'-' + (capImputadoPDF / utmHoy).toFixed(4) + ' UTM',
+'(-) Abonos LAV (depósitos cuenta vista)',
+'-' + fmt(lavTotalCLPpdf),
+'-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
 ''
 ]);
 }
-if (lavTotalUTMpdf > 0) {
+if (abonosOrdCLPpdf > 0) {
 filasDesglose.push([
-'(-) Abonos LAV (depósitos cuenta vista)',
-'-' + fmt(Math.round(lavTotalUTMpdf * utmHoy)),
-'-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+'(-) Abonos imputados a capital (Art. 1595 CC)',
+'-' + fmt(abonosOrdCLPpdf),
+'-' + (abonosOrdCLPpdf / utmHoy).toFixed(4) + ' UTM',
 ''
 ]);
 }
@@ -1602,12 +1608,17 @@ function buildResumenContent() {
     { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#334155', valColor: '#0284c7', bold: false },
     { label: 'SUBTOTAL BRUTO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
   ];
-  if (totalAbonosCLP > 0) {
+  // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
+  const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
+  const abonosOrdCLPmodal = abonos.reduce((s,a) => s + a.amount, 0);
+  if (intImputado > 0) {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
-    resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -capImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
-  if (lavTotalUTM_h > 0) {
-    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -(lavTotalUTM_h * utmHoy), labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+  if (lavTotalCLPmodal > 0) {
+    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+  }
+  if (abonosOrdCLPmodal > 0) {
+    resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -abonosOrdCLPmodal, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
@@ -1964,12 +1975,16 @@ async function exportarExcel() {
     { label:'Total intereses generados',         val:totalIntPesos, bold:false },
     { label:'SUBTOTAL BRUTO',                    val:totalCapPesos+totalIntPesos, bold:true, sep:true },
   ];
-  if (totalAbonosCLP > 0) {
+  const lavTotalCLPexcel = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
+  const abonosOrdCLPexcel = abonos.reduce((s,a) => s + a.amount, 0);
+  if (intImputado > 0) {
     conceptos.push({ label:'(-) Abonos a intereses (Art. 1595 CC)', val:-intImputado, bold:false, desc:true });
-    conceptos.push({ label:'(-) Abonos a capital (Art. 1595 CC)',   val:-capImputado, bold:false, desc:true });
   }
-  if (lavTotalUTM_x > 0) {
-    conceptos.push({ label:`(-) Abonos LAV (depósitos cuenta vista) — ${lavTotalUTM_x.toFixed(5)} UTM hist.`, val:-(lavTotalUTM_x * utmHoy), bold:false, desc:true });
+  if (lavTotalCLPexcel > 0) {
+    conceptos.push({ label:`(-) Abonos LAV (depósitos cuenta vista) — ${lavTotalUTM_x.toFixed(5)} UTM hist.`, val:-lavTotalCLPexcel, bold:false, desc:true });
+  }
+  if (abonosOrdCLPexcel > 0) {
+    conceptos.push({ label:'(-) Abonos a capital (Art. 1595 CC)', val:-abonosOrdCLPexcel, bold:false, desc:true });
   }
   conceptos.forEach((c, i) => {
     const bg = c.sep ? COLORS.azulClaro : i%2===0 ? COLORS.azulFila : COLORS.blanco;

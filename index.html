@@ -3917,7 +3917,12 @@ const totalInt = resPensiones.intereses + resHistorical.intereses;
 const totalCapUTM = (resPensiones.capitalUTM || 0) + (resHistorical.capitalUTM || 0);
 lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // --- Imputación Art. 1595 CC: abonos cronológicos, primero intereses luego capital ---
-const imputacion = imputarAbonosArt1595(lastCalculationData, abonos);
+// FIX: Los abonos LAV se fusionan con los abonos ordinarios para que
+// imputarAbonosArt1595 los procese cronológicamente mes a mes,
+// replicando la metodología del tribunal (SITFA/PJUD): cada depósito LAV
+// cubre la cuota de su período (cap e interés = 0 para meses cubiertos).
+const todosLosAbonos = [...(abonos || []), ...(abonosLav || [])];
+const imputacion = imputarAbonosArt1595(lastCalculationData, todosLosAbonos);
 lastImputacion = imputacion; // guardar para reutilizar en generarPDF sin recalcular
 const totalAbonosSum = imputacion.totalAbonado;
 // Actualizar lastCalculationData con los saldos post-imputación para que las tarjetas y el modal reflejen el descuento
@@ -3983,18 +3988,23 @@ document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
+// FIX: Los LAV ya están imputados dentro de imputarAbonosArt1595 (junto con abonos normales).
+// totalAbonosSum = totalAbonado de la función = incluye LAV + abonos ordinarios.
+// lavTotalUTM se usa solo para el label informativo — NO se resta del total de nuevo.
 const abonoRow = document.getElementById('abonoResultRow');
+const lavTotalCLP = lavTotalUTM > 0 ? (abonosLav || []).reduce((s,p) => s + p.amount, 0) : 0;
+const abonosOrdinariosSum = abonos.reduce((s,a) => s + a.amount, 0);
 if (totalAbonosSum > 0 || lavTotalUTM > 0) {
 abonoRow.classList.remove('hidden');
 const intImputado = imputacion.interesesPagados;
 const capImputado  = imputacion.capitalPagado;
 let abonoLabel = '';
-if (lavTotalUTM > 0 && totalAbonosSum > 0) {
-  abonoLabel = `-${format(lavTotalUTM * utmHoy)} LAV · -${format(totalAbonosSum)} abonos`;
+if (lavTotalUTM > 0 && abonosOrdinariosSum > 0) {
+  abonoLabel = `-${format(lavTotalCLP)} LAV · -${format(abonosOrdinariosSum)} abonos`;
 } else if (lavTotalUTM > 0) {
-  abonoLabel = `-${format(lavTotalUTM * utmHoy)} (${lavTotalUTM.toFixed(5)} UTM)`;
+  abonoLabel = `-${format(lavTotalCLP)} LAV (${lavTotalUTM.toFixed(5)} UTM)`;
 } else {
-  abonoLabel = `-${format(totalAbonosSum)}`;
+  abonoLabel = `-${format(abonosOrdinariosSum)}`;
   if (intImputado > 0 && capImputado > 0) {
     abonoLabel += ` (int: ${format(intImputado)} · cap: ${format(capImputado)})`;
   } else if (intImputado > 0) {
@@ -4004,7 +4014,6 @@ if (lavTotalUTM > 0 && totalAbonosSum > 0) {
   }
 }
 document.getElementById('totalAbonoDisplay').innerText = abonoLabel;
-// Ocultar el aviso estático (ya no aplica — el cálculo es correcto)
 } else {
 abonoRow.classList.add('hidden');
 }
