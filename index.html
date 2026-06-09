@@ -148,22 +148,20 @@
 
  <link rel="stylesheet" href="styles.css">
 <style>
+/* ── Collapsible: grid-template-rows GPU-friendly ───────────────────────────
+   .collapsible-inner es el hijo directo sin padding — permite colapso a 0.
+   ────────────────────────────────────────────────────────────────────────── */
 .collapsible-body {
   display: grid !important;
   grid-template-rows: 1fr !important;
+  transition: grid-template-rows 0.2s cubic-bezier(.4,0,.2,1) !important;
   overflow: hidden !important;
-  opacity: 1 !important;
-  will-change: grid-template-rows, opacity !important;
-  transition: grid-template-rows 0.2s cubic-bezier(.4,0,.2,1),
-              opacity 0.15s ease !important;
   max-height: none !important;
-  contain: layout style !important;
 }
 .collapsible-body.is-collapsed {
   grid-template-rows: 0fr !important;
-  opacity: 0 !important;
 }
-.collapsible-body > * {
+.collapsible-inner {
   min-height: 0;
   overflow: hidden;
 }
@@ -173,13 +171,11 @@
 .collapse-chevron.is-collapsed {
   transform: rotate(-90deg) !important;
 }
-#fechaLiquidacion,
-.input-number,
-.input-currency,
-.input-date {
-  will-change: auto;
+/* Promover inputs a capa composite para evitar repaint en toggles */
+#fechaLiquidacion, .input-number, .input-currency, .input-date {
   transform: translateZ(0);
 }
+/* setOcrTab: tab inactivo visible sobre fondo blanco */
 </style>
 </head>
 <body style="background:#f5f6f8;">
@@ -1063,7 +1059,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
       <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
-  <div id="lavBody" class="collapsible-body">
+  <div id="lavBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="dh-body space-y-3" style="padding:12px 14px">
     <div class="grid grid-cols-2 gap-2">
       <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
@@ -1084,21 +1080,21 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     </button>
     <div id="lavListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
   </div>
-  </div>
+  </div></div><!-- /collapsible-inner -->
 </div><!-- /dh-card lav -->
 
 <!-- ── MODAL: OCR LAV ────────────────────────────────────── -->
 <div id="ocrLavModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="display:none;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-  <div class="card-modal card-modal--sm" style="max-width:480px;width:100%;border-radius:0 !important;">
+  <div class="card-modal card-modal--sm" style="max-width:480px;width:100%;border-radius:20px !important;background:#ffffff;box-shadow:0 24px 64px rgba(0,0,0,0.18);padding:20px;">
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <div style="width:28px;height:28px;border-radius:9px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.22);display:flex;align-items:center;justify-content:center;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
-        <p class="text-sm font-black text-white">Importar Depósitos LAV</p>
+        <p class="text-sm font-black" style="color:#1e293b;">Importar Depósitos LAV</p>
       </div>
-      <button onclick="closeOcrLav()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
+      <button onclick="closeOcrLav()" class="p-1 rounded-lg transition-colors" style="color:#94a3b8;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -1109,9 +1105,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">Liquidación PJUD</button>
       <button id="ocrTabCartola" onclick="setOcrTab('cartola')"
         class="flex-1 rounded-xl py-1.5 text-[9px] font-black transition-all"
-        style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">Cartola Bancaria</button>
+        style="background:rgba(0,0,0,0.04);color:#64748b;border:1px solid rgba(0,0,0,0.08);">Cartola Bancaria</button>
     </div>
-    <p id="ocrInstruccion" class="text-[9px] text-slate-400 mb-3">Sube el PDF o imagen de la liquidación. La app extraerá los depósitos LAV de la sección V.</p>
+    <p id="ocrInstruccion" class="text-[9px] mb-3" style="color:#64748b;">Sube el PDF o imagen de la liquidación. La app extraerá los depósitos LAV de la sección V.</p>
     <!-- Step: Upload -->
     <div id="ocrStepUpload">
       <div id="ocrDropZone"
@@ -1123,11 +1119,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         style="background:rgba(16,185,129,0.04);border:1.5px dashed rgba(16,185,129,0.3);padding:24px 16px;">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <p class="text-[10px] font-black text-[#10b981]">Arrastra o toca para subir</p>
-        <p class="text-[8px] text-slate-500">PDF, JPG o PNG · máx 10 MB</p>
+        <p class="text-[8px]" style="color:#94a3b8;">PDF, JPG o PNG · máx 10 MB</p>
       </div>
       <input type="file" id="ocrFileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
         onchange="handleOcrFile(this.files[0])">
-      <p id="ocrFileName" class="hidden text-[9px] text-slate-400 mt-2 text-center"></p>
+      <p id="ocrFileName" class="hidden text-[9px] mt-2 text-center" style="color:#64748b;"></p>
       <button id="btnOcrAnalizar" onclick="runOcrAnalysis()" disabled
         class="btn-base btn-full mt-3 text-[10px] font-black transition-all"
         style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
@@ -1146,14 +1142,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     </div>
     <!-- Step: Preview -->
     <div id="ocrStepPreview" class="hidden space-y-2">
-      <p class="text-[9px] font-black text-[#10b981]">Encontrados: <span id="ocrPreviewCount"></span></p>
+      <div class="flex items-center justify-between mb-1">
+        <p style="font-size:10px;font-weight:700;color:#1e293b;">Movimientos detectados</p>
+        <span id="ocrPreviewCount" style="background:rgba(16,185,129,0.12);color:#059669;border:1px solid rgba(16,185,129,0.25);font-size:8px;font-weight:800;padding:2px 10px;border-radius:20px;"></span>
+      </div>
       <div id="ocrPreviewList" class="space-y-1 overflow-y-auto no-scrollbar" style="max-height:55vh;"></div>
       <div class="grid grid-cols-2 gap-2 pt-1">
-        <button onclick="ocrReset()" class="btn-base btn-secondary text-[10px]">Cancelar</button>
+        <button onclick="ocrReset()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:12px;padding:10px;font-size:10px;font-weight:700;letter-spacing:0.04em;cursor:pointer;width:100%;">CANCELAR</button>
         <button onclick="ocrConfirmar()"
-          class="btn-base text-[10px] font-black"
-          style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
-          Confirmar e importar
+          style="background:#10b981;color:#ffffff;border:1px solid #059669;border-radius:12px;padding:10px;font-size:10px;font-weight:800;letter-spacing:0.04em;cursor:pointer;width:100%;">
+          ✓ AGREGAR TODOS
         </button>
       </div>
     </div>
@@ -1303,7 +1301,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   </div>
 
   <!-- ── Cuerpo del módulo ─────────────────────────────────────── -->
-  <div id="dhCardBody" class="collapsible-body">
+  <div id="dhCardBody" class="collapsible-body"><div class="collapsible-inner">
 
   <div class="dh-body">
 
@@ -1551,7 +1549,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     </div><!-- /panelModoConsolidada -->
 
   </div><!-- /dh-body -->
-  </div><!-- /dhCardBody collapsible -->
+  </div></div><!-- /collapsible-inner --><!-- /dhCardBody collapsible -->
 </div><!-- /dh-card -->
  <div class="dh-card" style="--dh-border:rgba(59,130,246,0.25);--dh-bg:rgba(59,130,246,0.05);--dh-text:#60a5fa;">
   <div class="dh-card__header" onclick="toggleSection('abonosBody','abonosChevron')" style="cursor:pointer">
@@ -1566,7 +1564,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
       <svg id="abonosChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
   </div>
-  <div id="abonosBody" class="collapsible-body">
+  <div id="abonosBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="dh-body space-y-3" style="padding:12px 14px">
  <div class="grid grid-cols-2 gap-2">
  <input type="text" id="tempAbonoClp" placeholder="0.00" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnAbono()" class="input-currency">
@@ -1580,7 +1578,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div>
  <div id="abonosListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
   </div><!-- /abonosBody inner -->
-  </div><!-- /abonosBody -->
+  </div></div><!-- /collapsible-inner --><!-- /abonosBody -->
  </div><!-- /dh-card abonos -->
  <div class="dh-card" style="--dh-border:rgba(168,85,247,0.25);--dh-bg:rgba(168,85,247,0.05);--dh-text:#c084fc;">
  <div class="dh-card__header" onclick="toggleSection('parcialesBody','parcialesChevron')" style="cursor:pointer">
@@ -1595,7 +1593,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
    <svg id="parcialesChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
    </div>
  </div>
- <div id="parcialesBody" class="collapsible-body">
+ <div id="parcialesBody" class="collapsible-body"><div class="collapsible-inner">
  <div class="dh-body space-y-3" style="padding:12px 14px">
  <div class="space-y-2">
  <div class="grid grid-cols-2 gap-2">
@@ -1622,7 +1620,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div>
  <div id="parcialesListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
  </div><!-- /parcialesBody inner -->
- </div><!-- /parcialesBody -->
+ </div></div><!-- /collapsible-inner --><!-- /parcialesBody -->
  </div><!-- /dh-card parciales -->
  <div class="card-base space-y-3">
  <div class="flex justify-between items-center">
