@@ -148,34 +148,43 @@
 
  <link rel="stylesheet" href="styles.css">
 <style>
-/* ── Performance fix: collapsible-body ─────────────────────────────────────
-   Reemplaza la animación max-height (costosa, fuerza reflow en cada frame)
-   por grid-template-rows (GPU-friendly, solo composite layer).
-   Override sobre styles.css — no toca ninguna lógica JS ni IDs.
+/* ── Collapsible: grid-template-rows (único método que evita reflow completo)
+   transform+opacity puro no funciona sin JS adicional porque el elemento
+   colapsado debe ocupar 0 altura real. La combinación grid + opacity es
+   el mejor compromiso disponible sin cambiar el JS.
+   contain:layout style limita el reflow al subárbol del collapsible.
    ────────────────────────────────────────────────────────────────────────── */
 .collapsible-body {
   display: grid !important;
   grid-template-rows: 1fr !important;
   overflow: hidden !important;
-  transition: grid-template-rows 0.22s ease !important;
-  /* Cancelar cualquier max-height/height transition heredada */
+  opacity: 1 !important;
+  transition: grid-template-rows 0.2s cubic-bezier(.4,0,.2,1),
+              opacity 0.15s ease !important;
   max-height: none !important;
+  contain: layout style !important;
 }
 .collapsible-body.is-collapsed {
   grid-template-rows: 0fr !important;
+  opacity: 0 !important;
 }
 .collapsible-body > * {
   min-height: 0;
   overflow: hidden;
 }
-/* Chevron: usar transform (GPU) en vez de cualquier propiedad de layout */
+/* Aislar el repaint del dh-card durante la animación del hijo */
+.dh-card {
+  isolation: isolate;
+  contain: layout style paint;
+}
+/* Chevron */
 .collapse-chevron {
-  transition: transform 0.22s ease !important;
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1) !important;
 }
 .collapse-chevron.is-collapsed {
   transform: rotate(-90deg) !important;
 }
-/* Reducir repaint en inputs: promover a su propia capa composite */
+/* Inputs: capa propia para evitar repaint en scroll/focus */
 #fechaLiquidacion,
 .input-number,
 .input-currency,

@@ -1041,7 +1041,7 @@
     overflow: hidden;
     box-shadow:
       0 1px 3px rgba(0,0,0,0.05),
-      0 8px 32px rgba(0,0,0,0.06),
+      0 4px 12px rgba(0,0,0,0.06),
       0 0 0 1px rgba(37,99,235,0.05) inset;
   }
 
@@ -1126,6 +1126,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    isolation: isolate;
   }
   .hero-stat-row {
     flex: 1;
@@ -1135,7 +1136,16 @@
     padding: 10px 10px;
   }
   .hero-stat-row + .hero-stat-row {
-    border-top: 1px solid rgba(0,0,0,0.07);
+    position: relative;
+  }
+  .hero-stat-row + .hero-stat-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 8px;
+    right: 8px;
+    height: 1px;
+    background: rgba(0,0,0,0.07);
   }
   .hero-stat-icon {
     width: 30px;
@@ -2764,8 +2774,8 @@
   .dh-detail-toggle-btn:active{transform:scale(0.98);}
   .dh-chevron{width:14px;height:14px;transition:transform var(--transition-slow);flex-shrink:0;}
   .dh-chevron.is-open{transform:rotate(180deg);}
-  .dh-detail-panel{max-height:0;overflow:hidden;opacity:0;transition:max-height 0.38s cubic-bezier(.4,0,.2,1),opacity 0.28s ease;}
-  .dh-detail-panel.is-open{max-height:520px;opacity:1;}
+  .dh-detail-panel{overflow:hidden;opacity:0;transform:translateY(-6px) scaleY(0.96);transform-origin:top center;transition:transform 0.22s cubic-bezier(.4,0,.2,1),opacity 0.18s ease;pointer-events:none;}
+  .dh-detail-panel.is-open{opacity:1;transform:translateY(0) scaleY(1);pointer-events:auto;}
   .dh-breakdown-table{border:1px solid rgba(37,99,235,0.16);border-radius:var(--radius-md);overflow:hidden;margin-top:10px;}
   .dh-breakdown-row{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid rgba(0,0,0,0.05);transition:background var(--transition-fast);}
   .dh-breakdown-row:last-child{border-bottom:none;}
@@ -2960,6 +2970,7 @@
     opacity: 1;
     transition: grid-template-rows 0.18s cubic-bezier(.4,0,.2,1), opacity 0.15s ease;
     will-change: grid-template-rows;
+    contain: layout style;
   }
   .collapsible-body > * {
     overflow: hidden;
