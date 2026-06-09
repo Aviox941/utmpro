@@ -2261,7 +2261,7 @@ function setOcrTab(tab) {
   const btnPjud    = document.getElementById('ocrTabPjud');
   const btnCartola = document.getElementById('ocrTabCartola');
   const activeStyle  = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);';
-  const inactiveStyle = 'background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);';
+  const inactiveStyle = 'background:rgba(0,0,0,0.04);color:#64748b;border:1px solid rgba(0,0,0,0.08);';
   btnPjud.style.cssText    = isPjud  ? activeStyle : inactiveStyle;
   btnCartola.style.cssText = !isPjud ? activeStyle : inactiveStyle;
   document.getElementById('ocrInstruccion').textContent = isPjud
