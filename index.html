@@ -148,17 +148,12 @@
 
  <link rel="stylesheet" href="styles.css">
 <style>
-/* ── Collapsible: grid-template-rows (único método que evita reflow completo)
-   transform+opacity puro no funciona sin JS adicional porque el elemento
-   colapsado debe ocupar 0 altura real. La combinación grid + opacity es
-   el mejor compromiso disponible sin cambiar el JS.
-   contain:layout style limita el reflow al subárbol del collapsible.
-   ────────────────────────────────────────────────────────────────────────── */
 .collapsible-body {
   display: grid !important;
   grid-template-rows: 1fr !important;
   overflow: hidden !important;
   opacity: 1 !important;
+  will-change: grid-template-rows, opacity !important;
   transition: grid-template-rows 0.2s cubic-bezier(.4,0,.2,1),
               opacity 0.15s ease !important;
   max-height: none !important;
@@ -172,19 +167,12 @@
   min-height: 0;
   overflow: hidden;
 }
-/* Aislar el repaint del dh-card durante la animación del hijo */
-.dh-card {
-  isolation: isolate;
-  contain: layout style paint;
-}
-/* Chevron */
 .collapse-chevron {
   transition: transform 0.2s cubic-bezier(.4,0,.2,1) !important;
 }
 .collapse-chevron.is-collapsed {
   transform: rotate(-90deg) !important;
 }
-/* Inputs: capa propia para evitar repaint en scroll/focus */
 #fechaLiquidacion,
 .input-number,
 .input-currency,
