@@ -1039,75 +1039,103 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 </div><!-- /dh-card lav -->
 
 <!-- ── MODAL: OCR LAV ────────────────────────────────────── -->
-<div id="ocrLavModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="display:none;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-  <div class="card-modal card-modal--sm" style="max-width:480px;width:100%;border-radius:0 !important;">
+<div id="ocrLavModal" class="fixed inset-0 z-[400] hidden items-center justify-center p-4"
+  style="display:none;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(15,23,42,0.45);backdrop-filter:blur(6px);">
+  <div style="max-width:480px;width:100%;background:#ffffff;border-radius:18px;border:1px solid rgba(0,0,0,0.08);box-shadow:0 8px 40px rgba(0,0,0,0.12);padding:20px 18px;">
+
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex items-center gap-2">
-        <div style="width:28px;height:28px;border-radius:9px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.22);display:flex;align-items:center;justify-content:center;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
-        <p class="text-sm font-black text-white">Importar Depósitos LAV</p>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#0f172a;line-height:1.2;">Importar depósitos LAV</p>
+          <p style="font-size:10px;font-weight:500;color:#64748b;line-height:1.2;">Liquidación PJUD o cartola bancaria</p>
+        </div>
       </div>
-      <button onclick="closeOcrLav()" class="text-slate-500 hover:text-white p-1 rounded-lg transition-colors">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button onclick="closeOcrLav()"
+        style="width:28px;height:28px;border-radius:50%;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;flex-shrink:0;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
+
     <!-- Tabs -->
-    <div class="flex gap-2 mb-3">
+    <div style="display:flex;gap:6px;margin-bottom:12px;background:#f1f5f9;border-radius:12px;padding:3px;">
       <button id="ocrTabPjud" onclick="setOcrTab('pjud')"
-        class="flex-1 rounded-xl py-1.5 text-[9px] font-black transition-all"
-        style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">Liquidación PJUD</button>
+        style="flex:1;border-radius:10px;padding:7px 0;font-size:10px;font-weight:700;transition:all 0.15s;background:#ffffff;color:#059669;border:1px solid #d1fae5;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+        Liquidación PJUD
+      </button>
       <button id="ocrTabCartola" onclick="setOcrTab('cartola')"
-        class="flex-1 rounded-xl py-1.5 text-[9px] font-black transition-all"
-        style="background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);">Cartola Bancaria</button>
+        style="flex:1;border-radius:10px;padding:7px 0;font-size:10px;font-weight:700;transition:all 0.15s;background:transparent;color:#94a3b8;border:1px solid transparent;">
+        Cartola Bancaria
+      </button>
     </div>
-    <p id="ocrInstruccion" class="text-[9px] text-slate-400 mb-3">Sube el PDF o imagen de la liquidación. La app extraerá los depósitos LAV de la sección V.</p>
+
+    <p id="ocrInstruccion" style="font-size:10px;color:#94a3b8;margin-bottom:12px;line-height:1.5;">
+      Sube el PDF o imagen de la liquidación. La app extraerá los depósitos LAV de la sección V.
+    </p>
+
     <!-- Step: Upload -->
     <div id="ocrStepUpload">
       <div id="ocrDropZone"
-        ondragover="event.preventDefault(); this.style.background='rgba(16,185,129,0.08)'"
-        ondragleave="this.style.background='rgba(16,185,129,0.04)'"
+        ondragover="event.preventDefault();this.style.background='#f0fdf4';this.style.borderColor='#059669';"
+        ondragleave="this.style.background='#fafffe';this.style.borderColor='#bbf7d0';"
         ondrop="handleOcrDrop(event)"
         onclick="document.getElementById('ocrFileInput').click()"
-        class="rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
-        style="background:rgba(16,185,129,0.04);border:1.5px dashed rgba(16,185,129,0.3);padding:24px 16px;">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <p class="text-[10px] font-black text-[#10b981]">Arrastra o toca para subir</p>
-        <p class="text-[8px] text-slate-500">PDF, JPG o PNG · máx 10 MB</p>
+        style="border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:all 0.15s;background:#fafffe;border:1.5px dashed #bbf7d0;padding:28px 16px;">
+        <div style="width:40px;height:40px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;display:flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <p style="font-size:11px;font-weight:700;color:#059669;">Arrastra o toca para subir</p>
+        <p style="font-size:9px;color:#94a3b8;">PDF, JPG o PNG · máx 10 MB</p>
       </div>
       <input type="file" id="ocrFileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
         onchange="handleOcrFile(this.files[0])">
-      <p id="ocrFileName" class="hidden text-[9px] text-slate-400 mt-2 text-center"></p>
+      <p id="ocrFileName" class="hidden" style="font-size:9px;color:#64748b;margin-top:8px;text-align:center;"></p>
       <button id="btnOcrAnalizar" onclick="runOcrAnalysis()" disabled
-        class="btn-base btn-full mt-3 text-[10px] font-black transition-all"
-        style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
-        Analizar documento
+        style="width:100%;margin-top:12px;padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#e2e8f0;color:#94a3b8;border:none;cursor:not-allowed;transition:all 0.2s;letter-spacing:0.03em;">
+        ANALIZAR DOCUMENTO
       </button>
     </div>
+
     <!-- Step: Loading -->
-    <div id="ocrStepLoading" class="hidden flex flex-col items-center gap-3 py-6">
-      <div class="w-8 h-8 rounded-full border-2 border-[#10b981] border-t-transparent animate-spin"></div>
-      <p class="text-[10px] font-black text-[#10b981]">Analizando documento…</p>
+    <div id="ocrStepLoading" class="hidden" style="display:none;flex-direction:column;align-items:center;gap:12px;padding:32px 0;">
+      <div style="width:36px;height:36px;border-radius:50%;border:2.5px solid #059669;border-top-color:transparent;" class="animate-spin"></div>
+      <p style="font-size:11px;font-weight:700;color:#059669;">Analizando documento…</p>
     </div>
+
     <!-- Step: Error -->
-    <div id="ocrStepError" class="hidden">
-      <p id="ocrErrorMsg" class="text-[10px] text-red-400 font-black text-center py-4"></p>
-      <button onclick="ocrReset()" class="btn-base btn-secondary btn-full text-[10px]">Intentar de nuevo</button>
+    <div id="ocrStepError" class="hidden" style="display:none;">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+        <p id="ocrErrorMsg" style="font-size:10px;font-weight:700;color:#dc2626;text-align:center;"></p>
+      </div>
+      <button onclick="ocrReset()"
+        style="width:100%;padding:10px 0;border-radius:12px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;cursor:pointer;">
+        Intentar de nuevo
+      </button>
     </div>
+
     <!-- Step: Preview -->
-    <div id="ocrStepPreview" class="hidden space-y-2">
-      <p class="text-[9px] font-black text-[#10b981]">Encontrados: <span id="ocrPreviewCount"></span></p>
-      <div id="ocrPreviewList" class="space-y-1 overflow-y-auto no-scrollbar" style="max-height:55vh;"></div>
-      <div class="grid grid-cols-2 gap-2 pt-1">
-        <button onclick="ocrReset()" class="btn-base btn-secondary text-[10px]">Cancelar</button>
+    <div id="ocrStepPreview" class="hidden space-y-2" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <p style="font-size:11px;font-weight:700;color:#0f172a;">Movimientos detectados</p>
+        <span id="ocrPreviewCount"
+          style="font-size:10px;font-weight:700;background:#f0fdf4;color:#059669;border:1px solid #bbf7d0;border-radius:20px;padding:3px 10px;"></span>
+      </div>
+      <div id="ocrPreviewList" class="no-scrollbar" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:52vh;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:12px;">
+        <button onclick="ocrReset()"
+          style="padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;cursor:pointer;">
+          Cancelar
+        </button>
         <button onclick="ocrConfirmar()"
-          class="btn-base text-[10px] font-black"
-          style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">
-          Confirmar e importar
+          style="padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#059669;color:#ffffff;border:none;cursor:pointer;">
+          ✓ Agregar todos
         </button>
       </div>
     </div>
+
   </div>
 </div>
 

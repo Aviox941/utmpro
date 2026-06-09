@@ -1505,8 +1505,13 @@ function buildResumenContent() {
       const capMostrado = d.esLav ? 0 : cap0;
       const capUTM = d.esLav ? '0.00' : ((d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—');
       const lavTag = d.esLav ? `<span style="color:#10b981;font-size:7.5px;font-weight:900"> ✓LAV</span>` : '';
+      const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
+      // Sub-chip de remanente para cuotas con pago parcial
+      const remChip = d.hayParcialConRemanente && d.capOriginal > 0
+        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">Rem: ${fmt(d.cap)} de ${fmt(d.capOriginal)}</div>`
+        : '';
       row.innerHTML = `
-        <span class="truncate" style="color:#1e293b">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}</span>
+        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}</span>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
         <span style="color:${d.esLav?'#10b981':'#334155'}">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
@@ -1593,12 +1598,33 @@ function buildResumenContent() {
       }
     });
     agrupados.forEach((p, i) => {
+      // Buscar cuota correspondiente para mostrar remanente
+      const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodo && d.hayParcialConRemanente) : null;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
       row.innerHTML = `<span style="color:#475569">${p.periodoLabel}</span><span class="font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
       wrapP.appendChild(row);
+      // Sub-fila remanente
+      if (cuotaRef) {
+        const remRow = document.createElement('div');
+        remRow.className = 'flex justify-between items-center px-3 py-1.5 text-[9px] font-bold';
+        remRow.style.cssText = `background:rgba(168,85,247,0.06);border-top:1px dashed rgba(168,85,247,0.25)`;
+        const remUTM = cuotaRef.utmVal > 0 ? (cuotaRef.cap / cuotaRef.utmVal).toFixed(4) + ' UTM' : '';
+        remRow.innerHTML = `
+          <span style="color:#a855f7">↳ Remanente (saldo impago)</span>
+          <span style="color:#a855f7">${remUTM}</span>
+          <span class="font-black" style="color:#a855f7">${fmt(cuotaRef.cap)}</span>`;
+        wrapP.appendChild(remRow);
+      }
     });
+    // Nota al pie si hay remanentes
+    if (lastCalculationData && lastCalculationData.some(d => d.hayParcialConRemanente)) {
+      const nota = document.createElement('div');
+      nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:rgba(168,85,247,0.05);border-top:1px solid rgba(168,85,247,0.15)';
+      nota.textContent = '* El interés se calcula sobre el remanente, no sobre la cuota completa (metodología SITFA/PJUD).';
+      wrapP.appendChild(nota);
+    }
     container.appendChild(wrapP);
   }
 
@@ -2234,8 +2260,8 @@ function setOcrTab(tab) {
   const isPjud = tab === 'pjud';
   const btnPjud    = document.getElementById('ocrTabPjud');
   const btnCartola = document.getElementById('ocrTabCartola');
-  const activeStyle  = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);';
-  const inactiveStyle = 'background:rgba(255,255,255,0.04);color:#64748b;border:1px solid rgba(255,255,255,0.08);';
+  const activeStyle  = 'background:#ffffff;color:#059669;border:1px solid #d1fae5;box-shadow:0 1px 4px rgba(0,0,0,0.07);';
+  const inactiveStyle = 'background:transparent;color:#94a3b8;border:1px solid transparent;box-shadow:none;';
   btnPjud.style.cssText    = isPjud  ? activeStyle : inactiveStyle;
   btnCartola.style.cssText = !isPjud ? activeStyle : inactiveStyle;
   document.getElementById('ocrInstruccion').textContent = isPjud
@@ -2245,7 +2271,7 @@ function setOcrTab(tab) {
 
 function handleOcrDrop(e) {
   e.preventDefault();
-  document.getElementById('ocrDropZone').style.background = 'rgba(16,185,129,0.04)';
+  document.getElementById('ocrDropZone').style.background = '#fafffe';
   const file = e.dataTransfer.files[0];
   if (file) handleOcrFile(file);
 }
@@ -2268,12 +2294,12 @@ function handleOcrFile(file) {
   // FIX Bug2: deshabilitar botón hasta que FileReader.onload termine (era race condition)
   const btn = document.getElementById('btnOcrAnalizar');
   btn.disabled = true;
-  btn.style.cssText = 'background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);';
+  btn.style.cssText = 'width:100%;margin-top:12px;padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#e2e8f0;color:#94a3b8;border:none;cursor:not-allowed;letter-spacing:0.03em;';
   const reader = new FileReader();
   reader.onload = e => {
     _ocrBase64 = e.target.result.split(',')[1];
     btn.disabled = false;
-    btn.style.cssText = 'background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);';
+    btn.style.cssText = 'width:100%;margin-top:12px;padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#059669;color:#ffffff;border:none;cursor:pointer;letter-spacing:0.03em;';
   };
   reader.onerror = () => {
     dbg('OCR FileReader error');
@@ -2295,7 +2321,7 @@ function ocrReset() {
   document.getElementById('ocrFileName').classList.add('hidden');
   const btn = document.getElementById('btnOcrAnalizar');
   btn.disabled = true;
-  btn.style.cssText = 'background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);';
+  btn.style.cssText = 'width:100%;margin-top:12px;padding:11px 0;border-radius:12px;font-size:11px;font-weight:700;background:#e2e8f0;color:#94a3b8;border:none;cursor:not-allowed;letter-spacing:0.03em;';
   _ocrShowStep('ocrStepUpload');
 }
 
@@ -2474,15 +2500,15 @@ function _ocrRenderPreview(items) {
       montoStr = '—'; utmStr = '—';
     }
     const seccionBadge = item.seccion === 'otros_abonos'
-      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otro abono</span>'
+      ? '<span style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:8px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;white-space:nowrap;">Otro abono</span>'
       : '';
-    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
-      <div class="min-w-0 flex-1 mr-2">
-        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}</p>
-        <p class="text-[8px] text-slate-400 truncate">${item.descripcion || ''} · ${utmStr}</p>
+    return `<div style="display:flex;align-items:center;justify-content:space-between;border-radius:12px;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;">
+      <div style="min-width:0;flex:1;margin-right:10px;">
+        <p style="font-size:11px;font-weight:700;color:#0f172a;display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:0 0 2px;">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}</p>
+        <p style="font-size:9px;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">${item.descripcion || ''} · ${utmStr}</p>
       </div>
-      <button onclick="_ocrRemoveItem(${i})" class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors" style="background:rgba(255,255,255,0.05);">
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button onclick="_ocrRemoveItem(${i})" style="flex-shrink:0;width:22px;height:22px;border-radius:50%;border:1px solid #e2e8f0;background:#ffffff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>`;
   }).join('');
