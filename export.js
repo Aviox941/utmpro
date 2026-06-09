@@ -635,20 +635,88 @@ renderCasosList();
 closeSidebar();
 }
 function updateActiveCasoBadge() {
+  // ── Compatibilidad: span fantasma usado por onAuthStateChange para el email ──
   const span = document.getElementById('activeCasoNombreHeader');
-  const centerSpan = document.getElementById('headerCasoNombre');
-  // Mostrar correo del usuario en el badge izquierdo
   if (span) {
     const email = (sbCurrentUser && sbCurrentUser.email) ? sbCurrentUser.email : 'Sin sesión';
     span.innerText = email;
   }
-  // Mostrar nombre del caso en el centro del header
+  // ── Centro del header: nombre del caso ──
+  const centerSpan = document.getElementById('headerCasoNombre');
   if (centerSpan) {
-    if (!activeCasoId) { centerSpan.innerText = ''; return; }
-    const casos = getCasosIndex();
-    const caso = casos.find(c => c.id === activeCasoId);
-    centerSpan.innerText = caso ? caso.nombre : '';
+    if (!activeCasoId) { centerSpan.innerText = ''; }
+    else {
+      const casos = getCasosIndex();
+      const caso = casos.find(c => c.id === activeCasoId);
+      centerSpan.innerText = caso ? caso.nombre : '';
+    }
   }
+  // ── Botón Unificado de Caso: actualizar estado visual ──
+  const dot   = document.getElementById('cmdCasoDot');
+  const label = document.getElementById('cmdCasoLabel');
+  const menuDraft  = document.getElementById('cmdMenuDraft');
+  const menuActive = document.getElementById('cmdMenuActive');
+  if (!dot || !label) return;
+  if (!activeCasoId) {
+    // Estado A: Borrador
+    dot.className   = 'cmd-caso-dot cmd-caso-dot--draft';
+    label.textContent = 'Borrador';
+    if (menuDraft)  menuDraft.classList.remove('hidden');
+    if (menuActive) menuActive.classList.add('hidden');
+  } else {
+    // Estado B: Caso activo
+    const casos = getCasosIndex();
+    const caso  = casos.find(c => c.id === activeCasoId);
+    const nombre = caso ? caso.nombre : 'Caso activo';
+    dot.className   = 'cmd-caso-dot cmd-caso-dot--active';
+    label.textContent = nombre.length > 22 ? nombre.slice(0, 20) + '\u2026' : nombre;
+    if (menuDraft)  menuDraft.classList.add('hidden');
+    if (menuActive) menuActive.classList.remove('hidden');
+  }
+}
+
+// ── Funciones del menú del Botón Unificado ──────────────────────────────────
+function toggleCmdCasoMenu(e) {
+  e.stopPropagation();
+  const menu    = document.getElementById('cmdCasoMenu');
+  const chevron = document.getElementById('cmdCasoChevron');
+  const isOpen  = !menu.classList.contains('hidden');
+  if (isOpen) {
+    menu.classList.add('hidden');
+    chevron.style.transform = '';
+  } else {
+    updateActiveCasoBadge();
+    menu.classList.remove('hidden');
+    chevron.style.transform = 'rotate(180deg)';
+    setTimeout(() => {
+      document.addEventListener('click', function _close(ev) {
+        if (!document.getElementById('cmdCasoWrapper')?.contains(ev.target)) {
+          menu.classList.add('hidden');
+          chevron.style.transform = '';
+          document.removeEventListener('click', _close);
+        }
+      });
+    }, 0);
+  }
+}
+function _closeCmdMenu() {
+  const menu    = document.getElementById('cmdCasoMenu');
+  const chevron = document.getElementById('cmdCasoChevron');
+  if (menu)    menu.classList.add('hidden');
+  if (chevron) chevron.style.transform = '';
+}
+function cmdGuardarNuevo()  { _closeCmdMenu(); showNewCasoModal(); }
+function cmdCargarCaso()    { _closeCmdMenu(); openSidebar(); }
+function cmdVerFicha()      { _closeCmdMenu(); if (activeCasoId) openFichaModal(activeCasoId); }
+function cmdCambiarCaso()   { _closeCmdMenu(); openSidebar(); }
+function cmdCerrarCaso() {
+  _closeCmdMenu();
+  if (!activeCasoId) return;
+  saveCurrentCasoNow();
+  activeCasoId = null;
+  resetAllSilent();
+  updateActiveCasoBadge();
+  renderCasosList();
 }
 // Guardar sincrónicamente el caso activo (sin debounce)
 function saveCurrentCasoNow() {

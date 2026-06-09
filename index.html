@@ -783,17 +783,63 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Fila principal de controles -->
   <div class="header-row-main">
 
-    <!-- Menú hamburguesa + correo del usuario fijos a la izquierda -->
+    <!-- Izquierda: Botón Unificado de Caso (Centro de Mando) + Hamburguesa -->
     <div class="flex items-center gap-2 flex-shrink-0">
-      <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Casos">
+
+      <!-- ── Botón Unificado de Caso ─────────────────────────────── -->
+      <div id="cmdCasoWrapper" style="position:relative;">
+        <button id="cmdCasoBtn" onclick="toggleCmdCasoMenu(event)" class="cmd-caso-btn" title="Gestión de caso">
+          <!-- Dot de estado -->
+          <span id="cmdCasoDot" class="cmd-caso-dot cmd-caso-dot--draft"></span>
+          <!-- Texto del estado -->
+          <span id="cmdCasoLabel" class="cmd-caso-label">Borrador</span>
+          <!-- Chevron -->
+          <svg id="cmdCasoChevron" class="cmd-caso-chevron" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+
+        <!-- ── Menú flotante contextual ────────────────────────── -->
+        <div id="cmdCasoMenu" class="cmd-caso-menu hidden">
+          <!-- ESTADO A: Borrador (sin caso activo) -->
+          <div id="cmdMenuDraft">
+            <p class="cmd-menu-section-label">Sin caso activo</p>
+            <button class="cmd-menu-item" onclick="cmdGuardarNuevo()">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              Guardar como caso nuevo
+            </button>
+            <button class="cmd-menu-item" onclick="cmdCargarCaso()">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+              Cargar caso existente
+            </button>
+          </div>
+          <!-- ESTADO B: Caso activo -->
+          <div id="cmdMenuActive" class="hidden">
+            <p class="cmd-menu-section-label">Caso activo</p>
+            <button class="cmd-menu-item" onclick="cmdVerFicha()">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              Ver detalles del caso
+            </button>
+            <button class="cmd-menu-item" onclick="cmdCambiarCaso()">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+              Cambiar de caso
+            </button>
+            <div class="cmd-menu-divider"></div>
+            <button class="cmd-menu-item cmd-menu-item--danger" onclick="cmdCerrarCaso()">
+              <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+              Cerrar caso actual
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Hamburguesa (funciones globales) ──────────────────── -->
+      <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Menú">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
-      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:flex;align-items:center;gap:5px;cursor:pointer;">
-        <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-        </svg>
-        <span id="activeCasoNombreHeader" class="text-[9px] font-black text-[#93c5fd] leading-none max-w-[120px] truncate">Sin sesión</span>
-      </div>
+
+      <!-- Span fantasma: mantiene compatibilidad con JS que lee activeCasoNombreHeader -->
+      <span id="activeCasoNombreHeader" style="display:none;"></span>
     </div>
 
     <!-- Botones de acción: VER, PDF, Reset -->
