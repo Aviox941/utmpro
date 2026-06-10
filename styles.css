@@ -1059,7 +1059,7 @@
   .hero-total-card {
     flex: 1;
     min-width: 0;
-    border-radius: 0 0 0 14px;
+    border-radius: 14px 6px 6px 14px;
     background: linear-gradient(140deg, #1e3a5f 0%, #1e4d8c 52%, #2563ae 100%);
     box-shadow: none;
     padding: 20px 14px 18px;
@@ -1121,7 +1121,7 @@
     width: 148px;
     flex-shrink: 0;
     background: #ffffff;
-    border-radius: 0 0 14px 0;
+    border-radius: 6px 14px 14px 6px;
     border: 1px solid rgba(0,0,0,0.07);
     box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.05);
     display: flex;
@@ -2819,7 +2819,7 @@
 
   /* ── Tarjeta hero izquierda (Total Adeudado) ─────────────────── */
   .hero-total-card {
-    padding: 28px 13px 26px !important;
+    padding: 32px 13px 30px !important;
     box-shadow: none !important;
   }
   .hero-total-card__label {
@@ -2847,7 +2847,7 @@
     width: 132px !important;
   }
   .hero-stat-row {
-    padding: 7px 9px !important;
+    padding: 18px 9px !important;
     gap: 7px !important;
   }
   .hero-stat-icon {
@@ -3005,7 +3005,7 @@
     #mainInputs   { gap: 10px !important; }
     #resultsCard  { gap: 10px !important; }
     .hero-total-card { padding: 20px 15px 18px !important; }
-    .hero-stat-row { padding: 9px 11px !important; }
+    .hero-stat-row { padding: 18px 11px !important; }
     .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
   }
 
