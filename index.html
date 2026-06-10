@@ -3047,7 +3047,29 @@ pagosParciales.forEach((p, i) => {
   const amountUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmValUsado);
   const amountUtmStr = amountUtm.toFixed(4);
   // Remanente o excedente: calcular sobre el TOTAL del mes, no el pago individual
-  const { cuotaMensualUTM } = getMonthlyValues();
+  // Obtener la cuota REAL del mes del pago (respeta períodos variables)
+  const { cuotaMensualUTM: cuotaGlobal, cuotaMensualCLP: cuotaGlobalCLP, modoEsPesos: modoGlobal } = getMonthlyValues();
+  let cuotaMensualUTM = cuotaGlobal;
+  {
+    // Parsear periodo del pago "YYYY-MM" para buscar override
+    const [pAnioStr, pMesStr] = (p.periodo || '').split('-');
+    const pAnio = parseInt(pAnioStr);
+    const pMesIdx = parseInt(pMesStr) - 1; // 0-based
+    if (!isNaN(pAnio) && !isNaN(pMesIdx)) {
+      const override = getPeriodoCuotaParaMes(pAnio, pMesIdx);
+      if (override) {
+        if (override.modoEsPesos) {
+          const utmMesP = p.utmVal || getUtmActualVal();
+          cuotaMensualUTM = override.cuotaCLP / utmMesP;
+        } else {
+          cuotaMensualUTM = override.cuotaUTM;
+        }
+      }
+      // Si este mes está cubierto por LAV, el remanente es 0
+      const esCubiertoLav = (typeof abonosLav !== 'undefined') && abonosLav.some(lav => lav.periodo === p.periodo);
+      if (esCubiertoLav) cuotaMensualUTM = 0;
+    }
+  }
   let remanenteHtml = '';
   if (cuotaMensualUTM > 0) {
     // Sumar todos los pagos del mismo período para calcular el estado real del mes
@@ -4029,6 +4051,11 @@ if (abonosLav && abonosLav.length > 0) {
     // la cuota entera, independientemente de si hay un pago parcial en ese mes.
     d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
     d.intOriginal      = d.intOriginal      ?? d.inte;
+    // Guardar remanente real del pago parcial ANTES de que LAV sobreescriba d.cap
+    // (usado por export.js para mostrar "Rem: X de Y" correctamente)
+    if (d.hayParcialConRemanente && d.capParcialRemanente === undefined) {
+      d.capParcialRemanente = d.cap; // remanente = cap ya reducido por pago parcial
+    }
     // El pool LAV consume contra la cuota BRUTA original (antes de pagos parciales).
     // Los pagos parciales y los LAV son flujos independientes: si ambos se aplican
     // sobre el mismo cap reducido, el pago parcial se descuenta dos veces.

@@ -1512,8 +1512,11 @@ function buildResumenContent() {
       const lavTag = d.esLav ? `<span style="color:#10b981;font-size:7.5px;font-weight:900"> ✓LAV</span>` : '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
       // Sub-chip de remanente para cuotas con pago parcial
+      // Usar capParcialRemanente si existe (cuando hay LAV, d.cap es post-LAV y ya no
+      // refleja el remanente del pago parcial — el valor correcto se guardó antes del LAV)
+      const _capRemDisplay = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
       const remChip = d.hayParcialConRemanente && d.capOriginal > 0
-        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">Rem: ${fmt(d.cap)} de ${fmt(d.capOriginal)}</div>`
+        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">Rem: ${fmt(_capRemDisplay)} de ${fmt(d.capOriginal)}</div>`
         : '';
       row.innerHTML = `
         <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}</span>
