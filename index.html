@@ -3,7 +3,7 @@
 <head>
  <meta charset="UTF-8">
  <meta name="app-version" content="2.0610.v17">
- <meta name="viewport" content="2.0610.v17">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="2.0610.v17">
@@ -193,17 +193,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
-    // 5 taps en cualquier lugar para abrir panel
-    var taps = 0, tapTimer;
-    document.addEventListener('pointerdown', function(e) {
-      taps++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(function(){ taps = 0; }, 1500);
-      if (taps >= 5) {
-        p.style.display = p.style.display === 'none' ? 'block' : 'none';
-        taps = 0;
-      }
-    });
+    // Panel controlado desde sidebar — ver toggleDebugPanel()
     // Log cada pointerdown con el elemento target
     document.addEventListener('pointerdown', function(e) {
       if (p.style.display !== 'block') return;
@@ -795,6 +785,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
  </div>
  <div class="flex-1 overflow-y-auto px-3 py-3 no-scrollbar" id="casosList"></div>
  <div class="px-4 pb-5 pt-3 border-t border-black/7 flex-shrink-0">
+  <!-- Botón Debug -->
+  <button onclick="toggleDebugPanel()" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:11px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.15);color:#3b82f6;font-size:10px;font-weight:800;cursor:pointer;margin-bottom:8px;transition:all 0.15s;" onmouseover="this.style.background='rgba(37,99,235,0.12)'" onmouseout="this.style.background='rgba(37,99,235,0.06)'">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    Consola de debug
+  </button>
   <!-- Usuario activo -->
   <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,0.03);margin-bottom:8px;">
     <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6b4faa,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -869,7 +864,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
     <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button ontouchend="toggleCasosDropdown(event)" onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
+      <button onpointerdown="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
@@ -4999,7 +4994,7 @@ hideLoadingBar();
 handleCalculationModeChange();
 initCollapsibles();
 // En desktop el sidebar es siempre visible — poblar lista aunque no haya caso activo aún
-if (isDesktop()) renderCasosList();
+if (window.innerWidth >= 1024) renderCasosList();
 // NO restaurar casos aquí — onAuthStateChange → sbLoadCasos() es la fuente de verdad.
 // Si Supabase confirma sesión activa, sbLoadCasos() carga y restaura todo.
 // Si no hay sesión, onAuthStateChange muestra el login.
@@ -5326,13 +5321,7 @@ function dbg(msg) {
     p.appendChild(statusBtn);
 
     document.body.appendChild(p);
-    let taps = 0, tapTimer;
-    document.querySelector('header')?.addEventListener('click', () => {
-      taps++;
-      clearTimeout(tapTimer);
-      tapTimer = setTimeout(() => { taps = 0; }, 1500);
-      if (taps >= 5) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; taps = 0; }
-    });
+    // Apertura controlada desde sidebar — ver toggleDebugPanel()
   }
   const line = document.createElement('div');
   line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
@@ -5340,6 +5329,18 @@ function dbg(msg) {
   if (msg.includes('✅')) line.style.color = '#4ade80';
   p.appendChild(line);
   p.scrollTop = p.scrollHeight;
+}
+
+// ── Abrir/cerrar panel de debug desde sidebar ──
+function toggleDebugPanel() {
+  const p = document.getElementById('_dbgPanel');
+  if (!p) { dbg('Panel listo'); return; }
+  const isOpen = p.style.display === 'block';
+  p.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    dbg('🛠 Panel de debug abierto');
+    closeSidebar();
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -6354,44 +6355,45 @@ new MutationObserver(function(mutations) {
   });
 }).observe(document.body, { attributes: true });
 
-var _casosDropdownLastToggle = 0;
+let _casosDropdownListener = null;
 function toggleCasosDropdown(e) {
-  if (e) { e.stopPropagation(); e.preventDefault(); }
-  var now = Date.now();
-  if (now - _casosDropdownLastToggle < 400) { dbg('DD: debounce skip'); return; }
-  _casosDropdownLastToggle = now;
+  if (e) { e.preventDefault(); e.stopPropagation(); }
   const dd = document.getElementById('casosDropdown');
-  if (!dd) { dbg('DD: #casosDropdown no encontrado'); return; }
+  const btn = document.getElementById('casosDropdownBtn');
+  if (!dd || !btn) return;
   const isOpen = dd.style.display === 'block';
-  dbg('DD: toggle, isOpen=' + isOpen);
   if (isOpen) { closeCasosDropdown(); return; }
   renderCasosDropdownList();
-  const btn = document.getElementById('casosDropdownBtn');
   const rect = btn.getBoundingClientRect();
-  dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left) + ' right=' + Math.round(rect.right));
-  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) {
-    dbg('DD: rect cero, abortando');
-    return;
+  const ddWidth = 220;
+  const windowWidth = window.innerWidth;
+  dd.style.top = (rect.bottom + 6) + 'px';
+  if (rect.left + ddWidth > windowWidth - 10) {
+    dd.style.left = 'auto';
+    dd.style.right = (windowWidth - rect.right) + 'px';
+  } else {
+    dd.style.left = rect.left + 'px';
+    dd.style.right = 'auto';
   }
-  dd.style.top  = (rect.bottom + 6) + 'px';
-  dd.style.left = rect.left + 'px';
   dd.style.display = 'block';
-  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' z=' + dd.style.zIndex);
-  var _ddOpen = true;
-  function closeFn(ev) {
-    if (!_ddOpen) return;
-    if (dd.contains(ev.target) || btn.contains(ev.target)) return;
-    _ddOpen = false;
-    closeCasosDropdown();
-    document.removeEventListener('pointerdown', closeFn);
+  if (_casosDropdownListener) {
+    document.removeEventListener('pointerdown', _casosDropdownListener);
   }
+  _casosDropdownListener = function(ev) {
+    if (dd.contains(ev.target) || btn.contains(ev.target)) return;
+    closeCasosDropdown();
+  };
   setTimeout(function() {
-    document.addEventListener('pointerdown', closeFn);
-  }, 300);
+    document.addEventListener('pointerdown', _casosDropdownListener);
+  }, 10);
 }
 function closeCasosDropdown() {
   const dd = document.getElementById('casosDropdown');
   if (dd) dd.style.display = 'none';
+  if (_casosDropdownListener) {
+    document.removeEventListener('pointerdown', _casosDropdownListener);
+    _casosDropdownListener = null;
+  }
 }
 function renderCasosDropdownList() {
   const list = document.getElementById('casosDropdownList');

@@ -3076,11 +3076,12 @@
       border-left: 1px solid rgba(0,0,0,0.06) !important;
     }
 
-    /* Header pegado al tope */
+    /* Header pegado al tope — z-index en auto para no crear stacking context
+       que tape el casosDropdown (position:fixed z-index:9999 en body) */
     #app-container > header {
       position: sticky !important;
       top: 0 !important;
-      z-index: 20 !important;
+      z-index: auto !important;
     }
   }
 
