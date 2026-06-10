@@ -555,11 +555,35 @@ function isDesktop() {
 }
 function openSidebar() {
   if (isDesktop()) return; // En desktop el sidebar siempre está visible
+  // Volver siempre a vista de casos al abrir
+  sidebarShowCasos();
   document.getElementById('sidebar').classList.add('open');
   const ov = document.getElementById('sidebarOverlay');
   ov.style.display = 'block';
   requestAnimationFrame(() => ov.classList.add('open'));
   try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
+}
+function sidebarShowConfig() {
+  document.getElementById('sidebarViewCasos').style.display = 'none';
+  const cfg = document.getElementById('sidebarViewConfig');
+  cfg.style.display = 'flex';
+  const el = document.getElementById('cfgUserEmailDetail');
+  if (el && typeof sbCurrentUser !== 'undefined' && sbCurrentUser?.email) el.textContent = sbCurrentUser.email;
+  try { if (typeof sbUpdateHuellaBtn === 'function') sbUpdateHuellaBtn(); } catch(e) {}
+}
+function sidebarShowCasos() {
+  const cfg = document.getElementById('sidebarViewConfig');
+  const casos = document.getElementById('sidebarViewCasos');
+  if (cfg) cfg.style.display = 'none';
+  if (casos) casos.style.display = 'flex';
+}
+function sidebarToggleSection(id) {
+  const body = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chevron');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
 }
 function closeSidebar() {
   if (isDesktop()) return; // En desktop no se cierra
