@@ -193,39 +193,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
-    // Bind dropdown botón via pointerup para evitar conflicto con onclick/touch
-    var _casosBtnBound = false;
-    function bindCasosBtn() {
-      var btn = document.getElementById('casosDropdownBtn');
-      var dd = document.getElementById('casosDropdown');
-      if (dd && dd.parentNode !== document.body) {
-        document.body.appendChild(dd);
-        dbg('DD: movido al body');
-      }
-      if (btn && !_casosBtnBound) {
-        _casosBtnBound = true;
-        alert('casosDropdownBtn bound OK');
-        btn.addEventListener('pointerup', function(e) {
-          e.stopPropagation();
-          e.preventDefault();
-          toggleCasosDropdown(e);
-        });
-        dbg('DD: btn bound OK');
-      }
-    }
-    // Intentar bind inmediato y también observar cuando utmTicker se vuelve visible
-    bindCasosBtn();
-    var _tickerObs = new MutationObserver(function() {
-      if (!_casosBtnBound) bindCasosBtn();
-    });
-    var ticker = document.getElementById('utmTicker');
-    if (ticker) _tickerObs.observe(ticker, { attributes: true, attributeFilter: ['class', 'style'] });
     // 5 taps en cualquier lugar para abrir panel
     var taps = 0, tapTimer;
     document.addEventListener('pointerdown', function(e) {
-      // No contar taps sobre el botón de casos ni su dropdown
-      var t = e.target;
-      if (t && (t.id === 'casosDropdownBtn' || t.closest && t.closest('#casosDropdownWrap,#casosDropdown'))) return;
       taps++;
       clearTimeout(tapTimer);
       tapTimer = setTimeout(function(){ taps = 0; }, 1500);
@@ -898,6 +868,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
+    <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
+      <button ontouchend="toggleCasosDropdown(event)" onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Casos
+      </button>
+
+    </div>
     <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
       <span class="utm-card-label">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
@@ -3563,8 +3540,6 @@ document.getElementById('utmActualMes').innerText = `${actualEntry.m} ${actualEn
 document.getElementById('utmActualVal').innerText = format(actualEntry.v);
 // tarjeta Próximo Mes eliminada (visual)
 document.getElementById('utmTicker').classList.remove('hidden');
-var _casosBtnWrap = document.getElementById('casosDropdownWrap');
-if (_casosBtnWrap) _casosBtnWrap.style.display = 'block';
 }
 // ── Chip UTM período inicio (pensiones mensuales + deuda histórica) ──
 function updateUtmPeriodChips() {
@@ -6381,7 +6356,6 @@ new MutationObserver(function(mutations) {
 
 var _casosDropdownLastToggle = 0;
 function toggleCasosDropdown(e) {
-  alert('toggleCasosDropdown ejecutado');
   if (e) { e.stopPropagation(); e.preventDefault(); }
   var now = Date.now();
   if (now - _casosDropdownLastToggle < 400) { dbg('DD: debounce skip'); return; }
@@ -6395,31 +6369,29 @@ function toggleCasosDropdown(e) {
   const btn = document.getElementById('casosDropdownBtn');
   const rect = btn.getBoundingClientRect();
   dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left) + ' right=' + Math.round(rect.right));
-  dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left));
-  var topPos = rect.bottom > 0 ? rect.bottom + 6 : 60;
-  var leftPos = rect.left > 0 ? rect.left : 8;
-  dd.style.top  = topPos + 'px';
-  dd.style.left = leftPos + 'px';
-  dd.style.zIndex = '99999';
+  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) {
+    dbg('DD: rect cero, abortando');
+    return;
+  }
+  dd.style.top  = (rect.bottom + 6) + 'px';
+  dd.style.left = rect.left + 'px';
   dd.style.display = 'block';
-  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' rectOK=' + (rect.bottom>0));
+  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' z=' + dd.style.zIndex);
   var _ddOpen = true;
   function closeFn(ev) {
     if (!_ddOpen) return;
     if (dd.contains(ev.target) || btn.contains(ev.target)) return;
     _ddOpen = false;
     closeCasosDropdown();
-    document.removeEventListener('pointerup', closeFn);
+    document.removeEventListener('pointerdown', closeFn);
   }
   setTimeout(function() {
-    document.addEventListener('pointerup', closeFn);
-  }, 600);
+    document.addEventListener('pointerdown', closeFn);
+  }, 300);
 }
 function closeCasosDropdown() {
   const dd = document.getElementById('casosDropdown');
   if (dd) dd.style.display = 'none';
-  // limpiar cualquier listener pointerup huérfano
-  document.querySelectorAll && void 0; // no-op, listeners se limpian en closeFn
 }
 function renderCasosDropdownList() {
   const list = document.getElementById('casosDropdownList');
@@ -6480,13 +6452,5 @@ window.addEventListener('scroll', function() {
   <div id="casosDropdownList" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
 </div>
 
-
-<!-- Botón CASOS fixed - fuera de cualquier stacking context -->
-<div id="casosDropdownWrap" style="display:none;position:fixed;top:8px;left:8px;z-index:99998;">
-  <button class="btn-base btn-primary gap-2" style="touch-action:manipulation;" id="casosDropdownBtn">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-    CASOS
-  </button>
-</div>
 </body>
 </html>
