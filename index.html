@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0609.v14">
+ <meta name="app-version" content="2.0608.2045">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v14</title>
+ <title>Pensión UTM Pro v77 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -6317,23 +6317,26 @@ new MutationObserver(function(mutations) {
 var _casosDropdownLastToggle = 0;
 function toggleCasosDropdown(e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
-  // Debounce: ignorar si se llamó hace menos de 400ms (touchend + click fantasma)
   var now = Date.now();
-  if (now - _casosDropdownLastToggle < 400) return;
+  if (now - _casosDropdownLastToggle < 400) { dbg('DD: debounce skip'); return; }
   _casosDropdownLastToggle = now;
   const dd = document.getElementById('casosDropdown');
+  if (!dd) { dbg('DD: #casosDropdown no encontrado'); return; }
   const isOpen = dd.style.display === 'block';
+  dbg('DD: toggle, isOpen=' + isOpen);
   if (isOpen) { closeCasosDropdown(); return; }
   renderCasosDropdownList();
   const btn = document.getElementById('casosDropdownBtn');
   const rect = btn.getBoundingClientRect();
-  // Si el botón está oculto getBoundingClientRect devuelve ceros — abortar
-  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) return;
+  dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left) + ' right=' + Math.round(rect.right));
+  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) {
+    dbg('DD: rect cero, abortando');
+    return;
+  }
   dd.style.top  = (rect.bottom + 6) + 'px';
   dd.style.left = rect.left + 'px';
   dd.style.display = 'block';
-  // 300ms de delay evita que el mismo touch/click dispare closeFn en Android
-  // pointerdown cubre tanto mouse como touch
+  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' z=' + dd.style.zIndex);
   var _ddOpen = true;
   function closeFn(ev) {
     if (!_ddOpen) return;
