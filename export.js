@@ -962,7 +962,8 @@ function hideNewCasoModal() {
     showWelcomeScreen();
     return;
   }
-  // Asegurar app visible si sí se creó el caso
+  // Caso creado exitosamente: ocultar welcome screen y mostrar app
+  hideWelcomeScreen();
   const app = document.getElementById('app-container');
   if (app && !app.classList.contains('app-ready')) {
     requestAnimationFrame(() => app.classList.add('app-ready'));
@@ -2614,7 +2615,10 @@ function ocrConfirmar() {
 // Lógica de show/hide y creación de caso desde la welcome screen.
 // ══════════════════════════════════════════════════════════════════════════════
 
+let _welcomeScreenVisible = false;
+
 function showWelcomeScreen() {
+  _welcomeScreenVisible = true;
   const ws = document.getElementById('welcomeScreen');
   if (!ws) return;
   // Poblar lista de casos existentes
@@ -2649,6 +2653,7 @@ function showWelcomeScreen() {
 }
 
 function hideWelcomeScreen() {
+  _welcomeScreenVisible = false;
   const ws = document.getElementById('welcomeScreen');
   if (ws) ws.style.display = 'none';
   // Asegurar que la app sea visible
@@ -2695,7 +2700,8 @@ function crearCasoDesdeWelcome() {
 function abrirCasoJudicialDesdeWelcome() {
   // Pasar el nombre ya escrito al campo del modal judicial si existe
   const welcomeNombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  hideWelcomeScreen();
+  // NO ocultar welcome screen aquí — el modal se muestra encima (z-index 6000 > 5500)
+  // La welcome se ocultará solo cuando el caso sea creado exitosamente
   showNewCasoModal();
   if (welcomeNombre.length > 0) {
     const inp = document.getElementById('newCasoInput');
