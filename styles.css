@@ -383,7 +383,7 @@
   }
 
   /* --- Scroll interno de modales --- */
-  body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right: 0; }
+  body.modal-open { overflow: hidden; }
   .modal-scroll   { overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 
   /* Sin borde exterior en todos los modales */

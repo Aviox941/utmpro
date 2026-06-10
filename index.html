@@ -211,6 +211,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   // Exponer para que dbg() lo use también
   window._earlyDbgPanel = p;
   window._earlyDbgAdd = addLine;
+  // Capturar errores JS globales
+  window.addEventListener('error', function(ev) {
+    addLine('❌ JS ERROR: ' + ev.message + ' | ' + (ev.filename||'').split('/').pop() + ':' + ev.lineno);
+  });
+  window.addEventListener('unhandledrejection', function(ev) {
+    addLine('❌ PROMISE: ' + (ev.reason?.message || ev.reason));
+  });
 })();
 </script>
  <div id="saveToast">✓ Sesión guardada</div>
@@ -864,7 +871,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
     <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button onpointerdown="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
+      <button onpointerdown="dbg('🔴 onpointerdown FIRED');toggleCasosDropdown(event)" onclick="dbg('🟢 onclick FIRED')" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
@@ -2034,12 +2041,10 @@ document.getElementById('saveIndicator').classList.remove('hidden');
 let _scrollY = 0;
 function lockBody() {
   _scrollY = window.scrollY || window.pageYOffset;
-  document.body.style.top = `-${_scrollY}px`;
   document.body.classList.add('modal-open');
 }
 function unlockBody() {
   document.body.classList.remove('modal-open');
-  document.body.style.top = '';
   window.scrollTo(0, _scrollY);
 }
 function showAppModal() { document.getElementById('appModal').classList.replace('hidden', 'flex'); lockBody(); }
@@ -5286,6 +5291,14 @@ function dbg(msg) {
     };
     p.appendChild(expBtn);
 
+    // ── Botón CERRAR ──
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕ CERRAR';
+    closeBtn.style.cssText = 'position:sticky;top:0;background:#374151;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
+    closeBtn.onclick = () => { p.style.display = 'none'; };
+    p.appendChild(closeBtn);
+
     // ── Botón RESET COLA DE SYNC ──
     const resetBtn = document.createElement('button');
     resetBtn.textContent = '🔄 RESET COLA SYNC';
@@ -6360,22 +6373,41 @@ function toggleCasosDropdown(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   const dd = document.getElementById('casosDropdown');
   const btn = document.getElementById('casosDropdownBtn');
+  dbg('▶ toggleCasosDropdown — dd=' + (dd?'OK':'NULL') + ' btn=' + (btn?'OK':'NULL'));
   if (!dd || !btn) return;
   const isOpen = dd.style.display === 'block';
-  if (isOpen) { closeCasosDropdown(); return; }
+  if (isOpen) { closeCasosDropdown(); dbg('↩ cerrado'); return; }
   renderCasosDropdownList();
   const rect = btn.getBoundingClientRect();
   const ddWidth = 220;
   const windowWidth = window.innerWidth;
-  dd.style.top = (rect.bottom + 6) + 'px';
-  if (rect.left + ddWidth > windowWidth - 10) {
+  const topVal = rect.bottom + 6;
+  const leftVal = rect.left;
+  const rightVal = windowWidth - rect.right;
+  const usesRight = rect.left + ddWidth > windowWidth - 10;
+  dd.style.top = topVal + 'px';
+  if (usesRight) {
     dd.style.left = 'auto';
-    dd.style.right = (windowWidth - rect.right) + 'px';
+    dd.style.right = rightVal + 'px';
   } else {
-    dd.style.left = rect.left + 'px';
+    dd.style.left = leftVal + 'px';
     dd.style.right = 'auto';
   }
   dd.style.display = 'block';
+  // Leer computed style real después de mostrar
+  const cs = window.getComputedStyle(dd);
+  dbg('📐 btn rect: top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left) + ' right=' + Math.round(rect.right));
+  dbg('📐 viewport: w=' + windowWidth + ' h=' + window.innerHeight);
+  dbg('📌 dd posición: top=' + topVal + ' ' + (usesRight ? 'right='+rightVal : 'left='+leftVal));
+  dbg('🎨 dd computed: display=' + cs.display + ' visibility=' + cs.visibility + ' z-index=' + cs.zIndex + ' opacity=' + cs.opacity);
+  dbg('🎨 dd computed: top=' + cs.top + ' left=' + cs.left + ' right=' + cs.right + ' h=' + cs.height);
+  // Verificar si algo lo tapa
+  const ddRect = dd.getBoundingClientRect();
+  const centerX = ddRect.left + ddRect.width/2;
+  const centerY = ddRect.top + 10;
+  const topEl = document.elementFromPoint(centerX, centerY);
+  dbg('👆 elemento en centro del dd: ' + (topEl ? topEl.tagName + (topEl.id?'#'+topEl.id:'') + ' z=' + window.getComputedStyle(topEl).zIndex : 'nada'));
+  dbg('🔒 body.modal-open: ' + document.body.classList.contains('modal-open') + ' | body.top: ' + document.body.style.top);
   if (_casosDropdownListener) {
     document.removeEventListener('pointerdown', _casosDropdownListener);
   }
