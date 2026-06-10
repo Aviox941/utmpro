@@ -954,7 +954,15 @@ function showNewCasoModal() {
   document.getElementById('newCasoModal').classList.replace('hidden','flex'); lockBody();
   setTimeout(() => document.getElementById('newCasoInput').focus(), 100);
 }
-function hideNewCasoModal() { document.getElementById('newCasoModal').classList.replace('flex','hidden'); unlockBody(); }
+function hideNewCasoModal() {
+  document.getElementById('newCasoModal').classList.replace('flex','hidden');
+  unlockBody();
+  // v38: si se llegó aquí desde el flujo judicial de welcome, asegurar app visible
+  const app = document.getElementById('app-container');
+  if (app && !app.classList.contains('app-ready')) {
+    requestAnimationFrame(() => app.classList.add('app-ready'));
+  }
+}
 function crearCaso() {
   const nombre = (document.getElementById('newCasoInput')?.value || '').trim();
   if (nombre.length < 2) return;
@@ -1365,8 +1373,8 @@ function buildResumenContent() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // ya descontados LAV
-  const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0);
+  const totalCapPesos = lastCalculationData.reduce((s,d) => s + (d.capOriginal ?? d.capOriginalBruto ?? d.cap), 0); // v37: usar bruto original (igual que PDF)
+  const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0); // v37: usar interés original pre-imputación
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
@@ -1743,8 +1751,8 @@ async function exportarExcel() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesos  = lastCalculationData.reduce((s,d) => s+d.cap, 0);
-  const totalIntPesos  = lastCalculationData.reduce((s,d) => s+d.inte, 0);
+  const totalCapPesos  = lastCalculationData.reduce((s,d) => s + (d.capOriginal ?? d.capOriginalBruto ?? d.cap), 0); // v37: bruto original
+  const totalIntPesos  = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0); // v37: interés original pre-imputación
   const totalAbonosCLP = abonos.reduce((s,a) => s+a.amount, 0);
   const lavTotalUTM_x  = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s+(p.amountUtm||0), 0);
   // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
@@ -1754,7 +1762,12 @@ async function exportarExcel() {
     const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
     return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
   }, 0));
-  const totalFinalReal = totalDeudaUTM_x * utmHoy;
+  // v37: usar UTM del mes de liquidación (igual que PDF), no UTM actual
+  const _fechaLiqX = (typeof getFechaLiquidacion === 'function') ? getFechaLiquidacion() : new Date();
+  const _liqKeyX = _fechaLiqX.getFullYear() * 100 + _fechaLiqX.getMonth();
+  const _utmLiqEntryX = (typeof utmData !== 'undefined' ? utmData : []).slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _liqKeyX);
+  const utmLiqX = (_utmLiqEntryX && _utmLiqEntryX.v > 0) ? _utmLiqEntryX.v : utmHoy;
+  const totalFinalReal = totalDeudaUTM_x * utmLiqX;
   const intImputado    = imputacion ? imputacion.interesesPagados : 0;
   const capImputado    = imputacion ? imputacion.capitalPagado : 0;
   const hoy = new Date();
@@ -2589,4 +2602,96 @@ function ocrConfirmar() {
     dbg('OCR: ' + added + ' abonos importados (LAV + Art.1595)');
   }
   closeOcrLav();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PANTALLA DE BIENVENIDA — v38
+// Lógica de show/hide y creación de caso desde la welcome screen.
+// ══════════════════════════════════════════════════════════════════════════════
+
+function showWelcomeScreen() {
+  const ws = document.getElementById('welcomeScreen');
+  if (!ws) return;
+  // Poblar lista de casos existentes
+  const casos = getCasosIndex();
+  const wrap = document.getElementById('welcomeCasosWrap');
+  const list = document.getElementById('welcomeCasosList');
+  list.innerHTML = '';
+  if (casos.length > 0) {
+    wrap.style.display = 'block';
+    casos.slice().reverse().forEach(c => {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);margin-bottom:6px;cursor:pointer;transition:background 0.13s;text-align:left;';
+      btn.onmouseover = () => btn.style.background = 'rgba(37,99,235,0.12)';
+      btn.onmouseout  = () => btn.style.background = 'rgba(255,255,255,0.03)';
+      const estadoDot = c.estado === 'suspendido' ? '#f59e0b' : c.estado === 'archivado' ? '#64748b' : '#22c55e';
+      btn.innerHTML = `
+        <span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:${estadoDot};display:inline-block;"></span>
+        <span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre || 'Sin nombre'}</span>
+        ${c.rolCausa ? `<span style="font-size:9px;font-weight:600;color:#64748b;">${c.rolCausa}</span>` : ''}
+        <svg width="14" height="14" fill="none" stroke="#475569" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
+      btn.onclick = () => { hideWelcomeScreen(); switchCaso(c.id); };
+      list.appendChild(btn);
+    });
+  } else {
+    wrap.style.display = 'none';
+  }
+  // Limpiar input y resetear botón
+  const inp = document.getElementById('welcomeNombreInput');
+  if (inp) { inp.value = ''; inp.focus && setTimeout(() => inp.focus(), 200); }
+  checkWelcomeBtn();
+  ws.style.display = 'flex';
+}
+
+function hideWelcomeScreen() {
+  const ws = document.getElementById('welcomeScreen');
+  if (ws) ws.style.display = 'none';
+  // Asegurar que la app sea visible
+  const app = document.getElementById('app-container');
+  if (app && !app.classList.contains('app-ready')) {
+    requestAnimationFrame(() => app.classList.add('app-ready'));
+  }
+}
+
+function checkWelcomeBtn() {
+  const val = (document.getElementById('welcomeNombreInput')?.value || '').trim();
+  const btn = document.getElementById('welcomeBtnRapido');
+  if (!btn) return;
+  btn.disabled = val.length < 2;
+  btn.style.opacity = val.length < 2 ? '0.35' : '1';
+  btn.style.cursor  = val.length < 2 ? 'default' : 'pointer';
+}
+
+function crearCasoDesdeWelcome() {
+  const nombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
+  if (nombre.length < 2) return;
+  hideWelcomeScreen();
+  // Crear caso usando la misma lógica que crearPerfil()
+  const id = 'caso_' + Date.now();
+  const now = new Date().toISOString();
+  const idx = getCasosIndex();
+  idx.push({
+    id, nombre, created: Date.now(), created_at_local: Date.now(),
+    updated_at_local: Date.now(), saved_at: null,
+    sync_status: 'pending_create', version: 1
+  });
+  saveCasosIndex(idx);
+  if (activeCasoId) saveCurrentCasoNow();
+  activeCasoId = id;
+  resetAllSilent();
+  saveCurrentCasoNow();
+  updateActiveCasoBadge();
+  renderCasosList();
+  if (typeof queueSave === 'function' && sbCurrentUser) setTimeout(() => queueSave(id), 700);
+}
+
+function abrirCasoJudicialDesdeWelcome() {
+  // Pasar el nombre ya escrito al campo del modal judicial si existe
+  const welcomeNombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
+  hideWelcomeScreen();
+  showNewCasoModal();
+  if (welcomeNombre.length > 0) {
+    const inp = document.getElementById('newCasoInput');
+    if (inp) { inp.value = welcomeNombre; checkNuevoCasoBtn(); }
+  }
 }

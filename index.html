@@ -5185,6 +5185,66 @@ document.addEventListener('visibilitychange', async () => {
   </button>
 </div>
 <!-- ══════════════════════════════════════════════════════════
+     PANTALLA DE BIENVENIDA — SELECCIÓN / CREACIÓN DE CASO
+     Se muestra cuando el usuario tiene sesión pero no hay caso activo.
+     No tiene botón de cerrar — el usuario DEBE elegir o crear un caso.
+     z-index: 5500 (sobre profileModal:500, bajo loginScreen:9999)
+     ══════════════════════════════════════════════════════════ -->
+<div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:5500;background:rgba(13,17,23,0.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);overflow-y:auto;-webkit-overflow-scrolling:touch;align-items:center;justify-content:center;padding:20px;">
+ <div style="width:100%;max-width:26rem;margin:auto;">
+  <!-- Logo / título -->
+  <div style="text-align:center;margin-bottom:28px;">
+   <div style="width:56px;height:56px;border-radius:16px;background:rgba(37,99,235,0.15);border:1.5px solid rgba(37,99,235,0.35);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18"/></svg>
+   </div>
+   <p style="font-size:18px;font-weight:900;color:#f1f5f9;letter-spacing:-0.5px;line-height:1.2">Liquidación Pro</p>
+   <p style="font-size:11px;font-weight:600;color:#64748b;margin-top:4px">¿Con qué caso trabajamos hoy?</p>
+  </div>
+
+  <!-- Card principal -->
+  <div style="background:#131820;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;">
+
+   <!-- Crear caso rápido -->
+   <div style="padding:20px 20px 16px;">
+    <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">⚡ Caso nuevo</p>
+    <div style="display:flex;gap:8px;align-items:center;">
+     <input id="welcomeNombreInput" type="text" placeholder="Nombre o carátula del caso..." maxlength="60"
+      style="flex:1;height:40px;padding:0 12px;border-radius:10px;border:1.5px solid rgba(59,130,246,0.25);background:rgba(255,255,255,0.04);color:#f1f5f9;font-size:12px;font-weight:700;outline:none;-webkit-appearance:none;"
+      oninput="checkWelcomeBtn()"
+      onkeydown="if(event.key==='Enter' && !document.getElementById('welcomeBtnRapido').disabled) crearCasoDesdeWelcome()">
+     <!-- Botón rápido -->
+     <button id="welcomeBtnRapido" onclick="crearCasoDesdeWelcome()" disabled
+      style="height:40px;padding:0 16px;border-radius:10px;background:rgba(37,99,235,0.9);color:#fff;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;opacity:0.35;transition:opacity 0.15s;">
+      Crear →
+     </button>
+     <!-- Botón judicial -->
+     <button onclick="abrirCasoJudicialDesdeWelcome()" title="Ingresar datos judiciales completos"
+      style="height:40px;width:40px;min-width:40px;border-radius:10px;background:rgba(245,158,11,0.12);border:1.5px solid rgba(245,158,11,0.3);color:#fbbf24;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.15s;"
+      onmouseover="this.style.background='rgba(245,158,11,0.22)'" onmouseout="this.style.background='rgba(245,158,11,0.12)'">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18"/></svg>
+     </button>
+    </div>
+    <p style="font-size:9px;font-weight:600;color:#475569;margin-top:8px;">
+     El ⚖️ abre el formulario completo con RIT, alimentante, alimentario y tribunal.
+    </p>
+   </div>
+
+   <!-- Divisor con label "o elige uno existente" -->
+   <div id="welcomeCasosWrap" style="display:none;">
+    <div style="display:flex;align-items:center;gap:10px;padding:0 20px;margin-bottom:2px;">
+     <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
+     <span style="font-size:9px;font-weight:700;color:#475569;white-space:nowrap">o elige uno existente</span>
+     <div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div>
+    </div>
+    <!-- Lista de casos -->
+    <div id="welcomeCasosList" style="max-height:220px;overflow-y:auto;padding:8px 12px 16px;"></div>
+   </div>
+
+  </div><!-- /card -->
+ </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
      PANTALLA DE LOGIN — SUPABASE AUTH
      ══════════════════════════════════════════════════════════ -->
 <div id="loginScreen" style="display:block;position:fixed;inset:0;z-index:9999;background:#f5f6f8;overflow-y:auto;-webkit-overflow-scrolling:touch;">
@@ -5948,20 +6008,27 @@ async function sbLoadCasos() {
 
     renderCasosList();
     if (finalIdx.length === 0) {
-      openProfileModal();
+      // v38: sin casos → welcome screen (reemplaza openProfileModal)
+      showWelcomeScreen();
       return;
     }
 
-    // ── Restaurar el último caso activo o el más reciente ──
+    // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
     const lastId = localStorage.getItem('pension_utm_last_caso');
-    const targetId = (lastId && finalIdx.find(c => c.id === lastId)) ? lastId : finalIdx[finalIdx.length - 1].id;
-    dbg('LOAD: lastId=' + (lastId ? lastId.slice(0,6) : 'none') + ' target=' + targetId.slice(0,6));
-    if (activeCasoId !== targetId) {
-      switchCaso(targetId);
+    if (lastId && finalIdx.find(c => c.id === lastId)) {
+      // Hay último caso recordado → restaurar directo sin pantalla intermedia
+      dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
+      if (activeCasoId !== lastId) {
+        switchCaso(lastId);
+      } else {
+        dbg('LOAD: caso ya activo, no se hace switch');
+        updateActiveCasoBadge();
+        renderCasosList();
+      }
     } else {
-      dbg('LOAD: caso ya activo, no se hace switch');
-      updateActiveCasoBadge();
-      renderCasosList();
+      // Sin lastId → welcome screen para que el usuario elija o cree
+      dbg('LOAD: sin lastId válido — mostrando welcome screen');
+      showWelcomeScreen();
     }
   } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); }
 }
