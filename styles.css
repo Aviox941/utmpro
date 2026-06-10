@@ -1061,8 +1061,8 @@
     min-width: 0;
     border-radius: 14px 6px 6px 14px;
     background: linear-gradient(140deg, #1e3a5f 0%, #1e4d8c 52%, #2563ae 100%);
-    box-shadow: 0 4px 24px rgba(30,58,95,0.30), 0 1px 4px rgba(0,0,0,0.10);
-    padding: 14px 14px 12px;
+    box-shadow: none;
+    padding: 20px 14px 18px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -3003,7 +3003,7 @@
     .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
     #mainInputs   { gap: 10px !important; }
     #resultsCard  { gap: 10px !important; }
-    .hero-total-card { padding: 13px 15px 12px !important; }
+    .hero-total-card { padding: 20px 15px 18px !important; }
     .hero-stat-row { padding: 9px 11px !important; }
     .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
   }
