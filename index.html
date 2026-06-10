@@ -853,17 +853,21 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
+    <button onclick="showNewCasoModal()" class="btn-base btn-primary gap-2 flex-shrink-0" style="align-self:stretch;">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      Casos
+    </button>
+    <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+      <span class="utm-card-label">Caso activo</span>
+      <div class="utm-card-value-row" style="margin-top:2px;">
+        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
+      </div>
+    </div>
     <div class="utm-card-premium">
       <span class="utm-card-label">UTM Actual</span>
       <div class="utm-card-value-row">
         <span id="utmActualVal" class="utm-val-main">$—</span>
         <span id="utmActualMes" class="utm-val-month">—</span>
-      </div>
-    </div>
-    <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
-      <span class="utm-card-label">Caso activo</span>
-      <div class="utm-card-value-row" style="margin-top:2px;">
-        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
       </div>
     </div>
   </div>
