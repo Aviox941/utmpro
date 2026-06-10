@@ -193,9 +193,26 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
+    // Bind dropdown botón via pointerup para evitar conflicto con onclick/touch
+    var _casosBtnBound = false;
+    function bindCasosBtn() {
+      var btn = document.getElementById('casosDropdownBtn');
+      if (btn && !_casosBtnBound) {
+        _casosBtnBound = true;
+        btn.addEventListener('pointerup', function(e) {
+          e.stopPropagation();
+          e.preventDefault();
+          toggleCasosDropdown(e);
+        });
+      }
+    }
+    setTimeout(bindCasosBtn, 500);
     // 5 taps en cualquier lugar para abrir panel
     var taps = 0, tapTimer;
     document.addEventListener('pointerdown', function(e) {
+      // No contar taps sobre el botón de casos ni su dropdown
+      var t = e.target;
+      if (t && (t.id === 'casosDropdownBtn' || t.closest && t.closest('#casosDropdownWrap,#casosDropdown'))) return;
       taps++;
       clearTimeout(tapTimer);
       tapTimer = setTimeout(function(){ taps = 0; }, 1500);
@@ -869,7 +886,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
     <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
+      <button class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
