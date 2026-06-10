@@ -556,13 +556,18 @@ function isDesktop() {
 function openSidebar() {
   if (isDesktop()) return; // En desktop el sidebar siempre está visible
   document.getElementById('sidebar').classList.add('open');
-  document.getElementById('sidebarOverlay').classList.add('open');
+  const ov = document.getElementById('sidebarOverlay');
+  ov.style.display = 'block';
+  requestAnimationFrame(() => ov.classList.add('open'));
   try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
 }
 function closeSidebar() {
   if (isDesktop()) return; // En desktop no se cierra
   document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
+  const ov = document.getElementById('sidebarOverlay');
+  ov.classList.remove('open');
+  // Ocultar completamente después de la transición (300ms) para que no intercepte eventos
+  setTimeout(() => { if (!ov.classList.contains('open')) ov.style.display = 'none'; }, 350);
 }
 function renderCasosList() {
 const casos = getCasosIndex();

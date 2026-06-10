@@ -189,10 +189,12 @@
    position: fixed; inset: 0; z-index: 300;
    background: rgba(26,29,46,0.35);
    backdrop-filter: blur(4px);
-   opacity: 0; pointer-events: none;
+   display: none;
+   opacity: 0;
+   pointer-events: none !important;
    transition: opacity 0.3s ease;
   }
-  #sidebarOverlay.open { opacity: 1; pointer-events: all; }
+  #sidebarOverlay.open { display: block; opacity: 1; pointer-events: all !important; }
   #sidebar {
    position: fixed; top: 0; left: 0; bottom: 0;
    z-index: 310; width: 280px;
