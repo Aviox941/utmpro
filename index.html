@@ -787,29 +787,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
 
-      <!-- Botón Casos con dropdown -->
-      <div style="position:relative;" id="casosDropdownWrap">
-        <button onclick="toggleCasosDropdown()" class="header-icon-btn flex-shrink-0" title="Casos" id="casosDropdownBtn">
-          <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          <span class="text-[6.5px] font-bold leading-none tracking-widest" style="color:inherit;opacity:0.85">CASOS</span>
-        </button>
-
-        <!-- Dropdown -->
-        <div id="casosDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9999;min-width:210px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
-          <!-- Opción: Nuevo Caso -->
-          <button onclick="showNewCasoModal();closeCasosDropdown();" style="width:100%;display:flex;align-items:center;gap:9px;padding:10px 14px;border:none;background:transparent;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;" onmouseover="this.style.background='rgba(37,99,235,0.06)'" onmouseout="this.style.background='transparent'">
-            <span style="width:26px;height:26px;border-radius:7px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-            </span>
-            <div style="text-align:left;">
-              <p style="font-size:11px;font-weight:800;color:#1a1d2e;line-height:1.1;">Nuevo caso</p>
-              <p style="font-size:9px;font-weight:600;color:#8e97b0;line-height:1.2;margin-top:1px;">Crear expediente nuevo</p>
-            </div>
-          </button>
-          <!-- Lista de casos existentes -->
-          <div id="casosDropdownList" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
-        </div>
-      </div>
 
       <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:flex;align-items:center;gap:5px;cursor:pointer;">
         <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -853,10 +830,24 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
-    <button onclick="showNewCasoModal()" class="btn-base btn-primary gap-2 flex-shrink-0" style="align-self:stretch;">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      Casos
-    </button>
+    <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
+      <button onclick="toggleCasosDropdown()" class="btn-base btn-primary gap-2" style="align-self:stretch;" id="casosDropdownBtn">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Casos
+      </button>
+      <div id="casosDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
+        <button onclick="showNewCasoModal();closeCasosDropdown();" style="width:100%;display:flex;align-items:center;gap:9px;padding:11px 14px;border:none;background:transparent;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;" onmouseover="this.style.background='rgba(37,99,235,0.06)'" onmouseout="this.style.background='transparent'">
+          <span style="width:26px;height:26px;border-radius:7px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+          </span>
+          <div style="text-align:left;">
+            <p style="font-size:11px;font-weight:800;color:#1a1d2e;line-height:1.1;">Nuevo caso</p>
+            <p style="font-size:9px;font-weight:600;color:#8e97b0;line-height:1.2;margin-top:1px;">Crear expediente nuevo</p>
+          </div>
+        </button>
+        <div id="casosDropdownList" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
+      </div>
+    </div>
     <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
       <span class="utm-card-label">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
