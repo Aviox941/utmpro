@@ -779,11 +779,38 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Fila principal de controles -->
   <div class="header-row-main">
 
-    <!-- Menú hamburguesa + correo del usuario fijos a la izquierda -->
+    <!-- Botón Casos (dropdown) + badge usuario -->
     <div class="flex items-center gap-2 flex-shrink-0">
+
+      <!-- Menú hamburguesa (original) -->
       <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Casos">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
+
+      <!-- Botón Casos con dropdown -->
+      <div style="position:relative;" id="casosDropdownWrap">
+        <button onclick="toggleCasosDropdown()" class="header-icon-btn flex-shrink-0" title="Casos" id="casosDropdownBtn">
+          <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <span class="text-[6.5px] font-bold leading-none tracking-widest" style="color:inherit;opacity:0.85">CASOS</span>
+        </button>
+
+        <!-- Dropdown -->
+        <div id="casosDropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:9999;min-width:210px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
+          <!-- Opción: Nuevo Caso -->
+          <button onclick="showNewCasoModal();closeCasosDropdown();" style="width:100%;display:flex;align-items:center;gap:9px;padding:10px 14px;border:none;background:transparent;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;" onmouseover="this.style.background='rgba(37,99,235,0.06)'" onmouseout="this.style.background='transparent'">
+            <span style="width:26px;height:26px;border-radius:7px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            </span>
+            <div style="text-align:left;">
+              <p style="font-size:11px;font-weight:800;color:#1a1d2e;line-height:1.1;">Nuevo caso</p>
+              <p style="font-size:9px;font-weight:600;color:#8e97b0;line-height:1.2;margin-top:1px;">Crear expediente nuevo</p>
+            </div>
+          </button>
+          <!-- Lista de casos existentes -->
+          <div id="casosDropdownList" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
+        </div>
+      </div>
+
       <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:flex;align-items:center;gap:5px;cursor:pointer;">
         <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
@@ -833,16 +860,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         <span id="utmActualMes" class="utm-val-month">—</span>
       </div>
     </div>
-    <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:6px;">
-      <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
-        <span class="utm-card-label">Caso activo</span>
-        <div class="utm-card-value-row" style="margin-top:2px;">
-          <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
-        </div>
+    <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
+      <span class="utm-card-label">Caso activo</span>
+      <div class="utm-card-value-row" style="margin-top:2px;">
+        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
       </div>
-      <button onclick="showNewCasoModal()" title="Nuevo Caso" style="flex-shrink:0;width:24px;height:24px;border-radius:7px;border:1.5px solid rgba(37,99,235,0.25);background:rgba(37,99,235,0.08);color:#2563eb;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(37,99,235,0.18)';this.style.borderColor='rgba(37,99,235,0.45)';" onmouseout="this.style.background='rgba(37,99,235,0.08)';this.style.borderColor='rgba(37,99,235,0.25)';">
-        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-      </button>
     </div>
   </div>
 </header>
@@ -6298,6 +6320,58 @@ window._keepAliveInterval = setInterval(async () => {
 
 // Verificar botón huella al cargar la página
 window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
+// ── Dropdown Casos en Header ────────────────────────────────────────────
+function toggleCasosDropdown() {
+  const dd = document.getElementById('casosDropdown');
+  const isOpen = dd.style.display === 'block';
+  if (isOpen) {
+    closeCasosDropdown();
+  } else {
+    renderCasosDropdownList();
+    dd.style.display = 'block';
+  }
+}
+function closeCasosDropdown() {
+  const dd = document.getElementById('casosDropdown');
+  if (dd) dd.style.display = 'none';
+}
+function renderCasosDropdownList() {
+  const list = document.getElementById('casosDropdownList');
+  if (!list) return;
+  const casos = getCasosIndex();
+  list.innerHTML = '';
+  if (casos.length === 0) {
+    list.innerHTML = '<p style="font-size:10px;color:#8e97b0;font-weight:600;text-align:center;padding:12px 14px;">Sin casos guardados</p>';
+    return;
+  }
+  casos.forEach(c => {
+    const isActive = c.id === activeCasoId;
+    const btn = document.createElement('button');
+    btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:9px;padding:8px 14px;border:none;background:' + (isActive ? 'rgba(37,99,235,0.07)' : 'transparent') + ';cursor:pointer;transition:background 0.12s;';
+    btn.onmouseover = () => { if (!isActive) btn.style.background = 'rgba(0,0,0,0.03)'; };
+    btn.onmouseout  = () => { if (!isActive) btn.style.background = 'transparent'; };
+    const initials = (typeof getInitials === 'function') ? getInitials(c.nombre) : (c.nombre||'?').slice(0,2).toUpperCase();
+    const fecha = c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : '';
+    btn.innerHTML = \`
+      <div style="width:26px;height:26px;border-radius:50%;background:\${isActive ? '#2563eb' : '#e8eaf2'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <span style="font-size:9px;font-weight:800;color:\${isActive ? '#fff' : '#5a6480'};">\${initials}</span>
+      </div>
+      <div style="flex:1;min-width:0;text-align:left;">
+        <p style="font-size:11px;font-weight:800;color:\${isActive ? '#2563eb' : '#1a1d2e'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.1;">\${c.nombre || 'Sin nombre'}</p>
+        \${fecha ? \`<p style="font-size:9px;font-weight:600;color:#a0aab8;line-height:1.2;margin-top:1px;">\${fecha}</p>\` : ''}
+      </div>
+      \${isActive ? '<svg width="12" height="12" fill="none" stroke="#2563eb" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : ''}
+    \`;
+    btn.onclick = () => { switchCaso(c.id); closeCasosDropdown(); };
+    list.appendChild(btn);
+  });
+}
+// Cerrar dropdown al hacer click fuera
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('casosDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) closeCasosDropdown();
+});
+
 </script>
 </div><!-- /#desktop-layout -->
 
