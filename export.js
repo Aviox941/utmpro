@@ -635,82 +635,95 @@ renderCasosList();
 closeSidebar();
 }
 function updateActiveCasoBadge() {
-  // ── Compatibilidad: span fantasma usado por onAuthStateChange para el email ──
+  // ── Compatibilidad: span fantasma para onAuthStateChange ──
   const span = document.getElementById('activeCasoNombreHeader');
   if (span) {
     const email = (sbCurrentUser && sbCurrentUser.email) ? sbCurrentUser.email : 'Sin sesión';
     span.innerText = email;
   }
-  // ── Centro del header: nombre del caso ──
-  const centerSpan = document.getElementById('headerCasoNombre');
-  if (centerSpan) {
-    if (!activeCasoId) { centerSpan.innerText = ''; }
-    else {
-      const casos = getCasosIndex();
-      const caso = casos.find(c => c.id === activeCasoId);
-      centerSpan.innerText = caso ? caso.nombre : '';
-    }
-  }
-  // ── Botón Unificado de Caso: actualizar estado visual ──
-  const dot   = document.getElementById('cmdCasoDot');
-  const label = document.getElementById('cmdCasoLabel');
-  const menuDraft  = document.getElementById('cmdMenuDraft');
-  const menuActive = document.getElementById('cmdMenuActive');
-  if (!dot || !label) return;
+  // ── Dot de estado + nombre del caso en la tarjeta inline del header ──
+  const dot        = document.getElementById('cmdCasoDot');
+  const nombreSpan = document.getElementById('headerCasoNombre');
+  if (!dot || !nombreSpan) return;
   if (!activeCasoId) {
-    // Estado A: Borrador
-    dot.className   = 'cmd-caso-dot cmd-caso-dot--draft';
-    label.textContent = 'Borrador';
-    if (menuDraft)  menuDraft.classList.remove('hidden');
-    if (menuActive) menuActive.classList.add('hidden');
+    dot.className      = 'cmd-caso-dot cmd-caso-dot--draft';
+    nombreSpan.textContent = 'Sin caso';
   } else {
-    // Estado B: Caso activo
-    const casos = getCasosIndex();
-    const caso  = casos.find(c => c.id === activeCasoId);
+    const caso = getCasosIndex().find(c => c.id === activeCasoId);
     const nombre = caso ? caso.nombre : 'Caso activo';
-    dot.className   = 'cmd-caso-dot cmd-caso-dot--active';
-    label.textContent = nombre.length > 22 ? nombre.slice(0, 20) + '\u2026' : nombre;
-    if (menuDraft)  menuDraft.classList.add('hidden');
-    if (menuActive) menuActive.classList.remove('hidden');
+    dot.className      = 'cmd-caso-dot cmd-caso-dot--active';
+    nombreSpan.textContent = nombre;
   }
 }
 
-// ── Funciones del menú del Botón Unificado ──────────────────────────────────
-function toggleCmdCasoMenu(e) {
-  e.stopPropagation();
-  const menu    = document.getElementById('cmdCasoMenu');
-  const chevron = document.getElementById('cmdCasoChevron');
-  const isOpen  = !menu.classList.contains('hidden');
-  if (isOpen) {
-    menu.classList.add('hidden');
-    chevron.style.transform = '';
-  } else {
-    updateActiveCasoBadge();
-    menu.classList.remove('hidden');
-    chevron.style.transform = 'rotate(180deg)';
-    setTimeout(() => {
-      document.addEventListener('click', function _close(ev) {
-        if (!document.getElementById('cmdCasoWrapper')?.contains(ev.target)) {
-          menu.classList.add('hidden');
-          chevron.style.transform = '';
-          document.removeEventListener('click', _close);
-        }
-      });
-    }, 0);
+// ── Sheet flotante de casos ──────────────────────────────────────────────────
+function openCasosSheet() {
+  const sheet   = document.getElementById('casosSheet');
+  const overlay = document.getElementById('casosSheetOverlay');
+  if (!sheet || !overlay) { openSidebar(); return; } // fallback desktop
+  renderCasosSheet();
+  overlay.style.display = 'block';
+  sheet.style.display   = 'flex';
+  requestAnimationFrame(() => {
+    sheet.style.transition   = 'transform 0.22s cubic-bezier(.4,0,.2,1),opacity 0.18s';
+    overlay.style.transition = 'opacity 0.18s';
+  });
+  lockBody();
+}
+function closeCasosSheet() {
+  const sheet   = document.getElementById('casosSheet');
+  const overlay = document.getElementById('casosSheetOverlay');
+  if (sheet)   sheet.style.display   = 'none';
+  if (overlay) overlay.style.display = 'none';
+  unlockBody();
+}
+function renderCasosSheet() {
+  const container = document.getElementById('casosSheetList');
+  if (!container) return;
+  const casos = getCasosIndex();
+  container.innerHTML = '';
+  if (casos.length === 0) {
+    container.innerHTML = '<p style="text-align:center;font-size:10px;font-weight:700;color:#4b5563;padding:20px 0;">No hay casos guardados.</p>';
+    return;
   }
+  casos.forEach(c => {
+    const isActive = c.id === activeCasoId;
+    const item = document.createElement('div');
+    item.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;margin-bottom:4px;transition:background 0.12s;' + (isActive ? 'background:rgba(37,99,235,0.14);border:1px solid rgba(37,99,235,0.25);' : 'background:rgba(255,255,255,0.03);border:1px solid transparent;');
+    // Avatar
+    const av = document.createElement('div');
+    av.style.cssText = 'width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:800;color:white;' + (isActive ? 'background:#2563eb;' : 'background:#1e2533;');
+    av.textContent = getInitials(c.nombre);
+    // Info
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;min-width:0;';
+    info.innerHTML = `<p style="font-size:11px;font-weight:800;color:${isActive?'#bfdbfe':'#e2e8f0'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.nombre}</p><p style="font-size:9px;font-weight:600;color:#4b5563;">${c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : 'Sin guardar'}</p>`;
+    // Botón ficha
+    const btnFicha = document.createElement('button');
+    btnFicha.style.cssText = 'width:28px;height:28px;border-radius:8px;border:none;background:transparent;color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    btnFicha.innerHTML = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+    btnFicha.addEventListener('click', e => { e.stopPropagation(); closeCasosSheet(); openFichaModal(c.id); });
+    // Botón eliminar
+    const btnDel = document.createElement('button');
+    btnDel.style.cssText = 'width:28px;height:28px;border-radius:8px;border:none;background:transparent;color:#374151;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    btnDel.innerHTML = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+    btnDel.addEventListener('click', e => { e.stopPropagation(); closeCasosSheet(); confirmarEliminarCaso(c.id, c.nombre); });
+    item.appendChild(av);
+    item.appendChild(info);
+    item.appendChild(btnFicha);
+    item.appendChild(btnDel);
+    item.addEventListener('click', () => { closeCasosSheet(); switchCaso(c.id); });
+    container.appendChild(item);
+  });
 }
-function _closeCmdMenu() {
-  const menu    = document.getElementById('cmdCasoMenu');
-  const chevron = document.getElementById('cmdCasoChevron');
-  if (menu)    menu.classList.add('hidden');
-  if (chevron) chevron.style.transform = '';
-}
-function cmdGuardarNuevo()  { _closeCmdMenu(); showNewCasoModal(); }
-function cmdCargarCaso()    { _closeCmdMenu(); openSidebar(); }
-function cmdVerFicha()      { _closeCmdMenu(); if (activeCasoId) openFichaModal(activeCasoId); }
-function cmdCambiarCaso()   { _closeCmdMenu(); openSidebar(); }
+
+// ── Stubs de compatibilidad (llamados desde fichaModal y otros lugares) ──────
+function _closeCmdMenu() {}
+function cmdGuardarNuevo()  { showNewCasoModal(); }
+function cmdCargarCaso()    { openCasosSheet(); }
+function cmdVerFicha()      { if (activeCasoId) openFichaModal(activeCasoId); }
+function cmdCambiarCaso()   { openCasosSheet(); }
 function cmdCerrarCaso() {
-  _closeCmdMenu();
   if (!activeCasoId) return;
   saveCurrentCasoNow();
   activeCasoId = null;

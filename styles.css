@@ -3098,31 +3098,10 @@
 
 #app-container,#desktop-layout{visibility:hidden}body.auth-ready #app-container,body.auth-ready #desktop-layout{visibility:visible}
 /* ══════════════════════════════════════════════════════════════════════════
-   CORRECCIÓN 1 — Botón Unificado de Caso (Centro de Mando)
-   Scope: #cmdCasoWrapper y descendientes — cero impacto en otros módulos
+   CORRECCIÓN 1 v2 — Header: +Caso · tarjeta info · hamburguesa→sheet
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Botón principal ─────────────────────────────────────────────────────── */
-.cmd-caso-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px 4px 7px;
-  border-radius: 20px;
-  background: rgba(37,99,235,0.07);
-  border: 1px solid rgba(37,99,235,0.16);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-.cmd-caso-btn:hover {
-  background: rgba(37,99,235,0.13);
-  border-color: rgba(37,99,235,0.26);
-}
-.cmd-caso-btn:active { transform: scale(0.96); }
-
-/* ── Dot de estado ───────────────────────────────────────────────────────── */
+/* ── Dot de estado (reutilizado en header inline) ────────────────────────── */
 .cmd-caso-dot {
   width: 7px;
   height: 7px;
@@ -3133,113 +3112,79 @@
 .cmd-caso-dot--draft  { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.18); }
 .cmd-caso-dot--active { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,0.18); }
 
-/* ── Label ───────────────────────────────────────────────────────────────── */
-.cmd-caso-label {
+/* ── Botón + Caso ────────────────────────────────────────────────────────── */
+.btn-nuevo-caso {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: rgba(37,99,235,0.12);
+  border: 1px solid rgba(37,99,235,0.28);
+  color: #93c5fd;
   font-size: 9px;
-  font-weight: 700;
-  color: #3b82f6;
-  letter-spacing: 0.01em;
-  max-width: 130px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-nuevo-caso:hover  { background: rgba(37,99,235,0.2); }
+.btn-nuevo-caso:active { transform: scale(0.94); }
+
+/* ── Tarjeta info inline (caso + UTM) ────────────────────────────────────── */
+.header-info-card {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;
+  min-width: 0;
+}
+.header-info-card__caso {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+}
+.header-info-card__nombre {
+  font-size: 10px;
+  font-weight: 800;
+  color: #e2e8f0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
+}
+.header-info-card__divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+.header-info-card__utm {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.header-info-card__utmval {
+  font-size: 10px;
+  font-weight: 800;
+  color: #60a5fa;
   white-space: nowrap;
   line-height: 1;
 }
-
-/* ── Chevron ─────────────────────────────────────────────────────────────── */
-.cmd-caso-chevron {
-  width: 10px;
-  height: 10px;
-  color: #3b82f6;
-  flex-shrink: 0;
-  transition: transform 0.18s cubic-bezier(.4,0,.2,1);
-  opacity: 0.7;
-}
-
-/* ── Menú flotante ───────────────────────────────────────────────────────── */
-.cmd-caso-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 200px;
-  background: #1e2533;
-  border: 1px solid rgba(59,130,246,0.18);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
-  z-index: 300;
-  overflow: hidden;
-  padding: 6px;
-  animation: cmdMenuIn 0.15s cubic-bezier(.4,0,.2,1);
-}
-@keyframes cmdMenuIn {
-  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* ── Etiqueta de sección ─────────────────────────────────────────────────── */
-.cmd-menu-section-label {
-  font-size: 8.5px;
-  font-weight: 700;
-  color: #4b5563;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  padding: 2px 8px 6px;
-}
-
-/* ── Ítems del menú ──────────────────────────────────────────────────────── */
-.cmd-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 11px;
+.header-info-card__utmmes {
+  font-size: 8px;
   font-weight: 600;
-  color: #cbd5e1;
-  text-align: left;
-  transition: background 0.12s, color 0.12s;
-  -webkit-tap-highlight-color: transparent;
-}
-.cmd-menu-item:hover {
-  background: rgba(59,130,246,0.1);
-  color: #e2e8f0;
-}
-.cmd-menu-item:active { opacity: 0.8; }
-.cmd-menu-item svg { color: #64748b; transition: color 0.12s; }
-.cmd-menu-item:hover svg { color: #93c5fd; }
-
-/* ── Ítem peligroso (cerrar caso) ────────────────────────────────────────── */
-.cmd-menu-item--danger { color: #f87171; }
-.cmd-menu-item--danger:hover { background: rgba(239,68,68,0.1); color: #fca5a5; }
-.cmd-menu-item--danger svg { color: #f87171; }
-.cmd-menu-item--danger:hover svg { color: #fca5a5; }
-
-/* ── Divisor ─────────────────────────────────────────────────────────────── */
-.cmd-menu-divider {
-  height: 1px;
-  background: rgba(255,255,255,0.06);
-  margin: 4px 6px;
-}
-
-/* ── Adaptación modo claro ───────────────────────────────────────────────── */
-@media (prefers-color-scheme: light) {
-  .cmd-caso-menu {
-    background: #ffffff;
-    border-color: rgba(37,99,235,0.14);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.07);
-  }
-  .cmd-menu-item { color: #374151; }
-  .cmd-menu-item:hover { background: rgba(37,99,235,0.07); color: #1e3a5f; }
-  .cmd-menu-item svg { color: #9ca3af; }
-  .cmd-menu-item:hover svg { color: #2563eb; }
-  .cmd-menu-item--danger { color: #dc2626; }
-  .cmd-menu-item--danger:hover { background: rgba(220,38,38,0.07); color: #b91c1c; }
-  .cmd-menu-section-label { color: #9ca3af; }
-  .cmd-menu-divider { background: rgba(0,0,0,0.08); }
-  .cmd-caso-label { color: #1d4ed8; }
-  .cmd-caso-chevron { color: #1d4ed8; }
+  color: #475569;
+  white-space: nowrap;
+  line-height: 1;
 }
