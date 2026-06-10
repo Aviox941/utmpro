@@ -1420,7 +1420,7 @@
   @media (max-width: 600px) {
     html { font-size: 12px !important; }
 
-    main { margin-top: 0 !important; padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
+    main { margin-top: 0px !important; padding-left: 0.625rem !important; padding-right: 0.625rem !important; }
     #mainInputs { gap: 28px !important; }
     #mainInputs > * + * { margin-top: 0 !important; }
 
@@ -2533,7 +2533,7 @@
      7. RESPONSIVE — preservar ajustes en tablet/desktop
      ───────────────────────────────────────────────────────────── */
   @media (min-width: 768px) {
-    main { margin-top: 0 !important; }
+    main { margin-top: 0px !important; }
     #mainInputs { gap: 12px !important; }
     .liq-total-amount { font-size: clamp(42px, 7vw, 68px) !important; }
     .dh-result-total__val { font-size: 26px !important; }
@@ -2795,7 +2795,7 @@
 
   /* ── Margen superior de main ─────────────────────────────────── */
   main {
-    margin-top: 0 !important;
+    margin-top: 0px !important;
     padding-bottom: 4.5rem !important;
   }
 
@@ -2999,7 +2999,7 @@
 
   /* ── Responsive tablet: recuperar algo de espacio ────────────── */
   @media (min-width: 768px) {
-    main { margin-top: 0 !important; }
+    main { margin-top: 0px !important; }
     .card-section { padding: 14px 16px !important; border-radius: 16px !important; }
     .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
     #mainInputs   { gap: 10px !important; }
