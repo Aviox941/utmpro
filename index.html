@@ -197,6 +197,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     var _casosBtnBound = false;
     function bindCasosBtn() {
       var btn = document.getElementById('casosDropdownBtn');
+      var dd = document.getElementById('casosDropdown');
+      // Mover dropdown al body para evitar quedar atrapado en stacking contexts
+      if (dd && dd.parentNode !== document.body) {
+        document.body.appendChild(dd);
+        dbg('DD: movido al body');
+      }
       if (btn && !_casosBtnBound) {
         _casosBtnBound = true;
         btn.addEventListener('pointerup', function(e) {
@@ -6386,14 +6392,14 @@ function toggleCasosDropdown(e) {
   const btn = document.getElementById('casosDropdownBtn');
   const rect = btn.getBoundingClientRect();
   dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left) + ' right=' + Math.round(rect.right));
-  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) {
-    dbg('DD: rect cero, abortando');
-    return;
-  }
-  dd.style.top  = (rect.bottom + 6) + 'px';
-  dd.style.left = rect.left + 'px';
+  dbg('DD: rect top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + ' left=' + Math.round(rect.left));
+  var topPos = rect.bottom > 0 ? rect.bottom + 6 : 60;
+  var leftPos = rect.left > 0 ? rect.left : 8;
+  dd.style.top  = topPos + 'px';
+  dd.style.left = leftPos + 'px';
+  dd.style.zIndex = '99999';
   dd.style.display = 'block';
-  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' z=' + dd.style.zIndex);
+  dbg('DD: visible top=' + dd.style.top + ' left=' + dd.style.left + ' rectOK=' + (rect.bottom>0));
   var _ddOpen = true;
   function closeFn(ev) {
     if (!_ddOpen) return;
