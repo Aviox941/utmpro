@@ -957,7 +957,12 @@ function showNewCasoModal() {
 function hideNewCasoModal() {
   document.getElementById('newCasoModal').classList.replace('flex','hidden');
   unlockBody();
-  // v38: si se llegó aquí desde el flujo judicial de welcome, asegurar app visible
+  // v38: si se cerró el modal judicial sin crear caso, volver a la welcome screen
+  if (!activeCasoId) {
+    showWelcomeScreen();
+    return;
+  }
+  // Asegurar app visible si sí se creó el caso
   const app = document.getElementById('app-container');
   if (app && !app.classList.contains('app-ready')) {
     requestAnimationFrame(() => app.classList.add('app-ready'));
@@ -2621,15 +2626,15 @@ function showWelcomeScreen() {
     wrap.style.display = 'block';
     casos.slice().reverse().forEach(c => {
       const btn = document.createElement('button');
-      btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);margin-bottom:6px;cursor:pointer;transition:background 0.13s;text-align:left;';
-      btn.onmouseover = () => btn.style.background = 'rgba(37,99,235,0.12)';
-      btn.onmouseout  = () => btn.style.background = 'rgba(255,255,255,0.03)';
-      const estadoDot = c.estado === 'suspendido' ? '#f59e0b' : c.estado === 'archivado' ? '#64748b' : '#22c55e';
+      btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;border:1px solid rgba(0,0,0,0.07);background:#f8fafc;margin-bottom:6px;cursor:pointer;transition:background 0.13s;text-align:left;box-sizing:border-box;';
+      btn.onmouseover = () => btn.style.background = '#eff6ff';
+      btn.onmouseout  = () => btn.style.background = '#f8fafc';
+      const estadoDot = c.estado === 'suspendido' ? '#f59e0b' : c.estado === 'archivado' ? '#94a3b8' : '#22c55e';
       btn.innerHTML = `
         <span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:${estadoDot};display:inline-block;"></span>
-        <span style="flex:1;font-size:12px;font-weight:700;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre || 'Sin nombre'}</span>
-        ${c.rolCausa ? `<span style="font-size:9px;font-weight:600;color:#64748b;">${c.rolCausa}</span>` : ''}
-        <svg width="14" height="14" fill="none" stroke="#475569" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
+        <span style="flex:1;font-size:12px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre || 'Sin nombre'}</span>
+        ${c.rolCausa ? `<span style="font-size:9px;font-weight:600;color:#94a3b8;">${c.rolCausa}</span>` : ''}
+        <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
       btn.onclick = () => { hideWelcomeScreen(); switchCaso(c.id); };
       list.appendChild(btn);
     });
@@ -2638,9 +2643,9 @@ function showWelcomeScreen() {
   }
   // Limpiar input y resetear botón
   const inp = document.getElementById('welcomeNombreInput');
-  if (inp) { inp.value = ''; inp.focus && setTimeout(() => inp.focus(), 200); }
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 200); }
   checkWelcomeBtn();
-  ws.style.display = 'flex';
+  ws.style.display = 'block';
 }
 
 function hideWelcomeScreen() {
@@ -2657,9 +2662,11 @@ function checkWelcomeBtn() {
   const val = (document.getElementById('welcomeNombreInput')?.value || '').trim();
   const btn = document.getElementById('welcomeBtnRapido');
   if (!btn) return;
-  btn.disabled = val.length < 2;
-  btn.style.opacity = val.length < 2 ? '0.35' : '1';
-  btn.style.cursor  = val.length < 2 ? 'default' : 'pointer';
+  const ok = val.length >= 2;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.3';
+  btn.style.cursor  = ok ? 'pointer' : 'default';
+  btn.style.pointerEvents = ok ? 'auto' : 'none';
 }
 
 function crearCasoDesdeWelcome() {
