@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0608.2045">
- <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v16 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
+ <meta name="app-version" content="2.0610.v17">
+ <meta name="viewport" content="2.0610.v17">
+ <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
- <meta name="theme-color" content="#f5f6f8">
- <meta name="apple-mobile-web-app-capable" content="yes">
- <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
- <meta name="apple-mobile-web-app-title" content="Pensión UTM">
+ <meta name="theme-color" content="2.0610.v17">
+ <meta name="apple-mobile-web-app-capable" content="2.0610.v17">
+ <meta name="apple-mobile-web-app-status-bar-style" content="2.0610.v17">
+ <meta name="apple-mobile-web-app-title" content="2.0610.v17">
  <link rel="apple-touch-icon" href="icon-192.png">
  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
  <script src="https://cdn.tailwindcss.com"></script>
@@ -184,6 +184,44 @@
 <script>
 // Safety: si en 3s Supabase no respondió, mostrar la app igual
 setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
+</script>
+<script>
+// ── Panel de diagnóstico temprano — aparece con 5 taps en cualquier lugar ──
+(function() {
+  var p = document.createElement('div');
+  p.id = '_dbgPanel';
+  p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
+  document.addEventListener('DOMContentLoaded', function() {
+    document.body.appendChild(p);
+    // 5 taps en cualquier lugar para abrir panel
+    var taps = 0, tapTimer;
+    document.addEventListener('pointerdown', function(e) {
+      taps++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(function(){ taps = 0; }, 1500);
+      if (taps >= 5) {
+        p.style.display = p.style.display === 'none' ? 'block' : 'none';
+        taps = 0;
+      }
+    });
+    // Log cada pointerdown con el elemento target
+    document.addEventListener('pointerdown', function(e) {
+      if (p.style.display !== 'block') return;
+      var el = e.target;
+      var info = el.tagName + (el.id ? '#'+el.id : '') + (el.className && typeof el.className === 'string' ? '.'+el.className.split(' ').join('.') : '');
+      addLine('TAP: ' + info + ' | x=' + Math.round(e.clientX) + ' y=' + Math.round(e.clientY));
+    }, true); // capture phase
+  });
+  function addLine(msg) {
+    var line = document.createElement('div');
+    line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+    p.appendChild(line);
+    p.scrollTop = p.scrollHeight;
+  }
+  // Exponer para que dbg() lo use también
+  window._earlyDbgPanel = p;
+  window._earlyDbgAdd = addLine;
+})();
 </script>
  <div id="saveToast">✓ Sesión guardada</div>
  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
@@ -5230,6 +5268,8 @@ document.addEventListener('visibilitychange', async () => {
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
 function dbg(msg) {
   console.log('[DBG]', msg);
+  // Usar el panel temprano si ya existe
+  if (window._earlyDbgAdd) { window._earlyDbgAdd(msg); }
   let p = document.getElementById('_dbgPanel');
   if (!p) {
     p = document.createElement('div');
