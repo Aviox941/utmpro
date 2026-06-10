@@ -897,13 +897,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
 
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
-    <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Casos
-      </button>
-
-    </div>
     <div class="utm-card-premium utm-card-premium--secondary" style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;">
       <span class="utm-card-label">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
@@ -3569,6 +3562,8 @@ document.getElementById('utmActualMes').innerText = `${actualEntry.m} ${actualEn
 document.getElementById('utmActualVal').innerText = format(actualEntry.v);
 // tarjeta Próximo Mes eliminada (visual)
 document.getElementById('utmTicker').classList.remove('hidden');
+var _casosBtnWrap = document.getElementById('casosDropdownWrap');
+if (_casosBtnWrap) _casosBtnWrap.style.display = 'block';
 }
 // ── Chip UTM período inicio (pensiones mensuales + deuda histórica) ──
 function updateUtmPeriodChips() {
@@ -6483,5 +6478,13 @@ window.addEventListener('scroll', function() {
   <div id="casosDropdownList" style="max-height:220px;overflow-y:auto;padding:4px 0;"></div>
 </div>
 
+
+<!-- Botón CASOS fixed - fuera de cualquier stacking context -->
+<div id="casosDropdownWrap" style="display:none;position:fixed;top:8px;left:8px;z-index:99998;">
+  <button class="btn-base btn-primary gap-2" style="touch-action:manipulation;" id="casosDropdownBtn">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    CASOS
+  </button>
+</div>
 </body>
 </html>
