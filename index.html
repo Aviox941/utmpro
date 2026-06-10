@@ -835,7 +835,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
-      <div id="casosDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
+      <div id="casosDropdown" style="display:none;position:fixed;top:0;left:0;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
         <button onclick="showNewCasoModal();closeCasosDropdown();" style="width:100%;display:flex;align-items:center;gap:9px;padding:11px 14px;border:none;background:transparent;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;" onmouseover="this.style.background='rgba(37,99,235,0.06)'" onmouseout="this.style.background='transparent'">
           <span style="width:26px;height:26px;border-radius:7px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
             <svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
@@ -6316,6 +6316,15 @@ window._keepAliveInterval = setInterval(async () => {
 // Verificar botón huella al cargar la página
 window.addEventListener("load", () => { setTimeout(sbCheckBiometricBtn, 800); });
 // ── Dropdown Casos en Header ────────────────────────────────────────────
+// Cerrar dropdown si se abre un modal (body.modal-open)
+new MutationObserver(function(mutations) {
+  mutations.forEach(function(m) {
+    if (m.attributeName === 'class' && document.body.classList.contains('modal-open')) {
+      closeCasosDropdown();
+    }
+  });
+}).observe(document.body, { attributes: true });
+
 function toggleCasosDropdown() {
   const dd = document.getElementById('casosDropdown');
   const isOpen = dd.style.display === 'block';
@@ -6324,6 +6333,10 @@ function toggleCasosDropdown() {
   } else {
     renderCasosDropdownList();
     dd.style.display = 'block';
+    const btn = document.getElementById('casosDropdownBtn');
+    const rect = btn.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.left = rect.left + 'px';
   }
 }
 function closeCasosDropdown() {
@@ -6364,8 +6377,19 @@ function renderCasosDropdownList() {
 // Cerrar dropdown al hacer click fuera
 document.addEventListener('click', function(e) {
   const wrap = document.getElementById('casosDropdownWrap');
-  if (wrap && !wrap.contains(e.target)) closeCasosDropdown();
+  const dd = document.getElementById('casosDropdown');
+  if (wrap && !wrap.contains(e.target) && dd && !dd.contains(e.target)) closeCasosDropdown();
 });
+// Reposicionar dropdown al hacer scroll (position:fixed no sigue al botón)
+window.addEventListener('scroll', function() {
+  const dd = document.getElementById('casosDropdown');
+  if (!dd || dd.style.display !== 'block') return;
+  const btn = document.getElementById('casosDropdownBtn');
+  if (!btn) return;
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+}, { passive: true });
 
 </script>
 </div><!-- /#desktop-layout -->

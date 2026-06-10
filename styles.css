@@ -777,7 +777,7 @@
     padding: 0 !important;
     box-shadow: 0 1px 0 rgba(0,0,0,0.06), 0 2px 12px rgba(0,0,0,0.05) !important;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* Acento de color muy sutil en top del header */
