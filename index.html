@@ -204,6 +204,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
       }
       if (btn && !_casosBtnBound) {
         _casosBtnBound = true;
+        alert('casosDropdownBtn bound OK');
         btn.addEventListener('pointerup', function(e) {
           e.stopPropagation();
           e.preventDefault();
@@ -5023,7 +5024,7 @@ hideLoadingBar();
 handleCalculationModeChange();
 initCollapsibles();
 // En desktop el sidebar es siempre visible — poblar lista aunque no haya caso activo aún
-if (isDesktop()) renderCasosList();
+if (window.innerWidth >= 1024) renderCasosList();
 // NO restaurar casos aquí — onAuthStateChange → sbLoadCasos() es la fuente de verdad.
 // Si Supabase confirma sesión activa, sbLoadCasos() carga y restaura todo.
 // Si no hay sesión, onAuthStateChange muestra el login.
@@ -6380,6 +6381,7 @@ new MutationObserver(function(mutations) {
 
 var _casosDropdownLastToggle = 0;
 function toggleCasosDropdown(e) {
+  alert('toggleCasosDropdown ejecutado');
   if (e) { e.stopPropagation(); e.preventDefault(); }
   var now = Date.now();
   if (now - _casosDropdownLastToggle < 400) { dbg('DD: debounce skip'); return; }
