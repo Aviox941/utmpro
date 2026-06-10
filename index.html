@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0609.v13">
+ <meta name="app-version" content="2.0609.v14">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v13</title>
+ <title>Pensión UTM Pro v14</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="#f5f6f8">
  <meta name="apple-mobile-web-app-capable" content="yes">
@@ -831,7 +831,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
     <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="align-self:stretch;" id="casosDropdownBtn">
+      <button ontouchend="toggleCasosDropdown(event)" onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;" id="casosDropdownBtn">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
@@ -6314,28 +6314,37 @@ new MutationObserver(function(mutations) {
   });
 }).observe(document.body, { attributes: true });
 
+var _casosDropdownLastToggle = 0;
 function toggleCasosDropdown(e) {
-  if (e) e.stopPropagation();
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  // Debounce: ignorar si se llamó hace menos de 400ms (touchend + click fantasma)
+  var now = Date.now();
+  if (now - _casosDropdownLastToggle < 400) return;
+  _casosDropdownLastToggle = now;
   const dd = document.getElementById('casosDropdown');
   const isOpen = dd.style.display === 'block';
-  if (isOpen) {
-    closeCasosDropdown();
-    return;
-  }
+  if (isOpen) { closeCasosDropdown(); return; }
   renderCasosDropdownList();
   const btn = document.getElementById('casosDropdownBtn');
   const rect = btn.getBoundingClientRect();
-  dd.style.top = (rect.bottom + 4) + 'px';
+  // Si el botón está oculto getBoundingClientRect devuelve ceros — abortar
+  if (!rect || (rect.top === 0 && rect.bottom === 0 && rect.left === 0)) return;
+  dd.style.top  = (rect.bottom + 6) + 'px';
   dd.style.left = rect.left + 'px';
   dd.style.display = 'block';
-  setTimeout(() => {
-    document.addEventListener('click', function closeFn(ev) {
-      if (!dd.contains(ev.target)) {
-        closeCasosDropdown();
-        document.removeEventListener('click', closeFn);
-      }
-    });
-  }, 10);
+  // 300ms de delay evita que el mismo touch/click dispare closeFn en Android
+  // pointerdown cubre tanto mouse como touch
+  var _ddOpen = true;
+  function closeFn(ev) {
+    if (!_ddOpen) return;
+    if (dd.contains(ev.target) || btn.contains(ev.target)) return;
+    _ddOpen = false;
+    closeCasosDropdown();
+    document.removeEventListener('pointerdown', closeFn);
+  }
+  setTimeout(function() {
+    document.addEventListener('pointerdown', closeFn);
+  }, 300);
 }
 function closeCasosDropdown() {
   const dd = document.getElementById('casosDropdown');
@@ -6386,7 +6395,7 @@ window.addEventListener('scroll', function() {
 </script>
 </div><!-- /#desktop-layout -->
 
-<!-- ── Casos Dropdown: fuera del header para evitar stacking context de sticky ── -->
+<!-- ── Casos Dropdown: hijo directo de body para evitar cualquier stacking context ── -->
 <div id="casosDropdown" style="display:none;position:fixed;top:0;left:0;z-index:9999;min-width:220px;background:#fff;border:1px solid rgba(0,0,0,0.09);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.13);overflow:hidden;">
   <button onclick="showNewCasoModal();closeCasosDropdown();" style="width:100%;display:flex;align-items:center;gap:9px;padding:11px 14px;border:none;background:transparent;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.06);transition:background 0.12s;" onmouseover="this.style.background='rgba(37,99,235,0.06)'" onmouseout="this.style.background='transparent'">
     <span style="width:26px;height:26px;border-radius:7px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
