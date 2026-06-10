@@ -1,6 +1,7 @@
 // ── Pensión UTM Pro — Service Worker ────────────────────────────────────────
 // Repo: Aviox941/utmpro → https://aviox941.github.io/utmpro/
-const CACHE_NAME = 'pension-utm-v94';
+// Build: 2026-06-10T08:05:00Z
+const CACHE_NAME = 'pension-utm-v95';
 const BASE = '/utmpro/';
 
 // Dominios que van directo a red (nunca cachear)
@@ -20,13 +21,13 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// ── Activación: limpiar cachés viejas y tomar control ───────────────────────
+// ── Activación: limpiar TODAS las cachés y tomar control ────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => {
-          console.log('[SW] Eliminando caché vieja:', k);
+        keys.map(k => {
+          console.log('[SW] Eliminando caché:', k);
           return caches.delete(k);
         })
       ))

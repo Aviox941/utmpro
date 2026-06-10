@@ -2795,7 +2795,7 @@
 
   /* ── Margen superior de main ─────────────────────────────────── */
   main {
-    margin-top: 6px !important;
+    margin-top: 2px !important;
     padding-bottom: 4.5rem !important;
   }
 
@@ -2819,7 +2819,8 @@
 
   /* ── Tarjeta hero izquierda (Total Adeudado) ─────────────────── */
   .hero-total-card {
-    padding: 11px 13px 10px !important;
+    padding: 20px 13px 18px !important;
+    box-shadow: none !important;
   }
   .hero-total-card__label {
     font-size: 7.5px !important;
