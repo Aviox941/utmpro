@@ -831,7 +831,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
   <!-- Tarjetas UTM -->
   <div id="utmTicker" class="hidden flex items-center">
     <div style="position:relative;flex-shrink:0;align-self:stretch;display:flex;" id="casosDropdownWrap">
-      <button onclick="toggleCasosDropdown()" class="btn-base btn-primary gap-2" style="align-self:stretch;" id="casosDropdownBtn">
+      <button onclick="toggleCasosDropdown(event)" class="btn-base btn-primary gap-2" style="align-self:stretch;" id="casosDropdownBtn">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Casos
       </button>
@@ -6325,19 +6325,28 @@ new MutationObserver(function(mutations) {
   });
 }).observe(document.body, { attributes: true });
 
-function toggleCasosDropdown() {
+function toggleCasosDropdown(e) {
+  if (e) e.stopPropagation();
   const dd = document.getElementById('casosDropdown');
   const isOpen = dd.style.display === 'block';
   if (isOpen) {
     closeCasosDropdown();
-  } else {
-    renderCasosDropdownList();
-    dd.style.display = 'block';
-    const btn = document.getElementById('casosDropdownBtn');
-    const rect = btn.getBoundingClientRect();
-    dd.style.top = (rect.bottom + 4) + 'px';
-    dd.style.left = rect.left + 'px';
+    return;
   }
+  renderCasosDropdownList();
+  const btn = document.getElementById('casosDropdownBtn');
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.display = 'block';
+  setTimeout(() => {
+    document.addEventListener('click', function closeFn(ev) {
+      if (!dd.contains(ev.target)) {
+        closeCasosDropdown();
+        document.removeEventListener('click', closeFn);
+      }
+    });
+  }, 10);
 }
 function closeCasosDropdown() {
   const dd = document.getElementById('casosDropdown');
@@ -6374,12 +6383,6 @@ function renderCasosDropdownList() {
     list.appendChild(btn);
   });
 }
-// Cerrar dropdown al hacer click fuera
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('casosDropdownWrap');
-  const dd = document.getElementById('casosDropdown');
-  if (wrap && !wrap.contains(e.target) && dd && !dd.contains(e.target)) closeCasosDropdown();
-});
 // Reposicionar dropdown al hacer scroll (position:fixed no sigue al botón)
 window.addEventListener('scroll', function() {
   const dd = document.getElementById('casosDropdown');
