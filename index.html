@@ -5044,7 +5044,9 @@ document.addEventListener('visibilitychange', async () => {
   // Al volver a primer plano → sync desde Supabase (detecta cambios de otro dispositivo)
   if (document.visibilityState === 'visible' && sbCurrentUser) {
     dbg('VISIBILITY: app en primer plano — recargando desde Supabase...');
+    window._loadFromVisibility = true;
     await sbLoadCasos();
+    window._loadFromVisibility = false;
     return;
   }
   if (document.visibilityState !== 'hidden') return;
@@ -5569,9 +5571,9 @@ function showLoginScreen() {
   setTimeout(sbCheckBiometricBtn, 500);
 }
 function hideLoginScreen() {
-  document.body.classList.add('auth-ready');
   document.getElementById('loginScreen').style.display = 'none';
-  // Asegurar que el body no quede bloqueado después del login
+  // NO agregar auth-ready aquí — sbLoadCasos() lo hará una vez que sepa qué mostrar
+  // Así se evita el flash del app-container oscuro antes de la welcome screen
   try { unlockBody(); } catch(e) {}
 }
 
@@ -5936,7 +5938,7 @@ async function sbLoadCasos() {
       .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
       .eq('user_id', sbCurrentUser.id)
       .order('created_at', { ascending: true });
-    if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); return; }
+    if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
     const rows = data || [];
     dbg('LOAD: ' + rows.length + ' casos desde Supabase');
 
@@ -6013,6 +6015,7 @@ async function sbLoadCasos() {
     renderCasosList();
     if (finalIdx.length === 0) {
       // v38: sin casos → welcome screen (reemplaza openProfileModal)
+      document.body.classList.add('auth-ready');
       showWelcomeScreen();
       return;
     }
@@ -6020,14 +6023,16 @@ async function sbLoadCasos() {
     // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
     const lastId = localStorage.getItem('pension_utm_last_caso');
     if (lastId && finalIdx.find(c => c.id === lastId)) {
-      // Si la welcome screen estaba visible antes de suspender, mantenerla
-      if (_welcomeScreenVisible) {
-        dbg('LOAD: welcome screen activa — no restaurar caso, mantener welcome');
+      // Solo respetar welcome screen si venimos de visibilitychange (no inicio frío)
+      if (_welcomeScreenVisible && window._loadFromVisibility) {
+        dbg('LOAD: welcome screen activa (visibilitychange) — mantener welcome');
+        document.body.classList.add('auth-ready');
         showWelcomeScreen();
         return;
       }
       // Hay último caso recordado → restaurar directo sin pantalla intermedia
       dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
+      document.body.classList.add('auth-ready');
       if (activeCasoId !== lastId) {
         switchCaso(lastId);
       } else {
@@ -6038,9 +6043,10 @@ async function sbLoadCasos() {
     } else {
       // Sin lastId → welcome screen para que el usuario elija o cree
       dbg('LOAD: sin lastId válido — mostrando welcome screen');
+      document.body.classList.add('auth-ready');
       showWelcomeScreen();
     }
-  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); }
+  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

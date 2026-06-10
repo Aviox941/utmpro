@@ -621,6 +621,8 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
+// Ocultar welcome screen si estaba visible (restauración de caso)
+if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();
 // Limpiar siempre antes de cargar el nuevo caso
 // Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
 resetAllSilent();
