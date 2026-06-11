@@ -4221,6 +4221,8 @@ if (abonosLav && abonosLav.length > 0) {
     d.inte   = d.cap > 0 ? d.inte : 0; // mes cubierto → sin interés pendiente
     d.sub    = d.cap + d.inte;
     d.esLav  = (aplicadoUTM > 0);
+    d.lavAplicadoUTM = aplicadoUTM;       // UTM cubiertas por LAV en este mes
+    d.lavAplicadoCLP = Math.round(aplicadoUTM * utmMes); // CLP equivalente
     poolRestante -= aplicadoUTM;
   }
 }
@@ -4452,9 +4454,10 @@ card.style.borderColor = '';
 card.style.color = '';
 }
 card.onclick = () => openDetailModal(d.id);
-const parcialDetalle = d.pagoParcial > 0
+const _pagoParcialMonto = (pagosParciales || []).filter(p => p.periodo === d.periodo).reduce((s,p) => s + p.amount, 0);
+const parcialDetalle = _pagoParcialMonto > 0
 ? `<div class="mt-1 pt-1 border-t border-[#3b82f6]/20">
-<p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚡ Pago parcial: -${format(d.pagoParcial)} / -${(d.pagoParcial / d.utmVal).toFixed(4)} UTM</p>
+<p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚡ Pago parcial: -${format(_pagoParcialMonto)} / -${(_pagoParcialMonto / d.utmVal).toFixed(4)} UTM</p>
 <p class="text-[8px] font-black text-violet-200 uppercase">Remanente: ${format(d.capOriginalBruto ?? d.cap)} / ${((d.capOriginalBruto ?? d.cap) / d.utmVal).toFixed(4)} UTM</p>
 </div>`
 : '';
@@ -4468,6 +4471,11 @@ const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
 : (d.usarMaxima ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">📊 Tasa máx.</p>` : '');
 const lavBadge = d.esLav
 ? `<p class="text-[8px] font-black uppercase" style="color:#10b981">✓ LAV</p>`
+: '';
+const lavDetalle = d.esLav && d.lavAplicadoCLP > 0
+? `<div class="mt-1 pt-1 border-t border-emerald-400/20">
+<p class="text-[8px] font-black text-emerald-300 uppercase">✓ LAV aplicado: -${format(d.lavAplicadoCLP)} / -${(d.lavAplicadoUTM).toFixed(4)} UTM</p>
+</div>`
 : '';
 const isDebt = d.isDebt;
 const labelColor = isDebt ? 'color:#7c3a00;font-weight:900' : '';
@@ -4494,7 +4502,7 @@ card.innerHTML = `
 <div class="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
   ${recargoBadge}${lavBadge}
 </div>
-${parcialDetalle}${abonoDetalle}`;
+${parcialDetalle}${abonoDetalle}${lavDetalle}`;
 list.appendChild(card);
 });
 }
@@ -4509,7 +4517,8 @@ const hayAbono = (d.intImputado > 0 || d.capImputado > 0);
 document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
 <div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
-${d.pagoParcial > 0 ? `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(d.pagoParcial)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(d.capOriginalBruto ?? capOriginalModal)}</span><span class='text-[9px] font-bold'>${((d.capOriginalBruto ?? capOriginalModal) / d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
+${(()=>{ const _pm=(pagosParciales||[]).filter(p=>p.periodo===d.periodo).reduce((s,p)=>s+p.amount,0); if(_pm<=0) return ''; const _rem=d.capParcialRemanente??d.cap; return `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(_pm)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(_rem)}</span><span class='text-[9px] font-bold'>${(_rem/d.utmVal).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-violet-500 text-[10px]'><span>Interés calculado sobre remanente</span><span class='font-bold'>${format(d.inte)}</span></div>`; })()}
+${d.esLav && d.lavAplicadoCLP > 0 ? `<div class='flex justify-between border-b pb-2 text-emerald-400'><span class='font-black'>(-) Abono LAV aplicado</span><div class='text-right'><span class='font-bold block'>-${format(d.lavAplicadoCLP)}</span><span class='text-[9px] font-bold'>-${(d.lavAplicadoUTM).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-emerald-300'><span>Capital pendiente post-LAV</span><div class='text-right'><span class='font-bold block'>${format(d.cap)}</span><span class='text-[9px] font-bold'>${(d.cap/d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
 ${d.isConsolidada ? `
 <div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 <div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>

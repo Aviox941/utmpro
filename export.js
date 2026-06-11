@@ -321,7 +321,7 @@ body: pagosParciales.map((p,i) => {
   const rem = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amtUtm) : null;
   // Remanente CLP: buscar en lastCalculationData el cap remanente real del período
   const cuotaRef2 = (typeof lastCalculationData !== 'undefined' && lastCalculationData)
-    ? lastCalculationData.find(d => d.periodo === p.periodo && d.hayParcialConRemanente) : null;
+    ? lastCalculationData.find(d => d.periodo === p.periodo) : null;
   const remCLP = cuotaRef2
     ? (cuotaRef2.capParcialRemanente !== undefined ? cuotaRef2.capParcialRemanente : cuotaRef2.cap)
     : (rem !== null && utmP > 0 ? Math.round(rem * utmP) : null);
@@ -1595,8 +1595,8 @@ function buildResumenContent() {
     let lastYear = null;
     let rowIndex = 0;
     datos.forEach((d) => {
-      // Usar cap efectivo si el mes fue reducido por excedente de pago parcial
-      const cap0 = (d.hayParcialConRemanente || (d.excedenteParcialAplicado||0) > 0 || d.cap < (d.capOriginal??d.capOriginalBruto??d.cap)) ? d.cap : (d.capOriginal ?? d.capOriginalBruto ?? d.cap);
+      // FIX: La columna Capital $ siempre muestra la cuota original del período (igual que los demás meses)
+      const cap0 = d.esLav ? d.cap : (d.capOriginalBruto ?? d.capOriginal ?? d.cap);
       const int0 = d.inte;
       // Extraer año del período (ej: "Ene 2020" → 2020)
       const periodoClean = d.periodo.replace(/^HIST /,'').replace(/^CONS /,'');
@@ -1713,13 +1713,13 @@ function buildResumenContent() {
     const wrapP = document.createElement('div');
     wrapP.className = 'rounded-xl overflow-hidden';
     wrapP.style.border = '1px solid rgba(124,58,237,0.2)';
-    // Columnas: N° | Período | Monto $ | UTM Período | Equiv. Pago UTM | Remanente UTM | Remanente CLP
-    const COLS_P = '0.5fr 1.4fr 1.6fr 1.5fr 1.7fr 1.7fr 1.7fr';
+    // Columnas: N° | Período | UTM Período | Equiv. Pago UTM | Remanente UTM | Remanente CLP | Monto ($)
+    const COLS_P = '0.5fr 1.4fr 1.5fr 1.7fr 1.7fr 1.7fr 1.6fr';
     // Header
     const headP = document.createElement('div');
     headP.className = 'grid text-[8.5px] font-black uppercase text-white px-3 py-2';
     headP.style.cssText = `background:#7c3aed;grid-template-columns:${COLS_P};column-gap:4px`;
-    headP.innerHTML = '<span>N°</span><span>Período</span><span class="text-right">Monto ($)</span><span class="text-right">UTM Período</span><span class="text-right">Equiv. Pago UTM</span><span class="text-right">Remanente UTM</span><span class="text-right">Remanente CLP</span>';
+    headP.innerHTML = '<span>N°</span><span>Período</span><span class="text-right">UTM Período</span><span class="text-right">Equiv. Pago UTM</span><span class="text-right">Remanente UTM</span><span class="text-right">Remanente CLP</span><span class="text-right">Monto ($)</span>';
     wrapP.appendChild(headP);
     // Agrupar por período (puede haber múltiples pagos en el mismo mes)
     const agrupados = [];
@@ -1736,8 +1736,8 @@ function buildResumenContent() {
     let totalParcialCLP = 0;
     let totalParcialUTM = 0;
     agrupados.forEach((p, i) => {
-      // Buscar cuota correspondiente para mostrar remanente
-      const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodo && d.hayParcialConRemanente) : null;
+      // Buscar cuota correspondiente para mostrar remanente (sin filtrar por hayParcialConRemanente)
+      const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodo) : null;
       // UTM del período: usar utmVal del pago o de la cuota referenciada
       const utmPeriodo = (p.utmVal && p.utmVal > 0) ? p.utmVal : (cuotaRef && cuotaRef.utmVal > 0 ? cuotaRef.utmVal : 0);
       // Equiv. pago en UTM
@@ -1754,18 +1754,18 @@ function buildResumenContent() {
       row.innerHTML = `
         <span style="color:#7c3aed;font-weight:900">${i+1}</span>
         <span style="color:#475569">${p.periodoLabel}</span>
-        <span class="text-right font-black" style="color:#0f172a">${fmt(p.amount)}</span>
         <span class="text-right" style="color:#7c3aed">${utmPeriodo > 0 ? fmt(utmPeriodo) : '—'}</span>
         <span class="text-right font-black" style="color:#7c3aed">${equivPagoUTM > 0 ? equivPagoUTM.toFixed(4) + ' UTM' : '—'}</span>
         <span class="text-right font-black" style="color:${cuotaRef ? '#a855f7' : '#94a3b8'}">${cuotaRef ? remanenteUTM.toFixed(4) + ' UTM' : '—'}</span>
-        <span class="text-right font-black" style="color:${cuotaRef ? '#a855f7' : '#94a3b8'}">${cuotaRef ? fmt(remanenteCLP) : '—'}</span>`;
+        <span class="text-right font-black" style="color:${cuotaRef ? '#a855f7' : '#94a3b8'}">${cuotaRef ? fmt(remanenteCLP) : '—'}</span>
+        <span class="text-right font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
       wrapP.appendChild(row);
     });
     // Fila total
     const totRowP = document.createElement('div');
     totRowP.className = 'grid px-3 py-2.5 text-[10px] font-black';
     totRowP.style.cssText = `grid-template-columns:${COLS_P};column-gap:4px;background:rgba(124,58,237,0.1);border-top:2px solid rgba(124,58,237,0.4);color:#0f172a`;
-    totRowP.innerHTML = `<span></span><span style="color:#7c3aed">TOTAL</span><span class="text-right" style="color:#0f172a">${fmt(totalParcialCLP)}</span><span></span><span class="text-right" style="color:#7c3aed">${totalParcialUTM.toFixed(4)} UTM</span><span></span><span></span>`;
+    totRowP.innerHTML = `<span></span><span style="color:#7c3aed">TOTAL</span><span></span><span class="text-right" style="color:#7c3aed">${totalParcialUTM.toFixed(4)} UTM</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totalParcialCLP)}</span>`;
     wrapP.appendChild(totRowP);
     // Nota al pie si hay remanentes
     if (lastCalculationData && lastCalculationData.some(d => d.hayParcialConRemanente)) {
@@ -2015,10 +2015,10 @@ async function exportarExcel() {
     const periodos = [], caps = [], ints = [];
 
     datos.forEach((d, i) => {
-      const cap0   = d.cap;
+      const cap0   = d.esLav ? d.cap : (d.capOriginalBruto ?? d.capOriginal ?? d.cap);
       const capMostrado = d.esLav ? 0 : cap0;
       const int0   = d.intOriginal ?? d.inte;
-      const capUTM = d.esLav ? 0 : ((d.utmVal && d.utmVal > 0) ? parseFloat((cap0/d.utmVal).toFixed(2)) : 0);
+      const capUTM = d.esLav ? 0 : ((d.utmVal && d.utmVal > 0) ? parseFloat(((d.capOriginalBruto ?? d.capOriginal ?? d.cap)/d.utmVal).toFixed(2)) : 0);
       const periodoClean = (d.periodo.replace(/^HIST /,'').replace(/^CONS /,'')) + (d.esLav ? ' ✓' : '');
       periodos.push(periodoClean);
       caps.push(Math.round(cap0));
@@ -2061,9 +2061,9 @@ async function exportarExcel() {
     });
 
     // Fila TOTAL
-    const totCap = datos.reduce((s,d)=>s+d.cap,0);
-    const totInt = datos.reduce((s,d)=>s+d.inte,0);
-    const totUTM = datos.reduce((s,d)=>s+((d.utmVal&&d.utmVal>0)?d.cap/d.utmVal:0),0);
+    const totCap = datos.reduce((s,d)=>s+(d.esLav ? d.cap : (d.capOriginalBruto ?? d.capOriginal ?? d.cap)),0);
+    const totInt = datos.reduce((s,d)=>s+(d.intOriginal ?? d.inte),0);
+    const totUTM = datos.reduce((s,d)=>s+((d.utmVal&&d.utmVal>0)?(d.esLav ? d.cap : (d.capOriginalBruto ?? d.capOriginal ?? d.cap))/d.utmVal:0),0);
     const totExcedente = datos.reduce((s,d)=>s+((d.excedenteParcialAplicado||0)*(d.utmVal||1)),0);
     const lastDataRow = currentRow - 1;
     const tRow = ws.getRow(currentRow);
