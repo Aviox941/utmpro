@@ -5991,6 +5991,39 @@ async function sbChangePassword() {
   } catch(e) { alert('Error de conexión.'); }
 }
 
+// ── Navegación sidebar: vistas Casos / Configuración ──
+function sidebarShowConfig() {
+  const vc = document.getElementById('sidebarViewCasos');
+  const vf = document.getElementById('sidebarViewConfig');
+  if (vc) vc.style.display = 'none';
+  if (vf) vf.style.display = 'flex';
+  // Poblar email en panel config
+  const u = document.getElementById('cfgUserEmailDetail');
+  if (u && sbCurrentUser) u.textContent = sbCurrentUser.email || '—';
+  // Actualizar label del botón de huella
+  sbUpdateHuellaLabel();
+}
+function sidebarShowCasos() {
+  const vc = document.getElementById('sidebarViewCasos');
+  const vf = document.getElementById('sidebarViewConfig');
+  if (vf) vf.style.display = 'none';
+  if (vc) vc.style.display = 'flex';
+}
+function sidebarToggleSection(id) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const chevron = document.getElementById(id + '-chevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+}
+function sbUpdateHuellaLabel() {
+  const btn = document.getElementById('sidebarHuellaBtn');
+  if (!btn) return;
+  const activa = !!(localStorage.getItem(WA_CRED_KEY) && localStorage.getItem(WA_PAYLOAD_KEY));
+  btn.querySelector ? (btn.lastChild.textContent = activa ? ' Desactivar huella digital' : ' Activar huella digital') : null;
+}
+
 // ── Activar/desactivar huella desde sidebar ──
 async function sbToggleHuella() {
   const tiene = !!(localStorage.getItem(WA_CRED_KEY) && localStorage.getItem(WA_PAYLOAD_KEY));
