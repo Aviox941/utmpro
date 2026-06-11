@@ -4341,6 +4341,46 @@ document.getElementById('abonoResultRow').classList.add('hidden');
 if (document.getElementById('calculationMode').value === 'salary_percent') {
 updateSalaryCalcChip();
 }
+// ── Snapshot de totales para vista rápida del sidebar (sin recalcular) ──
+if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0) {
+  try {
+    const _utmNow = getUtmActualVal();
+    const _hoySnap = getFechaLiquidacion();
+    const _liqKeySnap = _hoySnap.getFullYear() * 100 + _hoySnap.getMonth();
+    const _utmLiqSnap = (utmData || []).slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= _liqKeySnap);
+    const _utmLiqV = (_utmLiqSnap && _utmLiqSnap.v > 0) ? _utmLiqSnap.v : _utmNow;
+    const _imp = lastImputacion;
+    const _cuotas = (_imp && _imp.cuotasResultado) ? _imp.cuotasResultado
+      : lastCalculationData.map(d => ({ capPendiente: d.cap, intPendiente: d.inte, utmVal: d.utmVal }));
+    const _capUTM = _cuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.capPendiente / u); }, 0);
+    const _intUTM = _cuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.intPendiente / u); }, 0);
+    const _totalUTM = _capUTM + _intUTM;
+    const _lavUTM = (abonosLav || []).reduce((s,p) => s + (p.amountUtm||0), 0);
+    const _lavCLP = (abonosLav || []).reduce((s,p) => s + (p.amount||0), 0);
+    const _abonosCLP = (abonos || []).reduce((s,a) => s + a.amount, 0);
+    const _parcialesCLP = (pagosParciales || []).reduce((s,p) => s + p.amount, 0);
+    const _capOrigBruto = lastCalculationData.reduce((s,d) => s + (d.capOriginalBruto ?? d.capOriginal ?? d.cap), 0);
+    const _intOrig = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0);
+    window._calcSnapshots = window._calcSnapshots || {};
+    window._calcSnapshots[activeCasoId] = {
+      ts: Date.now(),
+      totalCLP: Math.round(_totalUTM * _utmLiqV),
+      totalUTM: _totalUTM,
+      capitalCLP: Math.round(_capUTM * _utmLiqV),
+      capitalUTM: _capUTM,
+      interesCLP: Math.round(_intUTM * _utmLiqV),
+      interesUTM: _intUTM,
+      capitalOriginalCLP: Math.round(_capOrigBruto),
+      interesOriginalCLP: Math.round(_intOrig),
+      lavUTM: _lavUTM, lavCLP: Math.round(_lavCLP),
+      abonosCLP: Math.round(_abonosCLP),
+      parcialesCLP: Math.round(_parcialesCLP),
+      meses: lastCalculationData.length,
+      utmLiq: _utmLiqV,
+      fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
+    };
+  } catch(e) { /* silent */ }
+}
 }
 function renderYearTabs() {
 const container = document.getElementById('yearTabs'); container.innerHTML = '';
@@ -5345,10 +5385,10 @@ document.addEventListener('visibilitychange', async () => {
      z-index: 5500 (sobre profileModal:500, bajo loginScreen:9999)
      Tema claro — igual que loginScreen y el resto de la app.
      ══════════════════════════════════════════════════════════ -->
-<div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:5500;background:#f5f6f8;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+<div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:5500;background:#f5f6f8;flex-direction:column;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
 
- <!-- Título fijo en la parte superior -->
- <div style="position:absolute;top:0;left:0;right:0;text-align:center;padding:28px 16px 0;pointer-events:none;">
+ <!-- Título arriba del card, sin ocupar espacio de centrado -->
+ <div style="text-align:center;margin-bottom:24px;flex-shrink:0;">
   <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:#2563eb;border-radius:14px;margin-bottom:10px;">
    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18M3 10h18M3 14h18"/></svg>
   </div>
@@ -5356,11 +5396,10 @@ document.addEventListener('visibilitychange', async () => {
   <p style="font-size:11px;font-weight:700;color:#8e97b0;margin:4px 0 0;">¿Con qué caso trabajamos hoy?</p>
  </div>
 
- <!-- Contenedor centrado verticalmente (solo el card) -->
- <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;">
-  <div style="width:100%;max-width:360px;">
+ <!-- Card centrado junto al título como bloque -->
+ <div style="width:100%;max-width:360px;padding:0 16px;box-sizing:border-box;flex-shrink:0;">
 
-   <!-- Card principal -->
+  <!-- Card principal -->
    <div style="background:white;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.06);overflow:hidden;">
 
     <!-- Crear caso rápido -->
@@ -6925,6 +6964,29 @@ function renderCasosManagerList() {
       <!-- Lista de casos: padding lateral para que el borde del item activo no se corte -->
       <div id="casosManagerList" style="max-height:280px;overflow-y:auto;padding:3px 4px;margin:-3px -4px;"></div>
     </div>
+  </div>
+</div>
+
+<!-- ── Modal Snapshot de Caso (vista rápida sin cambiar sesión) ── -->
+<div id="casoSnapshotModal" class="fixed inset-0 z-[460] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div style="max-width:22rem;width:100%;background:#ffffff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,0.20);border:1px solid rgba(0,0,0,0.07);overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="16" height="16" fill="none" stroke="#93c5fd" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div>
+          <p id="snapModalTitulo" style="font-size:12px;font-weight:900;color:#e0eeff;margin:0;line-height:1.2;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
+          <p id="snapModalSubtitulo" style="font-size:9px;font-weight:600;color:#7ab3e0;margin:2px 0 0;"></p>
+        </div>
+      </div>
+      <button onclick="closeCasoSnapshotModal()" style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#93c5fd;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Body -->
+    <div id="snapModalBody" style="padding:14px 14px 16px;max-height:75vh;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
   </div>
 </div>
 

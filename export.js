@@ -561,7 +561,7 @@ function openSidebar() {
   const ov = document.getElementById('sidebarOverlay');
   ov.style.display = 'block';
   requestAnimationFrame(() => ov.classList.add('open'));
-  try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
+  try { preloadAllSnapshots(); renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
 }
 function sidebarShowConfig() {
   // Sidebar unificado: abrir sección Usuario y sub-sección Cuentas
@@ -633,6 +633,7 @@ function closeSidebar() {
   setTimeout(() => { if (!ov.classList.contains('open')) ov.style.display = 'none'; }, 350);
 }
 function renderCasosList() {
+preloadAllSnapshots();
 const casos = getCasosIndex();
 dbg('RENDER: ' + casos.length + ' casos → ' + casos.map(c=>c.nombre||c.id.slice(0,6)).join(', '));
 const container = document.getElementById('casosList');
@@ -667,13 +668,8 @@ btnFicha.title = 'Ver resumen de liquidación';
 btnFicha.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
 btnFicha.addEventListener('click', e => {
   e.stopPropagation();
-  if (c.id !== activeCasoId) {
-    switchCaso(c.id);
-    setTimeout(() => { if (typeof showResumenModal === 'function') showResumenModal(); }, 300);
-  } else {
-    closeSidebar();
-    if (typeof showResumenModal === 'function') showResumenModal();
-  }
+  closeSidebar();
+  openCasoSnapshot(c.id);
 });
 // Botón eliminar caso
 const btnEliminar = document.createElement('button');
@@ -689,6 +685,26 @@ div.addEventListener('click', () => switchCaso(c.id));
 container.appendChild(div);
 });
 }
+// Pre-carga silenciosa de snapshots de todos los casos desde localStorage
+function preloadAllSnapshots() {
+  try {
+    window._calcSnapshots = window._calcSnapshots || {};
+    const casos = getCasosIndex();
+    casos.forEach(c => {
+      if (window._calcSnapshots[c.id]) return; // ya en memoria
+      try {
+        const raw = localStorage.getItem('pension_utm_caso_v1_' + c.id);
+        if (raw) {
+          const s = JSON.parse(raw);
+          if (s._calcSnapshot) {
+            window._calcSnapshots[c.id] = s._calcSnapshot;
+          }
+        }
+      } catch(e) { /* silent */ }
+    });
+  } catch(e) { /* silent */ }
+}
+
 function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
@@ -764,7 +780,8 @@ _hasData: (startIndex >= 0) || (endIndex >= 0) ||
           (historicalDebts && historicalDebts.length > 0) ||
           (abonos && abonos.length > 0) ||
           !!(document.getElementById('utmAmount')?.value) ||
-          !!(document.getElementById('clpAmount')?.value)
+          !!(document.getElementById('clpAmount')?.value),
+_calcSnapshot: (activeCasoId && window._calcSnapshots && window._calcSnapshots[activeCasoId]) ? window._calcSnapshots[activeCasoId] : undefined
 // BUG 5 FIX: saved_at y updated_at los estampa el llamador (saveSession / saveCurrentCasoNow)
 // para garantizar que objeto e índice tengan el mismo timestamp exacto.
 };
@@ -810,6 +827,11 @@ function applySession(s) {
 // renderHistoricalList, etc.). Sin este flag, el debounce de 2s puede capturar el DOM
 // a medio restaurar y subir un snapshot incompleto/vacío a Supabase.
 _isRestoringSession = true;
+// Cargar snapshot pre-calculado si existe en la sesión guardada
+if (s && s._calcSnapshot && activeCasoId) {
+  window._calcSnapshots = window._calcSnapshots || {};
+  window._calcSnapshots[activeCasoId] = s._calcSnapshot;
+}
 // ── FIX v74: Limpiar totales y datos de cálculo ANTES de restaurar sesión.
 // Evita que los totales del caso anterior persistan cuando handleCalculationModeChange()
 // llama a calculate() al final de esta función — sin este reset, calculate() usaba
@@ -2723,7 +2745,7 @@ function showWelcomeScreen() {
   const inp = document.getElementById('welcomeNombreInput');
   if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 200); }
   checkWelcomeBtn();
-  ws.style.display = 'block';
+  ws.style.display = 'flex';
 }
 
 function hideWelcomeScreen() {
@@ -2780,5 +2802,158 @@ function abrirCasoJudicialDesdeWelcome() {
   if (welcomeNombre.length > 0) {
     const inp = document.getElementById('newCasoInput');
     if (inp) { inp.value = welcomeNombre; checkNuevoCasoBtn(); }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SNAPSHOT MODAL — Vista rápida de caso sin cambiar sesión activa
+// ══════════════════════════════════════════════════════════════════════════════
+
+function openCasoSnapshot(casoId) {
+  const casos = getCasosIndex();
+  const c = casos.find(x => x.id === casoId);
+  if (!c) return;
+
+  // Encabezado
+  const titulo = document.getElementById('snapModalTitulo');
+  const subtitulo = document.getElementById('snapModalSubtitulo');
+  if (titulo) titulo.textContent = c.nombre || 'Sin nombre';
+  if (subtitulo) {
+    const partes = [c.rolCausa, c.tribunal].filter(Boolean);
+    subtitulo.textContent = partes.length ? partes.join(' · ') : 'Expediente';
+  }
+
+  // Body
+  const body = document.getElementById('snapModalBody');
+  body.innerHTML = '';
+
+  // Intentar obtener snapshot del caso (pre-calculado o del localStorage)
+  let snap = null;
+  if (casoId === activeCasoId) {
+    // Caso activo: leer del objeto en memoria
+    snap = (window._calcSnapshots || {})[casoId] || null;
+  } else {
+    // Otro caso: leer del localStorage sin cambiar sesión
+    try {
+      const raw = localStorage.getItem('pension_utm_caso_v1_' + casoId);
+      if (raw) {
+        const s = JSON.parse(raw);
+        snap = s._calcSnapshot || null;
+      }
+    } catch(e) {}
+    // Si no hay snapshot guardado, intentar leer del objeto en memoria (si fue calculado antes)
+    if (!snap) snap = (window._calcSnapshots || {})[casoId] || null;
+  }
+
+  const fmt = n => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n || 0);
+  const fmtUTM = n => (+(n || 0)).toFixed(4) + ' UTM';
+
+  // ── Sección: Datos del expediente ──
+  const datosExpediente = [
+    { label: 'Alimentante',   val: c.alimentante },
+    { label: 'Alimentario/a', val: c.alimentario },
+    { label: 'ROL / RIT',     val: c.rolCausa },
+    { label: 'Tribunal',      val: c.tribunal },
+    { label: 'Monto decreto', val: c.montoDecretado },
+    { label: 'Cuota (UTM)',   val: c.utmAmount || null },
+    { label: 'Período',       val: (c.fechaInicioPago && c.fechaFinPago) ? (c.fechaInicioPago + ' – ' + c.fechaFinPago) : (c.fechaInicioPago || null) },
+    { label: 'Guardado',      val: c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : null },
+  ].filter(f => f.val);
+
+  if (datosExpediente.length > 0) {
+    const secHeader = document.createElement('div');
+    secHeader.style.cssText = 'font-size:9px;font-weight:900;color:#2563eb;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 7px;';
+    secHeader.textContent = '⚖️ Expediente';
+    body.appendChild(secHeader);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'background:#f8fafc;border-radius:12px;border:1px solid rgba(0,0,0,0.06);overflow:hidden;margin-bottom:14px;';
+    datosExpediente.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;align-items:baseline;gap:8px;padding:7px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};`;
+      row.innerHTML = `<span style="font-size:8.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;white-space:nowrap;min-width:80px;">${f.label}</span>
+        <span style="font-size:10.5px;font-weight:700;color:#1e293b;word-break:break-word;">${f.val}</span>`;
+      grid.appendChild(row);
+    });
+    body.appendChild(grid);
+  }
+
+  // ── Sección: Resultado del cálculo ──
+  if (!snap) {
+    // Sin datos — mensaje informativo
+    const noData = document.createElement('div');
+    noData.style.cssText = 'text-align:center;padding:20px 12px;background:#f8fafc;border-radius:12px;border:1px solid rgba(0,0,0,0.06);';
+    noData.innerHTML = `
+      <svg width="28" height="28" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 8px;display:block;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <p style="font-size:11px;font-weight:700;color:#64748b;margin:0;">Sin cálculo disponible</p>
+      <p style="font-size:9.5px;color:#94a3b8;margin:4px 0 0;">Abre este caso para calcular y<br>el resumen quedará disponible aquí.</p>`;
+    body.appendChild(noData);
+  } else {
+    // ── Bloque total destacado ──
+    const heroBlock = document.createElement('div');
+    heroBlock.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-radius:14px;padding:14px 16px 12px;margin-bottom:12px;';
+    heroBlock.innerHTML = `
+      <p style="font-size:8.5px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin:0 0 4px;">💰 Total adeudado</p>
+      <p style="font-size:22px;font-weight:900;color:#ffffff;margin:0;letter-spacing:-0.5px;">${fmt(snap.totalCLP)}</p>
+      <p style="font-size:10px;font-weight:700;color:#bfdbfe;margin:3px 0 0;">${fmtUTM(snap.totalUTM)}</p>
+      ${snap.fechaLiq ? `<p style="font-size:8.5px;color:#7ab3e0;margin:6px 0 0;">Fecha liquidación: ${snap.fechaLiq} · UTM ref: ${fmt(snap.utmLiq)}</p>` : ''}
+      ${snap.meses ? `<p style="font-size:8.5px;color:#7ab3e0;margin:2px 0 0;">${snap.meses} meses adeudados</p>` : ''}`;
+    body.appendChild(heroBlock);
+
+    // ── Grilla de totales ──
+    const secHeader2 = document.createElement('div');
+    secHeader2.style.cssText = 'font-size:9px;font-weight:900;color:#2563eb;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 7px;';
+    secHeader2.textContent = '📊 Detalle del cálculo';
+    body.appendChild(secHeader2);
+
+    const totalesGrid = document.createElement('div');
+    totalesGrid.style.cssText = 'background:#f8fafc;border-radius:12px;border:1px solid rgba(0,0,0,0.06);overflow:hidden;margin-bottom:10px;';
+
+    const filasCalc = [
+      { label: 'Capital sin interés', clp: snap.capitalCLP, utm: snap.capitalUTM, color: '#1d4ed8' },
+      { label: 'Interés acumulado',   clp: snap.interesCLP, utm: snap.interesUTM, color: '#7c3aed' },
+    ];
+    if (snap.parcialesCLP > 0) filasCalc.push({ label: 'Total pagos parciales', clp: snap.parcialesCLP, utm: null, color: '#059669', descuento: true });
+    if (snap.abonosCLP > 0)    filasCalc.push({ label: 'Abonos Art.1595',       clp: snap.abonosCLP,   utm: null, color: '#0891b2', descuento: true });
+    if (snap.lavUTM > 0)       filasCalc.push({ label: 'Depósitos LAV',          clp: snap.lavCLP,      utm: snap.lavUTM, color: '#16a34a', descuento: true });
+
+    filasCalc.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = `padding:8px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};`;
+      const prefijo = f.descuento ? '−' : '';
+      row.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <span style="font-size:9.5px;font-weight:700;color:#64748b;">${f.label}</span>
+          <div style="text-align:right;">
+            <p style="font-size:11px;font-weight:900;color:${f.color};margin:0;">${prefijo}${fmt(f.clp)}</p>
+            ${f.utm != null ? `<p style="font-size:8.5px;font-weight:600;color:#94a3b8;margin:1px 0 0;">${prefijo}${fmtUTM(f.utm)}</p>` : ''}
+          </div>
+        </div>`;
+      totalesGrid.appendChild(row);
+    });
+    body.appendChild(totalesGrid);
+
+    // Timestamp del snapshot
+    if (snap.ts) {
+      const tsEl = document.createElement('p');
+      tsEl.style.cssText = 'font-size:8.5px;color:#94a3b8;text-align:center;margin:6px 0 0;';
+      tsEl.textContent = 'Calculado: ' + new Date(snap.ts).toLocaleString('es-CL');
+      body.appendChild(tsEl);
+    }
+  }
+
+  // Mostrar modal
+  const modal = document.getElementById('casoSnapshotModal');
+  if (modal) {
+    modal.classList.replace('hidden', 'flex');
+    if (typeof lockBody === 'function') lockBody();
+  }
+}
+
+function closeCasoSnapshotModal() {
+  const modal = document.getElementById('casoSnapshotModal');
+  if (modal) {
+    modal.classList.replace('flex', 'hidden');
+    if (typeof unlockBody === 'function') unlockBody();
   }
 }
