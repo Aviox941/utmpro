@@ -182,8 +182,8 @@
 <!-- Bloquea cualquier flash: oculta el app-container hasta que el login resuelva -->
 
 <script>
-// Safety: si en 3s Supabase no respondió, mostrar la app igual
-setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
+// Safety: si en 800ms Supabase no respondió, mostrar la app igual
+setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
 </script>
 <script>
 // ── Panel de diagnóstico temprano — aparece con 5 taps en cualquier lugar ──
@@ -772,13 +772,33 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
     </div>
   </div>
  </div>
+<!-- Modal cambio de contraseña / huella digital -->
+<div id="authActionModal" class="fixed inset-0 z-[600] bg-[#1a1d2e]/60 backdrop-blur-md hidden items-center justify-center p-5" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div style="width:100%;max-width:340px;background:#fff;border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,0.18);overflow:hidden;">
+    <!-- Header -->
+    <div id="authModalHeader" style="padding:20px 20px 16px;border-bottom:1px solid rgba(0,0,0,0.06);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div id="authModalIcon" style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>
+        <p id="authModalTitle" style="font-size:14px;font-weight:800;color:#1e293b;line-height:1.2;"></p>
+      </div>
+      <p id="authModalSubtitle" style="font-size:11px;color:#64748b;font-weight:500;padding-left:42px;line-height:1.4;"></p>
+    </div>
+    <!-- Body -->
+    <div id="authModalBody" style="padding:16px 20px 8px;display:flex;flex-direction:column;gap:12px;"></div>
+    <!-- Footer -->
+    <div style="padding:12px 20px 20px;display:flex;gap:8px;">
+      <button id="authModalCancel" onclick="closeAuthModal()" style="flex:1;padding:10px;border-radius:12px;border:1px solid rgba(0,0,0,0.1);background:#f1f5f9;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">Cancelar</button>
+      <button id="authModalConfirm" style="flex:1;padding:10px;border-radius:12px;border:none;font-size:11px;font-weight:800;color:#fff;cursor:pointer;transition:all 0.15s;"></button>
+    </div>
+  </div>
+</div>
  <div id="desktop-layout">
  <div id="sidebar">
 
-  <!-- ── VISTA CASOS (default) ── -->
+  <!-- ── SIDEBAR UNIFICADO ── -->
   <div id="sidebarViewCasos" style="display:flex;flex-direction:column;height:100%;">
 
-    <!-- Header casos -->
+    <!-- Header -->
     <div class="px-5 pt-6 pb-4 border-b border-black/7 flex-shrink-0">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -787,56 +807,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
           </div>
           <div>
             <p class="text-[9px] font-bold text-[#3b82f6] uppercase leading-none">Liquidación Pro</p>
-            <p class="text-xs font-bold text-[#1a1d2e] leading-tight">Casos</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-1">
-          <!-- Botón configuración -->
-          <button onclick="sidebarShowConfig()" title="Configuración" style="width:32px;height:32px;border-radius:9px;border:1px solid rgba(37,99,235,0.15);background:rgba(37,99,235,0.05);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#3b82f6;transition:all 0.15s;" onmouseover="this.style.background='rgba(37,99,235,0.12)'" onmouseout="this.style.background='rgba(37,99,235,0.05)'">
-            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          </button>
-          <!-- Cerrar sidebar -->
-          <button onclick="closeSidebar()" class="text-[#8e97b0] hover:text-[#1a1d2e] p-1 rounded-lg transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Lista de casos -->
-    <div class="flex-1 overflow-y-auto px-3 py-3 no-scrollbar" id="casosList"></div>
-
-    <!-- Footer: usuario + cerrar sesión -->
-    <div class="px-4 pb-5 pt-3 border-t border-black/7 flex-shrink-0">
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,0.03);margin-bottom:8px;">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6b4faa,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="14" height="14" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <div style="flex:1;min-width:0;">
-          <p style="font-size:8px;font-weight:700;color:#8e97b0;text-transform:uppercase;letter-spacing:0.08em;line-height:1;">Sesión activa</p>
-          <p id="sidebarUserEmail" style="font-size:10px;font-weight:700;color:#1a1d2e;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></p>
-        </div>
-      </div>
-      <button onclick="sbSignOut()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:11px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);color:#dc2626;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(220,38,38,0.12)'" onmouseout="this.style.background='rgba(220,38,38,0.06)'">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
-        Cerrar sesión
-      </button>
-    </div>
-  </div>
-
-  <!-- ── VISTA CONFIGURACIÓN ── -->
-  <div id="sidebarViewConfig" style="display:none;flex-direction:column;height:100%;">
-
-    <!-- Header configuración -->
-    <div class="px-5 pt-6 pb-4 border-b border-black/7 flex-shrink-0">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <button onclick="sidebarShowCasos()" style="width:28px;height:28px;border-radius:8px;border:1px solid rgba(0,0,0,0.08);background:#f1f5f9;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;transition:all 0.15s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-          </button>
-          <div>
-            <p class="text-[9px] font-bold text-[#3b82f6] uppercase leading-none">Liquidación Pro</p>
-            <p class="text-xs font-bold text-[#1a1d2e] leading-tight">Configuración</p>
+            <p class="text-xs font-bold text-[#1a1d2e] leading-tight">Menú</p>
           </div>
         </div>
         <button onclick="closeSidebar()" class="text-[#8e97b0] hover:text-[#1a1d2e] p-1 rounded-lg transition-colors">
@@ -845,10 +816,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
       </div>
     </div>
 
-    <!-- Contenido configuración scrolleable -->
+    <!-- Contenido scrolleable -->
     <div class="flex-1 overflow-y-auto no-scrollbar" style="padding:12px 14px 20px;">
 
-      <!-- Sección USUARIO -->
+      <!-- ── Sección USUARIO ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgUsuario')">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -860,14 +831,48 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
           <svg id="cfgUsuario-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div id="cfgUsuario" class="sidebar-cfg-body" style="display:none;">
-          <div style="padding:8px 10px 4px;border-radius:10px;background:#f8fafc;margin-bottom:6px;">
-            <p style="font-size:8px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">Correo</p>
-            <p id="cfgUserEmailDetail" style="font-size:11px;font-weight:700;color:#1e293b;word-break:break-all;"></p>
+
+          <!-- Sub-sección: Casos -->
+          <div class="sidebar-cfg-subsection">
+            <button class="sidebar-cfg-subheader" onclick="sidebarToggleSection('cfgCasos')">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <svg width="12" height="12" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Casos</span>
+              </div>
+              <svg id="cfgCasos-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <div id="cfgCasos" style="display:none;">
+              <div id="casosList" style="padding:4px 0 2px;"></div>
+            </div>
           </div>
+
+          <!-- Sub-sección: Cuentas -->
+          <div class="sidebar-cfg-subsection">
+            <button class="sidebar-cfg-subheader" onclick="sidebarToggleSection('cfgCuentas')">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <svg width="12" height="12" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M21 21v-2a4 4 0 00-3-3.87"/></svg>
+                <span>Cuentas</span>
+              </div>
+              <svg id="cfgCuentas-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <div id="cfgCuentas" style="display:none;padding:6px 4px 4px;">
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;background:#f8fafc;border:1px solid rgba(0,0,0,0.05);">
+                <div style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#6b4faa,#3b82f6);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                  <svg width="11" height="11" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <p style="font-size:7.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;line-height:1;margin-bottom:2px;">Sesión activa</p>
+                  <p id="sidebarUserEmail" style="font-size:10px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></p>
+                  <p id="cfgUserEmailDetail" style="display:none;"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <!-- Sección SEGURIDAD -->
+      <!-- ── Sección SEGURIDAD ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgSeguridad')">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -890,7 +895,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         </div>
       </div>
 
-      <!-- Sección DESARROLLO -->
+      <!-- ── Sección DESARROLLO ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgDesarrollo')">
           <div style="display:flex;align-items:center;gap:8px;">
@@ -909,27 +914,38 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 3000);
         </div>
       </div>
 
-      <!-- Sección AYUDA -->
+      <!-- ── Sección CONFIGURACIÓN ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgAyuda')">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:26px;height:26px;border-radius:8px;background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;">
-              <svg width="13" height="13" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <svg width="13" height="13" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
             </div>
-            <span>Ayuda</span>
+            <span>Configuración</span>
           </div>
           <svg id="cfgAyuda-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div id="cfgAyuda" class="sidebar-cfg-body" style="display:none;">
           <div class="sidebar-cfg-item" style="cursor:default;color:#64748b;">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Versión 39
+            Versión 41
           </div>
         </div>
       </div>
 
     </div>
+
+    <!-- Footer: cerrar sesión -->
+    <div class="px-4 pb-5 pt-3 border-t border-black/7 flex-shrink-0">
+      <button onclick="sbSignOut()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 14px;border-radius:11px;background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);color:#dc2626;font-size:10px;font-weight:800;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background='rgba(220,38,38,0.12)'" onmouseout="this.style.background='rgba(220,38,38,0.06)'">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
+        Cerrar sesión
+      </button>
+    </div>
   </div>
+
+  <!-- sidebarViewConfig eliminado — contenido integrado en sidebar unificado -->
+  <div id="sidebarViewConfig" style="display:none;"></div>
 
  </div>
 <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
@@ -5159,12 +5175,11 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // En móvil, beforeunload muchas veces NO se dispara al cambiar de app.
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
 document.addEventListener('visibilitychange', async () => {
-  // Al volver a primer plano → sync desde Supabase (detecta cambios de otro dispositivo)
+  // Al volver a primer plano → sync Supabase en background (no bloquear UI)
   if (document.visibilityState === 'visible' && sbCurrentUser) {
-    dbg('VISIBILITY: app en primer plano — recargando desde Supabase...');
+    dbg('VISIBILITY: app en primer plano — sync Supabase en background');
     window._loadFromVisibility = true;
-    await sbLoadCasos();
-    window._loadFromVisibility = false;
+    sbLoadCasos().finally(() => { window._loadFromVisibility = false; });
     return;
   }
   if (document.visibilityState !== 'hidden') return;
@@ -5837,12 +5852,22 @@ async function waOfferEnroll(email, password) {
   // Si ya hay credencial guardada, no volver a preguntar
   if (localStorage.getItem(WA_CRED_KEY) && localStorage.getItem(WA_PAYLOAD_KEY)) return;
   setTimeout(async () => {
-    if (!confirm('¿Deseas activar el acceso con huella digital para ingresar más rápido?')) return;
-    // Limpiar credencial anterior si existe (pudo quedar de versión vieja)
-    localStorage.removeItem(WA_CRED_KEY);
-    localStorage.removeItem(WA_PAYLOAD_KEY);
-    localStorage.removeItem(WA_AES_KEY);
-    await waEnroll(email, password);
+    showAuthModal({
+      icon: `<svg width="16" height="16" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 11c0-1.1.9-2 2-2s2 .9 2 2v2m-8 0V9a4 4 0 018 0"/><rect x="3" y="11" width="18" height="11" rx="2"/></svg>`,
+      iconBg: 'rgba(22,163,74,0.1)',
+      title: 'Activar huella digital',
+      subtitle: '¿Deseas activar el acceso con huella digital para ingresar más rápido?',
+      confirmColor: 'linear-gradient(135deg,#16a34a,#15803d)',
+      confirmLabel: 'Activar',
+      fields: [],
+      async onConfirm() {
+        closeAuthModal();
+        localStorage.removeItem(WA_CRED_KEY);
+        localStorage.removeItem(WA_PAYLOAD_KEY);
+        localStorage.removeItem(WA_AES_KEY);
+        await waEnroll(email, password);
+      }
+    });
   }, 800);
 }
 
@@ -5969,46 +5994,127 @@ async function sbSubmit() {
 }
 
 // ── Cambio de contraseña desde sidebar ──
+// ── Modal de autenticación (cambio contraseña / huella) ──────────────────────
+var _authModalCallback = null;
+function showAuthModal({ icon, iconBg, title, subtitle, confirmColor, confirmLabel, fields, onConfirm }) {
+  _authModalCallback = onConfirm;
+  const modal = document.getElementById('authActionModal');
+  document.getElementById('authModalIcon').innerHTML = icon;
+  document.getElementById('authModalIcon').style.background = iconBg;
+  document.getElementById('authModalTitle').textContent = title;
+  document.getElementById('authModalSubtitle').textContent = subtitle;
+  const confirm = document.getElementById('authModalConfirm');
+  confirm.textContent = confirmLabel;
+  confirm.style.background = confirmColor;
+  confirm.onclick = () => { if (_authModalCallback) _authModalCallback(); };
+  const body = document.getElementById('authModalBody');
+  body.innerHTML = '';
+  fields.forEach(f => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;';
+    const label = document.createElement('label');
+    label.textContent = f.label;
+    label.style.cssText = 'font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;';
+    const input = document.createElement('input');
+    input.id = f.id;
+    input.type = f.type;
+    input.placeholder = f.placeholder;
+    input.autocomplete = f.type === 'password' ? 'new-password' : 'off';
+    input.style.cssText = 'width:100%;padding:10px 12px;border-radius:11px;border:1.5px solid rgba(0,0,0,0.1);font-size:13px;font-weight:600;color:#1e293b;background:#f8fafc;outline:none;box-sizing:border-box;transition:border-color 0.15s;';
+    input.onfocus = () => { input.style.borderColor = '#2563eb'; input.style.background = '#fff'; };
+    input.onblur  = () => { input.style.borderColor = 'rgba(0,0,0,0.1)'; input.style.background = '#f8fafc'; };
+    input.onkeydown = e => { if (e.key === 'Enter') confirm.click(); };
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+    body.appendChild(wrap);
+  });
+  // Error msg placeholder
+  const err = document.createElement('p');
+  err.id = 'authModalError';
+  err.style.cssText = 'font-size:10px;font-weight:700;color:#dc2626;min-height:14px;margin-top:-4px;';
+  body.appendChild(err);
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => {
+    modal.style.opacity = '1';
+    // Focus primer campo
+    const first = body.querySelector('input');
+    if (first) setTimeout(() => first.focus(), 100);
+  });
+}
+function closeAuthModal() {
+  const modal = document.getElementById('authActionModal');
+  modal.style.display = 'none';
+  _authModalCallback = null;
+}
+function shakeAuthModal(msg) {
+  const err = document.getElementById('authModalError');
+  if (err) err.textContent = msg;
+  const box = document.querySelector('#authActionModal > div');
+  if (!box) return;
+  box.style.animation = 'none';
+  box.offsetHeight; // reflow
+  box.style.animation = 'authShake 0.35s ease';
+}
+function setAuthModalLoading(on) {
+  const btn = document.getElementById('authModalConfirm');
+  const cancel = document.getElementById('authModalCancel');
+  if (btn) { btn.disabled = on; btn.style.opacity = on ? '0.6' : '1'; btn.textContent = on ? 'Procesando…' : btn._label || btn.textContent; }
+  if (cancel) cancel.disabled = on;
+}
+function showAuthToast(msg) {
+  let t = document.getElementById('authToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'authToast';
+    t.style.cssText = 'position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:#fff;font-size:11px;font-weight:700;padding:10px 18px;border-radius:50px;z-index:9999;opacity:0;transition:all 0.3s;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,0.25);pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(10px)'; }, 2400);
+}
+// ── Fin helpers modal autenticación ─────────────────────────────────────────
 async function sbChangePassword() {
-  const nueva = prompt('Nueva contraseña (mínimo 6 caracteres):');
-  if (!nueva) return;
-  if (nueva.length < 6) { alert('La contraseña debe tener mínimo 6 caracteres.'); return; }
-  const confirmar = prompt('Repite la nueva contraseña:');
-  if (nueva !== confirmar) { alert('Las contraseñas no coinciden.'); return; }
-  try {
-    const { error } = await sb.auth.updateUser({ password: nueva });
-    if (error) { alert('Error: ' + error.message); return; }
-    alert('✅ Contraseña actualizada correctamente.');
-    // Si hay huella registrada, invalidarla (credenciales cambiaron)
-    if (localStorage.getItem(WA_PAYLOAD_KEY)) {
-      localStorage.removeItem(WA_CRED_KEY);
-      localStorage.removeItem(WA_PAYLOAD_KEY);
-      localStorage.removeItem(WA_AES_KEY);
-      localStorage.removeItem(WA_EMAIL_KEY);
-      sbUpdateHuellaBtn();
-      dbg('SIDEBAR: huella invalidada por cambio de contraseña');
+  showAuthModal({
+    icon: `<svg width="16" height="16" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+    iconBg: 'rgba(37,99,235,0.1)',
+    title: 'Cambiar contraseña',
+    subtitle: 'La nueva contraseña debe tener al menos 6 caracteres.',
+    confirmColor: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
+    confirmLabel: 'Actualizar',
+    fields: [
+      { id: 'am_nueva',     label: 'Nueva contraseña',     type: 'password', placeholder: 'Mínimo 6 caracteres' },
+      { id: 'am_confirmar', label: 'Repetir contraseña',   type: 'password', placeholder: 'Repite la contraseña' },
+    ],
+    async onConfirm() {
+      const nueva     = document.getElementById('am_nueva').value;
+      const confirmar = document.getElementById('am_confirmar').value;
+      if (nueva.length < 6)        { shakeAuthModal('Mínimo 6 caracteres.'); return; }
+      if (nueva !== confirmar)     { shakeAuthModal('Las contraseñas no coinciden.'); return; }
+      setAuthModalLoading(true);
+      try {
+        const { error } = await sb.auth.updateUser({ password: nueva });
+        if (error) { setAuthModalLoading(false); shakeAuthModal('Error: ' + error.message); return; }
+        // Invalidar huella si estaba registrada
+        if (localStorage.getItem(WA_PAYLOAD_KEY)) {
+          localStorage.removeItem(WA_CRED_KEY);
+          localStorage.removeItem(WA_PAYLOAD_KEY);
+          localStorage.removeItem(WA_AES_KEY);
+          localStorage.removeItem(WA_EMAIL_KEY);
+          sbUpdateHuellaBtn();
+          dbg('SIDEBAR: huella invalidada por cambio de contraseña');
+        }
+        closeAuthModal();
+        showAuthToast('✅ Contraseña actualizada correctamente.');
+      } catch(e) { setAuthModalLoading(false); shakeAuthModal('Error de conexión.'); }
     }
-  } catch(e) { alert('Error de conexión.'); }
+  });
 }
 
-// ── Navegación sidebar: vistas Casos / Configuración ──
-function sidebarShowConfig() {
-  const vc = document.getElementById('sidebarViewCasos');
-  const vf = document.getElementById('sidebarViewConfig');
-  if (vc) vc.style.display = 'none';
-  if (vf) vf.style.display = 'flex';
-  // Poblar email en panel config
-  const u = document.getElementById('cfgUserEmailDetail');
-  if (u && sbCurrentUser) u.textContent = sbCurrentUser.email || '—';
-  // Actualizar label del botón de huella
-  sbUpdateHuellaLabel();
-}
-function sidebarShowCasos() {
-  const vc = document.getElementById('sidebarViewCasos');
-  const vf = document.getElementById('sidebarViewConfig');
-  if (vf) vf.style.display = 'none';
-  if (vc) vc.style.display = 'flex';
-}
+// ── Navegación sidebar: delegado a export.js ──
+// sidebarShowConfig y sidebarShowCasos definidas en export.js (sidebar unificado v41)
 function sidebarToggleSection(id) {
   const body = document.getElementById(id);
   if (!body) return;
@@ -6028,26 +6134,63 @@ function sbUpdateHuellaLabel() {
 async function sbToggleHuella() {
   const tiene = !!(localStorage.getItem(WA_CRED_KEY) && localStorage.getItem(WA_PAYLOAD_KEY));
   if (tiene) {
-    if (!confirm('¿Desactivar el acceso con huella digital?')) return;
-    localStorage.removeItem(WA_CRED_KEY);
-    localStorage.removeItem(WA_PAYLOAD_KEY);
-    localStorage.removeItem(WA_AES_KEY);
-    localStorage.removeItem(WA_EMAIL_KEY);
-    sbUpdateHuellaBtn();
-    sbCheckBiometricBtn();
-    dbg('SIDEBAR: huella desactivada por usuario');
+    showAuthModal({
+      icon: `<svg width="16" height="16" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 11c0-1.1.9-2 2-2s2 .9 2 2v2m-8 0V9a4 4 0 018 0"/><rect x="3" y="11" width="18" height="11" rx="2"/></svg>`,
+      iconBg: 'rgba(220,38,38,0.1)',
+      title: 'Desactivar huella digital',
+      subtitle: 'Se eliminará el acceso biométrico. Podrás volver a activarlo cuando quieras.',
+      confirmColor: 'linear-gradient(135deg,#dc2626,#b91c1c)',
+      confirmLabel: 'Desactivar',
+      fields: [],
+      onConfirm() {
+        localStorage.removeItem(WA_CRED_KEY);
+        localStorage.removeItem(WA_PAYLOAD_KEY);
+        localStorage.removeItem(WA_AES_KEY);
+        localStorage.removeItem(WA_EMAIL_KEY);
+        sbUpdateHuellaBtn();
+        sbCheckBiometricBtn();
+        dbg('SIDEBAR: huella desactivada por usuario');
+        closeAuthModal();
+        showAuthToast('Huella digital desactivada.');
+      }
+    });
   } else {
-    if (!await waPlatformAvailable()) { alert('Este dispositivo no soporta huella digital.'); return; }
-    // Necesitamos la contraseña para enrollar
-    const password = prompt('Ingresa tu contraseña actual para activar la huella:');
-    if (!password) return;
-    const email = sbCurrentUser?.email;
-    if (!email) return;
-    // Verificar contraseña antes de enrollar
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) { alert('Contraseña incorrecta.'); return; }
-    await waEnroll(email, password);
-    sbUpdateHuellaBtn();
+    if (!await waPlatformAvailable()) {
+      showAuthModal({
+        icon: `<svg width="16" height="16" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+        iconBg: 'rgba(245,158,11,0.1)',
+        title: 'No disponible',
+        subtitle: 'Este dispositivo no soporta autenticación biométrica.',
+        confirmColor: 'linear-gradient(135deg,#d97706,#b45309)',
+        confirmLabel: 'Entendido',
+        fields: [],
+        onConfirm() { closeAuthModal(); }
+      });
+      return;
+    }
+    showAuthModal({
+      icon: `<svg width="16" height="16" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 11c0-1.1.9-2 2-2s2 .9 2 2v2m-8 0V9a4 4 0 018 0"/><rect x="3" y="11" width="18" height="11" rx="2"/></svg>`,
+      iconBg: 'rgba(22,163,74,0.1)',
+      title: 'Activar huella digital',
+      subtitle: 'Ingresa tu contraseña actual para vincular tu huella digital.',
+      confirmColor: 'linear-gradient(135deg,#16a34a,#15803d)',
+      confirmLabel: 'Activar',
+      fields: [
+        { id: 'am_password', label: 'Contraseña actual', type: 'password', placeholder: 'Tu contraseña de acceso' },
+      ],
+      async onConfirm() {
+        const password = document.getElementById('am_password').value;
+        if (!password) { shakeAuthModal('Ingresa tu contraseña.'); return; }
+        const email = sbCurrentUser?.email;
+        if (!email) { closeAuthModal(); return; }
+        setAuthModalLoading(true);
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { setAuthModalLoading(false); shakeAuthModal('Contraseña incorrecta.'); return; }
+        closeAuthModal();
+        await waEnroll(email, password);
+        sbUpdateHuellaBtn();
+      }
+    });
   }
 }
 

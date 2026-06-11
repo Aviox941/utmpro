@@ -555,27 +555,39 @@ function isDesktop() {
 }
 function openSidebar() {
   if (isDesktop()) return; // En desktop el sidebar siempre está visible
-  // Volver siempre a vista de casos al abrir
-  sidebarShowCasos();
   document.getElementById('sidebar').classList.add('open');
   const ov = document.getElementById('sidebarOverlay');
   ov.style.display = 'block';
   requestAnimationFrame(() => ov.classList.add('open'));
+  // Auto-expandir Usuario > Casos al abrir
+  const u = document.getElementById('cfgUsuario');
+  const uc = document.getElementById('cfgUsuario-chevron');
+  if (u && u.style.display === 'none') { u.style.display = 'block'; if (uc) uc.style.transform = 'rotate(90deg)'; }
+  const casos = document.getElementById('cfgCasos');
+  const casosC = document.getElementById('cfgCasos-chevron');
+  if (casos && casos.style.display === 'none') { casos.style.display = 'block'; if (casosC) casosC.style.transform = 'rotate(90deg)'; }
   try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
 }
 function sidebarShowConfig() {
-  document.getElementById('sidebarViewCasos').style.display = 'none';
-  const cfg = document.getElementById('sidebarViewConfig');
-  cfg.style.display = 'flex';
-  const el = document.getElementById('cfgUserEmailDetail');
+  // Sidebar unificado: abrir sección Usuario y sub-sección Cuentas
+  const u = document.getElementById('cfgUsuario');
+  const uc = document.getElementById('cfgUsuario-chevron');
+  if (u && u.style.display === 'none') {
+    u.style.display = 'block';
+    if (uc) uc.style.transform = 'rotate(90deg)';
+  }
+  const c = document.getElementById('cfgCuentas');
+  const cc = document.getElementById('cfgCuentas-chevron');
+  if (c && c.style.display === 'none') {
+    c.style.display = 'block';
+    if (cc) cc.style.transform = 'rotate(90deg)';
+  }
+  const el = document.getElementById('sidebarUserEmail');
   if (el && typeof sbCurrentUser !== 'undefined' && sbCurrentUser?.email) el.textContent = sbCurrentUser.email;
   try { if (typeof sbUpdateHuellaBtn === 'function') sbUpdateHuellaBtn(); } catch(e) {}
 }
 function sidebarShowCasos() {
-  const cfg = document.getElementById('sidebarViewConfig');
-  const casos = document.getElementById('sidebarViewCasos');
-  if (cfg) cfg.style.display = 'none';
-  if (casos) casos.style.display = 'flex';
+  // Sidebar unificado: no-op (ya no hay vista separada)
 }
 function sidebarToggleSection(id) {
   const body = document.getElementById(id);
