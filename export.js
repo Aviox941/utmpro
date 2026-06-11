@@ -314,25 +314,22 @@ const parcialTotal = totalParcialesTabla;
 const { cuotaMensualUTM } = getMonthlyValues ? getMonthlyValues() : { cuotaMensualUTM: 0 };
 doc.autoTable({
 startY: y,
-head: [['N°','Período','Monto ($)','UTM Período','Equiv. Pago UTM','Remanente UTM','Remanente CLP']],
+head: [['N°','Período','Monto ($)','UTM Período','Equiv. Pago UTM','Remanente UTM']],
 body: pagosParciales.map((p,i) => {
   const utmP = p.utmVal || utmHoy;
   const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
-  const rem = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amtUtm) : null;
-  // Remanente CLP: buscar en lastCalculationData el cap remanente real del período
-  const cuotaRef2 = (typeof lastCalculationData !== 'undefined' && lastCalculationData)
+  const cuotaRefPdf = (typeof lastCalculationData !== 'undefined' && lastCalculationData)
     ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
-  const remCLP = cuotaRef2
-    ? (cuotaRef2.capParcialRemanente !== undefined ? cuotaRef2.capParcialRemanente : cuotaRef2.cap)
-    : (rem !== null && utmP > 0 ? Math.round(rem * utmP) : null);
-  return [i+1, p.periodoLabel, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(4)+' UTM', rem !== null ? rem.toFixed(4)+' UTM' : '—', remCLP !== null ? fmt(remCLP) : '—'];
+  const remCLP = cuotaRefPdf ? (cuotaRefPdf.capParcialRemanente ?? cuotaRefPdf.cap) : null;
+  const remUTMpdf = (remCLP !== null && p.utmVal > 0) ? (remCLP / p.utmVal).toFixed(4) + ' UTM' : '—';
+  return [i+1, p.periodoLabel, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(4)+' UTM', remUTMpdf];
 }),
-foot: [['', 'TOTAL', fmt(parcialTotal), '', (pagosParciales.reduce((s,p) => { const utmP=p.utmVal||utmHoy; return s+(p.amountUtm!==null&&p.amountUtm!==undefined?p.amountUtm:(p.amount/utmP)); },0)).toFixed(4)+' UTM', '', '']],
+foot: [['', 'TOTAL', fmt(parcialTotal), '', (pagosParciales.reduce((s,p) => { const utmP=p.utmVal||utmHoy; return s+(p.amountUtm!==null&&p.amountUtm!==undefined?p.amountUtm:(p.amount/utmP)); },0)).toFixed(4)+' UTM', '']],
 theme:'grid',
 headStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
 footStyles:{fillColor:[124,58,237],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
 styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
-columnStyles:{0:{halign:'center',cellWidth:7},1:{halign:'center',cellWidth:16},2:{halign:'right',cellWidth:20},3:{halign:'center',cellWidth:19},4:{halign:'center',cellWidth:21},5:{halign:'center',cellWidth:21},6:{halign:'right',cellWidth:20}},
+columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:18},2:{halign:'right',cellWidth:24},3:{halign:'center',cellWidth:22},4:{halign:'center',cellWidth:24},5:{halign:'center',cellWidth:24}},
 margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;
@@ -591,9 +588,9 @@ function sidebarShowCasos() {
   // Sidebar unificado: no-op (ya no hay vista separada)
 }
 // IDs de acordeones de nivel 1 (se cierran mutuamente)
-var _sbTopSections = ['cfgUsuario','cfgSeguridad','cfgDesarrollo','cfgAyuda','cfgConfiguracion'];
+var _sbTopSections = ['cfgCasos','cfgUsuario','cfgSeguridad','cfgDesarrollo','cfgAyuda','cfgConfiguracion'];
 // IDs de sub-acordeones dentro de Usuario (se cierran mutuamente entre sí)
-var _sbSubSections = ['cfgCasos','cfgCuentas'];
+var _sbSubSections = ['cfgCuentas'];
 
 function sidebarCollapseAll() {
   [..._sbTopSections, ..._sbSubSections].forEach(id => {
@@ -667,15 +664,15 @@ pFecha.className = 'text-[9px] text-slate-500 font-bold truncate';
 pFecha.textContent = c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : 'Sin guardar';
 info.appendChild(pNombre);
 info.appendChild(pFecha);
-// Botón ficha (único icono visible)
+// Botón editar expediente (lápiz → abre fichaModal)
 const btnFicha = document.createElement('button');
 btnFicha.className = 'p-1.5 rounded-lg text-slate-500 hover:text-[#3b82f6] hover:bg-white/6 transition-colors ml-1';
-btnFicha.title = 'Ver resumen de liquidación';
-btnFicha.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
+btnFicha.title = 'Editar expediente';
+btnFicha.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
 btnFicha.addEventListener('click', e => {
   e.stopPropagation();
   closeSidebar();
-  openCasoSnapshot(c.id);
+  openFichaModal(c.id);
 });
 // Botón eliminar caso
 const btnEliminar = document.createElement('button');
@@ -1595,7 +1592,7 @@ function buildResumenContent() {
     let lastYear = null;
     let rowIndex = 0;
     datos.forEach((d) => {
-      // FIX: La columna Capital $ siempre muestra la cuota original del período (igual que los demás meses)
+      // FIX: La columna Capital $ siempre muestra la cuota original del período
       const cap0 = d.esLav ? d.cap : (d.capOriginalBruto ?? d.capOriginal ?? d.cap);
       const int0 = d.inte;
       // Extraer año del período (ej: "Ene 2020" → 2020)
@@ -1624,9 +1621,7 @@ function buildResumenContent() {
       row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${d.esLav?'#f0fdf4':(rowIndex%2===0?'#ffffff':'#f8fafc')};border-top:1px solid #e2e8f0`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = d.esLav ? 0 : cap0;
-      // FIX: La columna UTM siempre muestra el capital original del período (no el remanente post-pago parcial)
-      const capParaUTM = d.esLav ? 0 : (d.capOriginalBruto ?? d.capOriginal ?? d.cap);
-      const capUTM = d.esLav ? '0.00' : ((d.utmVal && d.utmVal > 0) ? (capParaUTM / d.utmVal).toFixed(2) : '—');
+      const capUTM = d.esLav ? '0.00' : ((d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—');
       const lavTag = d.esLav ? `<span style="color:#10b981;font-size:7.5px;font-weight:900"> ✓LAV</span>` : '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
       // Sub-chip de remanente para cuotas con pago parcial
@@ -1660,8 +1655,7 @@ function buildResumenContent() {
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
     foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}18;border-top:2px solid ${colorHeader}50;color:#0f172a`;
-    // FIX: total UTM usa capital original del período (igual que cada fila)
-    const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? (d.capOriginalBruto ?? d.capOriginal ?? d.cap) / d.utmVal : 0), 0);
+    const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
     foot.innerHTML = `<span>TOTAL</span><span style="color:#7c3aed;font-size:9px;font-weight:900">${totUTM.toFixed(2)}</span><span>${fmt(totCap)}</span><span></span><span></span><span class="text-right">${fmt(totInt)}</span><span class="text-right">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
     container.appendChild(wrap);
@@ -1709,66 +1703,45 @@ function buildResumenContent() {
 
   // ── 4. Pagos Parciales ──
   if (pagosParciales.length > 0) {
-    seccion('Pagos Parciales por Mes (descontados del capital)', '#7c3aed', '');
+    seccion('Pagos Parciales por Mes', '#7c3aed', '');
     const wrapP = document.createElement('div');
     wrapP.className = 'rounded-xl overflow-hidden';
     wrapP.style.border = '1px solid rgba(124,58,237,0.2)';
-    // Columnas: N° | Período | UTM Período | Equiv. Pago UTM | Remanente UTM | Remanente CLP | Monto ($)
-    const COLS_P = '0.5fr 1.4fr 1.5fr 1.7fr 1.7fr 1.7fr 1.6fr';
-    // Header
-    const headP = document.createElement('div');
-    headP.className = 'grid text-[8.5px] font-black uppercase text-white px-3 py-2';
-    headP.style.cssText = `background:#7c3aed;grid-template-columns:${COLS_P};column-gap:4px`;
-    headP.innerHTML = '<span>N°</span><span>Período</span><span class="text-right">UTM Período</span><span class="text-right">Equiv. Pago UTM</span><span class="text-right">Remanente UTM</span><span class="text-right">Remanente CLP</span><span class="text-right">Monto ($)</span>';
-    wrapP.appendChild(headP);
     // Agrupar por período (puede haber múltiples pagos en el mismo mes)
     const agrupados = [];
     const vistoPeriodos = {};
     pagosParciales.forEach(p => {
       if (vistoPeriodos[p.periodo] !== undefined) {
         agrupados[vistoPeriodos[p.periodo]].amount += p.amount;
-        agrupados[vistoPeriodos[p.periodo]].amountUtm = (agrupados[vistoPeriodos[p.periodo]].amountUtm || 0) + (p.amountUtm || 0);
       } else {
         vistoPeriodos[p.periodo] = agrupados.length;
-        agrupados.push({ periodo: p.periodo, periodoLabel: p.periodoLabel, amount: p.amount, utmVal: p.utmVal, amountUtm: p.amountUtm || 0 });
+        agrupados.push({ periodo: p.periodo, periodoLabel: p.periodoLabel, amount: p.amount });
       }
     });
-    let totalParcialCLP = 0;
-    let totalParcialUTM = 0;
     agrupados.forEach((p, i) => {
       // Buscar cuota correspondiente para mostrar remanente (sin filtrar por hayParcialConRemanente)
       const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
-      // UTM del período: usar utmVal del pago o de la cuota referenciada
-      const utmPeriodo = (p.utmVal && p.utmVal > 0) ? p.utmVal : (cuotaRef && cuotaRef.utmVal > 0 ? cuotaRef.utmVal : 0);
-      // Equiv. pago en UTM
-      const equivPagoUTM = p.amountUtm > 0 ? p.amountUtm : (utmPeriodo > 0 ? p.amount / utmPeriodo : 0);
-      // Remanente: cap reducido por el pago parcial
-      const _capRemDisplay = cuotaRef ? (cuotaRef.capParcialRemanente !== undefined ? cuotaRef.capParcialRemanente : cuotaRef.cap) : 0;
-      const remanenteUTM = (cuotaRef && utmPeriodo > 0) ? _capRemDisplay / utmPeriodo : 0;
-      const remanenteCLP = _capRemDisplay;
-      totalParcialCLP += p.amount;
-      totalParcialUTM += equivPagoUTM;
       const row = document.createElement('div');
-      row.className = 'grid px-3 py-2.5 text-[9.5px] font-bold';
-      row.style.cssText = `grid-template-columns:${COLS_P};column-gap:4px;background:${i%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
-      row.innerHTML = `
-        <span style="color:#7c3aed;font-weight:900">${i+1}</span>
-        <span style="color:#475569">${p.periodoLabel}</span>
-        <span class="text-right" style="color:#7c3aed">${utmPeriodo > 0 ? fmt(utmPeriodo) : '—'}</span>
-        <span class="text-right font-black" style="color:#7c3aed">${equivPagoUTM > 0 ? equivPagoUTM.toFixed(4) + ' UTM' : '—'}</span>
-        <span class="text-right font-black" style="color:${cuotaRef ? '#a855f7' : '#94a3b8'}">${cuotaRef ? remanenteUTM.toFixed(4) + ' UTM' : '—'}</span>
-        <span class="text-right font-black" style="color:${cuotaRef ? '#a855f7' : '#94a3b8'}">${cuotaRef ? fmt(remanenteCLP) : '—'}</span>
-        <span class="text-right font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
+      row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
+      row.innerHTML = `<span style="color:#475569">${p.periodoLabel}</span><span class="font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
       wrapP.appendChild(row);
+      // Sub-fila remanente
+      if (cuotaRef) {
+        const remRow = document.createElement('div');
+        remRow.className = 'flex justify-between items-center px-3 py-1.5 text-[9px] font-bold';
+        remRow.style.cssText = `background:rgba(168,85,247,0.06);border-top:1px dashed rgba(168,85,247,0.25)`;
+        const _remCap = cuotaRef.capParcialRemanente ?? cuotaRef.cap;
+        const remUTM = cuotaRef.utmVal > 0 ? (_remCap / cuotaRef.utmVal).toFixed(4) + ' UTM' : '';
+        remRow.innerHTML = `
+          <span style="color:#a855f7">↳ Remanente (saldo impago)</span>
+          <span style="color:#a855f7">${remUTM}</span>
+          <span class="font-black" style="color:#a855f7">${fmt(_remCap)}</span>`;
+        wrapP.appendChild(remRow);
+      }
     });
-    // Fila total
-    const totRowP = document.createElement('div');
-    totRowP.className = 'grid px-3 py-2.5 text-[10px] font-black';
-    totRowP.style.cssText = `grid-template-columns:${COLS_P};column-gap:4px;background:rgba(124,58,237,0.1);border-top:2px solid rgba(124,58,237,0.4);color:#0f172a`;
-    totRowP.innerHTML = `<span></span><span style="color:#7c3aed">TOTAL</span><span></span><span class="text-right" style="color:#7c3aed">${totalParcialUTM.toFixed(4)} UTM</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totalParcialCLP)}</span>`;
-    wrapP.appendChild(totRowP);
     // Nota al pie si hay remanentes
-    if (lastCalculationData && lastCalculationData.some(d => d.hayParcialConRemanente)) {
+    if (lastCalculationData && agrupados.some(p => lastCalculationData.find(d => d.periodo === p.periodoLabel))) {
       const nota = document.createElement('div');
       nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:rgba(168,85,247,0.05);border-top:1px solid rgba(168,85,247,0.15)';
       nota.textContent = '* El interés se calcula sobre el remanente, no sobre la cuota completa (metodología SITFA/PJUD).';
