@@ -819,22 +819,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
     <!-- Contenido scrolleable -->
     <div class="flex-1 overflow-y-auto no-scrollbar" style="padding:12px 14px 20px;">
 
-      <!-- ── Sección CASOS ── -->
-      <div class="sidebar-cfg-section">
-        <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgCasos')">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:26px;height:26px;border-radius:8px;background:rgba(37,99,235,0.1);display:flex;align-items:center;justify-content:center;">
-              <svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            </div>
-            <span>Casos</span>
-          </div>
-          <svg id="cfgCasos-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
-        <div id="cfgCasos" class="sidebar-cfg-body" style="display:none;">
-          <div id="casosList" style="padding:4px 0 2px;"></div>
-        </div>
-      </div>
-
       <!-- ── Sección USUARIO ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgUsuario')">
@@ -847,6 +831,20 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
           <svg id="cfgUsuario-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div id="cfgUsuario" class="sidebar-cfg-body" style="display:none;">
+
+          <!-- Sub-sección: Casos -->
+          <div class="sidebar-cfg-subsection">
+            <button class="sidebar-cfg-subheader" onclick="sidebarToggleSection('cfgCasos')">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <svg width="12" height="12" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span>Casos</span>
+              </div>
+              <svg id="cfgCasos-chevron" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+            <div id="cfgCasos" style="display:none;">
+              <div id="casosList" style="padding:4px 0 2px;"></div>
+            </div>
+          </div>
 
           <!-- Sub-sección: Cuentas -->
           <div class="sidebar-cfg-subsection">
@@ -928,11 +926,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
           <svg id="cfgAyuda-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div id="cfgAyuda" class="sidebar-cfg-body" style="display:none;">
-          <button onclick="openAyudaModal(); closeSidebar();" class="sidebar-cfg-item">
-            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Guía interactiva
-          </button>
-          <div class="sidebar-cfg-item" style="cursor:default;color:#94a3b8;">
+          <div class="sidebar-cfg-item" style="cursor:default;color:#64748b;">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             Versión 44
           </div>
@@ -6960,7 +6954,7 @@ function renderCasosManagerList() {
       item.appendChild(avatar); item.appendChild(info); item.appendChild(check);
     }
 
-    // Botón snapshot (único acción disponible aquí)
+    // Botón snapshot (expediente)
     const btnSnap = document.createElement('button');
     btnSnap.title = 'Ver resumen';
     btnSnap.style.cssText = 'flex-shrink:0;width:28px;height:28px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;transition:background 0.13s,color 0.13s;';
@@ -6969,213 +6963,32 @@ function renderCasosManagerList() {
     btnSnap.onmouseout  = () => { btnSnap.style.background='transparent'; btnSnap.style.color='#64748b'; };
     btnSnap.onclick = (e) => { e.stopPropagation(); closeCasosManagerModal(); openCasoSnapshot(c.id); };
 
+    // Botón eliminar
+    const btnDel = document.createElement('button');
+    btnDel.title = 'Eliminar caso';
+    btnDel.style.cssText = 'flex-shrink:0;width:28px;height:28px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;transition:background 0.13s,color 0.13s;';
+    btnDel.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+    btnDel.onmouseover = () => { btnDel.style.background='rgba(239,68,68,0.1)'; btnDel.style.color='#ef4444'; };
+    btnDel.onmouseout  = () => { btnDel.style.background='transparent'; btnDel.style.color='#94a3b8'; };
+    btnDel.onclick = (e) => { e.stopPropagation(); closeCasosManagerModal(); confirmarEliminarCaso(c.id, c.nombre); };
+
     if (!isActive) {
       item.appendChild(avatar);
       item.appendChild(info);
       item.appendChild(btnSnap);
+      item.appendChild(btnDel);
     } else {
+      // Para el activo ya se appendearon avatar+info+check arriba, agregar botones al final
       item.appendChild(btnSnap);
+      item.appendChild(btnDel);
     }
 
     list.appendChild(item);
   });
 }
 
-// ============================================================
-// MODAL AYUDA INTERACTIVA
-// ============================================================
-const _ayudaTemas = [
-  {
-    id: 'periodo-actual',
-    label: 'Período actual',
-    icon: '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-    color: '#1d4ed8',
-    bg: 'rgba(29,78,216,0.08)',
-    contenido: [
-      { tipo: 'intro', texto: 'Es la herramienta central de la liquidación. Permite ingresar los períodos adeudados y calcular automáticamente cuánto corresponde pagar en cada mes, convirtiendo el monto decretado a pesos cuota a cuota según el valor UTM de cada período.' },
-      { tipo: 'subtitulo', texto: 'Dos modos de cálculo' },
-      { tipo: 'paso', n: '1', texto: '<b>Modo UTM:</b> el monto decretado se expresa en UTM (ej: 2,33 UTM). El sistema multiplica ese valor por el UTM de cada mes para obtener el monto en pesos de esa cuota, reflejando automáticamente la variación del índice mes a mes.' },
-      { tipo: 'paso', n: '2', texto: '<b>Modo % Sueldo:</b> el monto se calcula como porcentaje del sueldo. La herramienta aplica el cálculo sobre la base imponible ingresada e incluye el <b>IMM (Ingreso Mínimo Mensual)</b> como piso automático cuando corresponde.' },
-      { tipo: 'subtitulo', texto: 'Tramos y UTM variable' },
-      { tipo: 'paso', n: '3', texto: 'Si la resolución judicial ha sido modificada en el tiempo (ej: un tramo entre 2020–2022 con 1,5 UTM y otro desde 2023 con 2,33 UTM), puedes <b>registrar tramos separados</b>. Cada tramo tiene su propio monto y rango de fechas, y el sistema los aplica cuota a cuota al período que corresponda.' },
-      { tipo: 'paso', n: '4', texto: 'En cada tramo puedes ingresar el <b>inicio y fin de mora</b>. El sistema genera automáticamente todos los períodos intermedios sin necesidad de ingresarlos uno a uno.' },
-      { tipo: 'subtitulo', texto: 'Cálculo al día de vencimiento' },
-      { tipo: 'paso', n: '5', texto: 'El campo <b>Día de vencimiento</b> define el día del mes en que vence cada cuota (ej: día 5). Los intereses por mora se calculan desde ese día exacto, no desde el día 1 del mes, lo que entrega mayor precisión en la liquidación.' },
-      { tipo: 'subtitulo', texto: 'Fecha de término de liquidación' },
-      { tipo: 'paso', n: '6', texto: 'Si necesitas simular o replicar una liquidación oficial con una fecha de corte específica (ej: la fecha que usa el tribunal o SITFA), puedes ingresar una <b>fecha de término de liquidación</b>. Esto permite calcular los intereses exactamente hasta ese día, en lugar de usar la fecha de hoy, logrando un resultado más preciso.' },
-      { tipo: 'nota', texto: 'Si un período no es cubierto por un abono LAV ni por un pago parcial, queda como deuda vencida y genera intereses que se acumulan en la Deuda Histórica.' },
-    ]
-  },
-  {
-    id: 'deuda-historica',
-    label: 'Deuda histórica / Arrastre',
-    icon: '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
-    color: '#ea580c',
-    bg: 'rgba(234,88,12,0.08)',
-    contenido: [
-      { tipo: 'intro', texto: 'Acumula cuotas impagas desde el inicio del período de liquidación, aplicando reajuste e intereses sobre cada mes adeudado.' },
-      { tipo: 'paso', n: '1', texto: 'Cada cuota no pagada en su mes se convierte en <b>capital vencido</b> al cierre del período.' },
-      { tipo: 'paso', n: '2', texto: 'Sobre ese capital se aplica la <b>tasa CMF</b> correspondiente al período (Tabla I o II según el tipo de deuda).' },
-      { tipo: 'paso', n: '3', texto: 'Los intereses se acumulan mes a mes usando la fórmula: <b>Capital × Tasa × (días/365)</b>.' },
-      { tipo: 'paso', n: '4', texto: 'El total de deuda histórica es la suma de todos los capitales más sus intereses acumulados hasta la fecha de liquidación.' },
-      { tipo: 'nota', texto: 'El arrastre considera únicamente cuotas no cubiertas por abonos LAV ni pagos parciales.' },
-    ]
-  },
-  {
-    id: 'pagos-parciales',
-    label: 'Pagos parciales',
-    icon: '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>',
-    color: '#7c3aed',
-    bg: 'rgba(124,58,237,0.08)',
-    contenido: [
-      { tipo: 'intro', texto: 'Registra el pago incompleto de una cuota mensual. El monto pagado se descuenta directamente del capital de esa cuota, y lo que queda sin pagar sigue generando intereses hasta que la cuota sea cubierta en su totalidad.' },
-      { tipo: 'paso', n: '1', texto: 'Ingresa el <b>monto pagado</b> y el <b>período al que corresponde</b>.' },
-      { tipo: 'paso', n: '2', texto: 'El sistema descuenta ese monto del <b>capital de la cuota</b> de ese mes. No se imputa a intereses.' },
-      { tipo: 'paso', n: '3', texto: 'El <b>saldo restante</b> — lo que falta para completar la cuota — queda como deuda vencida y continúa generando intereses desde el día de vencimiento de ese período.' },
-      { tipo: 'paso', n: '4', texto: 'Los intereses se siguen calculando sobre ese saldo hasta que la cuota quede completamente saldada.' },
-      { tipo: 'nota', texto: 'A diferencia de un abono general, el pago parcial está asociado a un período específico y solo reduce el capital de esa cuota, sin afectar otros períodos.' },
-    ]
-  },
-  {
-    id: 'abonos-lav',
-    label: 'Abonos LAV',
-    icon: '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>',
-    color: '#16a34a',
-    bg: 'rgba(22,163,74,0.08)',
-    contenido: [
-      { tipo: 'intro', texto: 'Los depósitos en Libreta de Ahorro Vista (Banco Estado) ordenados por el tribunal se aplican como pago directo de cuotas, sin generar intereses en los meses que cubren.' },
-      { tipo: 'paso', n: '1', texto: 'Ingresa la <b>fecha del depósito</b> y el <b>monto en pesos</b> acreditado en la LAV.' },
-      { tipo: 'paso', n: '2', texto: 'El sistema asigna el depósito al período calendario correspondiente a la fecha del abono.' },
-      { tipo: 'paso', n: '3', texto: 'Si el abono cubre la cuota íntegra del mes, ese período queda <b>saldado sin intereses</b>.' },
-      { tipo: 'paso', n: '4', texto: 'Si el abono es parcial, el saldo no cubierto sigue generando intereses normalmente.' },
-      { tipo: 'paso', n: '5', texto: 'Si dos depósitos LAV caen en el mismo mes, el sistema los acumula y los reasigna al período correcto automáticamente.' },
-      { tipo: 'nota', texto: 'El monto LAV se compara contra la cuota bruta del mes (UTM × monto decretado), independiente de pagos parciales anteriores.' },
-    ]
-  },
-  {
-    id: 'abonos',
-    label: 'Abonos generales',
-    icon: '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>',
-    color: '#0284c7',
-    bg: 'rgba(2,132,199,0.08)',
-    contenido: [
-      { tipo: 'intro', texto: 'Pagos realizados fuera del mecanismo LAV que se aplican a reducir la deuda acumulada. Pueden corresponder a cualquier período pendiente.' },
-      { tipo: 'paso', n: '1', texto: 'Ingresa el <b>monto del abono</b> y selecciona el <b>período de imputación</b>.' },
-      { tipo: 'paso', n: '2', texto: 'El abono se aplica siguiendo el orden: primero intereses devengados, luego capital.' },
-      { tipo: 'paso', n: '3', texto: 'Si el abono excede la deuda de un período, el remanente se imputa al período anterior más antiguo con saldo.' },
-      { tipo: 'nota', texto: 'A diferencia de los abonos LAV, los abonos generales no tienen el efecto automático de suspender el cálculo de intereses del mes completo.' },
-    ]
-  },
-];
-
-function ayudaXBtn() {
-  const contenido = document.getElementById('ayudaContenido');
-  if (contenido && contenido.style.display !== 'none') {
-    ayudaVolverIndex();
-  } else {
-    closeAyudaModal();
-  }
-}
-function openAyudaModal() {
-  _ayudaRenderIndex();
-  document.getElementById('ayudaModal').classList.replace('hidden', 'flex');
-  lockBody();
-}
-function closeAyudaModal() {
-  document.getElementById('ayudaModal').classList.replace('flex', 'hidden');
-  unlockBody();
-}
-function ayudaVolverIndex() {
-  document.getElementById('ayudaContenido').style.display = 'none';
-  document.getElementById('ayudaIndex').style.display = 'flex';
-  document.getElementById('ayudaModalSubtitle').textContent = 'Selecciona un tema';
-}
-function _ayudaRenderIndex() {
-  const idx = document.getElementById('ayudaIndex');
-  idx.innerHTML = '';
-  _ayudaTemas.forEach(t => {
-    const btn = document.createElement('button');
-    btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:none;background:' + t.bg + ';cursor:pointer;transition:opacity 0.13s;text-align:left;';
-    btn.onmouseover = () => { btn.style.opacity = '0.75'; };
-    btn.onmouseout  = () => { btn.style.opacity = '1'; };
-    btn.innerHTML =
-      '<span style="width:28px;height:28px;border-radius:8px;background:' + t.bg + ';border:1px solid ' + t.color + '33;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:' + t.color + ';">' + t.icon + '</span>' +
-      '<span style="font-size:11px;font-weight:800;color:#1a1d2e;">' + t.label + '</span>' +
-      '<svg style="margin-left:auto;flex-shrink:0;" width="12" height="12" fill="none" stroke="#94a3b8" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6"/></svg>';
-    btn.addEventListener('click', () => _ayudaAbrirTema(t));
-    idx.appendChild(btn);
-  });
-  document.getElementById('ayudaContenido').style.display = 'none';
-  idx.style.display = 'flex';
-}
-function _ayudaAbrirTema(t) {
-  document.getElementById('ayudaIndex').style.display = 'none';
-  document.getElementById('ayudaModalSubtitle').textContent = t.label;
-  const body = document.getElementById('ayudaContenidoBody');
-  let html = '';
-  t.contenido.forEach(bloque => {
-    if (bloque.tipo === 'intro') {
-      html += '<p style="font-size:11px;font-weight:600;color:#374151;line-height:1.6;margin:0 0 12px;">' + bloque.texto + '</p>';
-    } else if (bloque.tipo === 'subtitulo') {
-      html += '<p style="font-size:9px;font-weight:900;color:' + t.color + ';text-transform:uppercase;letter-spacing:0.07em;margin:14px 0 7px;">' + bloque.texto + '</p>';
-    } else if (bloque.tipo === 'paso') {
-      html +=
-        '<div style="display:flex;gap:9px;align-items:flex-start;margin-bottom:9px;">' +
-          '<span style="width:18px;height:18px;border-radius:50%;background:' + t.color + '18;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;font-weight:900;color:' + t.color + ';margin-top:1px;">' + bloque.n + '</span>' +
-          '<p style="font-size:11px;font-weight:600;color:#374151;line-height:1.55;margin:0;">' + bloque.texto + '</p>' +
-        '</div>';
-    } else if (bloque.tipo === 'nota') {
-      html +=
-        '<div style="margin-top:12px;padding:9px 11px;border-radius:9px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);display:flex;gap:8px;align-items:flex-start;">' +
-          '<svg style="flex-shrink:0;margin-top:1px;" width="13" height="13" fill="none" stroke="#d97706" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
-          '<p style="font-size:10px;font-weight:700;color:#92400e;line-height:1.55;margin:0;">' + bloque.texto + '</p>' +
-        '</div>';
-    }
-  });
-  body.innerHTML = html;
-  document.getElementById('ayudaContenido').style.display = 'flex';
-}
-
 </script>
 </div><!-- /#desktop-layout -->
-
-<!-- ── Modal Ayuda Interactiva ── -->
-<div id="ayudaModal" class="fixed inset-0 z-[420] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
-  <div class="card-modal" style="max-width:22rem;width:100%;display:flex;flex-direction:column;max-height:90vh;">
-    <!-- Header -->
-    <div class="card-modal__header card-modal__header--purple" style="flex-shrink:0;">
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.30);">
-          <svg class="w-4 h-4" fill="none" stroke="#d97706" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div>
-          <p class="text-[11px] font-black text-[#1a1d2e] uppercase tracking-wide">Ayuda</p>
-          <p id="ayudaModalSubtitle" class="text-[9px] font-bold text-slate-500">Selecciona un tema</p>
-        </div>
-      </div>
-      <button onclick="ayudaXBtn()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-[#1a1d2e] hover:bg-black/6 transition-all active:scale-90">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-
-    <!-- Vista: índice de temas -->
-    <div id="ayudaIndex" style="padding:12px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;">
-    </div>
-
-    <!-- Vista: contenido de tema -->
-    <div id="ayudaContenido" style="display:none;flex-direction:column;flex:1;min-height:0;">
-      <!-- Nav back -->
-      <div style="padding:8px 12px 4px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.05);">
-        <button onclick="ayudaVolverIndex()" style="display:flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;color:#64748b;padding:4px 6px;border-radius:7px;transition:background 0.13s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.background='none'">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
-          Volver
-        </button>
-      </div>
-      <!-- Cuerpo del tema -->
-      <div id="ayudaContenidoBody" style="padding:14px 14px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
-    </div>
-  </div>
-</div>
 
 <!-- ── Modal Gestión de Casos ── -->
 <div id="casosManagerModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
