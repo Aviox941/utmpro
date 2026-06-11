@@ -321,7 +321,7 @@ body: pagosParciales.map((p,i) => {
   const rem = cuotaMensualUTM > 0 ? Math.max(0, cuotaMensualUTM - amtUtm) : null;
   // Remanente CLP: buscar en lastCalculationData el cap remanente real del período
   const cuotaRef2 = (typeof lastCalculationData !== 'undefined' && lastCalculationData)
-    ? lastCalculationData.find(d => d.periodo === p.periodo) : null;
+    ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
   const remCLP = cuotaRef2
     ? (cuotaRef2.capParcialRemanente !== undefined ? cuotaRef2.capParcialRemanente : cuotaRef2.cap)
     : (rem !== null && utmP > 0 ? Math.round(rem * utmP) : null);
@@ -1737,7 +1737,7 @@ function buildResumenContent() {
     let totalParcialUTM = 0;
     agrupados.forEach((p, i) => {
       // Buscar cuota correspondiente para mostrar remanente (sin filtrar por hayParcialConRemanente)
-      const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodo) : null;
+      const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
       // UTM del período: usar utmVal del pago o de la cuota referenciada
       const utmPeriodo = (p.utmVal && p.utmVal > 0) ? p.utmVal : (cuotaRef && cuotaRef.utmVal > 0 ? cuotaRef.utmVal : 0);
       // Equiv. pago en UTM
