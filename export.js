@@ -2913,23 +2913,38 @@ function openCasoSnapshot(casoId) {
       { label: 'Capital sin interés', clp: snap.capitalCLP, utm: snap.capitalUTM, color: '#1d4ed8' },
       { label: 'Interés acumulado',   clp: snap.interesCLP, utm: snap.interesUTM, color: '#7c3aed' },
     ];
-    if (snap.parcialesCLP > 0) filasCalc.push({ label: 'Total pagos parciales', clp: snap.parcialesCLP, utm: null, color: '#059669', descuento: true });
-    if (snap.abonosCLP > 0)    filasCalc.push({ label: 'Abonos Art.1595',       clp: snap.abonosCLP,   utm: null, color: '#0891b2', descuento: true });
-    if (snap.lavUTM > 0)       filasCalc.push({ label: 'Depósitos LAV',          clp: snap.lavCLP,      utm: snap.lavUTM, color: '#16a34a', descuento: true });
+    if (snap.parcialesCLP > 0) filasCalc.push({ label: 'Pagos parciales',  clp: snap.parcialesCLP, utm: snap.parcialesUTM || null, color: '#059669', descuento: true });
+    if (snap.abonosCLP > 0)    filasCalc.push({ label: 'Abonos Art.1595',  clp: snap.abonosCLP,    utm: snap.abonosUTM   || null, color: '#0891b2', descuento: true });
+    if (snap.lavUTM > 0)       filasCalc.push({ label: 'Depósitos LAV',    clp: snap.lavCLP,       utm: snap.lavUTM,              color: '#16a34a', descuento: true });
+    // Remanente (separador visual + fila)
+    if (snap.remanenteUTM > 0.0001) {
+      filasCalc.push({ label: null }); // separador
+      filasCalc.push({ label: 'Remanente descuentos', clp: snap.remanenteCLP, utm: snap.remanenteUTM, color: '#f59e0b', remanente: true });
+    }
 
+    let rowIdx = 0;
     filasCalc.forEach((f, i) => {
+      // Separador visual
+      if (f.label === null) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px;background:rgba(0,0,0,0.08);margin:0 12px;';
+        totalesGrid.appendChild(sep);
+        return;
+      }
       const row = document.createElement('div');
-      row.style.cssText = `padding:8px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}background:${i % 2 === 0 ? '#ffffff' : '#f8fafc'};`;
+      const bg = f.remanente ? 'rgba(245,158,11,0.06)' : (rowIdx % 2 === 0 ? '#ffffff' : '#f8fafc');
+      row.style.cssText = `padding:8px 12px;${rowIdx > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}background:${bg};`;
       const prefijo = f.descuento ? '−' : '';
       row.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <span style="font-size:9.5px;font-weight:700;color:#64748b;">${f.label}</span>
+          <span style="font-size:9.5px;font-weight:700;color:${f.remanente ? '#b45309' : '#64748b'};">${f.label}</span>
           <div style="text-align:right;">
             <p style="font-size:11px;font-weight:900;color:${f.color};margin:0;">${prefijo}${fmt(f.clp)}</p>
             ${f.utm != null ? `<p style="font-size:8.5px;font-weight:600;color:#94a3b8;margin:1px 0 0;">${prefijo}${fmtUTM(f.utm)}</p>` : ''}
           </div>
         </div>`;
       totalesGrid.appendChild(row);
+      rowIdx++;
     });
     body.appendChild(totalesGrid);
 

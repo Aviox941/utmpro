@@ -4359,8 +4359,27 @@ if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculatio
     const _lavCLP = (abonosLav || []).reduce((s,p) => s + (p.amount||0), 0);
     const _abonosCLP = (abonos || []).reduce((s,a) => s + a.amount, 0);
     const _parcialesCLP = (pagosParciales || []).reduce((s,p) => s + p.amount, 0);
+    // Parciales en UTM: cada pago parcial dividido por la UTM del mes correspondiente
+    const _parcialesUTM = (pagosParciales || []).reduce((s,p) => {
+      // Buscar UTM del mes del pago parcial en lastCalculationData
+      const cuota = lastCalculationData.find(d => d.periodo && p.periodo && d.periodo === p.periodo);
+      const u = (cuota && cuota.utmVal && cuota.utmVal > 0) ? cuota.utmVal : _utmNow;
+      return s + (p.amount / u);
+    }, 0);
+    // Abonos en UTM: cada abono dividido por la UTM de su mes
+    const _abonosUTM = (abonos || []).reduce((s,a) => {
+      const cuota = lastCalculationData.find(d => d.periodo && a.periodo && d.periodo === a.periodo);
+      const u = (cuota && cuota.utmVal && cuota.utmVal > 0) ? cuota.utmVal : _utmNow;
+      return s + (a.amount / u);
+    }, 0);
     const _capOrigBruto = lastCalculationData.reduce((s,d) => s + (d.capOriginalBruto ?? d.capOriginal ?? d.cap), 0);
     const _intOrig = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0);
+    // Bruto (sin descontar parciales/abonos/LAV) en UTM históricas
+    const _brutoCuotas = lastCalculationData.map(d => ({ capPendiente: d.capOriginalBruto ?? d.capOriginal ?? d.cap, intPendiente: d.intOriginal ?? d.inte, utmVal: d.utmVal }));
+    const _brutoCapUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.capPendiente / u); }, 0);
+    const _brutoIntUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.intPendiente / u); }, 0);
+    const _brutoTotalUTM = _brutoCapUTM + _brutoIntUTM;
+    const _remanenteUTM = Math.max(0, _brutoTotalUTM - _totalUTM);
     window._calcSnapshots = window._calcSnapshots || {};
     window._calcSnapshots[activeCasoId] = {
       ts: Date.now(),
@@ -4372,9 +4391,13 @@ if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculatio
       interesUTM: _intUTM,
       capitalOriginalCLP: Math.round(_capOrigBruto),
       interesOriginalCLP: Math.round(_intOrig),
+      brutoTotalUTM: _brutoTotalUTM,
+      brutoTotalCLP: Math.round(_brutoTotalUTM * _utmLiqV),
+      remanenteUTM: _remanenteUTM,
+      remanenteCLP: Math.round(_remanenteUTM * _utmLiqV),
       lavUTM: _lavUTM, lavCLP: Math.round(_lavCLP),
-      abonosCLP: Math.round(_abonosCLP),
-      parcialesCLP: Math.round(_parcialesCLP),
+      abonosCLP: Math.round(_abonosCLP), abonosUTM: _abonosUTM,
+      parcialesCLP: Math.round(_parcialesCLP), parcialesUTM: _parcialesUTM,
       meses: lastCalculationData.length,
       utmLiq: _utmLiqV,
       fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
@@ -6901,25 +6924,65 @@ function renderCasosManagerList() {
     const isActive = c.id === activeCasoId;
     const initials = (typeof getInitials === 'function') ? getInitials(c.nombre) : (c.nombre||'?').slice(0,2).toUpperCase();
     const fecha = c.saved_at ? new Date(c.saved_at).toLocaleDateString('es-CL') : '';
-    const item = document.createElement('button');
-    item.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:' + (isActive ? 'rgba(37,99,235,0.08)' : 'transparent') + ';cursor:' + (isActive ? 'default' : 'pointer') + ';transition:background 0.13s;border:1.5px solid ' + (isActive ? 'rgba(37,99,235,0.30)' : 'transparent') + ';margin-bottom:4px;box-sizing:border-box;';
+
+    // Contenedor fila (div, no button, para poder tener botones hijos)
+    const item = document.createElement('div');
+    item.style.cssText = 'width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:' + (isActive ? 'rgba(37,99,235,0.08)' : 'transparent') + ';border:1.5px solid ' + (isActive ? 'rgba(37,99,235,0.30)' : 'transparent') + ';margin-bottom:4px;box-sizing:border-box;transition:background 0.13s;';
+
+    // Avatar
+    const avatar = document.createElement('div');
+    avatar.style.cssText = 'width:30px;height:30px;border-radius:50%;background:' + (isActive ? '#2563eb' : '#e8eaf2') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    avatar.innerHTML = '<span style="font-size:10px;font-weight:800;color:' + (isActive ? '#fff' : '#5a6480') + ';">' + initials + '</span>';
+
+    // Info (clickeable para cambiar caso)
+    const info = document.createElement('div');
+    info.style.cssText = 'flex:1;min-width:0;text-align:left;' + (!isActive ? 'cursor:pointer;' : '');
+    info.innerHTML =
+      '<p style="font-size:12px;font-weight:800;color:' + (isActive ? '#2563eb' : '#1a1d2e') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;">' + (c.nombre || 'Sin nombre') + '</p>' +
+      (fecha ? '<p style="font-size:9px;font-weight:600;color:#a0aab8;line-height:1.3;margin-top:1px;">Guardado ' + fecha + '</p>' : '');
     if (!isActive) {
+      info.onclick = () => { switchCaso(c.id); closeCasosManagerModal(); };
       item.onmouseover = () => { item.style.background = 'rgba(0,0,0,0.035)'; };
       item.onmouseout  = () => { item.style.background = 'transparent'; };
     }
-    const activeDot = isActive ? '<svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' : '';
-    item.innerHTML =
-      '<div style="width:30px;height:30px;border-radius:50%;background:' + (isActive ? '#2563eb' : '#e8eaf2') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-        '<span style="font-size:10px;font-weight:800;color:' + (isActive ? '#fff' : '#5a6480') + ';">' + initials + '</span>' +
-      '</div>' +
-      '<div style="flex:1;min-width:0;text-align:left;">' +
-        '<p style="font-size:12px;font-weight:800;color:' + (isActive ? '#2563eb' : '#1a1d2e') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;">' + (c.nombre || 'Sin nombre') + '</p>' +
-        (fecha ? '<p style="font-size:9px;font-weight:600;color:#a0aab8;line-height:1.3;margin-top:1px;">Guardado ' + fecha + '</p>' : '') +
-      '</div>' +
-      activeDot;
-    if (!isActive) {
-      item.onclick = () => { switchCaso(c.id); closeCasosManagerModal(); };
+
+    // Checkmark caso activo
+    if (isActive) {
+      const check = document.createElement('div');
+      check.innerHTML = '<svg width="13" height="13" fill="none" stroke="#2563eb" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+      check.style.cssText = 'flex-shrink:0;display:flex;align-items:center;';
+      item.appendChild(avatar); item.appendChild(info); item.appendChild(check);
     }
+
+    // Botón snapshot (expediente)
+    const btnSnap = document.createElement('button');
+    btnSnap.title = 'Ver resumen';
+    btnSnap.style.cssText = 'flex-shrink:0;width:28px;height:28px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;transition:background 0.13s,color 0.13s;';
+    btnSnap.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
+    btnSnap.onmouseover = () => { btnSnap.style.background='rgba(37,99,235,0.1)'; btnSnap.style.color='#2563eb'; };
+    btnSnap.onmouseout  = () => { btnSnap.style.background='transparent'; btnSnap.style.color='#64748b'; };
+    btnSnap.onclick = (e) => { e.stopPropagation(); closeCasosManagerModal(); openCasoSnapshot(c.id); };
+
+    // Botón eliminar
+    const btnDel = document.createElement('button');
+    btnDel.title = 'Eliminar caso';
+    btnDel.style.cssText = 'flex-shrink:0;width:28px;height:28px;border:none;border-radius:8px;background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;transition:background 0.13s,color 0.13s;';
+    btnDel.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+    btnDel.onmouseover = () => { btnDel.style.background='rgba(239,68,68,0.1)'; btnDel.style.color='#ef4444'; };
+    btnDel.onmouseout  = () => { btnDel.style.background='transparent'; btnDel.style.color='#94a3b8'; };
+    btnDel.onclick = (e) => { e.stopPropagation(); closeCasosManagerModal(); confirmarEliminarCaso(c.id, c.nombre); };
+
+    if (!isActive) {
+      item.appendChild(avatar);
+      item.appendChild(info);
+      item.appendChild(btnSnap);
+      item.appendChild(btnDel);
+    } else {
+      // Para el activo ya se appendearon avatar+info+check arriba, agregar botones al final
+      item.appendChild(btnSnap);
+      item.appendChild(btnDel);
+    }
+
     list.appendChild(item);
   });
 }
