@@ -914,21 +914,40 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
         </div>
       </div>
 
-      <!-- ── Sección CONFIGURACIÓN ── -->
+      <!-- ── Sección AYUDA ── -->
       <div class="sidebar-cfg-section">
         <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgAyuda')">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:26px;height:26px;border-radius:8px;background:rgba(245,158,11,0.1);display:flex;align-items:center;justify-content:center;">
-              <svg width="13" height="13" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <svg width="13" height="13" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </div>
-            <span>Configuración</span>
+            <span>Ayuda</span>
           </div>
           <svg id="cfgAyuda-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <div id="cfgAyuda" class="sidebar-cfg-body" style="display:none;">
           <div class="sidebar-cfg-item" style="cursor:default;color:#64748b;">
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Versión 41
+            Versión 44
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Sección CONFIGURACIÓN ── -->
+      <div class="sidebar-cfg-section">
+        <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgConfiguracion')">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:26px;height:26px;border-radius:8px;background:rgba(100,116,139,0.1);display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </div>
+            <span>Configuración</span>
+          </div>
+          <svg id="cfgConfiguracion-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <div id="cfgConfiguracion" class="sidebar-cfg-body" style="display:none;">
+          <div class="sidebar-cfg-item" style="cursor:default;color:#64748b;">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Próximamente
           </div>
         </div>
       </div>
@@ -5327,17 +5346,19 @@ document.addEventListener('visibilitychange', async () => {
      Tema claro — igual que loginScreen y el resto de la app.
      ══════════════════════════════════════════════════════════ -->
 <div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:5500;background:#f5f6f8;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+
+ <!-- Título fijo en la parte superior -->
+ <div style="position:absolute;top:0;left:0;right:0;text-align:center;padding:28px 16px 0;pointer-events:none;">
+  <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:#2563eb;border-radius:14px;margin-bottom:10px;">
+   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18M3 10h18M3 14h18"/></svg>
+  </div>
+  <p style="font-size:20px;font-weight:900;color:#1a1d2e;margin:0;letter-spacing:-0.3px;">Liquidación Pro</p>
+  <p style="font-size:11px;font-weight:700;color:#8e97b0;margin:4px 0 0;">¿Con qué caso trabajamos hoy?</p>
+ </div>
+
+ <!-- Contenedor centrado verticalmente (solo el card) -->
  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;">
   <div style="width:100%;max-width:360px;">
-
-   <!-- Logo / título -->
-   <div style="text-align:center;margin-bottom:28px;">
-    <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:#2563eb;border-radius:16px;margin-bottom:14px;">
-     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18M3 10h18M3 14h18"/></svg>
-    </div>
-    <p style="font-size:20px;font-weight:900;color:#1a1d2e;margin:0;letter-spacing:-0.3px;">Liquidación Pro</p>
-    <p style="font-size:11px;font-weight:700;color:#8e97b0;margin:4px 0 0;">¿Con qué caso trabajamos hoy?</p>
-   </div>
 
    <!-- Card principal -->
    <div style="background:white;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.06);overflow:hidden;">
@@ -6114,15 +6135,7 @@ async function sbChangePassword() {
 }
 
 // ── Navegación sidebar: delegado a export.js ──
-// sidebarShowConfig y sidebarShowCasos definidas en export.js (sidebar unificado v41)
-function sidebarToggleSection(id) {
-  const body = document.getElementById(id);
-  if (!body) return;
-  const chevron = document.getElementById(id + '-chevron');
-  const isOpen = body.style.display !== 'none';
-  body.style.display = isOpen ? 'none' : 'block';
-  if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
-}
+// sidebarShowConfig, sidebarShowCasos, sidebarToggleSection, sidebarCollapseAll definidas en export.js
 function sbUpdateHuellaLabel() {
   const btn = document.getElementById('sidebarHuellaBtn');
   if (!btn) return;

@@ -554,18 +554,13 @@ function isDesktop() {
   return window.innerWidth >= 1024;
 }
 function openSidebar() {
-  if (isDesktop()) return; // En desktop el sidebar siempre está visible
+  if (isDesktop()) return;
+  // Colapsar todos los acordeones antes de abrir
+  sidebarCollapseAll();
   document.getElementById('sidebar').classList.add('open');
   const ov = document.getElementById('sidebarOverlay');
   ov.style.display = 'block';
   requestAnimationFrame(() => ov.classList.add('open'));
-  // Auto-expandir Usuario > Casos al abrir
-  const u = document.getElementById('cfgUsuario');
-  const uc = document.getElementById('cfgUsuario-chevron');
-  if (u && u.style.display === 'none') { u.style.display = 'block'; if (uc) uc.style.transform = 'rotate(90deg)'; }
-  const casos = document.getElementById('cfgCasos');
-  const casosC = document.getElementById('cfgCasos-chevron');
-  if (casos && casos.style.display === 'none') { casos.style.display = 'block'; if (casosC) casosC.style.transform = 'rotate(90deg)'; }
   try { renderCasosList(); } catch(e) { console.error('[openSidebar] renderCasosList error:', e); }
 }
 function sidebarShowConfig() {
@@ -589,20 +584,52 @@ function sidebarShowConfig() {
 function sidebarShowCasos() {
   // Sidebar unificado: no-op (ya no hay vista separada)
 }
+// IDs de acordeones de nivel 1 (se cierran mutuamente)
+var _sbTopSections = ['cfgUsuario','cfgSeguridad','cfgDesarrollo','cfgAyuda','cfgConfiguracion'];
+// IDs de sub-acordeones dentro de Usuario (se cierran mutuamente entre sí)
+var _sbSubSections = ['cfgCasos','cfgCuentas'];
+
+function sidebarCollapseAll() {
+  [..._sbTopSections, ..._sbSubSections].forEach(id => {
+    const el = document.getElementById(id);
+    const ch = document.getElementById(id + '-chevron');
+    if (el) el.style.display = 'none';
+    if (ch) ch.style.transform = 'rotate(0deg)';
+  });
+}
+
 function sidebarToggleSection(id) {
   const body = document.getElementById(id);
   const chevron = document.getElementById(id + '-chevron');
   if (!body) return;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  if (chevron) chevron.style.transform = open ? '' : 'rotate(90deg)';
+  const isOpen = body.style.display !== 'none';
+  // Cerrar siblings del mismo nivel antes de abrir
+  const siblings = _sbSubSections.includes(id) ? _sbSubSections : _sbTopSections;
+  siblings.forEach(sid => {
+    if (sid === id) return;
+    const el = document.getElementById(sid);
+    const ch = document.getElementById(sid + '-chevron');
+    if (el) el.style.display = 'none';
+    if (ch) ch.style.transform = 'rotate(0deg)';
+  });
+  // Si era de nivel top y se va a cerrar, cerrar también sus sub-secciones
+  if (_sbTopSections.includes(id) && !isOpen === false) {
+    _sbSubSections.forEach(sid => {
+      const el = document.getElementById(sid);
+      const ch = document.getElementById(sid + '-chevron');
+      if (el) el.style.display = 'none';
+      if (ch) ch.style.transform = 'rotate(0deg)';
+    });
+  }
+  body.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
 }
 function closeSidebar() {
-  if (isDesktop()) return; // En desktop no se cierra
+  if (isDesktop()) return;
+  sidebarCollapseAll();
   document.getElementById('sidebar').classList.remove('open');
   const ov = document.getElementById('sidebarOverlay');
   ov.classList.remove('open');
-  // Ocultar completamente después de la transición (300ms) para que no intercepte eventos
   setTimeout(() => { if (!ov.classList.contains('open')) ov.style.display = 'none'; }, 350);
 }
 function renderCasosList() {
@@ -636,9 +663,18 @@ info.appendChild(pFecha);
 // Botón ficha (único icono visible)
 const btnFicha = document.createElement('button');
 btnFicha.className = 'p-1.5 rounded-lg text-slate-500 hover:text-[#3b82f6] hover:bg-white/6 transition-colors ml-1';
-btnFicha.title = 'Ver ficha del expediente';
+btnFicha.title = 'Ver resumen de liquidación';
 btnFicha.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`;
-btnFicha.addEventListener('click', e => { e.stopPropagation(); openFichaModal(c.id); });
+btnFicha.addEventListener('click', e => {
+  e.stopPropagation();
+  if (c.id !== activeCasoId) {
+    switchCaso(c.id);
+    setTimeout(() => { if (typeof showResumenModal === 'function') showResumenModal(); }, 300);
+  } else {
+    closeSidebar();
+    if (typeof showResumenModal === 'function') showResumenModal();
+  }
+});
 // Botón eliminar caso
 const btnEliminar = document.createElement('button');
 btnEliminar.className = 'p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-400/10 transition-colors ml-1';
