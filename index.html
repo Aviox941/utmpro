@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v53H">
+ <meta name="app-version" content="2.0612.v54H">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1028,15 +1028,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
   </div>
 
   <!-- Tarjetas UTM -->
-  <div id="utmTicker" class="hidden" style="display:none;position:relative;align-items:center;padding:0 16px 7px 16px;z-index:1;">
-    <!-- Botón CASOS: anclado a la izquierda -->
+  <div id="utmTicker" class="hidden" style="display:none;flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
     <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-2" id="casosManagerBtn"
-      style="position:absolute;left:16px;top:0;bottom:7px;touch-action:manipulation;">
+      style="flex-shrink:0;touch-action:manipulation;align-self:stretch;">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
       Casos
     </button>
-    <!-- Cards centradas en el 100% del ancho -->
-    <div style="width:100%;display:flex;justify-content:center;align-items:center;gap:7px;padding:0 0 0 0;">
+    <div style="flex:1;display:flex;justify-content:center;gap:7px;align-items:center;" id="tickerCards">
       <div class="utm-card-premium utm-card-premium--secondary" style="flex:0 1 160px;min-width:0;display:flex;flex-direction:column;justify-content:center;">
         <span class="utm-card-label">Caso activo</span>
         <div class="utm-card-value-row" style="margin-top:2px;">
@@ -1049,6 +1047,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
           <span id="utmActualVal" class="utm-val-main">$—</span>
           <span id="utmActualMes" class="utm-val-month">—</span>
         </div>
+      </div>
+    </div>
+    <div id="tickerSpacer" style="flex-shrink:0;visibility:hidden;pointer-events:none;" aria-hidden="true">
+      <div class="btn-base btn-primary gap-2" style="align-self:stretch;">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Casos
       </div>
     </div>
   </div>
@@ -5661,7 +5665,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v53H</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v54H</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
