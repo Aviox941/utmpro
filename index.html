@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v56">
+ <meta name="app-version" content="2.0612.v59">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2794,6 +2794,8 @@ function reasignarPeriodosLav() {
     const periodoKey = `${yyyy}-${String(mm).padStart(2,'0')}`;
     periodosUsados.add(periodoKey);
     lav.periodo = periodoKey;
+    // Preservar el label original (fecha real del depósito) para visualización
+    if (!lav.periodoLabelOriginal) lav.periodoLabelOriginal = lav.periodoLabel;
     lav.periodoLabel = mNames[mm - 1] + ' ' + yyyy;
     const utmEntry = utmData.find(d => d.y === yyyy && d.monthIdx === mm - 1);
     if (utmEntry) {
@@ -2815,7 +2817,7 @@ function addAbonoLav() {
   const utmEntry = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
   const utmVal = utmEntry ? utmEntry.v : null;
   const amountUtm = utmVal ? amount / utmVal : null;
-  abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+  abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
   document.getElementById('tempLavClp').value = '';
   document.getElementById('tempLavMes').value = '';
   document.getElementById('tempLavAnio').value = '';
@@ -2842,7 +2844,8 @@ function renderAbonosLav() {
     div.className = 'abono-item animate-fadeIn';
     div.style.borderColor = '#6ee7b7';
     const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) + ' UTM' : '';
-    div.innerHTML = `<div class="text-[10px] font-black"><span style="color:#6ee7b7" class="font-black">${p.periodoLabel}</span><span class="mx-1 text-slate-300">|</span><span class="font-black" style="color:var(--color-text-primary)">${format(p.amount)}</span>${utmStr ? `<span class="ml-1 text-[9px] font-bold" style="color:#6ee7b7">${utmStr}</span>` : ''}</div><button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2">×</button>`;
+    const displayLabel = p.periodoLabelOriginal || p.periodoLabel;
+    div.innerHTML = `<div class="text-[10px] font-black"><span style="color:#6ee7b7" class="font-black">${displayLabel}</span><span class="mx-1 text-slate-300">|</span><span class="font-black" style="color:var(--color-text-primary)">${format(p.amount)}</span>${utmStr ? `<span class="ml-1 text-[9px] font-bold" style="color:#6ee7b7">${utmStr}</span>` : ''}</div><button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2">×</button>`;
     container.appendChild(div);
   });
 }
@@ -4290,17 +4293,11 @@ const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
 ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">⚖ +50% ley</p>`
 : (d.usarMaxima ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">📊 Tasa máx.</p>` : '');
-const lavBadge = d.esLav
-? `<p class="text-[8px] font-black uppercase" style="color:#10b981">✓ LAV</p>`
-: '';
-const lavDetalle = d.esLav && d.lavAplicadoCLP > 0
-? `<div class="mt-1 pt-1 border-t border-emerald-400/20">
-<p class="text-[8px] font-black text-emerald-300 uppercase">✓ LAV aplicado: -${format(d.lavAplicadoCLP)} / -${(d.lavAplicadoUTM).toFixed(4)} UTM</p>
-</div>`
-: '';
+const lavBadge = '';
+const lavDetalle = '';
 const isDebt = d.isDebt;
 const labelColor = isDebt ? 'color:#7c3a00;font-weight:900' : '';
-const valueColor = isDebt ? 'color:#3b1a00' : (d.esLav ? 'color:#6ee7b7' : '');
+const valueColor = isDebt ? 'color:#3b1a00' : '';
 const subColor   = isDebt ? 'color:#a05000' : 'opacity:0.6';
 const badgeColor = isDebt ? 'color:#7c3a00' : 'color:#bfdbfe';
 const borderColor = isDebt ? 'border-color:rgba(160,80,0,0.25)' : 'border-color:rgba(59,130,246,0.2)';
@@ -5225,7 +5222,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v56</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v59</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

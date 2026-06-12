@@ -1,5 +1,6 @@
 async function generarPDF() {
 try {
+closeDownloadMenu();
 if (typeof window.jspdf === 'undefined') {
 alert('Librería PDF no disponible. Verifica tu conexión a internet.');
 return;
@@ -1620,11 +1621,11 @@ function buildResumenContent() {
 
       const row = document.createElement('div');
       row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-sky-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${d.esLav?'#f0fdf4':(rowIndex%2===0?'#ffffff':'#f8fafc')};border-top:1px solid #e2e8f0`;
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${rowIndex%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = d.esLav ? 0 : cap0;
       const capUTM = d.esLav ? '0.00' : ((d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—');
-      const lavTag = d.esLav ? `<span style="color:#10b981;font-size:7.5px;font-weight:900"> ✓LAV</span>` : '';
+      const lavTag = '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
       // Sub-chip de remanente para cuotas con pago parcial
       // Usar capParcialRemanente si existe (cuando hay LAV, d.cap es post-LAV y ya no
@@ -1636,7 +1637,7 @@ function buildResumenContent() {
       row.innerHTML = `
         <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}</span>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
-        <span style="color:${d.esLav?'#10b981':'#334155'}">${fmt(capMostrado)}</span>
+        <span style="color:#334155">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
         <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
         <span class="text-right" style="color:#0369a1">${fmt(int0)}</span>
@@ -1829,6 +1830,10 @@ function buildResumenContent() {
   nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
   container.appendChild(nota);
 }
+function closeDownloadMenu() {
+  const menu = document.getElementById('downloadMenu');
+  if (menu) menu.style.display = 'none';
+}
 function toggleDownloadMenu() {
   const menu = document.getElementById('downloadMenu');
   const btn = document.getElementById('downloadBtn');
@@ -1851,6 +1856,7 @@ function toggleDownloadMenu() {
 }
 
 async function exportarExcel() {
+  closeDownloadMenu();
   if (!lastCalculationData || lastCalculationData.length === 0) return;
 
   const utmHoy   = getUtmActualVal();
@@ -2697,7 +2703,7 @@ function ocrConfirmar() {
       added++;
     } else {
       // Sección V "Abonos LAV" → descuento directo por depósito cuenta vista
-      abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+      abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
       added++;
     }
   });
