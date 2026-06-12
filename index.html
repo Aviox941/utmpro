@@ -4341,24 +4341,7 @@ document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFix
     parcialRow.classList.add('hidden');
   }
 })();
-// ── Hero: remanente descuentos ──
-(function() {
-  const remRow = document.getElementById('heroRemanenteRow');
-  if (!remRow) return;
-  const _cuotas = lastCalculationData.map(d => ({ capPendiente: d.cap, intPendiente: d.inte, utmVal: d.utmVal }));
-  const _totalPostUTM = _cuotas.reduce((s,c) => { const u = c.utmVal > 0 ? c.utmVal : utmLiq; return s + Math.max(0, c.capPendiente/u) + Math.max(0, c.intPendiente/u); }, 0);
-  const _brutoCuotas = lastCalculationData.map(d => ({ capPendiente: d.capOriginalBruto ?? d.capOriginal ?? d.cap, intPendiente: d.intOriginal ?? d.inte, utmVal: d.utmVal }));
-  const _brutoUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal > 0 ? c.utmVal : utmLiq; return s + Math.max(0, c.capPendiente/u) + Math.max(0, c.intPendiente/u); }, 0);
-  const _remUTM = Math.max(0, _brutoUTM - _totalPostUTM);
-  if (_remUTM > 0.0001) {
-    const _remCLP = Math.round(_remUTM * utmLiq);
-    document.getElementById('heroRemanenteClp').textContent = format(_remCLP);
-    document.getElementById('heroRemanenteUtm').textContent = `${_remUTM.toFixed(4)} UTM`;
-    remRow.classList.remove('hidden');
-  } else {
-    remRow.classList.add('hidden');
-  }
-})();
+// ── Hero: remanente (se actualiza en el bloque snapshot más abajo) ──
 // lavTotalUTM se usa para el label informativo del row de abonos.
 const abonoRow = document.getElementById('abonoResultRow');
 const lavTotalCLP = lavTotalUTM > 0 ? (abonosLav || []).reduce((s,p) => s + p.amount, 0) : 0;
@@ -4472,6 +4455,18 @@ if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculatio
       utmLiq: _utmLiqV,
       fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
     };
+    // ── Actualizar hero remanente ahora que el snapshot existe ──
+    (function() {
+      const remRow = document.getElementById('heroRemanenteRow');
+      if (!remRow) return;
+      if (_remanenteUTM > 0.0001) {
+        document.getElementById('heroRemanenteClp').textContent = format(Math.round(_remanenteUTM * _utmLiqV));
+        document.getElementById('heroRemanenteUtm').textContent = `${_remanenteUTM.toFixed(4)} UTM`;
+        remRow.classList.remove('hidden');
+      } else {
+        remRow.classList.add('hidden');
+      }
+    })();
   } catch(e) { /* silent */ }
 }
 }
