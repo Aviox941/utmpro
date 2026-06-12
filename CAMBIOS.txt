@@ -7,29 +7,33 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v61) debe coincidir siempre con el nombre
-  del zip entregado (ej. v61.zip).
+- La letra/sufijo de versión (ej. v62) debe coincidir siempre con el nombre
+  del zip entregado (ej. v62.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v61   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v128   (sw.js)
-Archivos mod  : index.html, export.js, sw.js
+App version   : 2.0612.v62   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v129   (sw.js)
+Archivos mod  : index.html, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX CAPITAL SIEMPRE MUESTRA cuotaUTM × UTM del mes (index.html, export.js)
-   - Todos los meses ahora muestran el capital como cuotaUTM × UTM del período,
-     usando d.capOriginal (= montoPesosMes en calculate), independientemente de
-     si el mes está cubierto por LAV o no.
-   - Corregido en: tarjetas de cuota (index.html), tabla modal resumen,
-     tabla PDF y tabla Excel (export.js).
-   - Se eliminan también los sufijos ✓ y ✓* en el período del PDF para cuotas
-     cubiertas por LAV, ya que esa info ahora vive solo en "ABONOS LAV".
-   - El cálculo interno no fue modificado.
+1. FIX restauración de caso activo al reanudar la app (index.html)
+   - Problema: al reanudar la app en Android (proceso reiniciado por el OS),
+     INITIAL_SESSION de Supabase disparaba sbLoadCasos() antes de que
+     fetchUTM() en window.onload terminara de poblar utmData. Esto causaba
+     que applySession() corriera con utmData vacío, dejando startIndex/endIndex
+     en -1 y sin datos de períodos visibles en pantalla.
+   - Solución: se agrega una promesa _utmReady que fetchUTM() resuelve al
+     terminar (en sus 3 puntos de salida: caché localStorage, caché Supabase,
+     y llamada CMF). sbLoadCasos() hace await _utmReady antes de llamar
+     switchCaso(lastId), garantizando que utmData ya está poblado cuando
+     applySession() se ejecuta.
+   - No afecta el flujo normal (cuando onload ya terminó, _utmReady está
+     resuelta y el await es instantáneo).
 
 ================================================================================

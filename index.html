@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v61">
+ <meta name="app-version" content="2.0612.v62">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1885,6 +1885,11 @@ const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 let utmData = [];
 let todosLosAnios = {}; // FIX Bug A: declarado a nivel módulo para que fetchUTM pueda accederlo
+// ── Promesa que se resuelve cuando fetchUTM() termina (utmData poblado) ──
+// sbLoadCasos() la espera antes de restaurar el caso activo para evitar
+// que applySession() corra con utmData vacío (race condition INITIAL_SESSION vs onload).
+let _utmReadyResolve;
+const _utmReady = new Promise(res => { _utmReadyResolve = res; });
 let startIndex = -1, endIndex = -1;
 // Rango que se preserva para el cálculo aunque el formulario se limpie
 let calcStartIndex = -1, calcEndIndex = -1;
@@ -2040,6 +2045,7 @@ try {
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
       renderUtmTicker();
+      _utmReadyResolve();
       return; // ← localStorage vigente, sin llamadas
     }
   }
@@ -2064,6 +2070,7 @@ if (typeof sbGetUtmCache === 'function') {
       // Propagar a localStorage para la próxima carga sin red
       try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: sbValores })); } catch(e) {}
       renderUtmTicker();
+      _utmReadyResolve();
       return; // ← Supabase vigente, sin llamada a CMF
     }
   } catch(e) { console.warn('[fetchUTM] sbGetUtmCache error:', e); }
@@ -2122,6 +2129,7 @@ try {
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
+_utmReadyResolve();
 }
 async function fetchTasasCMF() {
   // JUDICIAL (Art. 19 Ley 14.908): solo tasa reajustable única.
@@ -5222,7 +5230,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v61</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v62</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6134,6 +6142,10 @@ async function sbLoadCasos() {
       // Hay último caso recordado → restaurar directo sin pantalla intermedia
       dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
       document.body.classList.add('auth-ready');
+      // ── Esperar que fetchUTM() haya poblado utmData antes de applySession ──
+      // Si INITIAL_SESSION llega antes de window.onload, utmData estaría vacío
+      // y startIndex/endIndex no se reconstruirían correctamente.
+      await _utmReady;
       if (activeCasoId !== lastId) {
         switchCaso(lastId);
       } else {
