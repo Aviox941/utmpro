@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0611.v47F">
+ <meta name="app-version" content="2.0611.v47G">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4395,7 +4395,7 @@ if (document.getElementById('calculationMode').value === 'salary_percent') {
 updateSalaryCalcChip();
 }
 // ── Snapshot de totales para vista rápida del sidebar (sin recalcular) ──
-if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0) {
+if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0) {
   try {
     const _utmNow = getUtmActualVal();
     const _hoySnap = getFechaLiquidacion();
@@ -4433,29 +4433,32 @@ if (activeCasoId && typeof lastCalculationData !== 'undefined' && lastCalculatio
     const _brutoIntUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.intPendiente / u); }, 0);
     const _brutoTotalUTM = _brutoCapUTM + _brutoIntUTM;
     const _remanenteUTM = Math.max(0, _brutoTotalUTM - _totalUTM);
-    window._calcSnapshots = window._calcSnapshots || {};
-    window._calcSnapshots[activeCasoId] = {
-      ts: Date.now(),
-      totalCLP: Math.round(_totalUTM * _utmLiqV),
-      totalUTM: _totalUTM,
-      capitalCLP: Math.round(_capUTM * _utmLiqV),
-      capitalUTM: _capUTM,
-      interesCLP: Math.round(_intUTM * _utmLiqV),
-      interesUTM: _intUTM,
-      capitalOriginalCLP: Math.round(_capOrigBruto),
-      interesOriginalCLP: Math.round(_intOrig),
-      brutoTotalUTM: _brutoTotalUTM,
-      brutoTotalCLP: Math.round(_brutoTotalUTM * _utmLiqV),
-      remanenteUTM: _remanenteUTM,
-      remanenteCLP: Math.round(_remanenteUTM * _utmLiqV),
-      lavUTM: _lavUTM, lavCLP: Math.round(_lavCLP),
-      abonosCLP: Math.round(_abonosCLP), abonosUTM: _abonosUTM,
-      parcialesCLP: Math.round(_parcialesCLP), parcialesUTM: _parcialesUTM,
-      meses: lastCalculationData.length,
-      utmLiq: _utmLiqV,
-      fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
-    };
-    // ── Actualizar hero remanente ahora que el snapshot existe ──
+    // ── Snapshot para sidebar (solo si hay un caso activo guardado) ──
+    if (activeCasoId) {
+      window._calcSnapshots = window._calcSnapshots || {};
+      window._calcSnapshots[activeCasoId] = {
+        ts: Date.now(),
+        totalCLP: Math.round(_totalUTM * _utmLiqV),
+        totalUTM: _totalUTM,
+        capitalCLP: Math.round(_capUTM * _utmLiqV),
+        capitalUTM: _capUTM,
+        interesCLP: Math.round(_intUTM * _utmLiqV),
+        interesUTM: _intUTM,
+        capitalOriginalCLP: Math.round(_capOrigBruto),
+        interesOriginalCLP: Math.round(_intOrig),
+        brutoTotalUTM: _brutoTotalUTM,
+        brutoTotalCLP: Math.round(_brutoTotalUTM * _utmLiqV),
+        remanenteUTM: _remanenteUTM,
+        remanenteCLP: Math.round(_remanenteUTM * _utmLiqV),
+        lavUTM: _lavUTM, lavCLP: Math.round(_lavCLP),
+        abonosCLP: Math.round(_abonosCLP), abonosUTM: _abonosUTM,
+        parcialesCLP: Math.round(_parcialesCLP), parcialesUTM: _parcialesUTM,
+        meses: lastCalculationData.length,
+        utmLiq: _utmLiqV,
+        fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
+      };
+    }
+    // ── Actualizar hero remanente (siempre, sin depender de activeCasoId) ──
     (function() {
       const remRow = document.getElementById('heroRemanenteRow');
       if (!remRow) return;
@@ -5644,7 +5647,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v47F</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v47G</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
