@@ -1055,50 +1055,52 @@
     align-items: stretch;
   }
 
-  /* ── Tarjeta izquierda: Total Adeudado (violeta) ─────────────── */
+  /* ── Tarjeta izquierda: Total Adeudado (azul) ─────────────── */
   .hero-total-card {
-    flex: 1;
+    flex: 0 0 auto;
+    width: 48%;
     min-width: 0;
     border-radius: 14px 6px 6px 14px;
-    background: linear-gradient(140deg, #1e3a5f 0%, #1e4d8c 52%, #2563ae 100%);
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
     box-shadow: none;
-    padding: 20px 14px 18px;
+    padding: 16px 14px 14px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
-    text-align: center;
+    align-items: flex-start;
+    text-align: left;
     position: relative;
     overflow: hidden;
   }
   .hero-total-card__label {
-    font-size: 8.5px;
-    font-weight: 700;
+    font-size: 8px;
+    font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: rgba(191,219,254,0.80);
+    letter-spacing: 0.10em;
+    color: #93c5fd;
     position: relative;
     z-index: 1;
+    margin-bottom: 4px;
   }
   .hero-total-card__amount-row {
     display: flex;
     align-items: flex-start;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 2px;
     position: relative;
     z-index: 1;
-    margin-top: 2px;
+    margin-top: 0;
   }
   .hero-total-card__sign {
-    font-size: clamp(11px, 3vw, 16px);
+    font-size: clamp(10px, 2.5vw, 14px);
     font-weight: 700;
     color: rgba(255,255,255,0.50);
     line-height: 1;
     margin-top: 4px;
   }
   .hero-total-card__amount {
-    font-size: clamp(28px, 9vw, 44px);
-    font-weight: 700;
+    font-size: clamp(22px, 7vw, 38px);
+    font-weight: 900;
     color: #ffffff;
     letter-spacing: -0.04em;
     line-height: 1;
@@ -1107,81 +1109,92 @@
     text-overflow: ellipsis;
   }
   .hero-total-card__utm {
-    font-size: 9.5px;
-    font-weight: 600;
-    color: rgba(191,219,254,0.75);
+    font-size: 9px;
+    font-weight: 700;
+    color: #bfdbfe;
     margin-top: 3px;
     letter-spacing: 0.01em;
     position: relative;
     z-index: 1;
   }
+  .hero-total-card__meta {
+    margin-top: 8px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero-total-card__meta-line {
+    font-size: 8px;
+    font-weight: 600;
+    color: #7ab3e0;
+    margin: 0;
+    line-height: 1.5;
+  }
 
-  /* ── Tarjeta derecha: Capital + Intereses en una sola card ───── */
-  .hero-stat-card {
-    width: 148px;
-    flex-shrink: 0;
+  /* ── Tarjeta derecha: Detalle del cálculo ───────────────────── */
+  .hero-detail-card {
+    flex: 1;
+    min-width: 0;
     background: #ffffff;
     border-radius: 6px 14px 14px 6px;
     border: 1px solid rgba(0,0,0,0.07);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
-  .hero-stat-row {
+  .hero-detail-card__title {
+    font-size: 8px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #2563eb;
+    padding: 8px 10px 5px;
+    margin: 0;
+    border-bottom: 1px solid rgba(37,99,235,0.10);
+  }
+  .hero-detail-row {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 10px;
+    justify-content: space-between;
+    gap: 4px;
+    padding: 6px 10px;
+    border-top: 1px solid rgba(0,0,0,0.05);
   }
-  .hero-stat-row + .hero-stat-row {
-    border-top: 1px solid rgba(0,0,0,0.07);
+  .hero-detail-row:first-of-type {
+    border-top: none;
   }
-  .hero-stat-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  .hero-detail-row--remanente {
+    background: rgba(245,158,11,0.05);
+    border-top: 1px solid rgba(245,158,11,0.15) !important;
   }
-  .hero-stat-icon--capital {
-    background: linear-gradient(135deg, #bbf7d0 0%, #6ee7b7 100%);
-  }
-  .hero-stat-icon--interes {
-    background: linear-gradient(135deg, #bae6fd 0%, #7dd3fc 100%);
-  }
-  .hero-stat-text {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    min-width: 0;
-  }
-  .hero-stat-text__label {
-    font-size: 7px;
+  .hero-detail-row__label {
+    font-size: 8.5px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.10em;
-    color: rgba(90,99,128,0.50);
-    white-space: nowrap;
-  }
-  .hero-stat-text__val {
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #1a1d2e;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
+    color: #64748b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+    flex: 1;
   }
-  .hero-stat-text__utm {
+  .hero-detail-row__vals {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .hero-detail-row__clp {
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .hero-detail-row__utm {
     font-size: 7.5px;
     font-weight: 600;
-    color: rgba(90,99,128,0.40);
-    letter-spacing: 0.01em;
+    color: #94a3b8;
+    white-space: nowrap;
   }
 
   /* ── Badge "LIQUIDACIÓN ESTIMADA" ───────────────────────────── */
@@ -2819,53 +2832,44 @@
 
   /* ── Tarjeta hero izquierda (Total Adeudado) ─────────────────── */
   .hero-total-card {
-    padding: 32px 13px 30px !important;
+    padding: 16px 13px 14px !important;
     box-shadow: none !important;
   }
   .hero-total-card__label {
-    font-size: 7.5px !important;
+    font-size: 7px !important;
     letter-spacing: 0.10em !important;
   }
   .hero-total-card__amount-row {
     margin-top: 1px !important;
   }
   .hero-total-card__amount {
-    font-size: clamp(26px, 8.5vw, 40px) !important;
+    font-size: clamp(20px, 6.5vw, 34px) !important;
     line-height: 1 !important;
   }
   .hero-total-card__sign {
-    font-size: clamp(10px, 2.5vw, 14px) !important;
+    font-size: clamp(10px, 2.2vw, 13px) !important;
     margin-top: 3px !important;
   }
   .hero-total-card__utm {
-    font-size: 8.5px !important;
+    font-size: 8px !important;
     margin-top: 2px !important;
   }
 
-  /* ── Tarjeta derecha Capital + Intereses ─────────────────────── */
-  .hero-stat-card {
-    width: 132px !important;
+  /* ── Tarjeta derecha: Detalle del cálculo ─────────────────────── */
+  .hero-detail-card__title {
+    font-size: 7px !important;
+    padding: 6px 9px 4px !important;
   }
-  .hero-stat-row {
-    padding: 18px 9px !important;
-    gap: 7px !important;
+  .hero-detail-row {
+    padding: 5px 9px !important;
   }
-  .hero-stat-icon {
-    width: 24px !important;
-    height: 24px !important;
-    border-radius: 6px !important;
+  .hero-detail-row__label {
+    font-size: 7.5px !important;
   }
-  .hero-stat-icon svg {
-    width: 12px !important;
-    height: 12px !important;
+  .hero-detail-row__clp {
+    font-size: 10px !important;
   }
-  .hero-stat-text__label {
-    font-size: 6px !important;
-  }
-  .hero-stat-text__val {
-    font-size: 11px !important;
-  }
-  .hero-stat-text__utm {
+  .hero-detail-row__utm {
     font-size: 6.5px !important;
   }
 
@@ -3004,8 +3008,8 @@
     .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
     #mainInputs   { gap: 10px !important; }
     #resultsCard  { gap: 10px !important; }
-    .hero-total-card { padding: 20px 15px 18px !important; }
-    .hero-stat-row { padding: 18px 11px !important; }
+    .hero-total-card { padding: 18px 14px 16px !important; }
+    .hero-detail-row { padding: 7px 10px !important; }
     .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
   }
 

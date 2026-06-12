@@ -1052,53 +1052,62 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
 <span id="cmfTasasStatus" style="display:none;"></span>
  <main class="px-4 md:px-6 lg:px-8 mt-1 md:mt-2 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
-      <!-- ── Hero: dos tarjetas separadas ── -->
+      <!-- ── Hero: tarjeta total izq + detalle cálculo der ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta izquierda: Total Adeudado (violeta) -->
+        <!-- Tarjeta izquierda: Total Adeudado (azul) -->
         <div class="hero-total-card">
-          <p class="hero-total-card__label">Total Adeudado</p>
+          <p class="hero-total-card__label">💰 Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
             <h2 id="totalGrand" class="hero-total-card__amount">0</h2>
           </div>
           <p id="totalGrandUtm" class="hero-total-card__utm">0.00 UTM</p>
+          <div id="heroMetaRow" class="hero-total-card__meta hidden">
+            <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
+            <p id="heroMeses" class="hero-total-card__meta-line"></p>
+          </div>
         </div>
 
-        <!-- Tarjeta derecha: Capital + Intereses (una card, dividida por línea) -->
-        <div class="hero-stat-card">
+        <!-- Tarjeta derecha: Detalle del cálculo -->
+        <div class="hero-detail-card">
+          <p class="hero-detail-card__title">📊 Detalle del cálculo</p>
 
-          <!-- Capital (mitad superior) -->
-          <div class="hero-stat-row">
-            <div class="hero-stat-icon hero-stat-icon--capital">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="9" stroke="#059669" stroke-width="1.8"/>
-                <path d="M12 7v1M12 16v1M9.5 10.2c0-.9.8-1.7 2.5-1.7s2.5.8 2.5 1.7c0 2.2-5 1.8-5 4 0 1 .8 1.8 2.5 1.8s2.5-.8 2.5-1.8" stroke="#059669" stroke-width="1.8"/>
-              </svg>
-            </div>
-            <div class="hero-stat-text">
-              <span class="hero-stat-text__label">Capital</span>
-              <span id="totalCap" class="hero-stat-text__val">$0</span>
-              <span id="totalCapUtm" class="hero-stat-text__utm">0.00 UTM</span>
+          <!-- Capital sin interés -->
+          <div class="hero-detail-row">
+            <span class="hero-detail-row__label">Capital sin interés</span>
+            <div class="hero-detail-row__vals">
+              <span id="totalCap" class="hero-detail-row__clp" style="color:#1d4ed8;">$0</span>
+              <span id="totalCapUtm" class="hero-detail-row__utm">0.0000 UTM</span>
             </div>
           </div>
 
-          <!-- Intereses (mitad inferior, separada por línea) -->
-          <div class="hero-stat-row">
-            <div class="hero-stat-icon hero-stat-icon--interes">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="8.5" cy="8.5" r="2.2" stroke="#0284c7" stroke-width="1.8"/>
-                <circle cx="15.5" cy="15.5" r="2.2" stroke="#0284c7" stroke-width="1.8"/>
-                <line x1="6.5" y1="17.5" x2="17.5" y2="6.5" stroke="#0284c7" stroke-width="1.8"/>
-              </svg>
-            </div>
-            <div class="hero-stat-text">
-              <span class="hero-stat-text__label">Intereses</span>
-              <span id="totalInt" class="hero-stat-text__val">$0</span>
-              <span id="totalIntUtm" class="hero-stat-text__utm">0.00 UTM</span>
+          <!-- Interés acumulado -->
+          <div class="hero-detail-row">
+            <span class="hero-detail-row__label">Interés acumulado</span>
+            <div class="hero-detail-row__vals">
+              <span id="totalInt" class="hero-detail-row__clp" style="color:#7c3aed;">$0</span>
+              <span id="totalIntUtm" class="hero-detail-row__utm">0.0000 UTM</span>
             </div>
           </div>
 
+          <!-- Pagos parciales (oculto si no hay) -->
+          <div id="heroParcialRow" class="hero-detail-row hidden">
+            <span class="hero-detail-row__label">Pagos parciales</span>
+            <div class="hero-detail-row__vals">
+              <span id="heroParcialClp" class="hero-detail-row__clp" style="color:#059669;">−$0</span>
+              <span id="heroParcialUtm" class="hero-detail-row__utm"></span>
+            </div>
+          </div>
+
+          <!-- Remanente descuentos (oculto si no hay) -->
+          <div id="heroRemanenteRow" class="hero-detail-row hero-detail-row--remanente hidden">
+            <span class="hero-detail-row__label" style="color:#b45309;">Remanente descuentos</span>
+            <div class="hero-detail-row__vals">
+              <span id="heroRemanenteClp" class="hero-detail-row__clp" style="color:#f59e0b;">$0</span>
+              <span id="heroRemanenteUtm" class="hero-detail-row__utm"></span>
+            </div>
+          </div>
         </div>
       </div>
       <!-- Fila de abonos (condicional) -->
@@ -4286,7 +4295,7 @@ grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
   // Ancho disponible = tarjeta - padding - ancho del signo $
   const signEl = grandEl.previousElementSibling;
   const signW = signEl ? signEl.offsetWidth + 4 : 18;
-  const availW = container.clientWidth - 40 - signW; // 40 = padding h total
+  const availW = container.clientWidth - 28 - signW; // 28 = padding h total (14px cada lado)
   let fs = 56; // tamaño máximo
   grandEl.style.fontSize = fs + 'px';
   grandEl.style.whiteSpace = 'nowrap';
@@ -4300,6 +4309,56 @@ document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
+// ── Hero: meta (fecha liq + meses) ──
+(function() {
+  const metaRow = document.getElementById('heroMetaRow');
+  const fechaEl = document.getElementById('heroFechaLiq');
+  const mesesEl = document.getElementById('heroMeses');
+  if (!metaRow || !fechaEl || !mesesEl) return;
+  const _hoy = getFechaLiquidacion();
+  const _fechaStr = _hoy.toLocaleDateString('es-CL');
+  const _utmRef = format(utmLiq);
+  fechaEl.textContent = `Fecha liq: ${_fechaStr} · UTM ref: ${_utmRef}`;
+  mesesEl.textContent = `${lastCalculationData.length} meses adeudados`;
+  metaRow.classList.remove('hidden');
+})();
+// ── Hero: pagos parciales ──
+(function() {
+  const parcialRow = document.getElementById('heroParcialRow');
+  if (!parcialRow) return;
+  const _parciales = (pagosParciales || []);
+  const _parcialCLP = _parciales.reduce((s,p) => s + p.amount, 0);
+  if (_parcialCLP > 0) {
+    const _parcialUTM = _parciales.reduce((s,p) => {
+      const cuota = lastCalculationData.find(d => d.periodo && p.periodo && d.periodo === p.periodo);
+      const u = (cuota && cuota.utmVal > 0) ? cuota.utmVal : utmLiq;
+      return s + (p.amount / u);
+    }, 0);
+    document.getElementById('heroParcialClp').textContent = `−${format(_parcialCLP)}`;
+    document.getElementById('heroParcialUtm').textContent = `−${_parcialUTM.toFixed(4)} UTM`;
+    parcialRow.classList.remove('hidden');
+  } else {
+    parcialRow.classList.add('hidden');
+  }
+})();
+// ── Hero: remanente descuentos ──
+(function() {
+  const remRow = document.getElementById('heroRemanenteRow');
+  if (!remRow) return;
+  const _cuotas = lastCalculationData.map(d => ({ capPendiente: d.cap, intPendiente: d.inte, utmVal: d.utmVal }));
+  const _totalPostUTM = _cuotas.reduce((s,c) => { const u = c.utmVal > 0 ? c.utmVal : utmLiq; return s + Math.max(0, c.capPendiente/u) + Math.max(0, c.intPendiente/u); }, 0);
+  const _brutoCuotas = lastCalculationData.map(d => ({ capPendiente: d.capOriginalBruto ?? d.capOriginal ?? d.cap, intPendiente: d.intOriginal ?? d.inte, utmVal: d.utmVal }));
+  const _brutoUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal > 0 ? c.utmVal : utmLiq; return s + Math.max(0, c.capPendiente/u) + Math.max(0, c.intPendiente/u); }, 0);
+  const _remUTM = Math.max(0, _brutoUTM - _totalPostUTM);
+  if (_remUTM > 0.0001) {
+    const _remCLP = Math.round(_remUTM * utmLiq);
+    document.getElementById('heroRemanenteClp').textContent = format(_remCLP);
+    document.getElementById('heroRemanenteUtm').textContent = `${_remUTM.toFixed(4)} UTM`;
+    remRow.classList.remove('hidden');
+  } else {
+    remRow.classList.add('hidden');
+  }
+})();
 // lavTotalUTM se usa para el label informativo del row de abonos.
 const abonoRow = document.getElementById('abonoResultRow');
 const lavTotalCLP = lavTotalUTM > 0 ? (abonosLav || []).reduce((s,p) => s + p.amount, 0) : 0;
@@ -4340,6 +4399,9 @@ document.getElementById('totalCap').innerText = '$0';
 document.getElementById('totalCapUtm').innerText = '0.00 UTM';
 document.getElementById('totalInt').innerText = '$0';
 document.getElementById('totalIntUtm').innerText = '0.00 UTM';
+const _hMeta = document.getElementById('heroMetaRow'); if (_hMeta) _hMeta.classList.add('hidden');
+const _hParc = document.getElementById('heroParcialRow'); if (_hParc) _hParc.classList.add('hidden');
+const _hRem  = document.getElementById('heroRemanenteRow'); if (_hRem) _hRem.classList.add('hidden');
 document.getElementById('yearTabsCard').classList.add('hidden');
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
