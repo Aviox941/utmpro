@@ -1,0 +1,531 @@
+<!-- modals.html — Cargado via fetch() al inicio de la app -->
+
+<!-- ── MODAL: OCR LAV ────────────────────────────────────── -->
+<div id="ocrLavModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="display:none;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal card-modal--sm" style="max-width:480px;width:100%;border-radius:20px !important;background:#ffffff;box-shadow:0 24px 64px rgba(0,0,0,0.18);padding:20px;">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <div style="width:28px;height:28px;border-radius:9px;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.22);display:flex;align-items:center;justify-content:center;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <p class="text-sm font-black" style="color:#1e293b;">Importar Depósitos LAV</p>
+      </div>
+      <button onclick="closeOcrLav()" class="p-1 rounded-lg transition-colors" style="color:#94a3b8;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-3">
+      <button id="ocrTabPjud" onclick="setOcrTab('pjud')"
+        class="flex-1 rounded-xl py-1.5 text-[9px] font-black transition-all"
+        style="background:rgba(16,185,129,0.2);color:#10b981;border:1px solid rgba(16,185,129,0.4);">Liquidación PJUD</button>
+      <button id="ocrTabCartola" onclick="setOcrTab('cartola')"
+        class="flex-1 rounded-xl py-1.5 text-[9px] font-black transition-all"
+        style="background:rgba(0,0,0,0.04);color:#64748b;border:1px solid rgba(0,0,0,0.08);">Cartola Bancaria</button>
+    </div>
+    <p id="ocrInstruccion" class="text-[9px] mb-3" style="color:#64748b;">Sube el PDF o imagen de la liquidación. La app extraerá los depósitos LAV de la sección V.</p>
+    <!-- Step: Upload -->
+    <div id="ocrStepUpload">
+      <div id="ocrDropZone"
+        ondragover="event.preventDefault(); this.style.background='rgba(16,185,129,0.08)'"
+        ondragleave="this.style.background='rgba(16,185,129,0.04)'"
+        ondrop="handleOcrDrop(event)"
+        onclick="document.getElementById('ocrFileInput').click()"
+        class="rounded-xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all"
+        style="background:rgba(16,185,129,0.04);border:1.5px dashed rgba(16,185,129,0.3);padding:24px 16px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p class="text-[10px] font-black text-[#10b981]">Arrastra o toca para subir</p>
+        <p class="text-[8px]" style="color:#94a3b8;">PDF, JPG o PNG · máx 10 MB</p>
+      </div>
+      <input type="file" id="ocrFileInput" accept=".pdf,.jpg,.jpeg,.png" class="hidden"
+        onchange="handleOcrFile(this.files[0])">
+      <p id="ocrFileName" class="hidden text-[9px] mt-2 text-center" style="color:#64748b;"></p>
+      <button id="btnOcrAnalizar" onclick="runOcrAnalysis()" disabled
+        class="btn-base btn-full mt-3 text-[10px] font-black transition-all"
+        style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
+        Analizar documento
+      </button>
+    </div>
+    <!-- Step: Loading -->
+    <div id="ocrStepLoading" class="hidden flex flex-col items-center gap-3 py-6">
+      <div class="w-8 h-8 rounded-full border-2 border-[#10b981] border-t-transparent animate-spin"></div>
+      <p class="text-[10px] font-black text-[#10b981]">Analizando documento…</p>
+    </div>
+    <!-- Step: Error -->
+    <div id="ocrStepError" class="hidden">
+      <p id="ocrErrorMsg" class="text-[10px] text-red-400 font-black text-center py-4"></p>
+      <button onclick="ocrReset()" class="btn-base btn-secondary btn-full text-[10px]">Intentar de nuevo</button>
+    </div>
+    <!-- Step: Preview -->
+    <div id="ocrStepPreview" class="hidden space-y-2">
+      <div class="flex items-center justify-between mb-1">
+        <p style="font-size:10px;font-weight:700;color:#1e293b;">Movimientos detectados</p>
+        <span id="ocrPreviewCount" style="background:rgba(16,185,129,0.12);color:#059669;border:1px solid rgba(16,185,129,0.25);font-size:8px;font-weight:800;padding:2px 10px;border-radius:20px;"></span>
+      </div>
+      <div id="ocrPreviewList" class="space-y-1 overflow-y-auto no-scrollbar" style="max-height:55vh;"></div>
+      <div class="grid grid-cols-2 gap-2 pt-1">
+        <button onclick="ocrReset()" style="background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:12px;padding:10px;font-size:10px;font-weight:700;letter-spacing:0.04em;cursor:pointer;width:100%;">CANCELAR</button>
+        <button onclick="ocrConfirmar()"
+          style="background:#10b981;color:#ffffff;border:1px solid #059669;border-radius:12px;padding:10px;font-size:10px;font-weight:800;letter-spacing:0.04em;cursor:pointer;width:100%;">
+          ✓ AGREGAR TODOS
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── MODAL: Agregar período de pensión ─────────────────── -->
+<div id="periodoPensionModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/45 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal card-modal--sm">
+    <div class="card-modal__header card-modal__header--purple">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:26px;height:26px;border-radius:8px;background:rgba(37,99,235,0.15);border:1px solid rgba(37,99,235,0.25);display:flex;align-items:center;justify-content:center;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93c5fd" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <div>
+          <p style="font-size:10px;font-weight:700;color:#bfdbfe;text-transform:uppercase;letter-spacing:0.06em;">Período de cuota</p>
+          <p style="font-size:8px;font-weight:600;color:#8e97b0;">UTM o % de sueldo para este tramo</p>
+        </div>
+      </div>
+      <button onclick="closePeriodoModal()" style="width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#8e97b0;background:transparent;border:none;cursor:pointer;font-size:14px;">✕</button>
+    </div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+
+      <!-- Modo del período: UTM o % Sueldo -->
+      <div>
+        <label class="input-label input-label--plain">Tipo de cuota</label>
+        <div style="display:flex;background:#f0f2f7;border:1px solid rgba(0,0,0,0.08);border-radius:20px;padding:2px;gap:0;">
+          <button id="ppModoUtmBtn" onclick="setPeriodoModo('utm')" style="flex:1;border-radius:20px;font-size:9px;font-weight:700;padding:4px 0;transition:all 0.15s;background:#ffffff;color:#1a1d2e;box-shadow:0 1px 4px rgba(0,0,0,0.10);border:1px solid rgba(0,0,0,0.10);">UTM</button>
+          <button id="ppModoSalaryBtn" onclick="setPeriodoModo('salary_percent')" style="flex:1;border-radius:20px;font-size:9px;font-weight:700;padding:4px 0;transition:all 0.15s;background:transparent;color:#8e97b0;border:1px solid transparent;">% Sueldo</button>
+        </div>
+      </div>
+
+      <!-- Campos UTM -->
+      <div id="ppUtmFields">
+        <label class="input-label input-label--plain">Cuota mensual en UTM</label>
+        <input type="number" id="ppUtmAmount" placeholder="ej: 2.50" step="0.01" inputmode="decimal" class="input-number" style="width:100%;" oninput="checkPeriodoReady()">
+      </div>
+
+      <!-- Campos % Sueldo -->
+      <div id="ppSalaryFields" style="display:none;flex-direction:column;gap:8px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label class="input-label input-label--plain">% Pensión</label>
+            <input type="number" id="ppSalaryPct" placeholder="ej: 25" step="0.1" inputmode="decimal" class="input-number" oninput="checkPeriodoReady()">
+          </div>
+          <div>
+            <label class="input-label input-label--plain">Sueldo ($)</label>
+            <input type="text" id="ppSalaryMonto" placeholder="0" inputmode="numeric" class="input-currency" oninput="formatPPSalary(this);checkPeriodoReady()">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;border-radius:10px;padding:8px 12px;background:#fafbfd;border:1px solid rgba(37,99,235,0.11);">
+          <div>
+            <p style="font-size:9px;font-weight:600;color:#5a6380;line-height:1;">IMM</p>
+            <p id="ppImmValue" style="font-size:8px;font-weight:500;color:#9aa3bb;line-height:1;margin-top:2px;">—</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ppToggleIMM" onchange="checkPeriodoReady()">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="ppSalaryChip" style="display:none;padding:6px 10px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);">
+          <span id="ppSalaryChipText" style="font-size:9px;font-weight:700;color:#60a5fa;"></span>
+        </div>
+      </div>
+
+      <!-- Fechas del período -->
+      <div>
+        <label class="input-label input-label--plain" style="margin-bottom:4px;">Período de vigencia</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button onclick="openCalendar('ppDesde')" id="ppDesdeBtn" class="input-date">
+            <span class="input-date__sublabel">Desde</span>
+            <span id="ppDesdeLabel" class="input-date__value">Seleccionar</span>
+          </button>
+          <button onclick="openCalendar('ppHasta')" id="ppHastaBtn" class="input-date">
+            <span class="input-date__sublabel">Hasta <span style="font-size:7px;opacity:0.6;font-weight:600;">(opcional)</span></span>
+            <span id="ppHastaLabel" class="input-date__value">Fin del rango</span>
+          </button>
+        </div>
+        <input type="hidden" id="ppDesdeMes">
+        <input type="hidden" id="ppDesdeAnio">
+        <input type="hidden" id="ppHastaMes">
+        <input type="hidden" id="ppHastaAnio">
+      </div>
+
+      <div id="ppError" style="display:none;background:rgba(220,38,38,0.08);border:1px solid rgba(220,38,38,0.2);border-radius:9px;padding:8px 12px;font-size:9px;font-weight:700;color:#dc2626;"></div>
+    </div>
+    <div class="card-modal__footer" style="display:flex;justify-content:center;">
+      <button id="ppConfirmBtn" onclick="confirmarPeriodo()" disabled
+        style="width:60%;padding:10px;border-radius:12px;font-size:11px;font-weight:700;color:white;opacity:0.3;cursor:not-allowed;background:linear-gradient(135deg,#3b82f6,#5b3fa0);border:none;transition:all 0.2s;">
+        ✓ Registrar período
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── MODAL: Ayuda períodos variables ──────────────────── -->
+<div id="periodoHelpModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal card-modal--sm">
+    <div class="card-modal__header card-modal__header--purple">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">📅</span>
+        <p style="font-size:10px;font-weight:700;color:#bfdbfe;">Períodos con cuota variable</p>
+      </div>
+      <button onclick="hidePeriodoHelp()" style="color:#8e97b0;background:none;border:none;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+    <div style="padding:14px 16px;font-size:11px;color:#5a6380;line-height:1.6;max-height:65vh;overflow-y:auto;" class="no-scrollbar">
+      <div class="info-box info-box--purple" style="margin-bottom:10px;">
+        <p style="font-size:9px;font-weight:700;color:#93c5fd;text-transform:uppercase;margin-bottom:4px;">¿Para qué sirve?</p>
+        <p>Permite calcular períodos donde la cuota cambió a lo largo del tiempo. Por ejemplo, la pensión fue de <strong style="color:#1a1d2e;">2 UTM de Ene 2020 a Jun 2021</strong>, y luego subió a <strong style="color:#1a1d2e;">3 UTM desde Jul 2021</strong>.</p>
+      </div>
+      <div class="info-box" style="margin-bottom:10px;">
+        <p style="font-size:9px;font-weight:700;color:#93c5fd;text-transform:uppercase;margin-bottom:4px;">¿Cómo funciona?</p>
+        <p>Registra tantos períodos como quieras. Cada mes del rango "Desde / Hasta" usa la cuota del período que lo contiene. Si un mes no está cubierto por ningún período, se usa el valor del campo principal (UTM o % Sueldo).</p>
+      </div>
+      <div class="info-box" style="margin-bottom:10px;">
+        <p style="font-size:9px;font-weight:700;color:#93c5fd;text-transform:uppercase;margin-bottom:4px;">Modo % Sueldo</p>
+        <p>Cada período puede tener su propio porcentaje y sueldo base (o IMM), independiente de los demás. Útil cuando el sueldo o el porcentaje pactado cambió entre períodos.</p>
+      </div>
+      <div class="info-box">
+        <p style="font-size:9px;font-weight:700;color:#93c5fd;text-transform:uppercase;margin-bottom:4px;">Prioridad</p>
+        <p>Los períodos registrados <strong style="color:#1a1d2e;">tienen prioridad</strong> sobre el campo principal para los meses que cubren. Los meses sin período asignado usan el campo principal como respaldo.</p>
+      </div>
+    </div>
+    <div style="padding:8px 16px 14px;">
+      <button onclick="hidePeriodoHelp()" class="btn-base btn-full" style="background:rgba(37,99,235,0.10);color:#60a5fa;border:1px solid rgba(37,99,235,0.18);">Entendido</button>
+    </div>
+  </div>
+</div>
+
+ <div id="detailModal" class="fixed inset-0 z-[100] bg-[#1a1d2e]/45 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+ <div class="bg-white border w-full max-w-sm rounded-[2.5rem] overflow-hidden flex flex-col" style="max-height:90dvh;border-color:rgba(0,0,0,0.07);box-shadow:0 8px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06)">
+          <div class="p-6 text-center" style="background:#f7f8fb;border-bottom:1px solid rgba(0,0,0,0.06)">
+            <p id="modalPeriodo" class="text-[10px] font-black uppercase text-[#3b82f6] mb-1"></p>
+ <h3 class="text-xl font-black text-[#1a1d2e]">Detalle de Mora</h3>
+ </div>
+ <div id="modalContent" class="p-8 space-y-3 text-sm text-[#5a6380] flex-1 overflow-y-auto modal-scroll"></div>
+ <div class="p-6 pt-0"><button onclick="closeDetailModal()" class="btn-base btn-secondary btn-full">Cerrar</button></div>
+ </div>
+ </div>
+
+ <div id="confirmResetModal" class="fixed inset-0 z-[110] bg-[#1a1d2e]/45 backdrop-blur-md hidden items-center justify-center p-6" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+ <div class="card-modal card-modal--sm p-6 text-center">
+            <div class="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">⚠️</div>
+ <h3 class="text-lg font-black text-white mb-2">¿Limpiar todo?</h3>
+ <p class="text-sm text-slate-400 mb-6">Se borrarán todos los montos, fechas y abonos ingresados.</p>
+ <div class="flex gap-3">
+ <button onclick="hideResetConfirm()" class="btn-base btn-ghost btn-flex">Cancelar</button>
+ <button onclick="resetAll()" class="btn-base btn-danger btn-flex">Sí, limpiar</button>
+ </div>
+ </div>
+ </div>
+
+ <div id="resumenModal" class="fixed inset-0 z-[120] bg-[#1a1d2e]/45 backdrop-blur-md hidden items-center justify-center p-3" style="align-items:center;padding-top:16px;padding-bottom:16px;overflow:hidden;">
+ <div class="bg-white border w-full max-w-lg rounded-[2rem] flex flex-col" style="border-color:rgba(0,0,0,0.07);box-shadow:0 8px 40px rgba(0,0,0,0.12),0 2px 8px rgba(0,0,0,0.06);overflow:hidden;max-height:calc(100vh - 32px)">
+   <!-- Header -->
+   <div style="background:#f7f8fb;border-bottom:1px solid rgba(0,0,0,0.06)" class="flex-shrink-0">
+     <div class="flex items-center justify-between px-5 py-4">
+       <div class="flex items-center gap-2.5">
+         <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14)">
+           <svg class="w-4 h-4 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+         </div>
+         <div>
+           <p class="text-[11px] font-black text-[#1a1d2e] uppercase tracking-wide">Resumen de Liquidación</p>
+           <p class="text-[9px] font-medium text-[#9aa3bb]">Detalle completo · Igual que el PDF</p>
+         </div>
+       </div>
+       <button onclick="hideResumenModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-[#8e97b0] hover:text-[#1a1d2e] hover:bg-black/05 transition-all active:scale-90">
+         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+       </button>
+     </div>
+   </div>
+   <!-- Contenido dinámico -->
+   <div id="resumenContent" class="flex-1 overflow-y-auto modal-scroll px-4 py-4 space-y-4 text-[11px] text-[#5a6380]"></div>
+   <!-- Footer -->
+   <div class="flex-shrink-0 px-4 pb-4 pt-2" style="border-top:1px solid rgba(0,0,0,0.05)">
+     <button onclick="hideResumenModal()" style="width:100%;padding:10px;border-radius:12px;font-size:11px;font-weight:700;color:#5a6380;background:#f0f1f5;border:1px solid rgba(0,0,0,0.07);cursor:pointer;">Cerrar</button>
+   </div>
+ </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL SELECTOR DE PERFIL
+     ══════════════════════════════════════════════════════════ -->
+<div id="profileModal" class="modal-overlay fixed inset-0 z-[500] bg-[#1a1d2e]/45 backdrop-blur-md items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+ <div class="modal-panel card-modal card-modal--sm">
+  <!-- Header -->
+  <div class="card-modal__header card-modal__header--purple">
+   <div class="flex items-center gap-2.5">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.2);border:1.5px solid rgba(59,130,246,0.4)">
+     <svg class="w-4 h-4 text-[#93c5fd]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </div>
+    <div>
+     <p class="text-[11px] font-black text-white uppercase tracking-wide">Casos</p>
+     <p class="text-[9px] font-bold text-slate-500">Selecciona o crea un caso</p>
+    </div>
+   </div>
+   <button onclick="closeProfileModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-90">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+   </button>
+  </div>
+  <!-- Lista de perfiles existentes -->
+  <div id="profileList" class="px-4 pt-3 pb-1 space-y-1.5 max-h-60 overflow-y-auto modal-scroll"></div>
+  <!-- Separador -->
+  <div class="mx-4 my-2" style="border-top:1px solid rgba(255,255,255,0.06)"></div>
+  <!-- Crear nuevo perfil -->
+  <div class="px-4 pb-5 space-y-2.5">
+   <p class="text-[9px] font-black text-slate-500 uppercase">Nuevo caso</p>
+   <div class="flex gap-2">
+    <input id="profileNameInput" type="text" placeholder="Nombre del caso..." maxlength="30"
+     class="input-base" style="width:auto;flex:1;font-weight:700;border-color:rgba(59,130,246,0.2)"
+     oninput="checkProfileBtn()"
+     onkeydown="if(event.key==='Enter') crearPerfil()">
+    <button id="profileCreateBtn" onclick="crearPerfil()" disabled
+     class="btn-base btn-primary disabled:opacity-30">
+     Crear
+    </button>
+   </div>
+  </div>
+ </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL CONFIRMAR ELIMINAR CASO
+     ══════════════════════════════════════════════════════════ -->
+<div id="confirmDeleteModal" class="modal-overlay fixed inset-0 z-[600] bg-[#1a1d2e]/45 backdrop-blur-md items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+ <div class="modal-panel card-modal card-modal--sm">
+  <div class="card-modal__header card-modal__header--purple">
+   <div class="flex items-center gap-2.5">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(239,68,68,0.2);border:1.5px solid rgba(239,68,68,0.4)">
+     <svg class="w-4 h-4" fill="none" stroke="#fca5a5" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+    </div>
+    <div>
+     <p class="text-[11px] font-black text-white uppercase tracking-wide">Eliminar caso</p>
+     <p class="text-[9px] font-bold text-slate-500">Esta acción no se puede deshacer</p>
+    </div>
+   </div>
+   <button onclick="cerrarConfirmDelete()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-90">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+   </button>
+  </div>
+  <div class="px-4 py-5 space-y-4">
+   <p class="text-[12px] font-bold text-slate-300 text-center">¿Eliminar el caso <span id="confirmDeleteNombre" class="text-white font-black"></span>?</p>
+   <p class="text-[10px] font-bold text-slate-500 text-center">Se perderán todos los datos asociados a este caso.</p>
+   <div class="flex gap-2 pt-1">
+    <button onclick="cerrarConfirmDelete()" class="btn-base flex-1" style="background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08)">
+     Cancelar
+    </button>
+    <button id="confirmDeleteBtn" class="btn-base flex-1" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)">
+     Eliminar
+    </button>
+   </div>
+  </div>
+ </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL PERFIL DE USUARIO
+     ══════════════════════════════════════════════════════════ -->
+<div id="userProfileModal" class="modal-overlay fixed inset-0 z-[600] bg-[#1a1d2e]/45 backdrop-blur-md items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+ <div class="modal-panel card-modal card-modal--sm">
+  <div class="card-modal__header card-modal__header--purple">
+   <div class="flex items-center gap-2.5">
+    <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.2);border:1.5px solid rgba(59,130,246,0.4)">
+     <svg class="w-4 h-4 text-[#93c5fd]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    </div>
+    <div>
+     <p class="text-[11px] font-black text-white uppercase tracking-wide">Mi cuenta</p>
+     <p class="text-[9px] font-bold text-slate-500" id="userProfileEmail">—</p>
+    </div>
+   </div>
+   <button onclick="cerrarUserProfile()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-90">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+   </button>
+  </div>
+  <div class="px-4 py-5 space-y-3">
+   <div class="rounded-xl p-3" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)">
+    <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Correo</p>
+    <p class="text-[12px] font-black text-white" id="userProfileEmailDetail">—</p>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<!-- Menú descarga flotante -->
+<div id="downloadMenu" style="display:none;position:fixed;background:white;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(0,0,0,0.08);overflow:hidden;min-width:140px;z-index:9999;">
+  <button onclick="generarPDF();toggleDownloadMenu()" style="width:100%;padding:12px 16px;font-size:12px;font-weight:700;color:#1a1d2e;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(0,0,0,0.06);">
+    <svg width="14" height="14" fill="none" stroke="#dc2626" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    PDF
+  </button>
+  <button onclick="exportarExcel();toggleDownloadMenu()" style="width:100%;padding:12px 16px;font-size:12px;font-weight:700;color:#1a1d2e;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;">
+    <svg width="14" height="14" fill="none" stroke="#16a34a" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+    Excel
+  </button>
+</div>
+<!-- ══════════════════════════════════════════════════════════
+     PANTALLA DE BIENVENIDA — SELECCIÓN / CREACIÓN DE CASO
+     Se muestra cuando el usuario tiene sesión pero no hay caso activo.
+     No tiene botón de cerrar — el usuario DEBE elegir o crear un caso.
+     z-index: 5500 (sobre profileModal:500, bajo loginScreen:9999)
+     Tema claro — igual que loginScreen y el resto de la app.
+     ══════════════════════════════════════════════════════════ -->
+<div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:5500;background:#f5f6f8;flex-direction:column;align-items:center;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+
+ <!-- Título arriba del card, sin ocupar espacio de centrado -->
+ <div style="text-align:center;margin-bottom:24px;flex-shrink:0;">
+  <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;background:#2563eb;border-radius:14px;margin-bottom:10px;">
+   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6l9-3 9 3M3 6v14l9 3 9-3V6M12 3v18M3 10h18M3 14h18"/></svg>
+  </div>
+  <p style="font-size:20px;font-weight:900;color:#1a1d2e;margin:0;letter-spacing:-0.3px;">Liquidación Pro</p>
+  <p style="font-size:11px;font-weight:700;color:#8e97b0;margin:4px 0 0;">¿Con qué caso trabajamos hoy?</p>
+ </div>
+
+ <!-- Card centrado junto al título como bloque -->
+ <div style="width:100%;max-width:360px;padding:0 16px;box-sizing:border-box;flex-shrink:0;">
+
+  <!-- Card principal -->
+   <div style="background:white;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid rgba(0,0,0,0.06);overflow:hidden;">
+
+    <!-- Crear caso rápido -->
+    <div style="padding:22px 20px 18px;">
+     <p style="font-size:9px;font-weight:900;color:#2563eb;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">⚡ Caso nuevo</p>
+     <div style="display:flex;gap:8px;align-items:center;">
+      <input id="welcomeNombreInput" type="text" placeholder="Nombre o carátula del caso..." maxlength="60"
+       style="flex:1;height:42px;padding:0 13px;border-radius:10px;border:1.5px solid rgba(0,0,0,0.12);background:#f8fafc;color:#1a1d2e;font-size:12px;font-weight:700;outline:none;-webkit-appearance:none;box-sizing:border-box;transition:border-color .18s;"
+       onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='rgba(0,0,0,0.12)'"
+       oninput="checkWelcomeBtn()"
+       onkeydown="if(event.key==='Enter' && !document.getElementById('welcomeBtnRapido').disabled) crearCasoDesdeWelcome()">
+      <!-- Botón crear rápido -->
+      <button id="welcomeBtnRapido" onclick="crearCasoDesdeWelcome()" disabled
+       style="height:42px;padding:0 16px;border-radius:10px;background:#2563eb;color:#fff;font-size:11px;font-weight:800;border:none;cursor:pointer;white-space:nowrap;opacity:0.3;transition:opacity 0.15s;pointer-events:none;">
+       Crear →
+      </button>
+      <!-- Botón judicial (balanza) -->
+      <button id="welcomeBtnJudicial" onclick="abrirCasoJudicialDesdeWelcome()" title="Ingresar datos judiciales completos: RIT, alimentante, tribunal..."
+       style="height:42px;width:42px;min-width:42px;border-radius:10px;background:#fffbeb;border:1.5px solid #fde68a;color:#d97706;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.15s;padding:0;"
+       onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="20"/><path d="M3 10l9-7 9 7"/><path d="M5 10l-2 5c0 1.66 2.24 3 5 3s5-1.34 5-3L11 10"/><path d="M13 10l-2 5c0 1.66 2.24 3 5 3s5-1.34 5-3L19 10"/><line x1="5" y1="20" x2="19" y2="20"/></svg>
+      </button>
+     </div>
+     <p style="font-size:9px;font-weight:600;color:#94a3b8;margin:8px 0 0;">
+      El botón ⚖️ abre el formulario completo con RIT, alimentante, alimentario y tribunal.
+     </p>
+    </div>
+
+    <!-- Divisor + lista de casos existentes -->
+    <div id="welcomeCasosWrap" style="display:none;">
+     <div style="display:flex;align-items:center;gap:10px;padding:0 20px;margin-bottom:4px;">
+      <div style="flex:1;height:1px;background:rgba(0,0,0,0.07);"></div>
+      <span style="font-size:9px;font-weight:700;color:#94a3b8;white-space:nowrap;">o elige uno existente</span>
+      <div style="flex:1;height:1px;background:rgba(0,0,0,0.07);"></div>
+     </div>
+     <div id="welcomeCasosList" style="max-height:240px;overflow-y:auto;padding:6px 12px 16px;"></div>
+    </div>
+
+   </div><!-- /card -->
+  </div>
+ </div>
+</div>
+
+<div id="ayudaModal" class="fixed inset-0 z-[420] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal" style="max-width:22rem;width:100%;display:flex;flex-direction:column;max-height:90vh;">
+    <!-- Header -->
+    <div class="card-modal__header card-modal__header--purple" style="flex-shrink:0;">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(245,158,11,0.15);border:1.5px solid rgba(245,158,11,0.30);">
+          <svg class="w-4 h-4" fill="none" stroke="#d97706" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-black text-[#1a1d2e] uppercase tracking-wide">Ayuda</p>
+          <p id="ayudaModalSubtitle" class="text-[9px] font-bold text-slate-500">Selecciona un tema</p>
+        </div>
+      </div>
+      <button onclick="ayudaXBtn()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-[#1a1d2e] hover:bg-black/6 transition-all active:scale-90">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Vista: índice de temas -->
+    <div id="ayudaIndex" style="padding:12px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;">
+    </div>
+
+    <!-- Vista: contenido de tema -->
+    <div id="ayudaContenido" style="display:none;flex-direction:column;flex:1;min-height:0;">
+      <!-- Nav back -->
+      <div style="padding:8px 12px 4px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.05);">
+        <button onclick="ayudaVolverIndex()" style="display:flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;color:#64748b;padding:4px 6px;border-radius:7px;transition:background 0.13s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'" onmouseout="this.style.background='none'">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6"/></svg>
+          Volver
+        </button>
+      </div>
+      <!-- Cuerpo del tema -->
+      <div id="ayudaContenidoBody" style="padding:14px 14px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="casosManagerModal" class="fixed inset-0 z-[400] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div style="max-width:22rem;width:100%;background:#ffffff;border:1px solid rgba(0,0,0,0.07);border-radius:20px;overflow:visible;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <!-- Header -->
+    <div class="card-modal__header card-modal__header--purple" style="border-radius:20px 20px 0 0;">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(59,130,246,0.18);border:1.5px solid rgba(59,130,246,0.35)">
+          <svg class="w-4 h-4 text-[#93c5fd]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-black text-white uppercase tracking-wide">Casos</p>
+          <p class="text-[9px] font-bold text-slate-500">Gestionar expedientes</p>
+        </div>
+      </div>
+      <button onclick="closeCasosManagerModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all active:scale-90">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Body -->
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px;overflow:visible;">
+      <!-- Botón Ingresar Caso -->
+      <button onclick="closeCasosManagerModal(); showNewCasoModal();" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;border:none;background:rgba(37,99,235,0.06);cursor:pointer;transition:background 0.13s;" onmouseover="this.style.background='rgba(37,99,235,0.11)'" onmouseout="this.style.background='rgba(37,99,235,0.06)'">
+        <span style="width:30px;height:30px;border-radius:8px;background:rgba(37,99,235,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="14" height="14" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+        </span>
+        <div style="text-align:left;">
+          <p style="font-size:12px;font-weight:800;color:#2563eb;line-height:1.2;">Ingresar caso</p>
+          <p style="font-size:9px;font-weight:600;color:#8e97b0;line-height:1.3;margin-top:1px;">Crear nuevo expediente</p>
+        </div>
+      </button>
+      <!-- Divisor -->
+      <div style="border-top:1px solid rgba(37,99,235,0.10);"></div>
+      <!-- Label lista -->
+      <p style="font-size:9px;font-weight:800;color:#8e97b0;text-transform:uppercase;letter-spacing:0.07em;">Casos guardados</p>
+      <!-- Lista de casos: padding lateral para que el borde del item activo no se corte -->
+      <div id="casosManagerList" style="max-height:280px;overflow-y:auto;padding:3px 4px;margin:-3px -4px;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="casoSnapshotModal" class="fixed inset-0 z-[460] bg-[#1a1d2e]/50 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div style="max-width:22rem;width:100%;background:#ffffff;border-radius:20px;box-shadow:0 8px 40px rgba(0,0,0,0.20);border:1px solid rgba(0,0,0,0.07);overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);padding:14px 16px 12px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="16" height="16" fill="none" stroke="#93c5fd" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div>
+          <p id="snapModalTitulo" style="font-size:12px;font-weight:900;color:#e0eeff;margin:0;line-height:1.2;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></p>
+          <p id="snapModalSubtitulo" style="font-size:9px;font-weight:600;color:#7ab3e0;margin:2px 0 0;"></p>
+        </div>
+      </div>
+      <button onclick="closeCasoSnapshotModal()" style="background:rgba(255,255,255,0.1);border:none;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#93c5fd;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Body -->
+    <div id="snapModalBody" style="padding:14px 14px 16px;max-height:75vh;overflow-y:auto;-webkit-overflow-scrolling:touch;"></div>
+  </div>
+</div>
+

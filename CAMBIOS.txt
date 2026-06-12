@@ -7,29 +7,35 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v54H) debe coincidir siempre con el nombre
-  del zip entregado (ej. v54H.zip).
+- La letra/sufijo de versión (ej. v55I) debe coincidir siempre con el nombre
+  del zip entregado (ej. v55I.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v54H   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v120   (sw.js)
-Archivos mod  : index.html, sw.js
+App version   : 2.0612.v55I   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v122   (sw.js)
+Archivos mod  : index.html, sw.js, modals.html (nuevo)
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX ALINEACIÓN BOTÓN CASOS (index.html)
-   - Eliminado position:absolute del botón — causaba que se posicionara fuera
-     del flujo y sobresaliera del margen izquierdo.
-   - Nuevo layout: flex row con botón real a la izquierda + spacer invisible
-     idéntico a la derecha → cards geométricamente centradas en cualquier
-     pantalla sin depender de breakpoints.
-   - Padding del ticker: 12px izq/der, alineado con header-row-main.
-   - Tickers no modificados.
-   - Sin cambios a lógica de cálculo, eventos JS ni contenido PDF.
+1. MODULARIZACIÓN DE MODALES (index.html → modals.html)
+   - Extraídos 12 bloques de modal del index.html a un nuevo archivo modals.html
+   - Modales movidos: ocrLavModal, periodoPensionModal, periodoHelpModal,
+     detailModal, confirmResetModal, resumenModal, profileModal,
+     confirmDeleteModal, userProfileModal, ayudaModal, casosManagerModal,
+     casoSnapshotModal.
+   - index.html conserva un <div id="modals-container"></div> en la posición
+     original del primer modal extraído (línea ~1307).
+   - Carga síncrona con DOMContentLoaded via fetch('modals.html') al final
+     del body — los modales no se necesitan hasta que el usuario hace click.
+   - El JS principal NO fue modificado (todas las funciones open/close siguen
+     buscando los IDs por document.getElementById, que funcionan igual
+     una vez inyectado el HTML).
+   - index.html pasó de 7346 → 6849 líneas (−497 líneas).
+   - Sin cambios a lógica de cálculo, Supabase, auth ni generación de PDF.
 
 ================================================================================
