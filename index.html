@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v62">
+ <meta name="app-version" content="2.0612.v63">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5230,7 +5230,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v62</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v63</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6154,10 +6154,23 @@ async function sbLoadCasos() {
         renderCasosList();
       }
     } else {
-      // Sin lastId → welcome screen para que el usuario elija o cree
-      dbg('LOAD: sin lastId válido — mostrando welcome screen');
-      document.body.classList.add('auth-ready');
-      showWelcomeScreen();
+      // Sin lastId válido → intentar restaurar el caso con saved_at más reciente
+      // (cubre el caso donde Android mató el proceso antes de guardar pension_utm_last_caso)
+      const sorted = finalIdx
+        .filter(c => c.saved_at)
+        .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime());
+      const fallbackId = sorted.length > 0 ? sorted[0].id : finalIdx[finalIdx.length - 1]?.id;
+      if (fallbackId) {
+        dbg('LOAD: sin lastId — restaurando caso más reciente: ' + fallbackId.slice(0,6));
+        localStorage.setItem('pension_utm_last_caso', fallbackId);
+        document.body.classList.add('auth-ready');
+        await _utmReady;
+        switchCaso(fallbackId);
+      } else {
+        dbg('LOAD: sin lastId válido — mostrando welcome screen');
+        document.body.classList.add('auth-ready');
+        showWelcomeScreen();
+      }
     }
   } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
 }
