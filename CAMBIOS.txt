@@ -7,32 +7,37 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
+- La letra/sufijo de versión (ej. v47H) debe coincidir siempre con el nombre
+  del zip entregado (ej. v47H.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 11-06-2026
-App version   : 2.0611.v47G   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v112   (sw.js)
+App version   : 2.0611.v47H   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v113   (sw.js)
 Archivos mod  : index.html, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX DEFINITIVO REMANENTE DESCUENTOS (index.html, función calculate())
-   - Bug real: la entrega anterior (v47F) movió el bloque del remanente
-     correctamente dentro de calculate(), pero lo dejó dentro del
-     if (activeCasoId && lastCalculationData.length > 0). Como activeCasoId
-     puede ser null (caso nuevo sin guardar / sin caso activo), todo ese
-     bloque se saltaba y heroRemanenteRow quedaba con el valor del cálculo
-     o caso anterior, sin actualizarse.
-   - Fix: se separó la condición externa, que ahora solo exige
-     lastCalculationData.length > 0 (sin depender de activeCasoId).
-     El guardado de window._calcSnapshots[activeCasoId] (que sí necesita la
-     key) quedó en un if (activeCasoId) interno. La actualización de
-     heroRemanenteRow se ejecuta siempre, fuera de ese if interno.
-   - No se modificó ninguna fórmula de cálculo: _totalUTM, _brutoTotalUTM y
-     _remanenteUTM = Math.max(0, _brutoTotalUTM - _totalUTM) quedan idénticas.
+1. FIX VALOR DE "REMANENTE DESCUENTOS" (index.html, función calculate())
+   - Bug: _remanenteUTM se calculaba como (bruto total UTM - total UTM post
+     descuentos), lo que en realidad equivale al monto del pago parcial
+     convertido a UTM (mismo concepto que "Pagos parciales", solo con otra
+     base UTM). No correspondía al "remanente" real.
+   - Según el PDF de liquidación (columna "Remanente UTM" de la tabla de
+     pagos parciales), el remanente real es el saldo de la cuota del mes
+     que queda SIN cubrir después del pago parcial (cuota UTM - pago UTM).
+   - Fix: _remanenteUTM ahora se calcula sumando, para cada cuota con
+     d.hayParcialConRemanente === true, (d.capParcialRemanente ?? d.cap) /
+     d.utmVal — el saldo pendiente real de esa cuota, igual a la columna
+     "Remanente UTM" del PDF.
+   - Esto corrige tanto la tarjeta de totales (heroRemanenteRow) como el
+     "resumen de caso" (snapshot modal / export.js), ya que ambos leen
+     snap.remanenteUTM / snap.remanenteCLP desde el mismo cálculo.
+   - Caso de prueba (TEST, liquidación 26-05-2026): Remanente descuentos
+     pasa de 2.1449 UTM → 0.1851 UTM, coincidiendo con el PDF.
 
 ================================================================================

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0611.v47G">
+ <meta name="app-version" content="2.0611.v47H">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4432,7 +4432,15 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
     const _brutoCapUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.capPendiente / u); }, 0);
     const _brutoIntUTM = _brutoCuotas.reduce((s,c) => { const u = c.utmVal && c.utmVal > 0 ? c.utmVal : _utmNow; return s + Math.max(0, c.intPendiente / u); }, 0);
     const _brutoTotalUTM = _brutoCapUTM + _brutoIntUTM;
-    const _remanenteUTM = Math.max(0, _brutoTotalUTM - _totalUTM);
+    // Remanente del pago parcial: para cada cuota con pago parcial que no la cubre
+    // completa, el saldo de esa cuota que queda pendiente (cuota UTM - pago UTM),
+    // igual a la columna "Remanente UTM" del PDF de liquidación.
+    const _remanenteUTM = lastCalculationData.reduce((s,d) => {
+      if (!d.hayParcialConRemanente) return s;
+      const u = d.utmVal && d.utmVal > 0 ? d.utmVal : _utmNow;
+      const capRem = d.capParcialRemanente ?? d.cap;
+      return s + Math.max(0, capRem / u);
+    }, 0);
     // ── Snapshot para sidebar (solo si hay un caso activo guardado) ──
     if (activeCasoId) {
       window._calcSnapshots = window._calcSnapshots || {};
@@ -5647,7 +5655,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v47G</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v47H</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
