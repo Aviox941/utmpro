@@ -711,6 +711,12 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
+// ── Persistir en user_metadata para sobrevivir cambios de origen (Vercel previews, etc.) ──
+// Fire-and-forget: no bloquea UI. Si falla, localStorage sigue siendo el fallback.
+if (typeof sb !== 'undefined' && typeof sbCurrentUser !== 'undefined' && sbCurrentUser) {
+  sb.auth.updateUser({ data: { last_caso: id } })
+    .catch(e => dbg('SWITCH: user_metadata update error — ' + e.message));
+}
 // Ocultar welcome screen si estaba visible (restauración de caso)
 if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();
 // Limpiar siempre antes de cargar el nuevo caso

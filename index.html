@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v63">
+ <meta name="app-version" content="2.0612.v64">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5230,7 +5230,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v63</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v64</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6130,7 +6130,18 @@ async function sbLoadCasos() {
     }
 
     // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
-    const lastId = localStorage.getItem('pension_utm_last_caso');
+    // Prioridad: user_metadata (cross-origin) > localStorage (same-origin)
+    const metaLastId = sbCurrentUser?.user_metadata?.last_caso || null;
+    const localLastId = localStorage.getItem('pension_utm_last_caso');
+    // Usar el que sea más reciente entre metadata y local; si coinciden o solo hay uno, usar ese
+    const lastId = (metaLastId && finalIdx.find(c => c.id === metaLastId))
+      ? metaLastId
+      : localLastId;
+    // Sincronizar localStorage con el valor de metadata si difieren
+    if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
+      localStorage.setItem('pension_utm_last_caso', metaLastId);
+      dbg('LOAD: lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
+    }
     if (lastId && finalIdx.find(c => c.id === lastId)) {
       // Solo respetar welcome screen si venimos de visibilitychange (no inicio frío)
       if (_welcomeScreenVisible && window._loadFromVisibility) {

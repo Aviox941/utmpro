@@ -7,41 +7,46 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v63) debe coincidir siempre con el nombre
-  del zip entregado (ej. v63.zip).
+- La letra/sufijo de versión (ej. v64) debe coincidir siempre con el nombre
+  del zip entregado (ej. v64.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v63   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v130   (sw.js)
+App version   : 2.0612.v64   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v131   (sw.js)
 Archivos mod  : index.html, export.js, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX restauración de caso al reanudar app (Android proceso reiniciado)
-   (index.html + export.js)
+1. FIX último caso activo sobrevive cambio de origen/URL (export.js + index.html)
 
-   Raíz del problema: dos escenarios cubiertas con dos fixes independientes.
+   Problema: en Vercel preview cada deploy genera una URL única
+   (ej. utmpro-git-abc123.vercel.app). Como localStorage está aislado por
+   origen, pension_utm_last_caso no existe en el nuevo origen y la app
+   abre en blanco sin caso activo.
 
-   FIX A — Sin pension_utm_last_caso (index.html / sbLoadCasos):
-   Cuando Android mata el proceso abruptamente, beforeunload/visibilitychange
-   no siempre alcanzan a ejecutarse, por lo que pension_utm_last_caso puede
-   no estar en localStorage al reanudar. Antes: se mostraba welcome screen.
-   Ahora: sbLoadCasos infiere el caso más reciente por saved_at y lo restaura
-   automáticamente, guardando el id en pension_utm_last_caso para la próxima vez.
+   Solución: persistir el último caso activo en Supabase user_metadata,
+   que es cross-origin y sobrevive cualquier cambio de URL.
 
-   FIX B — Sin datos locales (export.js / switchCaso):
-   Si los datos del caso no están en localStorage (raro, pero posible si Android
-   purga storage selectivamente o si sbLoadCasos no terminó la escritura antes
-   del switchCaso), la app quedaba en blanco. Ahora switchCaso intenta un fetch
-   directo a Supabase como fallback, guarda el resultado en localStorage y aplica
-   la sesión al completarse.
+   - switchCaso() (export.js): después de escribir localStorage, lanza
+     sb.auth.updateUser({ data: { last_caso: id } }) de forma asíncrona
+     fire-and-forget. No bloquea la UI. Si falla, localStorage sigue
+     siendo el fallback.
 
-   FIX previo (v62) conservado: await _utmReady antes de switchCaso garantiza
-   que utmData esté poblado cuando applySession reconstruye startIndex/endIndex.
+   - sbLoadCasos() (index.html): al resolver el lastId, ahora lee primero
+     sbCurrentUser.user_metadata.last_caso (disponible desde la sesión,
+     sin llamada extra). Si ese id existe en finalIdx, lo usa; si no,
+     cae a localStorage. Sincroniza localStorage con el valor de metadata
+     cuando difieren, para que la próxima carga en el mismo origen sea
+     instantánea.
+
+   Fixes anteriores conservados:
+   - v62: await _utmReady antes de switchCaso (race condition fetchUTM)
+   - v63A: inferir caso más reciente por saved_at cuando no hay lastId
+   - v63B: fetch directo a Supabase en switchCaso si localStorage vacío
 
 ================================================================================
