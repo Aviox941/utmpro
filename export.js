@@ -1,5 +1,6 @@
 async function generarPDF() {
 try {
+closeDownloadMenu();
 if (typeof window.jspdf === 'undefined') {
 alert('Librería PDF no disponible. Verifica tu conexión a internet.');
 return;
@@ -1829,6 +1830,10 @@ function buildResumenContent() {
   nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
   container.appendChild(nota);
 }
+function closeDownloadMenu() {
+  const menu = document.getElementById('downloadMenu');
+  if (menu) menu.style.display = 'none';
+}
 function toggleDownloadMenu() {
   const menu = document.getElementById('downloadMenu');
   const btn = document.getElementById('downloadBtn');
@@ -1851,6 +1856,7 @@ function toggleDownloadMenu() {
 }
 
 async function exportarExcel() {
+  closeDownloadMenu();
   if (!lastCalculationData || lastCalculationData.length === 0) return;
 
   const utmHoy   = getUtmActualVal();
@@ -2697,7 +2703,7 @@ function ocrConfirmar() {
       added++;
     } else {
       // Sección V "Abonos LAV" → descuento directo por depósito cuenta vista
-      abonosLav.push({ date, periodo, periodoLabel, amount, utmVal, amountUtm });
+      abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
       added++;
     }
   });

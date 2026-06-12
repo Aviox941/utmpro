@@ -7,40 +7,29 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v56) debe coincidir siempre con el nombre
-  del zip entregado (ej. v56.zip).
+- La letra/sufijo de versión (ej. v58) debe coincidir siempre con el nombre
+  del zip entregado (ej. v58.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v56   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v123   (sw.js)
-Archivos mod  : index.html, export.js, sw.js
+App version   : 2.0612.v58   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v125   (sw.js)
+Archivos mod  : export.js, modals.html, sw.js, index.html
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX BUG RESET TARJETA TOTALES (export.js)
-   - resetAllSilent() no ocultaba heroMetaRow ni heroParcialRow al resetear.
-   - Añadidas las dos líneas classList.add('hidden') en resetAllSilent() en
-     export.js, junto al bloque existente de reset de yearTabsCard/detailsList.
-   - Ahora al eliminar la información de cálculo la tarjeta queda limpia.
-
-2. ELIMINACIÓN DE "REMANENTE DESCUENTOS" (index.html)
-   - Removido el bloque HTML heroRemanenteRow (Remanente descuentos) del
-     detalle de cálculo derecho.
-   - Eliminado el bloque JS que actualizaba heroRemanenteRow en el snapshot
-     de totales.
-   - Eliminada la referencia a heroRemanenteRow en el bloque reset inline.
-
-3. REDISEÑO TARJETA IZQUIERDA - META INFO (index.html)
-   - La línea única "Fecha liq: XX · UTM ref: $YY" se separó en dos líneas:
-       • heroUtmRef  → "UTM ref: $71.506"  (arriba)
-       • heroFechaLiq → "Fecha liq: 26-05-2026"  (abajo)
-   - Eliminada la línea heroMeses ("X meses adeudados") de la tarjeta izquierda.
-     Los meses siguen mostrándose en la casilla de detalle mensual (yearTabs).
-   - Actualizado el bloque JS de hero meta para usar los nuevos IDs.
+1. FIX MENÚ DESCARGA NO SE CIERRA (export.js, modals.html)
+   - Al presionar PDF o Excel, el menú flotante no se cerraba tras la descarga.
+   - Causa: los botones llamaban generarPDF();toggleDownloadMenu() en secuencia,
+     pero el listener closeMenu del setTimeout (10ms) ya estaba activo y el
+     toggle volvía a abrir el menú al detectar el click.
+   - Fix: se agrega closeDownloadMenu() (cierre directo sin toggle) y se llama
+     al inicio de generarPDF() y exportarExcel(), antes de cualquier otra lógica.
+   - Los botones en modals.html ahora llaman solo generarPDF() y exportarExcel()
+     sin el toggleDownloadMenu() redundante.
 
 ================================================================================
