@@ -1,0 +1,55 @@
+================================================================================
+INSTRUCCIONES DE VERSIONADO
+================================================================================
+- Este archivo se SOBRESCRIBE en cada entrega. No se acumulan versiones aquí.
+- Cada modificación debe actualizar:
+    1. index.html  → <meta name="app-version" content="2.MMDD.vXX">
+    2. index.html  → <p id="appVersionLabel"> con el mismo valor
+    3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
+    4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
+
+================================================================================
+VERSIÓN ACTUAL
+================================================================================
+Fecha         : 11-06-2026
+App version   : 2.0611.v47F   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v111   (sw.js)
+Archivos mod  : index.html, styles.css, sw.js
+
+================================================================================
+CAMBIOS EN ESTA ENTREGA
+================================================================================
+
+1. NUEVO LAYOUT HERO (index.html + styles.css)
+   - Se reemplazó el bloque "hero-cards-row" (tarjeta azul total + tarjeta blanca
+     Capital/Intereses) por un nuevo layout de dos columnas inspirado en el modal
+     snapshot de casos:
+       · Izquierda: tarjeta azul con Total Adeudado, UTM, fecha liquidación y
+         cantidad de meses adeudados.
+       · Derecha: tarjeta blanca "Detalle del cálculo" con filas para
+         Capital sin interés, Interés acumulado, Pagos parciales (condicional)
+         y Remanente descuentos (condicional).
+   - Clases CSS nuevas: .hero-detail-card, .hero-detail-card__title,
+     .hero-detail-row, .hero-detail-row--remanente, .hero-detail-row__label,
+     .hero-detail-row__vals, .hero-detail-row__clp, .hero-detail-row__utm.
+   - Clases CSS eliminadas: .hero-stat-card, .hero-stat-row, .hero-stat-icon,
+     .hero-stat-text y variantes.
+   - IDs HTML nuevos: heroMetaRow, heroFechaLiq, heroMeses, heroParcialRow,
+     heroParcialClp, heroParcialUtm, heroRemanenteRow, heroRemanenteClp,
+     heroRemanenteUtm.
+
+2. FIX REMANENTE DESCUENTOS NO VISIBLE (index.html)
+   - Bug: el bloque que actualizaba #heroRemanenteRow se ejecutaba ANTES de que
+     window._calcSnapshots[activeCasoId] fuera escrito, por lo que siempre leía
+     un valor desactualizado o nulo.
+   - Fix: se eliminó el bloque prematuro y se movió la actualización del
+     remanente para ejecutarse DENTRO del bloque snapshot, justo después de
+     calcular _remanenteUTM, usando exactamente los mismos valores ya calculados.
+
+3. FIX LAYOUT MOBILE (styles.css)
+   - La tarjeta azul usaba width:48% fijo, lo que causaba desbordamiento.
+     Se cambió a flex:1 1 0 en ambas tarjetas para reparto dinámico del espacio.
+   - El texto de fecha/UTM ref usa white-space:normal para hacer wrap.
+   - Las filas del detalle usan min-height:0 con flex:1 para espaciado uniforme.
+
+================================================================================
