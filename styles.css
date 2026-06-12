@@ -1051,19 +1051,19 @@
   /* ── Hero: wrapper dos tarjetas lado a lado ──────────────────── */
   .hero-cards-row {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     align-items: stretch;
+    min-width: 0;
   }
 
   /* ── Tarjeta izquierda: Total Adeudado (azul) ─────────────── */
   .hero-total-card {
-    flex: 0 0 auto;
-    width: 48%;
+    flex: 1 1 0;
     min-width: 0;
     border-radius: 14px 6px 6px 14px;
     background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
     box-shadow: none;
-    padding: 16px 14px 14px;
+    padding: 14px 12px 12px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1073,33 +1073,37 @@
     overflow: hidden;
   }
   .hero-total-card__label {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.10em;
     color: #93c5fd;
     position: relative;
     z-index: 1;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
+    white-space: nowrap;
   }
   .hero-total-card__amount-row {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    gap: 2px;
+    gap: 1px;
     position: relative;
     z-index: 1;
     margin-top: 0;
+    max-width: 100%;
+    overflow: hidden;
   }
   .hero-total-card__sign {
-    font-size: clamp(10px, 2.5vw, 14px);
+    font-size: clamp(9px, 2vw, 13px);
     font-weight: 700;
     color: rgba(255,255,255,0.50);
     line-height: 1;
-    margin-top: 4px;
+    margin-top: 3px;
+    flex-shrink: 0;
   }
   .hero-total-card__amount {
-    font-size: clamp(22px, 7vw, 38px);
+    font-size: clamp(20px, 6vw, 34px);
     font-weight: 900;
     color: #ffffff;
     letter-spacing: -0.04em;
@@ -1107,32 +1111,37 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
   }
   .hero-total-card__utm {
-    font-size: 9px;
+    font-size: 8.5px;
     font-weight: 700;
     color: #bfdbfe;
     margin-top: 3px;
     letter-spacing: 0.01em;
     position: relative;
     z-index: 1;
+    white-space: nowrap;
   }
   .hero-total-card__meta {
-    margin-top: 8px;
+    margin-top: 7px;
     position: relative;
     z-index: 1;
+    max-width: 100%;
   }
   .hero-total-card__meta-line {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 600;
     color: #7ab3e0;
     margin: 0;
-    line-height: 1.5;
+    line-height: 1.6;
+    white-space: normal;
+    word-break: break-word;
   }
 
   /* ── Tarjeta derecha: Detalle del cálculo ───────────────────── */
   .hero-detail-card {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
     background: #ffffff;
     border-radius: 6px 14px 14px 6px;
@@ -1143,14 +1152,15 @@
     overflow: hidden;
   }
   .hero-detail-card__title {
-    font-size: 8px;
+    font-size: 7.5px;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #2563eb;
-    padding: 8px 10px 5px;
+    padding: 7px 10px 5px;
     margin: 0;
     border-bottom: 1px solid rgba(37,99,235,0.10);
+    white-space: nowrap;
   }
   .hero-detail-row {
     flex: 1;
@@ -1158,8 +1168,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 4px;
-    padding: 6px 10px;
+    padding: 0 10px;
     border-top: 1px solid rgba(0,0,0,0.05);
+    min-height: 0;
   }
   .hero-detail-row:first-of-type {
     border-top: none;
@@ -1169,7 +1180,7 @@
     border-top: 1px solid rgba(245,158,11,0.15) !important;
   }
   .hero-detail-row__label {
-    font-size: 8.5px;
+    font-size: 7.5px;
     font-weight: 700;
     color: #64748b;
     white-space: nowrap;
@@ -1185,13 +1196,13 @@
     flex-shrink: 0;
   }
   .hero-detail-row__clp {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 900;
-    line-height: 1.1;
+    line-height: 1.15;
     white-space: nowrap;
   }
   .hero-detail-row__utm {
-    font-size: 7.5px;
+    font-size: 7px;
     font-weight: 600;
     color: #94a3b8;
     white-space: nowrap;
@@ -2832,45 +2843,32 @@
 
   /* ── Tarjeta hero izquierda (Total Adeudado) ─────────────────── */
   .hero-total-card {
-    padding: 16px 13px 14px !important;
+    padding: 12px 11px 10px !important;
     box-shadow: none !important;
   }
-  .hero-total-card__label {
-    font-size: 7px !important;
-    letter-spacing: 0.10em !important;
-  }
-  .hero-total-card__amount-row {
-    margin-top: 1px !important;
-  }
   .hero-total-card__amount {
-    font-size: clamp(20px, 6.5vw, 34px) !important;
-    line-height: 1 !important;
-  }
-  .hero-total-card__sign {
-    font-size: clamp(10px, 2.2vw, 13px) !important;
-    margin-top: 3px !important;
+    font-size: clamp(18px, 5.5vw, 30px) !important;
   }
   .hero-total-card__utm {
-    font-size: 8px !important;
-    margin-top: 2px !important;
+    font-size: 7.5px !important;
   }
 
   /* ── Tarjeta derecha: Detalle del cálculo ─────────────────────── */
   .hero-detail-card__title {
-    font-size: 7px !important;
-    padding: 6px 9px 4px !important;
+    font-size: 6.5px !important;
+    padding: 5px 8px 4px !important;
   }
   .hero-detail-row {
-    padding: 5px 9px !important;
+    padding: 0 8px !important;
   }
   .hero-detail-row__label {
-    font-size: 7.5px !important;
+    font-size: 7px !important;
   }
   .hero-detail-row__clp {
-    font-size: 10px !important;
+    font-size: 9.5px !important;
   }
   .hero-detail-row__utm {
-    font-size: 6.5px !important;
+    font-size: 6px !important;
   }
 
   /* ── Liq-card (card de liquidación total) ────────────────────── */
@@ -3008,8 +3006,8 @@
     .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
     #mainInputs   { gap: 10px !important; }
     #resultsCard  { gap: 10px !important; }
-    .hero-total-card { padding: 18px 14px 16px !important; }
-    .hero-detail-row { padding: 7px 10px !important; }
+    .hero-total-card { padding: 16px 14px 14px !important; }
+    .hero-detail-row { padding: 0 10px !important; }
     .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
   }
 
