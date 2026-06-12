@@ -7,46 +7,45 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v64) debe coincidir siempre con el nombre
-  del zip entregado (ej. v64.zip).
+- La letra/sufijo de versión (ej. v65) debe coincidir siempre con el nombre
+  del zip entregado (ej. v65.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v64   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v131   (sw.js)
-Archivos mod  : index.html, export.js, sw.js
+App version   : 2.0612.v65   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v132   (sw.js)
+Archivos mod  : index.html, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX último caso activo sobrevive cambio de origen/URL (export.js + index.html)
+1. FIX restauración de caso al reanudar (Android, proceso reiniciado)
+   (index.html — dos patches independientes)
 
-   Problema: en Vercel preview cada deploy genera una URL única
-   (ej. utmpro-git-abc123.vercel.app). Como localStorage está aislado por
-   origen, pension_utm_last_caso no existe en el nuevo origen y la app
-   abre en blanco sin caso activo.
+   PATCH A — visibilitychange sin usuario activo (index.html):
+   Cuando Android reinicia el proceso y visibilitychange → visible llega
+   antes de que Supabase ejecute onAuthStateChange(INITIAL_SESSION),
+   sbCurrentUser es null y el handler anterior no hacía nada. Ahora:
+   - Si sbCurrentUser existe: sync inmediato (igual que antes).
+   - Si sbCurrentUser es null: programa un timer de 3 segundos. Si
+     INITIAL_SESSION llega antes, el timer se cancela. Si no llega
+     (caso raro donde Supabase no dispara el evento en resume),
+     getSession() fuerza la recuperación de sesión manualmente.
 
-   Solución: persistir el último caso activo en Supabase user_metadata,
-   que es cross-origin y sobrevive cualquier cambio de URL.
-
-   - switchCaso() (export.js): después de escribir localStorage, lanza
-     sb.auth.updateUser({ data: { last_caso: id } }) de forma asíncrona
-     fire-and-forget. No bloquea la UI. Si falla, localStorage sigue
-     siendo el fallback.
-
-   - sbLoadCasos() (index.html): al resolver el lastId, ahora lee primero
-     sbCurrentUser.user_metadata.last_caso (disponible desde la sesión,
-     sin llamada extra). Si ese id existe en finalIdx, lo usa; si no,
-     cae a localStorage. Sincroniza localStorage con el valor de metadata
-     cuando difieren, para que la próxima carga en el mismo origen sea
-     instantánea.
+   PATCH B — pantalla vacía con caso "ya activo" (index.html / sbLoadCasos):
+   Cuando activeCasoId === lastId, el código asumía que la pantalla
+   tenía datos y solo actualizaba el badge. Ahora verifica si los campos
+   principales (utmAmount, clpAmount, salaryAmount) están vacíos pero
+   hay datos en localStorage — si es así, re-aplica la sesión para
+   repintar la UI correctamente.
 
    Fixes anteriores conservados:
-   - v62: await _utmReady antes de switchCaso (race condition fetchUTM)
+   - v62: await _utmReady (race condition fetchUTM)
    - v63A: inferir caso más reciente por saved_at cuando no hay lastId
    - v63B: fetch directo a Supabase en switchCaso si localStorage vacío
+   - v64: user_metadata cross-origin para Vercel previews
 
 ================================================================================

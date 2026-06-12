@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v64">
+ <meta name="app-version" content="2.0612.v65">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5108,10 +5108,34 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
 document.addEventListener('visibilitychange', async () => {
   // Al volver a primer plano → sync Supabase en background (no bloquear UI)
-  if (document.visibilityState === 'visible' && sbCurrentUser) {
-    dbg('VISIBILITY: app en primer plano — sync Supabase en background');
-    window._loadFromVisibility = true;
-    sbLoadCasos().finally(() => { window._loadFromVisibility = false; });
+  if (document.visibilityState === 'visible') {
+    if (sbCurrentUser) {
+      dbg('VISIBILITY: app en primer plano (usuario activo) — sync Supabase');
+      window._loadFromVisibility = true;
+      sbLoadCasos().finally(() => { window._loadFromVisibility = false; });
+    } else {
+      // sbCurrentUser aún null — Supabase no inicializó (proceso recién reiniciado).
+      // onAuthStateChange(INITIAL_SESSION) lo manejará; si no llega en 3s, forzar getSession.
+      dbg('VISIBILITY: app en primer plano (sin usuario aún) — esperando INITIAL_SESSION');
+      clearTimeout(window._visibilityFallbackTimer);
+      window._visibilityFallbackTimer = setTimeout(async () => {
+        if (sbCurrentUser) return; // ya resolvió por INITIAL_SESSION
+        dbg('VISIBILITY FALLBACK: forzando getSession tras 3s sin INITIAL_SESSION');
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          if (session?.user && !sbCurrentUser) {
+            dbg('VISIBILITY FALLBACK: sesión recuperada, cargando casos');
+            sbCurrentUser = session.user;
+            sbAccessToken = session.access_token || null;
+            if (typeof hideLoginScreen === 'function') hideLoginScreen();
+            await sbLoadCasos();
+          } else if (!session?.user) {
+            dbg('VISIBILITY FALLBACK: sin sesión — mostrando login');
+            if (typeof showLoginScreen === 'function') showLoginScreen();
+          }
+        } catch(e) { dbg('VISIBILITY FALLBACK ERROR: ' + e.message); }
+      }, 3000);
+    }
     return;
   }
   if (document.visibilityState !== 'hidden') return;
@@ -5230,7 +5254,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v64</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v65</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6160,7 +6184,25 @@ async function sbLoadCasos() {
       if (activeCasoId !== lastId) {
         switchCaso(lastId);
       } else {
-        dbg('LOAD: caso ya activo, no se hace switch');
+        dbg('LOAD: caso ya activo — verificando si pantalla tiene datos');
+        // Si activeCasoId coincide pero la pantalla está vacía (proceso reiniciado
+        // y activeCasoId fue restaurado por una llamada previa sin applySession),
+        // re-aplicar la sesión para repintar la UI.
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              dbg('LOAD: pantalla vacía pero hay datos — re-aplicando sesión');
+              applySession(sCheck);
+            } else {
+              dbg('LOAD: caso ya activo y pantalla con datos — sin cambios');
+            }
+          } catch(e) { dbg('LOAD: error al re-verificar sesión — ' + e.message); }
+        }
         updateActiveCasoBadge();
         renderCasosList();
       }
