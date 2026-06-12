@@ -1014,6 +1014,8 @@ document.getElementById('yearTabsCard').classList.add('hidden');
 document.getElementById('yearTabs').innerHTML = '';
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
+const _hMetaR = document.getElementById('heroMetaRow'); if (_hMetaR) _hMetaR.classList.add('hidden');
+const _hParcR = document.getElementById('heroParcialRow'); if (_hParcR) _hParcR.classList.add('hidden');
 const mesesLabelReset = document.getElementById('yearTabsMesesLabel');
 if (mesesLabelReset) mesesLabelReset.innerHTML = '0 meses';
 activeTabYear = null;

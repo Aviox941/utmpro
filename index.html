@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v55I">
+ <meta name="app-version" content="2.0612.v56">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1073,8 +1073,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
           </div>
           <p id="totalGrandUtm" class="hero-total-card__utm">0.00 UTM</p>
           <div id="heroMetaRow" class="hero-total-card__meta hidden">
+            <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
-            <p id="heroMeses" class="hero-total-card__meta-line"></p>
           </div>
         </div>
 
@@ -1109,14 +1109,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
             </div>
           </div>
 
-          <!-- Remanente descuentos (oculto si no hay) -->
-          <div id="heroRemanenteRow" class="hero-detail-row hero-detail-row--remanente hidden">
-            <span class="hero-detail-row__label" style="color:#b45309;">Remanente descuentos</span>
-            <div class="hero-detail-row__vals">
-              <span id="heroRemanenteClp" class="hero-detail-row__clp" style="color:#f59e0b;">$0</span>
-              <span id="heroRemanenteUtm" class="hero-detail-row__utm"></span>
-            </div>
-          </div>
+
         </div>
       </div>
       <!-- Fila de abonos (condicional) -->
@@ -4075,17 +4068,17 @@ document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
-// ── Hero: meta (fecha liq + meses) ──
+// ── Hero: meta (utm ref + fecha liq) ──
 (function() {
   const metaRow = document.getElementById('heroMetaRow');
+  const utmRefEl = document.getElementById('heroUtmRef');
   const fechaEl = document.getElementById('heroFechaLiq');
-  const mesesEl = document.getElementById('heroMeses');
-  if (!metaRow || !fechaEl || !mesesEl) return;
+  if (!metaRow || !utmRefEl || !fechaEl) return;
   const _hoy = getFechaLiquidacion();
   const _fechaStr = _hoy.toLocaleDateString('es-CL');
   const _utmRef = format(utmLiq);
-  fechaEl.textContent = `Fecha liq: ${_fechaStr} · UTM ref: ${_utmRef}`;
-  mesesEl.textContent = `${lastCalculationData.length} meses adeudados`;
+  utmRefEl.textContent = `UTM ref: ${_utmRef}`;
+  fechaEl.textContent = `Fecha liq: ${_fechaStr}`;
   metaRow.classList.remove('hidden');
 })();
 // ── Hero: pagos parciales ──
@@ -4150,7 +4143,6 @@ document.getElementById('totalInt').innerText = '$0';
 document.getElementById('totalIntUtm').innerText = '0.00 UTM';
 const _hMeta = document.getElementById('heroMetaRow'); if (_hMeta) _hMeta.classList.add('hidden');
 const _hParc = document.getElementById('heroParcialRow'); if (_hParc) _hParc.classList.add('hidden');
-const _hRem  = document.getElementById('heroRemanenteRow'); if (_hRem) _hRem.classList.add('hidden');
 document.getElementById('yearTabsCard').classList.add('hidden');
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
@@ -4232,18 +4224,7 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
         fechaLiq: _hoySnap.toLocaleDateString('es-CL'),
       };
     }
-    // ── Actualizar hero remanente (siempre, sin depender de activeCasoId) ──
-    (function() {
-      const remRow = document.getElementById('heroRemanenteRow');
-      if (!remRow) return;
-      if (_remanenteUTM > 0.0001) {
-        document.getElementById('heroRemanenteClp').textContent = format(Math.round(_remanenteUTM * _utmLiqV));
-        document.getElementById('heroRemanenteUtm').textContent = `${_remanenteUTM.toFixed(4)} UTM`;
-        remRow.classList.remove('hidden');
-      } else {
-        remRow.classList.add('hidden');
-      }
-    })();
+
   } catch(e) { /* silent */ }
 }
 }
@@ -5244,7 +5225,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v55I</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v56</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
