@@ -948,7 +948,7 @@
 
   /* ── Tarjetas UTM — clean white cards ──────────────────────── */
   #utmTicker {
-    padding: 0 12px 7px 16px;
+    padding: 0 16px 7px 16px;
     margin-top: 0 !important;
     gap: 7px !important;
     position: relative;

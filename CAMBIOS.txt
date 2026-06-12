@@ -7,37 +7,28 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v47H) debe coincidir siempre con el nombre
-  del zip entregado (ej. v47H.zip).
+- La letra/sufijo de versión (ej. v48H) debe coincidir siempre con el nombre
+  del zip entregado (ej. v48H.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 11-06-2026
-App version   : 2.0611.v47H   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v113   (sw.js)
-Archivos mod  : index.html, sw.js
+App version   : 2.0611.v48H   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v114   (sw.js)
+Archivos mod  : index.html, styles.css, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. FIX VALOR DE "REMANENTE DESCUENTOS" (index.html, función calculate())
-   - Bug: _remanenteUTM se calculaba como (bruto total UTM - total UTM post
-     descuentos), lo que en realidad equivale al monto del pago parcial
-     convertido a UTM (mismo concepto que "Pagos parciales", solo con otra
-     base UTM). No correspondía al "remanente" real.
-   - Según el PDF de liquidación (columna "Remanente UTM" de la tabla de
-     pagos parciales), el remanente real es el saldo de la cuota del mes
-     que queda SIN cubrir después del pago parcial (cuota UTM - pago UTM).
-   - Fix: _remanenteUTM ahora se calcula sumando, para cada cuota con
-     d.hayParcialConRemanente === true, (d.capParcialRemanente ?? d.cap) /
-     d.utmVal — el saldo pendiente real de esa cuota, igual a la columna
-     "Remanente UTM" del PDF.
-   - Esto corrige tanto la tarjeta de totales (heroRemanenteRow) como el
-     "resumen de caso" (snapshot modal / export.js), ya que ambos leen
-     snap.remanenteUTM / snap.remanenteCLP desde el mismo cálculo.
-   - Caso de prueba (TEST, liquidación 26-05-2026): Remanente descuentos
-     pasa de 2.1449 UTM → 0.1851 UTM, coincidiendo con el PDF.
+1. LAYOUT HEADER — REORDEN BOTÓN CASOS Y CENTRADO DE CARDS (index.html, styles.css)
+   - El botón "CASOS" se movió del inicio al final del flex row en #utmTicker,
+     quedando alineado con el margen derecho del contenedor.
+   - Las tarjetas "Caso activo" y "UTM Actual" quedan a la izquierda, alineadas
+     con el borde izquierdo de la tarjeta de totales.
+   - Padding de #utmTicker corregido de asimétrico (0 12px 7px 16px) a simétrico
+     (0 16px 7px 16px) para cuadrar con el px-4 del hero en mobile.
+   - Sin cambios a lógica de cálculo, eventos JS ni contenido PDF.
 
 ================================================================================
