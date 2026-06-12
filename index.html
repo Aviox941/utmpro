@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0611.v50H">
+ <meta name="app-version" content="2.0611.v52H">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1028,7 +1028,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
   </div>
 
   <!-- Tarjetas UTM -->
-  <div id="utmTicker" class="hidden items-center" style="padding:0 12px 7px 12px;gap:7px;position:relative;z-index:1;">
+  <div id="utmTicker" class="hidden" style="display:none;flex-direction:row;align-items:center;padding:0 16px 7px 16px;gap:7px;position:relative;z-index:1;">
     <!-- Botón CASOS: izquierda, alineado al margen -->
     <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-2" style="touch-action:manipulation;align-self:stretch;flex-shrink:0;" id="casosManagerBtn">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -3731,6 +3731,7 @@ document.getElementById('utmActualMes').innerText = `${actualEntry.m} ${actualEn
 document.getElementById('utmActualVal').innerText = format(actualEntry.v);
 // tarjeta Próximo Mes eliminada (visual)
 document.getElementById('utmTicker').classList.remove('hidden');
+document.getElementById('utmTicker').style.display = 'flex';
 }
 // ── Chip UTM período inicio (pensiones mensuales + deuda histórica) ──
 function updateUtmPeriodChips() {
@@ -5659,7 +5660,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v50H</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0611.v52H</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
