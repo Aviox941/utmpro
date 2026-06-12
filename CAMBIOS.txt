@@ -7,28 +7,25 @@ INSTRUCCIONES DE VERSIONADO
     2. index.html  → <p id="appVersionLabel"> con el mismo valor
     3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
     4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v48H) debe coincidir siempre con el nombre
-  del zip entregado (ej. v48H.zip).
+- La letra/sufijo de versión (ej. v50H) debe coincidir siempre con el nombre
+  del zip entregado (ej. v50H.zip).
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 11-06-2026
-App version   : 2.0611.v48H   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v114   (sw.js)
-Archivos mod  : index.html, styles.css, sw.js
+App version   : 2.0611.v50H   (meta + appVersionLabel en index.html)
+SW cache      : pension-utm-v116   (sw.js)
+Archivos mod  : index.html, sw.js
 
 ================================================================================
 CAMBIOS EN ESTA ENTREGA
 ================================================================================
 
-1. LAYOUT HEADER — REORDEN BOTÓN CASOS Y CENTRADO DE CARDS (index.html, styles.css)
-   - El botón "CASOS" se movió del inicio al final del flex row en #utmTicker,
-     quedando alineado con el margen derecho del contenedor.
-   - Las tarjetas "Caso activo" y "UTM Actual" quedan a la izquierda, alineadas
-     con el borde izquierdo de la tarjeta de totales.
-   - Padding de #utmTicker corregido de asimétrico (0 12px 7px 16px) a simétrico
-     (0 16px 7px 16px) para cuadrar con el px-4 del hero en mobile.
+1. FIX LAYOUT HEADER TICKER (index.html)
+   - Botón CASOS vuelve a la izquierda, alineado al margen de 12px.
+   - Cards "Caso activo" y "UTM Actual" centradas en el espacio restante
+     mediante un wrapper flex con justify-content:center.
    - Sin cambios a lógica de cálculo, eventos JS ni contenido PDF.
 
 ================================================================================
