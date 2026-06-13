@@ -7,43 +7,26 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 12-06-2026
-App version   : 2.0612.v70e  ← diagnóstico de sesión Supabase, TEMPORAL
-SW cache      : pension-utm-v139
+Fecha         : 13-06-2026
+App version   : 2.0613.v71a
+SW cache      : pension-utm-v141
 Archivos mod  : index.html, sw.js
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-Se está investigando por qué al cerrar completamente la app y reabrirla,
-algunas veces AUTH: INITIAL_SESSION llega con user=none (sesión perdida) y
-otras veces con sesión válida. El log v70d ya mostró un caso "user=none"
-seguido de re-login biométrico exitoso 2s después.
+FIX: Eliminado el logger TAP que registraba cada toque en pantalla.
 
-FIX/AGREGADO: Tres bloques de diagnóstico puro (solo dbg/console, sin tocar
-lógica de negocio):
+El listener 'pointerdown' en el panel de debug escribía una línea de log
+por cada toque, lo que al hacer scroll forzaba el panel hacia abajo
+interrumpiendo la lectura. Se eliminó el bloque completo (tagName + coords).
 
-1. Al inicio absoluto del <head> (antes de cargar el SDK de Supabase):
-   - Lee localStorage['pension_utm_auth'] y reporta si existe, su tamaño,
-     expires_at y si tiene refresh_token.
-   - Lista todas las claves de localStorage relacionadas con auth/supabase.
-   - Reporta el scriptURL y state del Service Worker activo (para detectar
-     coexistencia de versiones v69d/v70d/etc. en vivo).
+Los logs de AUTH, STORAGE, LOAD, CALC, etc. se mantienen intactos.
 
-2. Justo después de supabase.createClient(): llama a sb.auth.getSession()
-   de forma independiente y reporta user/error/expires_at — esto es
-   complementario a onAuthStateChange y permite distinguir "no hay token"
-   de "token presente pero rechazado al validarlo".
-
-3. Bump de CACHE_NAME a pension-utm-v139 para forzar que el Service Worker
-   reemplace cualquier versión vieja (v69d) que pudiera estar cacheada y
-   sirviendo HTML/JS desincronizado con la sesión guardada.
-
-OBJETIVO: en el próximo arranque "en cero" (sesión perdida), el panel de
-debug debe mostrar, ANTES de cualquier AUTH:, si pension_utm_auth está
-AUSENTE, presente-sin-refresh_token, o presente-con-refresh_token — y qué
-dice GETSESSION al respecto. Eso determina si la causa es de almacenamiento
-(cliente) o de validación de sesión (Supabase Auth).
+Incluye todos los cambios de v71:
+- Eliminado controllerchange → reload (fix pérdida de sesión Supabase)
+- Label AUTO-SHOW dinámico desde meta tag
+- SW bump a pension-utm-v141
 
 ================================================================================

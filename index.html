@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v70e">
+ <meta name="app-version" content="2.0613.v71a">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -246,13 +246,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
       window._dbgBuffer = [];
     }
     // Panel controlado desde sidebar — ver toggleDebugPanel()
-    // Log cada pointerdown con el elemento target
-    document.addEventListener('pointerdown', function(e) {
-      if (p.style.display !== 'block') return;
-      var el = e.target;
-      var info = el.tagName + (el.id ? '#'+el.id : '') + (el.className && typeof el.className === 'string' ? '.'+el.className.split(' ').join('.') : '');
-      addLine('TAP: ' + info + ' | x=' + Math.round(e.clientX) + ' y=' + Math.round(e.clientY));
-    }, true); // capture phase
   });
   function addLine(msg) {
     var line = document.createElement('div');
@@ -5057,11 +5050,10 @@ if ('serviceWorker' in navigator) {
       });
     })
     .catch(err => console.warn('[SW] Error:', err));
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    console.log('[SW] Nueva versión activa — recargando...');
-    window.location.reload();
-  });
+  // NOTA: se eliminó el listener 'controllerchange' → reload que existía aquí.
+  // Causaba un segundo reload en cascada justo después del reload por _appVersion,
+  // lo que podía disparar doble uso del refresh token de Supabase y provocar
+  // su revocación (INITIAL_SESSION user=none). El reload por _appVersion es suficiente.
 }
 
 function showAppModal() { showResumenModal(); } // alias por compatibilidad
@@ -5325,7 +5317,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v70e</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v71a</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5437,7 +5429,7 @@ function toggleDebugPanel() {
 // ── DEBUG AUTO-SHOW: panel ya visible desde creacion (display:block en IIFE) ──
 // Agregar marca de inicio para saber que el panel esta activo
 window.addEventListener('DOMContentLoaded', () => {
-  dbg('=== DEBUG AUTO-SHOW v69d — panel visible desde inicio ===');
+  dbg('=== DEBUG AUTO-SHOW ' + (document.querySelector('meta[name="app-version"]')?.content || '?') + ' — panel visible desde inicio ===');
 });
 
 // ══════════════════════════════════════════════════════════
