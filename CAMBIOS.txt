@@ -8,41 +8,53 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v71b
-SW cache      : pension-utm-v142
-Archivos mod  : index.html, sw.js
+App version   : 2.0613.v72
+SW cache      : pension-utm-v143
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX RAÍZ: Eliminado location.reload() del bloque _appVersion.
+FIX 1 — PERSISTENCIA DE SESIÓN: IndexedDB como respaldo del token de auth
+--------------------------------------------------------------------------
+PROBLEMA: Al cerrar y reabrir la PWA en Android, localStorage aparece vacío
+(pension_utm_auth = AUSENTE). El SDK de Supabase no intenta recuperar la sesión
+desde el servidor si no encuentra el token localmente → INITIAL_SESSION user=none
+→ la app arranca sin sesión aunque el usuario ya había iniciado.
 
-CAUSA RAÍZ CONFIRMADA POR EL LOG DE v71a:
-El log mostró que window.onload y todos los listeners (UTM, AUTO-SHOW,
-visibilitychange) se ejecutaban DOS VECES incluso sin SW activo
-(SW: scriptURL=none). Eso descartó al controllerchange como causa y apuntó
-al único reload restante: el bloque _appVersion al inicio del <head>.
+CAUSA: Chrome/Android puede limpiar localStorage de PWAs bajo presión de memoria.
+IndexedDB tiene mayor prioridad de persistencia en este entorno.
 
-Secuencia del problema:
-1. App abre con HTML viejo (servido por caché del browser, SW inactivo)
-2. _appVersion check: STORED="v71a" ≠ CURRENT="v71b" → location.reload()
-3. La página se recarga — pero el documento anterior NO se destruye
-   de inmediato: Chrome mantiene ambos en el mismo proceso brevemente.
-4. Ambos documentos ejecutan window.onload y se suscriben a
-   visibilitychange → todo aparece duplicado en el log.
-5. Ambos documentos intentan refrescar el token de Supabase
-   simultáneamente → reuse detection → sesión revocada →
-   INITIAL_SESSION user=none en el siguiente arranque.
+IMPLEMENTACIÓN:
+a) Bloque IDB restore (antes del SDK de Supabase, en <head>):
+   - Al arrancar, si localStorage['pension_utm_auth'] está vacío,
+     lee IndexedDB y restaura el token ANTES de que Supabase inicialice.
+   - Supabase encuentra el token y restaura la sesión normalmente.
 
-FIX: El bloque _appVersion ya no llama a location.reload(). Solo escribe
-la versión actual en localStorage (para trazabilidad). El SW con estrategia
-Network-First ya garantiza servir la versión más reciente sin necesidad
-de forzar un reload manual.
+b) Custom storage adapter (_sbStorage) en createClient:
+   - Reemplaza storage: window.localStorage por un objeto proxy.
+   - Cada setItem('pension_utm_auth', ...) replica el valor a IDB (fire-and-forget).
+   - Cada removeItem('pension_utm_auth') elimina de IDB también (logout limpio).
+   - getItem sigue leyendo localStorage (síncrono, compatible con SDK).
 
-Historial de esta sesión de fixes:
-- v71:  Eliminado controllerchange → reload (primer intento, insuficiente)
-- v71a: Eliminado logger TAP (scroll del panel)
-- v71b: Eliminado _appVersion → reload (causa raíz real del doble init)
+LOGS ESPERADOS en debug panel:
+   - Primer arranque post-login: "IDB: backup auth escrito — len=XXXX"
+   - Arranque tras cierre con IDB poblado: "IDB: OK auth restaurado desde IDB"
+   - Arranque sin sesión previa: "IDB: sin backup previo — arranque sin sesion"
 
+FIX 2 — LOGS DUPLICADOS en debug panel
+--------------------------------------------------------------------------
+PROBLEMA: Cada mensaje del debug panel aparecía dos veces al arrancar.
+CAUSA: dbg() real llamaba window._earlyDbgAdd(msg) cuando el panel ya existía,
+pero el IIFE ya había volcado el _dbgBuffer al panel en DOMContentLoaded.
+FIX: Eliminada la llamada a _earlyDbgAdd en dbg() real. Escribe directo al panel.
+
+================================================================================
+HISTORIAL RECIENTE
+================================================================================
+v72  : IDB auth backup/restore + fix logs duplicados
+v71b : Eliminado _appVersion → reload (causa raíz doble init)
+v71a : Eliminado logger TAP scroll panel
+v71  : Eliminado controllerchange → reload
 ================================================================================

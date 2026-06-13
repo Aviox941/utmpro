@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v71b">
+ <meta name="app-version" content="2.0613.v72">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -53,6 +53,67 @@ try {
     }).catch(function(e) { window.dbg('SW: error — ' + e.message); });
   }
 } catch(e) {}
+</script>
+<script>
+// ── IDB AUTH BACKUP: restaurar pension_utm_auth desde IndexedDB si localStorage esta vacio ──
+// Corre ANTES del SDK de Supabase. Promesa global _idbRestorePromise usada por createClient.
+(function() {
+  var IDB_NAME  = 'pension_utm_idb';
+  var IDB_STORE = 'auth_backup';
+  var AUTH_KEY  = 'pension_utm_auth';
+
+  window._idbOpen = function() {
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function(e) { e.target.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = function(e) { resolve(e.target.result); };
+      req.onerror   = function(e) { reject(e.target.error); };
+    });
+  };
+
+  window._idbSet = function(key, value) {
+    window._idbOpen().then(function(db) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+    }).catch(function() {});
+  };
+
+  window._idbDelete = function(key) {
+    window._idbOpen().then(function(db) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+    }).catch(function() {});
+  };
+
+  window._idbRestorePromise = window._idbOpen().then(function(db) {
+    return new Promise(function(resolve) {
+      if (localStorage.getItem(AUTH_KEY) !== null) {
+        window.dbg('IDB: localStorage ya tiene auth — no se restaura');
+        resolve(); return;
+      }
+      var tx  = db.transaction(IDB_STORE, 'readonly');
+      var req = tx.objectStore(IDB_STORE).get(AUTH_KEY);
+      req.onsuccess = function(e) {
+        var val = e.target.result;
+        if (val) {
+          try {
+            localStorage.setItem(AUTH_KEY, val);
+            window.dbg('IDB: OK auth restaurado desde IDB — len=' + val.length);
+          } catch(ex) {
+            window.dbg('IDB: ERROR restaurando — ' + ex.message);
+          }
+        } else {
+          window.dbg('IDB: sin backup previo — arranque sin sesion');
+        }
+        resolve();
+      };
+      req.onerror = function() { window.dbg('IDB: ERROR leyendo backup'); resolve(); };
+    });
+  }).catch(function(e) {
+    window.dbg('IDB: no disponible — ' + (e && e.message));
+    return Promise.resolve();
+  });
+})();
 </script>
  <script src="https://cdn.tailwindcss.com"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
@@ -5313,7 +5374,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v71b</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v72</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5335,7 +5396,7 @@ function dbg(msg) {
     if (window._dbgBuffer) window._dbgBuffer.push(new Date().toLocaleTimeString() + ' ' + msg);
     return;
   }
-  if (window._earlyDbgAdd) { window._earlyDbgAdd(msg); }
+  // Panel ya existe: escribir directo (NO usar _earlyDbgAdd — ya volco el buffer y duplicaria)
   let p = document.getElementById('_dbgPanel');
   if (!p) {
     p = document.createElement('div');
@@ -5505,11 +5566,32 @@ async function sbSetTasasCache(snapshot) {
 // ══════════════════════════════════════════════════════════
 const SB_URL  = 'https://pipfpwpkzjajgmwcdrsv.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w';
+// -- Custom storage adapter: escribe en localStorage Y respalda en IDB --
+var _sbStorage = {
+  getItem: function(key) {
+    return localStorage.getItem(key);
+  },
+  setItem: function(key, value) {
+    localStorage.setItem(key, value);
+    if (key === 'pension_utm_auth') {
+      window._idbSet && window._idbSet(key, value);
+      window.dbg && window.dbg('IDB: backup auth escrito — len=' + (value ? value.length : 0));
+    }
+  },
+  removeItem: function(key) {
+    localStorage.removeItem(key);
+    if (key === 'pension_utm_auth') {
+      window._idbDelete && window._idbDelete(key);
+      window.dbg && window.dbg('IDB: backup auth eliminado (logout)');
+    }
+  }
+};
+
 const sb      = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     storageKey: 'pension_utm_auth',
-    storage: window.localStorage,
+    storage: _sbStorage,
     autoRefreshToken: true,
     detectSessionInUrl: false
   }
