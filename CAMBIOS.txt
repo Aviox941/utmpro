@@ -7,24 +7,49 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 12-06-2026
-App version   : 2.0612.v69d  ← diagnóstico — panel visible desde inicio, TEMPORAL
-SW cache      : pension-utm-v137
-Archivos mod  : index.html, sw.js
+Fecha         : 13-06-2026
+App version   : 2.0613.v77
+SW cache      : pension-utm-v150
+Archivos mod  : index.html, sw.js, export.js, modals.html, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-v68d mostró que los logs de sbLoadCasos (LOAD[SB1] en adelante) no aparecen.
-Causa: el panel _dbgPanel se agrega al body en DOMContentLoaded, pero
-onAuthStateChange + sbLoadCasos se disparan ANTES de DOMContentLoaded.
-_earlyDbgAdd sí captura los mensajes en el elemento p, pero el panel
-no estaba visible (display:none) así que no se veían al abrirse.
+FEAT — Eliminación total de welcome screen + borrador
+------------------------------------------------------
 
-FIX DE DIAGNÓSTICO: panel creado con display:block desde el IIFE inicial
-(antes de cualquier evento). Así todos los logs desde el primer ms son visibles.
+CAMBIO PRINCIPAL: Welcome screen y toda la lógica de borrador eliminadas.
 
-Esta versión debería mostrar LOAD[SB1..SB5] y LOAD[A/B/C] completos.
+NUEVO FLUJO AL INICIO:
+  - Si hay casos → se restaura el último caso usado (comportamiento normal).
+  - Si no hay casos → se abre directamente el modal de nuevo caso para que
+    el usuario nombre su primer caso manualmente.
 
+FUNCIONES ELIMINADAS:
+  - showWelcomeScreen() → reemplazada, solo activa último caso o abre modal
+  - hideWelcomeScreen() → no-op mantenido por seguridad
+  - checkWelcomeBtn()
+  - crearCasoDesdeWelcome()
+  - abrirCasoJudicialDesdeWelcome()
+  - _crearBorrador()
+  - _updateDraftBadge()
+  - _renombrarBorrador()
+  - HTML del div#welcomeScreen en modals.html
+
+FIXES ADICIONALES:
+  - eliminarPerfil: al eliminar caso activo, cambia al último caso disponible
+    en vez de dejar activeCasoId = null (causaba borrador en siguiente sync)
+  - _localReady: si activeCasoId ya tiene valor, no vuelve a hacer restore
+  - _sbSyncBackground: cambiado _welcomeScreenVisible → !activeCasoId
+  - _localReady: si no hay lastId pero hay casos, activa el último del índice
+
+================================================================================
+HISTORIAL RECIENTE
+================================================================================
+v77  : Eliminar welcome screen y borrador completamente
+v76  : Eliminar welcome screen + auto-crear borrador (revertido)
+v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
+v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
+v73  : Inicio instantáneo — local-first + sync Supabase en background
 ================================================================================

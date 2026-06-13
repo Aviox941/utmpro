@@ -717,8 +717,7 @@ if (typeof sb !== 'undefined' && typeof sbCurrentUser !== 'undefined' && sbCurre
   sb.auth.updateUser({ data: { last_caso: id } })
     .catch(e => dbg('SWITCH: user_metadata update error — ' + e.message));
 }
-// Ocultar welcome screen si estaba visible (restauración de caso)
-if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();
+
 // Limpiar siempre antes de cargar el nuevo caso
 // Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
 resetAllSilent();
@@ -1083,13 +1082,6 @@ function showNewCasoModal() {
 function hideNewCasoModal() {
   document.getElementById('newCasoModal').classList.replace('flex','hidden');
   unlockBody();
-  // v38: si se cerró el modal judicial sin crear caso, volver a la welcome screen
-  if (!activeCasoId) {
-    showWelcomeScreen();
-    return;
-  }
-  // Caso creado exitosamente: ocultar welcome screen y mostrar app
-  hideWelcomeScreen();
   const app = document.getElementById('app-container');
   if (app && !app.classList.contains('app-ready')) {
     requestAnimationFrame(() => app.classList.add('app-ready'));
@@ -1467,7 +1459,12 @@ function eliminarPerfil(id) {
     activeCasoId = null;
     localStorage.removeItem('pension_utm_last_caso');
     resetAllSilent();
-    updateActiveCasoBadge();
+    const residual = getCasosIndex().filter(c => c.id !== id);
+    if (residual.length > 0) {
+      switchCaso(residual[residual.length - 1].id);
+    } else {
+      updateActiveCasoBadge();
+    }
   } else {
     updateActiveCasoBadge();
   }
@@ -2749,97 +2746,31 @@ function ocrConfirmar() {
 
 let _welcomeScreenVisible = false;
 
-function showWelcomeScreen() {
-  _welcomeScreenVisible = true;
-  const ws = document.getElementById('welcomeScreen');
-  if (!ws) return;
-  // Poblar lista de casos existentes
-  const casos = getCasosIndex();
-  const wrap = document.getElementById('welcomeCasosWrap');
-  const list = document.getElementById('welcomeCasosList');
-  list.innerHTML = '';
-  if (casos.length > 0) {
-    wrap.style.display = 'block';
-    casos.slice().reverse().forEach(c => {
-      const btn = document.createElement('button');
-      btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;border:1px solid rgba(0,0,0,0.07);background:#f8fafc;margin-bottom:6px;cursor:pointer;transition:background 0.13s;text-align:left;box-sizing:border-box;';
-      btn.onmouseover = () => btn.style.background = '#eff6ff';
-      btn.onmouseout  = () => btn.style.background = '#f8fafc';
-      const estadoDot = c.estado === 'suspendido' ? '#f59e0b' : c.estado === 'archivado' ? '#94a3b8' : '#22c55e';
-      btn.innerHTML = `
-        <span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:${estadoDot};display:inline-block;"></span>
-        <span style="flex:1;font-size:12px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre || 'Sin nombre'}</span>
-        ${c.rolCausa ? `<span style="font-size:9px;font-weight:600;color:#94a3b8;">${c.rolCausa}</span>` : ''}
-        <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
-      btn.onclick = () => { hideWelcomeScreen(); switchCaso(c.id); };
-      list.appendChild(btn);
-    });
-  } else {
-    wrap.style.display = 'none';
-  }
-  // Limpiar input y resetear botón
-  const inp = document.getElementById('welcomeNombreInput');
-  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 200); }
-  checkWelcomeBtn();
-  ws.style.display = 'flex';
-}
 
-function hideWelcomeScreen() {
-  _welcomeScreenVisible = false;
-  const ws = document.getElementById('welcomeScreen');
-  if (ws) ws.style.display = 'none';
-  // Asegurar que la app sea visible
+function showWelcomeScreen() {
+  // Welcome screen eliminada — si hay casos activa el último, si no abre modal nuevo caso
+  const casosActuales = getCasosIndex();
+  document.body.classList.add('auth-ready');
   const app = document.getElementById('app-container');
   if (app && !app.classList.contains('app-ready')) {
     requestAnimationFrame(() => app.classList.add('app-ready'));
   }
-}
-
-function checkWelcomeBtn() {
-  const val = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  const btn = document.getElementById('welcomeBtnRapido');
-  if (!btn) return;
-  const ok = val.length >= 2;
-  btn.disabled = !ok;
-  btn.style.opacity = ok ? '1' : '0.3';
-  btn.style.cursor  = ok ? 'pointer' : 'default';
-  btn.style.pointerEvents = ok ? 'auto' : 'none';
-}
-
-function crearCasoDesdeWelcome() {
-  const nombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  if (nombre.length < 2) return;
-  hideWelcomeScreen();
-  // Crear caso usando la misma lógica que crearPerfil()
-  const id = 'caso_' + Date.now();
-  const now = new Date().toISOString();
-  const idx = getCasosIndex();
-  idx.push({
-    id, nombre, created: Date.now(), created_at_local: Date.now(),
-    updated_at_local: Date.now(), saved_at: null,
-    sync_status: 'pending_create', version: 1
-  });
-  saveCasosIndex(idx);
-  if (activeCasoId) saveCurrentCasoNow();
-  activeCasoId = id;
-  resetAllSilent();
-  saveCurrentCasoNow();
-  updateActiveCasoBadge();
-  renderCasosList();
-  if (typeof queueSave === 'function' && sbCurrentUser) setTimeout(() => queueSave(id), 700);
-}
-
-function abrirCasoJudicialDesdeWelcome() {
-  // Pasar el nombre ya escrito al campo del modal judicial si existe
-  const welcomeNombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  // NO ocultar welcome screen aquí — el modal se muestra encima (z-index 6000 > 5500)
-  // La welcome se ocultará solo cuando el caso sea creado exitosamente
-  showNewCasoModal();
-  if (welcomeNombre.length > 0) {
-    const inp = document.getElementById('newCasoInput');
-    if (inp) { inp.value = welcomeNombre; checkNuevoCasoBtn(); }
+  if (casosActuales.length === 0) {
+    // Sin casos → abrir modal para que el usuario nombre su primer caso
+    setTimeout(() => { if (typeof showNewCasoModal === 'function') showNewCasoModal(); }, 300);
+  } else {
+    // Hay casos → activar el último
+    const lastId = localStorage.getItem('pension_utm_last_caso');
+    const target = (lastId && casosActuales.find(c => c.id === lastId))
+      ? lastId : casosActuales[casosActuales.length - 1].id;
+    switchCaso(target);
   }
 }
+function hideWelcomeScreen() {
+  // No-op: welcome screen eliminada en v76
+  _welcomeScreenVisible = false;
+}
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // SNAPSHOT MODAL — Vista rápida de caso sin cambiar sesión activa

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v69d">
+ <meta name="app-version" content="2.0613.v77">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -12,21 +12,169 @@
  <meta name="apple-mobile-web-app-title" content="2.0610.v20">
  <link rel="apple-touch-icon" href="icon-192.png">
  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+ <script>
+// ── PRE-BUFFER: captura logs ANTES de que el panel exista en el DOM ──
+window._dbgBuffer = [];
+window._dbgEarly = function(msg) {
+  var t = new Date().toLocaleTimeString();
+  window._dbgBuffer.push(t + ' ' + msg);
+};
+// Sobreescribir dbg con versión que también guarda en buffer
+// (dbg real se define después, pero _earlyDbgAdd lo reemplaza)
+window.dbg = window._dbgEarly;
+
+// ── DIAGNÓSTICO v70e: estado de sesión/storage/SW ANTES de que actúe el SDK ──
+try {
+  var _rawAuth = localStorage.getItem('pension_utm_auth');
+  if (_rawAuth === null) {
+    window.dbg('STORAGE: pension_utm_auth = AUSENTE');
+  } else {
+    try {
+      var _p = JSON.parse(_rawAuth);
+      window.dbg('STORAGE: pension_utm_auth presente — len=' + _rawAuth.length +
+        ' expires_at=' + (_p?.expires_at || '?') +
+        ' refresh_token=' + (_p?.refresh_token ? 'sí' : 'NO'));
+    } catch(e) {
+      window.dbg('STORAGE: pension_utm_auth CORRUPTO — ' + e.message);
+    }
+  }
+  var _authKeys = Object.keys(localStorage).filter(function(k) {
+    return k.indexOf('supabase') !== -1 || k.indexOf('auth') !== -1 || k.indexOf('sb-') === 0;
+  });
+  window.dbg('STORAGE: claves auth-relacionadas = ' + JSON.stringify(_authKeys));
+} catch(e) {
+  window.dbg('STORAGE: error general — ' + e.message);
+}
+try {
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      var sw = reg && reg.active;
+      window.dbg('SW: scriptURL=' + (sw ? sw.scriptURL : 'none') + ' state=' + (sw ? sw.state : '?'));
+    }).catch(function(e) { window.dbg('SW: error — ' + e.message); });
+  }
+} catch(e) {}
+</script>
+<script>
+// ── IDB AUTH BACKUP: restaurar pension_utm_auth desde IndexedDB si localStorage esta vacio ──
+// Corre ANTES del SDK de Supabase. Promesa global _idbRestorePromise usada por createClient.
+(function() {
+  var IDB_NAME  = 'pension_utm_idb';
+  var IDB_STORE = 'auth_backup';
+  var AUTH_KEY  = 'pension_utm_auth';
+
+  window._idbOpen = function() {
+    return new Promise(function(resolve, reject) {
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function(e) { e.target.result.createObjectStore(IDB_STORE); };
+      req.onsuccess = function(e) { resolve(e.target.result); };
+      req.onerror   = function(e) { reject(e.target.error); };
+    });
+  };
+
+  window._idbSet = function(key, value) {
+    window._idbOpen().then(function(db) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+    }).catch(function() {});
+  };
+
+  window._idbDelete = function(key) {
+    window._idbOpen().then(function(db) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+    }).catch(function() {});
+  };
+
+  // Claves a restaurar desde IDB si localStorage esta vacio
+  var RESTORE_KEYS = [
+    'pension_utm_auth',
+    'pension_utm_last_caso',
+    'pension_utm_casos_index_v1'
+  ];
+
+  // Monkey-patch localStorage para que claves criticas se respalden automaticamente
+  // (cubre llamadas directas a localStorage.setItem fuera del adapter de Supabase)
+  var _origSetItem = localStorage.setItem.bind(localStorage);
+  var _origRemoveItem = localStorage.removeItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    _origSetItem(key, value);
+    if (key && (
+      key === 'pension_utm_last_caso' ||
+      key === 'pension_utm_casos_index_v1' ||
+      key.indexOf('pension_utm_caso_v1_') === 0
+    )) {
+      window._idbSet && window._idbSet(key, value);
+    }
+  };
+  localStorage.removeItem = function(key) {
+    _origRemoveItem(key);
+    if (key && (
+      key === 'pension_utm_last_caso' ||
+      key === 'pension_utm_casos_index_v1' ||
+      key.indexOf('pension_utm_caso_v1_') === 0
+    )) {
+      window._idbDelete && window._idbDelete(key);
+    }
+  };
+
+  window._idbRestorePromise = window._idbOpen().then(function(db) {
+    return new Promise(function(resolve) {
+      var authPresent = localStorage.getItem(AUTH_KEY) !== null;
+      if (authPresent) {
+        window.dbg('IDB: localStorage ya tiene auth — no se restaura');
+        resolve(); return;
+      }
+      // localStorage vacio — restaurar todas las claves respaldadas
+      window.dbg('IDB: localStorage vacio — iniciando restore completo...');
+      var store = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE);
+      var req = store.getAllKeys();
+      req.onsuccess = function(e) {
+        var allKeys = e.target.result || [];
+        // Filtrar claves relevantes: lista fija + pension_utm_caso_v1_*
+        var toRestore = allKeys.filter(function(k) {
+          if (RESTORE_KEYS.indexOf(k) !== -1) return true;
+          if (k && k.indexOf('pension_utm_caso_v1_') === 0) return true;
+          return false;
+        });
+        window.dbg('IDB: ' + toRestore.length + ' claves a restaurar');
+        if (toRestore.length === 0) { window.dbg('IDB: sin backup previo'); resolve(); return; }
+        var pending = toRestore.length;
+        var restored = 0;
+        toRestore.forEach(function(k) {
+          var r2 = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(k);
+          r2.onsuccess = function(e2) {
+            var val = e2.target.result;
+            if (val) {
+              try { localStorage.setItem(k, val); restored++; } catch(ex) {}
+            }
+            pending--;
+            if (pending === 0) {
+              window.dbg('IDB: restore completo — ' + restored + ' claves restauradas');
+              resolve();
+            }
+          };
+          r2.onerror = function() { pending--; if (pending === 0) resolve(); };
+        });
+      };
+      req.onerror = function() { window.dbg('IDB: ERROR leyendo keys'); resolve(); };
+    });
+  }).catch(function(e) {
+    window.dbg('IDB: no disponible — ' + (e && e.message));
+    return Promise.resolve();
+  });
+})();
+</script>
  <script src="https://cdn.tailwindcss.com"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
  <script>
- // ── Auto-actualización: fuerza recarga si la versión cambió ──
+ // ── Registrar versión actual (sin reload — el SW Network-First ya sirve la versión nueva) ──
+ // Se eliminó el location.reload() que existía aquí: causaba doble ejecución de window.onload
+ // y doble uso del refresh token de Supabase (reuse detection → sesión revocada).
  (function() {
    const CURRENT = document.querySelector('meta[name="app-version"]')?.content || '1.0.0';
-   const STORED  = localStorage.getItem('_appVersion');
-   if (STORED && STORED !== CURRENT) {
-     localStorage.setItem('_appVersion', CURRENT);
-     location.reload();
-     return;
-   }
    localStorage.setItem('_appVersion', CURRENT);
  })();
  </script>
@@ -182,25 +330,31 @@
 <!-- Bloquea cualquier flash: oculta el app-container hasta que el login resuelva -->
 
 <script>
-// Safety: si en 800ms Supabase no respondió, mostrar la app igual
-setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
+// Safety: si en 4s sbLoadCasos() no agregó auth-ready (Supabase nunca respondió),
+// mostrar la app de todos modos. El timeout anterior era 800ms — muy corto en Android,
+// causaba flash de welcome screen cuando IDB tardaba más de 800ms en restaurar.
+// Ahora sbLoadCasos() agrega auth-ready cuando tiene certeza; este es solo el último recurso.
+setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 </script>
 <script>
 // ── Panel de diagnóstico temprano — aparece con 5 taps en cualquier lugar ──
 (function() {
   var p = document.createElement('div');
   p.id = '_dbgPanel';
-  p.style.cssText = 'display:block;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
+  p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
+    // Volcar buffer previo al panel
+    if (window._dbgBuffer && window._dbgBuffer.length) {
+      window._dbgBuffer.forEach(function(msg) {
+        var line = document.createElement('div');
+        line.textContent = msg;
+        p.appendChild(line);
+      });
+      p.scrollTop = p.scrollHeight;
+      window._dbgBuffer = [];
+    }
     // Panel controlado desde sidebar — ver toggleDebugPanel()
-    // Log cada pointerdown con el elemento target
-    document.addEventListener('pointerdown', function(e) {
-      if (p.style.display !== 'block') return;
-      var el = e.target;
-      var info = el.tagName + (el.id ? '#'+el.id : '') + (el.className && typeof el.className === 'string' ? '.'+el.className.split(' ').join('.') : '');
-      addLine('TAP: ' + info + ' | x=' + Math.round(e.clientX) + ' y=' + Math.round(e.clientY));
-    }, true); // capture phase
   });
   function addLine(msg) {
     var line = document.createElement('div');
@@ -5005,11 +5159,10 @@ if ('serviceWorker' in navigator) {
       });
     })
     .catch(err => console.warn('[SW] Error:', err));
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    console.log('[SW] Nueva versión activa — recargando...');
-    window.location.reload();
-  });
+  // NOTA: se eliminó el listener 'controllerchange' → reload que existía aquí.
+  // Causaba un segundo reload en cascada justo después del reload por _appVersion,
+  // lo que podía disparar doble uso del refresh token de Supabase y provocar
+  // su revocación (INITIAL_SESSION user=none). El reload por _appVersion es suficiente.
 }
 
 function showAppModal() { showResumenModal(); } // alias por compatibilidad
@@ -5273,7 +5426,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v69d</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v77</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5290,8 +5443,12 @@ document.addEventListener('visibilitychange', async () => {
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
 function dbg(msg) {
   console.log('[DBG]', msg);
-  // Usar el panel temprano si ya existe
-  if (window._earlyDbgAdd) { window._earlyDbgAdd(msg); }
+  // Si el panel no existe aun, guardar en buffer pre-DOM
+  if (!document.getElementById('_dbgPanel')) {
+    if (window._dbgBuffer) window._dbgBuffer.push(new Date().toLocaleTimeString() + ' ' + msg);
+    return;
+  }
+  // Panel ya existe: escribir directo (NO usar _earlyDbgAdd — ya volco el buffer y duplicaria)
   let p = document.getElementById('_dbgPanel');
   if (!p) {
     p = document.createElement('div');
@@ -5381,7 +5538,7 @@ function toggleDebugPanel() {
 // ── DEBUG AUTO-SHOW: panel ya visible desde creacion (display:block en IIFE) ──
 // Agregar marca de inicio para saber que el panel esta activo
 window.addEventListener('DOMContentLoaded', () => {
-  dbg('=== DEBUG AUTO-SHOW v69d — panel visible desde inicio ===');
+  dbg('=== DEBUG AUTO-SHOW ' + (document.querySelector('meta[name="app-version"]')?.content || '?') + ' — panel visible desde inicio ===');
 });
 
 // ══════════════════════════════════════════════════════════
@@ -5461,15 +5618,60 @@ async function sbSetTasasCache(snapshot) {
 // ══════════════════════════════════════════════════════════
 const SB_URL  = 'https://pipfpwpkzjajgmwcdrsv.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w';
+// -- Custom storage adapter: escribe en localStorage Y respalda claves criticas en IDB --
+// Claves respaldadas: auth, last_caso, casos_index, datos de cada caso
+var _IDB_BACKUP_KEYS = [
+  'pension_utm_auth',
+  'pension_utm_last_caso',
+  'pension_utm_casos_index_v1'
+];
+function _idbShouldBackup(key) {
+  if (_IDB_BACKUP_KEYS.indexOf(key) !== -1) return true;
+  if (key && key.indexOf('pension_utm_caso_v1_') === 0) return true; // datos de cada caso
+  return false;
+}
+var _sbStorage = {
+  getItem: function(key) {
+    return localStorage.getItem(key);
+  },
+  setItem: function(key, value) {
+    localStorage.setItem(key, value);
+    if (_idbShouldBackup(key)) {
+      window._idbSet && window._idbSet(key, value);
+      if (key === 'pension_utm_auth') {
+        window.dbg && window.dbg('IDB: backup auth escrito — len=' + (value ? value.length : 0));
+      }
+    }
+  },
+  removeItem: function(key) {
+    localStorage.removeItem(key);
+    if (_idbShouldBackup(key)) {
+      window._idbDelete && window._idbDelete(key);
+      if (key === 'pension_utm_auth') {
+        window.dbg && window.dbg('IDB: backup auth eliminado (logout)');
+      }
+    }
+  }
+};
+
 const sb      = supabase.createClient(SB_URL, SB_KEY, {
   auth: {
     persistSession: true,
     storageKey: 'pension_utm_auth',
-    storage: window.localStorage,
+    storage: _sbStorage,
     autoRefreshToken: true,
     detectSessionInUrl: false
   }
 });
+
+// ── DIAGNÓSTICO v70e: getSession() inmediato, independiente de onAuthStateChange ──
+sb.auth.getSession().then(function(res) {
+  var data = res.data, error = res.error;
+  var s = data && data.session;
+  dbg('GETSESSION: user=' + (s?.user?.id?.slice(0,6) || 'none') +
+    ' error=' + (error?.message || 'none') +
+    ' expires_at=' + (s?.expires_at || '?'));
+}).catch(function(e) { dbg('GETSESSION: exception — ' + e.message); });
 
 let sbCurrentUser = null;
 let sbAccessToken = null;
@@ -6080,7 +6282,6 @@ async function sbLoadCasos() {
       dbg('LOAD: reintentando ' + pendingDels.length + ' delete(s) pendiente(s)');
       pendingDels.forEach(id => {
         _deletedCasoIds.add(id);
-        // BUG 4 FIX: verificar sbCurrentUser antes de encolar para evitar pérdida silenciosa
         if (sbCurrentUser) {
           queueDelete(id);
         } else {
@@ -6090,33 +6291,120 @@ async function sbLoadCasos() {
     }
   } catch(e) { dbg('LOAD: error leyendo pending_deletes: ' + e.message); }
 
-  try {
-    // ── PASO 6: Descargar snapshot completo desde Supabase ──
-    const { data, error } = await sb.from('casos')
-      .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
-      .eq('user_id', sbCurrentUser.id)
-      .order('created_at', { ascending: true });
-    if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
-    const rows = data || [];
-    dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase');
+  // ══════════════════════════════════════════════════════════════════════════
+  // ESTRATEGIA LOCAL-FIRST
+  // FASE 1: Mostrar app inmediatamente desde localStorage (0ms de espera).
+  // FASE 2: Fetch Supabase en background (timeout 6s). Si trae datos más
+  //         nuevos, aplicar silenciosamente vía _sbSyncBackground().
+  // ══════════════════════════════════════════════════════════════════════════
 
-    // ── PASO 5: LAST WRITE WINS — comparar updated_at entre servidor y local ──
+  // ── FASE 1: Esperar IDB restore antes de leer localStorage ──
+  // Android puede limpiar localStorage; IDB restore lo recupera de forma asíncrona.
+  // Si no esperamos, leemos el índice vacío y mostramos welcome screen incorrectamente.
+  if (window._idbRestorePromise) {
+    try {
+      await Promise.race([
+        window._idbRestorePromise,
+        new Promise(r => setTimeout(r, 800)) // máx 800ms para no bloquear UI
+      ]);
+      dbg('LOAD[IDB] restore completo (o timeout), leyendo localStorage');
+    } catch(e) { dbg('LOAD[IDB] error esperando restore: ' + e.message); }
+  }
+
+  const _localIdx = getCasosIndex();
+  const _localLastId = localStorage.getItem('pension_utm_last_caso');
+  const _metaLastId  = sbCurrentUser?.user_metadata?.last_caso || null;
+  const _resolvedLastId = (_metaLastId && _localIdx.find(c => c.id === _metaLastId))
+    ? _metaLastId : _localLastId;
+
+  dbg('LOAD[L1] local-first: ' + _localIdx.length + ' casos, lastId=' + (_resolvedLastId||'null').slice(0,8));
+
+  const _localReady = async () => {
+    document.body.classList.add('auth-ready');
+    await _utmReady;
+    // Si ya hay un caso activo (ej: visibilitychange rellamando sbLoadCasos), no tocar nada
+    if (activeCasoId) {
+      dbg('LOAD[L2] caso ya activo (' + activeCasoId.slice(0,8) + ') — omitiendo restore');
+      return;
+    }
+    // Resolver qué caso cargar: lastId si existe, si no el último del índice
+    const _targetId = (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId))
+      ? _resolvedLastId
+      : (_localIdx.length > 0 ? _localIdx[_localIdx.length - 1].id : null);
+
+    if (_targetId) {
+      dbg('LOAD[L2] restaurando caso local: ' + _targetId.slice(0,8));
+      if (activeCasoId !== _targetId) {
+        switchCaso(_targetId);
+      } else {
+        // Re-aplicar sesión si pantalla vacía
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              applySession(sCheck);
+            }
+          } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
+        }
+        updateActiveCasoBadge();
+        renderCasosList();
+      }
+      return;
+    }
+    // Sin ningún caso local → abrir modal nuevo caso
+    renderCasosList();
+    showWelcomeScreen();
+  };
+
+  // Correr Fase 1 inmediatamente
+  await _localReady();
+
+  // ── FASE 2: Sync Supabase en background ──
+  dbg('LOAD[SB0] iniciando sync background...');
+  // No bloquea: el usuario ya ve la app. El fetch corre en background.
+  (async () => {
+    try {
+      const _fetchTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT_6S')), 6000)
+      );
+      const _fetchCasos = sb.from('casos')
+        .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
+        .eq('user_id', sbCurrentUser.id)
+        .order('created_at', { ascending: true })
+        .then(res => res);
+      const { data, error } = await Promise.race([_fetchCasos, _fetchTimeout]);
+      if (error) { dbg('LOAD[SB] error background: ' + JSON.stringify(error)); return; }
+      const rows = data || [];
+      dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase (background)');
+      await _sbSyncBackground(rows);
+    } catch(e) {
+      dbg('LOAD[SB] timeout o error background: ' + e.message);
+    }
+  })();
+}
+
+// ── Sync background: aplica snapshot de Supabase sobre localStorage ya cargado ──
+// Corre después de que la UI ya está visible. Si hay datos más nuevos en Supabase,
+// actualiza localStorage y re-aplica la sesión del caso activo silenciosamente.
+async function _sbSyncBackground(rows) {
+  try {
     const sbIds = new Set(rows.map(r => r.id));
     const localIdx = getCasosIndex();
-    // Construir índice final fusionado
     const finalIdx = [];
+    let activeUpdated = false;
 
     rows.forEach(row => {
-      // LAST WRITE WINS usando saved_at (updated_at no existe en el schema actual)
       const sbTimestamp = row.saved_at || 0;
       const sbTime = sbTimestamp ? new Date(sbTimestamp).getTime() : 0;
 
-      // Leer metadatos locales para comparar (usar saved_at como fuente de verdad)
       const localMeta = localIdx.find(c => c.id === row.id);
       const localTimestamp = localMeta?.saved_at || 0;
       const localTime = localTimestamp ? new Date(localTimestamp).getTime() : 0;
 
-      // Validar que Supabase tiene datos reales en el campo data
       const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5
         ? row.data : null;
       const hasRealData = sbPayload && (
@@ -6126,133 +6414,81 @@ async function sbLoadCasos() {
       );
 
       if (hasRealData) {
-        if (sbTime >= localTime) {
-          // Servidor más nuevo o igual → descargar (Supabase gana)
+        if (sbTime > localTime) {
+          // Servidor más nuevo → actualizar local
           localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
-          dbg('LOAD: ✅ ' + row.id.slice(0,8) + ' — servidor más nuevo, restaurando snapshot');
+          dbg('SYNC[BG] ✅ ' + row.id.slice(0,8) + ' — servidor más nuevo, actualizando local');
+          if (row.id === activeCasoId) activeUpdated = true;
         } else {
-          // Local más nuevo → re-subir al servidor
-          dbg('LOAD: ⬆️ ' + row.id.slice(0,8) + ' — local más nuevo, re-subiendo');
-          if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
+          dbg('SYNC[BG] ' + row.id.slice(0,8) + ' — local vigente');
+          if (!_deletedCasoIds.has(row.id) && sbTime < localTime) queueSave(row.id);
         }
       } else {
-        // Supabase sin datos válidos → conservar local y re-subir
         const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
         if (localRaw && localRaw.length > 50) {
-          dbg('LOAD: ' + row.id.slice(0,8) + ' — Supabase vacío, re-subiendo desde local');
+          dbg('SYNC[BG] ' + row.id.slice(0,8) + ' — Supabase vacío, re-subiendo desde local');
           if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
-        } else {
-          dbg('LOAD: ' + row.id.slice(0,8) + ' — sin datos en ningún lado');
         }
       }
 
-      // Agregar al índice final con metadatos de Supabase
       finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
     });
 
-    // ── Rescatar casos locales huérfanos recientes (creados offline) ──
+    // Rescatar casos locales huérfanos recientes (creados offline)
     localIdx.forEach(lc => {
       if (!sbIds.has(lc.id) && !_deletedCasoIds.has(lc.id)) {
         const createdAt = lc.created_at_local || 0;
-        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
+        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000);
         if (isRecent) {
-          dbg('LOAD: ⏳ ' + lc.id.slice(0,8) + ' — caso huérfano reciente, rescatando y subiendo');
+          dbg('SYNC[BG] ⏳ ' + lc.id.slice(0,8) + ' — huérfano reciente, rescatando');
           finalIdx.push(lc);
           queueSave(lc.id);
         } else {
-          dbg('LOAD: 🗑️ ' + lc.id.slice(0,8) + ' — caso huérfano antiguo, purgando local');
+          dbg('SYNC[BG] 🗑️ ' + lc.id.slice(0,8) + ' — huérfano antiguo, purgando');
           localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
         }
       }
     });
 
-    // ── Aplicar índice final al localStorage ──
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
-    dbg('LOAD[SB2] indice guardado con ' + finalIdx.length + ' casos');
-
     renderCasosList();
-    dbg('LOAD[SB3] finalIdx.length=' + finalIdx.length);
-    if (finalIdx.length === 0) {
-      dbg('LOAD[SB3b] sin casos — mostrando welcome screen');
-      document.body.classList.add('auth-ready');
-      showWelcomeScreen();
-      return;
+    dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
+
+    // ── Si no hay caso activo y Supabase trajo casos, restaurar automáticamente ──
+    if (!activeCasoId && finalIdx.length > 0) {
+      const metaId = sbCurrentUser?.user_metadata?.last_caso || null;
+      const localLastId = localStorage.getItem('pension_utm_last_caso');
+      const targetId = (metaId && finalIdx.find(c => c.id === metaId))
+        ? metaId
+        : (localLastId && finalIdx.find(c => c.id === localLastId))
+          ? localLastId
+          : finalIdx[finalIdx.length - 1].id;
+      dbg('SYNC[BG] sin caso activo + casos encontrados → restaurando: ' + targetId.slice(0,8));
+      switchCaso(targetId);
     }
 
-    // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
-    // Prioridad: user_metadata (cross-origin) > localStorage (same-origin)
+    // Si el caso activo fue actualizado desde Supabase, re-aplicar sesión silenciosamente
+    if (activeUpdated && activeCasoId) {
+      const raw = localStorage.getItem(getCasoKey(activeCasoId));
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          dbg('SYNC[BG] re-aplicando sesión del caso activo: ' + activeCasoId.slice(0,8));
+          applySession(s);
+        } catch(e) { dbg('SYNC[BG] error re-aplicando sesión: ' + e.message); }
+      }
+    }
+
+    // Sync de lastId desde user_metadata si difiere
     const metaLastId = sbCurrentUser?.user_metadata?.last_caso || null;
     const localLastId = localStorage.getItem('pension_utm_last_caso');
-    dbg('LOAD[SB4] metaLastId=' + (metaLastId||'null').slice(0,8) + ' localLastId=' + (localLastId||'null').slice(0,8));
-    const lastId = (metaLastId && finalIdx.find(c => c.id === metaLastId))
-      ? metaLastId
-      : localLastId;
-    dbg('LOAD[SB5] lastId=' + (lastId||'null').slice(0,8) + ' enIndice=' + !!(lastId && finalIdx.find(c => c.id === lastId)));
-    // Sincronizar localStorage con el valor de metadata si difieren
     if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
       localStorage.setItem('pension_utm_last_caso', metaLastId);
-      dbg('LOAD: lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
+      dbg('SYNC[BG] lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
     }
-    if (lastId && finalIdx.find(c => c.id === lastId)) {
-      // Solo respetar welcome screen si venimos de visibilitychange (no inicio frío)
-      if (_welcomeScreenVisible && window._loadFromVisibility) {
-        dbg('LOAD: welcome screen activa (visibilitychange) — mantener welcome');
-        document.body.classList.add('auth-ready');
-        showWelcomeScreen();
-        return;
-      }
-      // Hay último caso recordado → restaurar directo sin pantalla intermedia
-      dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
-      document.body.classList.add('auth-ready');
-      dbg('LOAD[A] antes de await _utmReady — utmData.length=' + utmData.length);
-      await _utmReady;
-      dbg('LOAD[B] _utmReady resuelto — utmData.length=' + utmData.length + ' activeCasoId=' + (activeCasoId||'null'));
-      if (activeCasoId !== lastId) {
-        dbg('LOAD[C] llamando switchCaso(' + lastId.slice(0,8) + ')');
-        switchCaso(lastId);
-      } else {
-        dbg('LOAD: caso ya activo — verificando si pantalla tiene datos');
-        // Si activeCasoId coincide pero la pantalla está vacía (proceso reiniciado
-        // y activeCasoId fue restaurado por una llamada previa sin applySession),
-        // re-aplicar la sesión para repintar la UI.
-        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-        if (rawCheck) {
-          try {
-            const sCheck = JSON.parse(rawCheck);
-            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-              !document.getElementById('clpAmount')?.value &&
-              !document.getElementById('salaryAmount')?.value;
-            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-              dbg('LOAD: pantalla vacía pero hay datos — re-aplicando sesión');
-              applySession(sCheck);
-            } else {
-              dbg('LOAD: caso ya activo y pantalla con datos — sin cambios');
-            }
-          } catch(e) { dbg('LOAD: error al re-verificar sesión — ' + e.message); }
-        }
-        updateActiveCasoBadge();
-        renderCasosList();
-      }
-    } else {
-      // Sin lastId válido → intentar restaurar el caso con saved_at más reciente
-      // (cubre el caso donde Android mató el proceso antes de guardar pension_utm_last_caso)
-      const sorted = finalIdx
-        .filter(c => c.saved_at)
-        .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime());
-      const fallbackId = sorted.length > 0 ? sorted[0].id : finalIdx[finalIdx.length - 1]?.id;
-      if (fallbackId) {
-        dbg('LOAD: sin lastId — restaurando caso más reciente: ' + fallbackId.slice(0,6));
-        localStorage.setItem('pension_utm_last_caso', fallbackId);
-        document.body.classList.add('auth-ready');
-        await _utmReady;
-        switchCaso(fallbackId);
-      } else {
-        dbg('LOAD: sin lastId válido — mostrando welcome screen');
-        document.body.classList.add('auth-ready');
-        showWelcomeScreen();
-      }
-    }
-  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120)); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
+  } catch(e) {
+    dbg('SYNC[BG] ERROR: ' + e.message);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
