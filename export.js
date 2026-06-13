@@ -2845,7 +2845,6 @@ function hideWelcomeScreen() {
   // No-op: welcome screen eliminada en v76
   _welcomeScreenVisible = false;
 }
-}
 
 
 // ══════════════════════════════════════════════════════════════════════════════
