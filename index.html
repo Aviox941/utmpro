@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v72c">
+ <meta name="app-version" content="2.0613.v73">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5423,7 +5423,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v72c</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v73</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6279,7 +6279,6 @@ async function sbLoadCasos() {
       dbg('LOAD: reintentando ' + pendingDels.length + ' delete(s) pendiente(s)');
       pendingDels.forEach(id => {
         _deletedCasoIds.add(id);
-        // BUG 4 FIX: verificar sbCurrentUser antes de encolar para evitar pérdida silenciosa
         if (sbCurrentUser) {
           queueDelete(id);
         } else {
@@ -6289,39 +6288,100 @@ async function sbLoadCasos() {
     }
   } catch(e) { dbg('LOAD: error leyendo pending_deletes: ' + e.message); }
 
-  try {
-    // ── PASO 6: Descargar snapshot completo desde Supabase (timeout 10s) ──
-    dbg('LOAD: fetch Supabase iniciado...');
-    const _fetchTimeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT_10S')), 10000)
-    );
-    const _fetchCasos = sb.from('casos')
-      .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
-      .eq('user_id', sbCurrentUser.id)
-      .order('created_at', { ascending: true })
-      .then(res => res);
-    const { data, error } = await Promise.race([_fetchCasos, _fetchTimeout]);
-    if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
-    const rows = data || [];
-    dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase');
+  // ══════════════════════════════════════════════════════════════════════════
+  // ESTRATEGIA LOCAL-FIRST
+  // FASE 1: Mostrar app inmediatamente desde localStorage (0ms de espera).
+  // FASE 2: Fetch Supabase en background (timeout 6s). Si trae datos más
+  //         nuevos, aplicar silenciosamente vía _sbSyncBackground().
+  // ══════════════════════════════════════════════════════════════════════════
 
-    // ── PASO 5: LAST WRITE WINS — comparar updated_at entre servidor y local ──
+  // ── FASE 1: Restaurar desde localStorage sin esperar a Supabase ──
+  const _localIdx = getCasosIndex();
+  const _localLastId = localStorage.getItem('pension_utm_last_caso');
+  const _metaLastId  = sbCurrentUser?.user_metadata?.last_caso || null;
+  const _resolvedLastId = (_metaLastId && _localIdx.find(c => c.id === _metaLastId))
+    ? _metaLastId : _localLastId;
+
+  dbg('LOAD[L1] local-first: ' + _localIdx.length + ' casos, lastId=' + (_resolvedLastId||'null').slice(0,8));
+
+  const _localReady = async () => {
+    document.body.classList.add('auth-ready');
+    await _utmReady;
+    if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
+      if (!(_welcomeScreenVisible && window._loadFromVisibility)) {
+        dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
+        if (activeCasoId !== _resolvedLastId) {
+          switchCaso(_resolvedLastId);
+        } else {
+          // Re-aplicar sesión si pantalla vacía
+          const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+          if (rawCheck) {
+            try {
+              const sCheck = JSON.parse(rawCheck);
+              const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+                !document.getElementById('clpAmount')?.value &&
+                !document.getElementById('salaryAmount')?.value;
+              if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+                applySession(sCheck);
+              }
+            } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
+          }
+          updateActiveCasoBadge();
+          renderCasosList();
+        }
+        return;
+      }
+    }
+    // Sin caso válido local → welcome
+    renderCasosList();
+    showWelcomeScreen();
+  };
+
+  // Correr Fase 1 inmediatamente
+  await _localReady();
+
+  // ── FASE 2: Sync Supabase en background ──
+  dbg('LOAD[SB0] iniciando sync background...');
+  // No bloquea: el usuario ya ve la app. El fetch corre en background.
+  (async () => {
+    try {
+      const _fetchTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('TIMEOUT_6S')), 6000)
+      );
+      const _fetchCasos = sb.from('casos')
+        .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
+        .eq('user_id', sbCurrentUser.id)
+        .order('created_at', { ascending: true })
+        .then(res => res);
+      const { data, error } = await Promise.race([_fetchCasos, _fetchTimeout]);
+      if (error) { dbg('LOAD[SB] error background: ' + JSON.stringify(error)); return; }
+      const rows = data || [];
+      dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase (background)');
+      await _sbSyncBackground(rows);
+    } catch(e) {
+      dbg('LOAD[SB] timeout o error background: ' + e.message);
+    }
+  })();
+}
+
+// ── Sync background: aplica snapshot de Supabase sobre localStorage ya cargado ──
+// Corre después de que la UI ya está visible. Si hay datos más nuevos en Supabase,
+// actualiza localStorage y re-aplica la sesión del caso activo silenciosamente.
+async function _sbSyncBackground(rows) {
+  try {
     const sbIds = new Set(rows.map(r => r.id));
     const localIdx = getCasosIndex();
-    // Construir índice final fusionado
     const finalIdx = [];
+    let activeUpdated = false;
 
     rows.forEach(row => {
-      // LAST WRITE WINS usando saved_at (updated_at no existe en el schema actual)
       const sbTimestamp = row.saved_at || 0;
       const sbTime = sbTimestamp ? new Date(sbTimestamp).getTime() : 0;
 
-      // Leer metadatos locales para comparar (usar saved_at como fuente de verdad)
       const localMeta = localIdx.find(c => c.id === row.id);
       const localTimestamp = localMeta?.saved_at || 0;
       const localTime = localTimestamp ? new Date(localTimestamp).getTime() : 0;
 
-      // Validar que Supabase tiene datos reales en el campo data
       const sbPayload = row.data && typeof row.data === 'object' && Object.keys(row.data).length > 5
         ? row.data : null;
       const hasRealData = sbPayload && (
@@ -6331,156 +6391,67 @@ async function sbLoadCasos() {
       );
 
       if (hasRealData) {
-        if (sbTime >= localTime) {
-          // Servidor más nuevo o igual → descargar (Supabase gana)
+        if (sbTime > localTime) {
+          // Servidor más nuevo → actualizar local
           localStorage.setItem(CASO_DATA_PREFIX + row.id, JSON.stringify(sbPayload));
-          dbg('LOAD: ✅ ' + row.id.slice(0,8) + ' — servidor más nuevo, restaurando snapshot');
+          dbg('SYNC[BG] ✅ ' + row.id.slice(0,8) + ' — servidor más nuevo, actualizando local');
+          if (row.id === activeCasoId) activeUpdated = true;
         } else {
-          // Local más nuevo → re-subir al servidor
-          dbg('LOAD: ⬆️ ' + row.id.slice(0,8) + ' — local más nuevo, re-subiendo');
-          if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
+          dbg('SYNC[BG] ' + row.id.slice(0,8) + ' — local vigente');
+          if (!_deletedCasoIds.has(row.id) && sbTime < localTime) queueSave(row.id);
         }
       } else {
-        // Supabase sin datos válidos → conservar local y re-subir
         const localRaw = localStorage.getItem(CASO_DATA_PREFIX + row.id);
         if (localRaw && localRaw.length > 50) {
-          dbg('LOAD: ' + row.id.slice(0,8) + ' — Supabase vacío, re-subiendo desde local');
+          dbg('SYNC[BG] ' + row.id.slice(0,8) + ' — Supabase vacío, re-subiendo desde local');
           if (!_deletedCasoIds.has(row.id)) queueSave(row.id);
-        } else {
-          dbg('LOAD: ' + row.id.slice(0,8) + ' — sin datos en ningún lado');
         }
       }
 
-      // Agregar al índice final con metadatos de Supabase
       finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
     });
 
-    // ── Rescatar casos locales huérfanos recientes (creados offline) ──
+    // Rescatar casos locales huérfanos recientes (creados offline)
     localIdx.forEach(lc => {
       if (!sbIds.has(lc.id) && !_deletedCasoIds.has(lc.id)) {
         const createdAt = lc.created_at_local || 0;
-        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000); // 1 hora
+        const isRecent = (Date.now() - createdAt) < (60 * 60 * 1000);
         if (isRecent) {
-          dbg('LOAD: ⏳ ' + lc.id.slice(0,8) + ' — caso huérfano reciente, rescatando y subiendo');
+          dbg('SYNC[BG] ⏳ ' + lc.id.slice(0,8) + ' — huérfano reciente, rescatando');
           finalIdx.push(lc);
           queueSave(lc.id);
         } else {
-          dbg('LOAD: 🗑️ ' + lc.id.slice(0,8) + ' — caso huérfano antiguo, purgando local');
+          dbg('SYNC[BG] 🗑️ ' + lc.id.slice(0,8) + ' — huérfano antiguo, purgando');
           localStorage.removeItem(CASO_DATA_PREFIX + lc.id);
         }
       }
     });
 
-    // ── Aplicar índice final al localStorage ──
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
-    dbg('LOAD[SB2] indice guardado con ' + finalIdx.length + ' casos');
-
     renderCasosList();
-    dbg('LOAD[SB3] finalIdx.length=' + finalIdx.length);
-    if (finalIdx.length === 0) {
-      dbg('LOAD[SB3b] sin casos — mostrando welcome screen');
-      document.body.classList.add('auth-ready');
-      showWelcomeScreen();
-      return;
+    dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
+
+    // Si el caso activo fue actualizado desde Supabase, re-aplicar sesión silenciosamente
+    if (activeUpdated && activeCasoId) {
+      const raw = localStorage.getItem(getCasoKey(activeCasoId));
+      if (raw) {
+        try {
+          const s = JSON.parse(raw);
+          dbg('SYNC[BG] re-aplicando sesión del caso activo: ' + activeCasoId.slice(0,8));
+          applySession(s);
+        } catch(e) { dbg('SYNC[BG] error re-aplicando sesión: ' + e.message); }
+      }
     }
 
-    // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
-    // Prioridad: user_metadata (cross-origin) > localStorage (same-origin)
+    // Sync de lastId desde user_metadata si difiere
     const metaLastId = sbCurrentUser?.user_metadata?.last_caso || null;
     const localLastId = localStorage.getItem('pension_utm_last_caso');
-    dbg('LOAD[SB4] metaLastId=' + (metaLastId||'null').slice(0,8) + ' localLastId=' + (localLastId||'null').slice(0,8));
-    const lastId = (metaLastId && finalIdx.find(c => c.id === metaLastId))
-      ? metaLastId
-      : localLastId;
-    dbg('LOAD[SB5] lastId=' + (lastId||'null').slice(0,8) + ' enIndice=' + !!(lastId && finalIdx.find(c => c.id === lastId)));
-    // Sincronizar localStorage con el valor de metadata si difieren
     if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
       localStorage.setItem('pension_utm_last_caso', metaLastId);
-      dbg('LOAD: lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
-    }
-    if (lastId && finalIdx.find(c => c.id === lastId)) {
-      // Solo respetar welcome screen si venimos de visibilitychange (no inicio frío)
-      if (_welcomeScreenVisible && window._loadFromVisibility) {
-        dbg('LOAD: welcome screen activa (visibilitychange) — mantener welcome');
-        document.body.classList.add('auth-ready');
-        showWelcomeScreen();
-        return;
-      }
-      // Hay último caso recordado → restaurar directo sin pantalla intermedia
-      dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
-      document.body.classList.add('auth-ready');
-      dbg('LOAD[A] antes de await _utmReady — utmData.length=' + utmData.length);
-      await _utmReady;
-      dbg('LOAD[B] _utmReady resuelto — utmData.length=' + utmData.length + ' activeCasoId=' + (activeCasoId||'null'));
-      if (activeCasoId !== lastId) {
-        dbg('LOAD[C] llamando switchCaso(' + lastId.slice(0,8) + ')');
-        switchCaso(lastId);
-      } else {
-        dbg('LOAD: caso ya activo — verificando si pantalla tiene datos');
-        // Si activeCasoId coincide pero la pantalla está vacía (proceso reiniciado
-        // y activeCasoId fue restaurado por una llamada previa sin applySession),
-        // re-aplicar la sesión para repintar la UI.
-        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-        if (rawCheck) {
-          try {
-            const sCheck = JSON.parse(rawCheck);
-            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-              !document.getElementById('clpAmount')?.value &&
-              !document.getElementById('salaryAmount')?.value;
-            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-              dbg('LOAD: pantalla vacía pero hay datos — re-aplicando sesión');
-              applySession(sCheck);
-            } else {
-              dbg('LOAD: caso ya activo y pantalla con datos — sin cambios');
-            }
-          } catch(e) { dbg('LOAD: error al re-verificar sesión — ' + e.message); }
-        }
-        updateActiveCasoBadge();
-        renderCasosList();
-      }
-    } else {
-      // Sin lastId válido → intentar restaurar el caso con saved_at más reciente
-      // (cubre el caso donde Android mató el proceso antes de guardar pension_utm_last_caso)
-      const sorted = finalIdx
-        .filter(c => c.saved_at)
-        .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime());
-      const fallbackId = sorted.length > 0 ? sorted[0].id : finalIdx[finalIdx.length - 1]?.id;
-      if (fallbackId) {
-        dbg('LOAD: sin lastId — restaurando caso más reciente: ' + fallbackId.slice(0,6));
-        localStorage.setItem('pension_utm_last_caso', fallbackId);
-        document.body.classList.add('auth-ready');
-        await _utmReady;
-        switchCaso(fallbackId);
-      } else {
-        dbg('LOAD: sin lastId válido — mostrando welcome screen');
-        document.body.classList.add('auth-ready');
-        showWelcomeScreen();
-      }
+      dbg('SYNC[BG] lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
     }
   } catch(e) {
-    dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120));
-    // Fallback: si hay datos locales, intentar restaurar el ultimo caso sin Supabase
-    try {
-      const localIdx = getCasosIndex();
-      const localLastId = localStorage.getItem('pension_utm_last_caso');
-      dbg('LOAD FALLBACK: ' + localIdx.length + ' casos locales, lastId=' + (localLastId||'null').slice(0,8));
-      if (localLastId && localIdx.find(c => c.id === localLastId)) {
-        dbg('LOAD FALLBACK: restaurando desde localStorage — ' + localLastId.slice(0,8));
-        document.body.classList.add('auth-ready');
-        await _utmReady;
-        switchCaso(localLastId);
-        return;
-      }
-      if (localIdx.length > 0) {
-        dbg('LOAD FALLBACK: sin lastId, mostrando welcome con casos locales');
-        renderCasosList();
-        document.body.classList.add('auth-ready');
-        showWelcomeScreen();
-        return;
-      }
-    } catch(e2) { dbg('LOAD FALLBACK ERROR: ' + e2.message); }
-    document.body.classList.add('auth-ready');
-    showWelcomeScreen();
+    dbg('SYNC[BG] ERROR: ' + e.message);
   }
 }
 
