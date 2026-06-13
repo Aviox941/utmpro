@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v70d">
+ <meta name="app-version" content="2.0612.v70e">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -22,6 +22,37 @@ window._dbgEarly = function(msg) {
 // Sobreescribir dbg con versión que también guarda en buffer
 // (dbg real se define después, pero _earlyDbgAdd lo reemplaza)
 window.dbg = window._dbgEarly;
+
+// ── DIAGNÓSTICO v70e: estado de sesión/storage/SW ANTES de que actúe el SDK ──
+try {
+  var _rawAuth = localStorage.getItem('pension_utm_auth');
+  if (_rawAuth === null) {
+    window.dbg('STORAGE: pension_utm_auth = AUSENTE');
+  } else {
+    try {
+      var _p = JSON.parse(_rawAuth);
+      window.dbg('STORAGE: pension_utm_auth presente — len=' + _rawAuth.length +
+        ' expires_at=' + (_p?.expires_at || '?') +
+        ' refresh_token=' + (_p?.refresh_token ? 'sí' : 'NO'));
+    } catch(e) {
+      window.dbg('STORAGE: pension_utm_auth CORRUPTO — ' + e.message);
+    }
+  }
+  var _authKeys = Object.keys(localStorage).filter(function(k) {
+    return k.indexOf('supabase') !== -1 || k.indexOf('auth') !== -1 || k.indexOf('sb-') === 0;
+  });
+  window.dbg('STORAGE: claves auth-relacionadas = ' + JSON.stringify(_authKeys));
+} catch(e) {
+  window.dbg('STORAGE: error general — ' + e.message);
+}
+try {
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.getRegistration().then(function(reg) {
+      var sw = reg && reg.active;
+      window.dbg('SW: scriptURL=' + (sw ? sw.scriptURL : 'none') + ' state=' + (sw ? sw.state : '?'));
+    }).catch(function(e) { window.dbg('SW: error — ' + e.message); });
+  }
+} catch(e) {}
 </script>
  <script src="https://cdn.tailwindcss.com"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
@@ -5294,7 +5325,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v70d</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v70e</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5495,6 +5526,15 @@ const sb      = supabase.createClient(SB_URL, SB_KEY, {
     detectSessionInUrl: false
   }
 });
+
+// ── DIAGNÓSTICO v70e: getSession() inmediato, independiente de onAuthStateChange ──
+sb.auth.getSession().then(function(res) {
+  var data = res.data, error = res.error;
+  var s = data && data.session;
+  dbg('GETSESSION: user=' + (s?.user?.id?.slice(0,6) || 'none') +
+    ' error=' + (error?.message || 'none') +
+    ' expires_at=' + (s?.expires_at || '?'));
+}).catch(function(e) { dbg('GETSESSION: exception — ' + e.message); });
 
 let sbCurrentUser = null;
 let sbAccessToken = null;
