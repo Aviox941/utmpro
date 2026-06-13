@@ -8,29 +8,33 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v65d  ← versión de diagnóstico, TEMPORAL
-SW cache      : pension-utm-v133
+App version   : 2.0612.v66
+SW cache      : pension-utm-v134
 Archivos mod  : index.html, sw.js
 
 ================================================================================
-PROPÓSITO DE ESTA VERSIÓN
+BUG CORREGIDO
 ================================================================================
 
-VERSIÓN DE DIAGNÓSTICO — el panel de debug se abre AUTOMÁTICAMENTE al arrancar.
+PROBLEMA: Al reabrir la app, no se restauraba el último caso activo.
+          La pantalla quedaba en blanco aunque user_metadata y localStorage
+          tenían el last_caso correcto.
 
-Pasos para diagnosticar:
-1. Desplegar v65d en Vercel / GitHub Pages
-2. Iniciar sesión y seleccionar un caso
-3. Cerrar la app completamente (o cambiar de app)
-4. Volver a abrir la app
-5. El panel negro en la parte inferior aparecerá solo con todos los logs
-6. Capturar screenshot de los logs y compartir
+CAUSA RAÍZ: En fetchUTM() (index.html), cuando todos los años UTM ya
+          tienen valores en utmData (no hay ceros que rellenar) y el caché
+          de localStorage está vencido o ausente, el código cae al bloque CMF
+          y ejecuta este early return sin resolver _utmReady:
 
-Los logs muestran: eventos de auth (INITIAL_SESSION, SIGNED_IN, etc.),
-flujo de sbLoadCasos, valores de user_metadata.last_caso y localStorage,
-activeCasoId, y qué path tomó la restauración.
+            if (aniosAConsultar.length === 0) { renderUtmTicker(); return; }
 
-Una vez identificado el bug, se entregará v66 con el fix definitivo
-y el auto-show del panel desactivado.
+          _utmReady nunca resolvía → sbLoadCasos() quedaba colgado en
+          "await _utmReady" → switchCaso() nunca se llamaba → activeCasoId
+          permanecía null → app abre en blanco.
+
+FIX: Agregar _utmReadyResolve() en ese return temprano:
+
+            if (aniosAConsultar.length === 0) { renderUtmTicker(); _utmReadyResolve(); return; }
+
+ADICIONAL: Panel de debug auto-show desactivado (diagnóstico completado).
 
 ================================================================================
