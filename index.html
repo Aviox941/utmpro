@@ -6322,32 +6322,40 @@ async function sbLoadCasos() {
   const _localReady = async () => {
     document.body.classList.add('auth-ready');
     await _utmReady;
-    if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
-      {
-        dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
-        if (activeCasoId !== _resolvedLastId) {
-          switchCaso(_resolvedLastId);
-        } else {
-          // Re-aplicar sesión si pantalla vacía
-          const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-          if (rawCheck) {
-            try {
-              const sCheck = JSON.parse(rawCheck);
-              const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-                !document.getElementById('clpAmount')?.value &&
-                !document.getElementById('salaryAmount')?.value;
-              if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-                applySession(sCheck);
-              }
-            } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
-          }
-          updateActiveCasoBadge();
-          renderCasosList();
-        }
-        return;
-      }
+    // Si ya hay un caso activo (ej: visibilitychange rellamando sbLoadCasos), no tocar nada
+    if (activeCasoId) {
+      dbg('LOAD[L2] caso ya activo (' + activeCasoId.slice(0,8) + ') — omitiendo restore');
+      return;
     }
-    // Sin caso válido local → welcome
+    // Resolver qué caso cargar: lastId si existe, si no el último del índice
+    const _targetId = (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId))
+      ? _resolvedLastId
+      : (_localIdx.length > 0 ? _localIdx[_localIdx.length - 1].id : null);
+
+    if (_targetId) {
+      dbg('LOAD[L2] restaurando caso local: ' + _targetId.slice(0,8));
+      if (activeCasoId !== _targetId) {
+        switchCaso(_targetId);
+      } else {
+        // Re-aplicar sesión si pantalla vacía
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              applySession(sCheck);
+            }
+          } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
+        }
+        updateActiveCasoBadge();
+        renderCasosList();
+      }
+      return;
+    }
+    // Sin ningún caso local → crear borrador
     renderCasosList();
     showWelcomeScreen();
   };
