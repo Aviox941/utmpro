@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v72">
+ <meta name="app-version" content="2.0613.v72c">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -85,29 +85,78 @@ try {
     }).catch(function() {});
   };
 
+  // Claves a restaurar desde IDB si localStorage esta vacio
+  var RESTORE_KEYS = [
+    'pension_utm_auth',
+    'pension_utm_last_caso',
+    'pension_utm_casos_index_v1'
+  ];
+
+  // Monkey-patch localStorage para que claves criticas se respalden automaticamente
+  // (cubre llamadas directas a localStorage.setItem fuera del adapter de Supabase)
+  var _origSetItem = localStorage.setItem.bind(localStorage);
+  var _origRemoveItem = localStorage.removeItem.bind(localStorage);
+  localStorage.setItem = function(key, value) {
+    _origSetItem(key, value);
+    if (key && (
+      key === 'pension_utm_last_caso' ||
+      key === 'pension_utm_casos_index_v1' ||
+      key.indexOf('pension_utm_caso_v1_') === 0
+    )) {
+      window._idbSet && window._idbSet(key, value);
+    }
+  };
+  localStorage.removeItem = function(key) {
+    _origRemoveItem(key);
+    if (key && (
+      key === 'pension_utm_last_caso' ||
+      key === 'pension_utm_casos_index_v1' ||
+      key.indexOf('pension_utm_caso_v1_') === 0
+    )) {
+      window._idbDelete && window._idbDelete(key);
+    }
+  };
+
   window._idbRestorePromise = window._idbOpen().then(function(db) {
     return new Promise(function(resolve) {
-      if (localStorage.getItem(AUTH_KEY) !== null) {
+      var authPresent = localStorage.getItem(AUTH_KEY) !== null;
+      if (authPresent) {
         window.dbg('IDB: localStorage ya tiene auth — no se restaura');
         resolve(); return;
       }
-      var tx  = db.transaction(IDB_STORE, 'readonly');
-      var req = tx.objectStore(IDB_STORE).get(AUTH_KEY);
+      // localStorage vacio — restaurar todas las claves respaldadas
+      window.dbg('IDB: localStorage vacio — iniciando restore completo...');
+      var store = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE);
+      var req = store.getAllKeys();
       req.onsuccess = function(e) {
-        var val = e.target.result;
-        if (val) {
-          try {
-            localStorage.setItem(AUTH_KEY, val);
-            window.dbg('IDB: OK auth restaurado desde IDB — len=' + val.length);
-          } catch(ex) {
-            window.dbg('IDB: ERROR restaurando — ' + ex.message);
-          }
-        } else {
-          window.dbg('IDB: sin backup previo — arranque sin sesion');
-        }
-        resolve();
+        var allKeys = e.target.result || [];
+        // Filtrar claves relevantes: lista fija + pension_utm_caso_v1_*
+        var toRestore = allKeys.filter(function(k) {
+          if (RESTORE_KEYS.indexOf(k) !== -1) return true;
+          if (k && k.indexOf('pension_utm_caso_v1_') === 0) return true;
+          return false;
+        });
+        window.dbg('IDB: ' + toRestore.length + ' claves a restaurar');
+        if (toRestore.length === 0) { window.dbg('IDB: sin backup previo'); resolve(); return; }
+        var pending = toRestore.length;
+        var restored = 0;
+        toRestore.forEach(function(k) {
+          var r2 = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(k);
+          r2.onsuccess = function(e2) {
+            var val = e2.target.result;
+            if (val) {
+              try { localStorage.setItem(k, val); restored++; } catch(ex) {}
+            }
+            pending--;
+            if (pending === 0) {
+              window.dbg('IDB: restore completo — ' + restored + ' claves restauradas');
+              resolve();
+            }
+          };
+          r2.onerror = function() { pending--; if (pending === 0) resolve(); };
+        });
       };
-      req.onerror = function() { window.dbg('IDB: ERROR leyendo backup'); resolve(); };
+      req.onerror = function() { window.dbg('IDB: ERROR leyendo keys'); resolve(); };
     });
   }).catch(function(e) {
     window.dbg('IDB: no disponible — ' + (e && e.message));
@@ -5374,7 +5423,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v72</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v72c</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5566,23 +5615,38 @@ async function sbSetTasasCache(snapshot) {
 // ══════════════════════════════════════════════════════════
 const SB_URL  = 'https://pipfpwpkzjajgmwcdrsv.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpcGZwd3Bremphamdtd2NkcnN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2OTE1MDcsImV4cCI6MjA5NTI2NzUwN30.cFjf2ycu6y-y6pWZMsaPcKhQ_m34I3kjsqT9-7Iz-7w';
-// -- Custom storage adapter: escribe en localStorage Y respalda en IDB --
+// -- Custom storage adapter: escribe en localStorage Y respalda claves criticas en IDB --
+// Claves respaldadas: auth, last_caso, casos_index, datos de cada caso
+var _IDB_BACKUP_KEYS = [
+  'pension_utm_auth',
+  'pension_utm_last_caso',
+  'pension_utm_casos_index_v1'
+];
+function _idbShouldBackup(key) {
+  if (_IDB_BACKUP_KEYS.indexOf(key) !== -1) return true;
+  if (key && key.indexOf('pension_utm_caso_v1_') === 0) return true; // datos de cada caso
+  return false;
+}
 var _sbStorage = {
   getItem: function(key) {
     return localStorage.getItem(key);
   },
   setItem: function(key, value) {
     localStorage.setItem(key, value);
-    if (key === 'pension_utm_auth') {
+    if (_idbShouldBackup(key)) {
       window._idbSet && window._idbSet(key, value);
-      window.dbg && window.dbg('IDB: backup auth escrito — len=' + (value ? value.length : 0));
+      if (key === 'pension_utm_auth') {
+        window.dbg && window.dbg('IDB: backup auth escrito — len=' + (value ? value.length : 0));
+      }
     }
   },
   removeItem: function(key) {
     localStorage.removeItem(key);
-    if (key === 'pension_utm_auth') {
+    if (_idbShouldBackup(key)) {
       window._idbDelete && window._idbDelete(key);
-      window.dbg && window.dbg('IDB: backup auth eliminado (logout)');
+      if (key === 'pension_utm_auth') {
+        window.dbg && window.dbg('IDB: backup auth eliminado (logout)');
+      }
     }
   }
 };
@@ -6226,11 +6290,17 @@ async function sbLoadCasos() {
   } catch(e) { dbg('LOAD: error leyendo pending_deletes: ' + e.message); }
 
   try {
-    // ── PASO 6: Descargar snapshot completo desde Supabase ──
-    const { data, error } = await sb.from('casos')
+    // ── PASO 6: Descargar snapshot completo desde Supabase (timeout 10s) ──
+    dbg('LOAD: fetch Supabase iniciado...');
+    const _fetchTimeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('TIMEOUT_10S')), 10000)
+    );
+    const _fetchCasos = sb.from('casos')
       .select('id, nombre, meta, data, saved_at, deleted_at, created_at')
       .eq('user_id', sbCurrentUser.id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .then(res => res);
+    const { data, error } = await Promise.race([_fetchCasos, _fetchTimeout]);
     if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
     const rows = data || [];
     dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase');
@@ -6387,7 +6457,31 @@ async function sbLoadCasos() {
         showWelcomeScreen();
       }
     }
-  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120)); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
+  } catch(e) {
+    dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120));
+    // Fallback: si hay datos locales, intentar restaurar el ultimo caso sin Supabase
+    try {
+      const localIdx = getCasosIndex();
+      const localLastId = localStorage.getItem('pension_utm_last_caso');
+      dbg('LOAD FALLBACK: ' + localIdx.length + ' casos locales, lastId=' + (localLastId||'null').slice(0,8));
+      if (localLastId && localIdx.find(c => c.id === localLastId)) {
+        dbg('LOAD FALLBACK: restaurando desde localStorage — ' + localLastId.slice(0,8));
+        document.body.classList.add('auth-ready');
+        await _utmReady;
+        switchCaso(localLastId);
+        return;
+      }
+      if (localIdx.length > 0) {
+        dbg('LOAD FALLBACK: sin lastId, mostrando welcome con casos locales');
+        renderCasosList();
+        document.body.classList.add('auth-ready');
+        showWelcomeScreen();
+        return;
+      }
+    } catch(e2) { dbg('LOAD FALLBACK ERROR: ' + e2.message); }
+    document.body.classList.add('auth-ready');
+    showWelcomeScreen();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

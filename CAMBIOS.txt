@@ -8,53 +8,51 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v72
-SW cache      : pension-utm-v143
+App version   : 2.0613.v72c
+SW cache      : pension-utm-v145
 Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX 1 — PERSISTENCIA DE SESIÓN: IndexedDB como respaldo del token de auth
---------------------------------------------------------------------------
-PROBLEMA: Al cerrar y reabrir la PWA en Android, localStorage aparece vacío
-(pension_utm_auth = AUSENTE). El SDK de Supabase no intenta recuperar la sesión
-desde el servidor si no encuentra el token localmente → INITIAL_SESSION user=none
-→ la app arranca sin sesión aunque el usuario ya había iniciado.
+FIX — IDB backup/restore ampliado a TODAS las claves críticas
+--------------------------------------------------------------
+PROBLEMA ANTERIOR (v72): IDB solo respaldaba pension_utm_auth. Si Android
+limpiaba todo el localStorage (no solo el auth), el fallback del timeout
+también fallaba porque getCasosIndex() devolvía [] y pension_utm_last_caso
+era null — resultado: welcome screen vacía aunque hubiera sesión válida.
 
-CAUSA: Chrome/Android puede limpiar localStorage de PWAs bajo presión de memoria.
-IndexedDB tiene mayor prioridad de persistencia en este entorno.
+CLAVES AHORA RESPALDADAS EN IDB:
+  - pension_utm_auth              (token de sesión Supabase)
+  - pension_utm_last_caso         (último caso activo)
+  - pension_utm_casos_index_v1    (índice de todos los casos)
+  - pension_utm_caso_v1_<id>      (datos de cada caso individual)
 
 IMPLEMENTACIÓN:
-a) Bloque IDB restore (antes del SDK de Supabase, en <head>):
-   - Al arrancar, si localStorage['pension_utm_auth'] está vacío,
-     lee IndexedDB y restaura el token ANTES de que Supabase inicialice.
-   - Supabase encuentra el token y restaura la sesión normalmente.
+1. IDB restore al arranque (ya existía):
+   Ampliado con getAllKeys() — detecta y restaura TODAS las claves
+   respaldadas de una vez, incluyendo datos de cada caso.
+   Solo corre si localStorage está vacío (pension_utm_auth ausente).
 
-b) Custom storage adapter (_sbStorage) en createClient:
-   - Reemplaza storage: window.localStorage por un objeto proxy.
-   - Cada setItem('pension_utm_auth', ...) replica el valor a IDB (fire-and-forget).
-   - Cada removeItem('pension_utm_auth') elimina de IDB también (logout limpio).
-   - getItem sigue leyendo localStorage (síncrono, compatible con SDK).
+2. Storage adapter _sbStorage (ya existía):
+   Ampliado con _idbShouldBackup() — respalda auth + last_caso +
+   casos_index + caso_v1_* automáticamente en cada setItem.
 
-LOGS ESPERADOS en debug panel:
-   - Primer arranque post-login: "IDB: backup auth escrito — len=XXXX"
-   - Arranque tras cierre con IDB poblado: "IDB: OK auth restaurado desde IDB"
-   - Arranque sin sesión previa: "IDB: sin backup previo — arranque sin sesion"
+3. Monkey-patch localStorage (NUEVO):
+   Dado que saveCasosIndex(), saveCurrentCasoNow() y otras funciones
+   escriben directo a localStorage (no pasan por _sbStorage), se
+   intercepta localStorage.setItem/removeItem para que las claves
+   pension_utm_* también se respalden en IDB automáticamente.
 
-FIX 2 — LOGS DUPLICADOS en debug panel
---------------------------------------------------------------------------
-PROBLEMA: Cada mensaje del debug panel aparecía dos veces al arrancar.
-CAUSA: dbg() real llamaba window._earlyDbgAdd(msg) cuando el panel ya existía,
-pero el IIFE ya había volcado el _dbgBuffer al panel en DOMContentLoaded.
-FIX: Eliminada la llamada a _earlyDbgAdd en dbg() real. Escribe directo al panel.
+FIX ANTERIOR (v72b, incluido):
+   sbLoadCasos() timeout 10s + fallback a localStorage si Supabase no responde.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
-v72  : IDB auth backup/restore + fix logs duplicados
+v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
+v72b : sbLoadCasos timeout 10s + fallback localStorage
+v72  : IDB auth backup/restore inicial + fix logs duplicados
 v71b : Eliminado _appVersion → reload (causa raíz doble init)
-v71a : Eliminado logger TAP scroll panel
-v71  : Eliminado controllerchange → reload
 ================================================================================
