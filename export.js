@@ -2810,8 +2810,8 @@ function crearCasoDesdeWelcome() {
   const nombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
   if (nombre.length < 2) return;
   hideWelcomeScreen();
-  // Crear caso usando la misma lógica que crearPerfil()
-  const id = 'caso_' + Date.now();
+  // Crear caso usando la misma lógica que crearCaso() — UUID real para que el DELETE funcione en Supabase
+  const id = crypto.randomUUID ? crypto.randomUUID() : 'caso_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
   const now = new Date().toISOString();
   const idx = getCasosIndex();
   idx.push({
