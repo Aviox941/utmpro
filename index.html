@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v77">
+ <meta name="app-version" content="2.0613.v75">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -89,7 +89,8 @@ try {
   var RESTORE_KEYS = [
     'pension_utm_auth',
     'pension_utm_last_caso',
-    'pension_utm_casos_index_v1'
+    'pension_utm_casos_index_v1',
+    'pending_deletes'  // Fix 2: sobrevivir reinicios de Android
   ];
 
   // Monkey-patch localStorage para que claves criticas se respalden automaticamente
@@ -101,6 +102,7 @@ try {
     if (key && (
       key === 'pension_utm_last_caso' ||
       key === 'pension_utm_casos_index_v1' ||
+      key === 'pending_deletes' ||  // Fix 3: respaldar pending_deletes
       key.indexOf('pension_utm_caso_v1_') === 0
     )) {
       window._idbSet && window._idbSet(key, value);
@@ -111,6 +113,7 @@ try {
     if (key && (
       key === 'pension_utm_last_caso' ||
       key === 'pension_utm_casos_index_v1' ||
+      key === 'pending_deletes' ||  // Fix 3: limpiar pending_deletes de IDB también
       key.indexOf('pension_utm_caso_v1_') === 0
     )) {
       window._idbDelete && window._idbDelete(key);
@@ -120,8 +123,21 @@ try {
   window._idbRestorePromise = window._idbOpen().then(function(db) {
     return new Promise(function(resolve) {
       var authPresent = localStorage.getItem(AUTH_KEY) !== null;
+
+      // Fix 4: pending_deletes se restaura SIEMPRE (con o sin auth)
+      // para que los deletes pendientes sobrevivan reinicios de Android.
+      var store4 = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE);
+      var r4 = store4.get('pending_deletes');
+      r4.onsuccess = function(e4) {
+        var pdVal = e4.target.result;
+        if (pdVal && localStorage.getItem('pending_deletes') === null) {
+          try { _origSetItem('pending_deletes', pdVal); window.dbg('IDB: pending_deletes restaurado (' + pdVal + ')'); } catch(ex) {}
+        }
+      };
+      r4.onerror = function() {};
+
       if (authPresent) {
-        window.dbg('IDB: localStorage ya tiene auth — no se restaura');
+        window.dbg('IDB: localStorage ya tiene auth — restore parcial (solo pending_deletes)');
         resolve(); return;
       }
       // localStorage vacio — restaurar todas las claves respaldadas
@@ -5426,7 +5442,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v77</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v76</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5623,7 +5639,8 @@ const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 var _IDB_BACKUP_KEYS = [
   'pension_utm_auth',
   'pension_utm_last_caso',
-  'pension_utm_casos_index_v1'
+  'pension_utm_casos_index_v1',
+  'pending_deletes'  // Fix 2b: respaldar deletes pendientes
 ];
 function _idbShouldBackup(key) {
   if (_IDB_BACKUP_KEYS.indexOf(key) !== -1) return true;
@@ -6322,40 +6339,32 @@ async function sbLoadCasos() {
   const _localReady = async () => {
     document.body.classList.add('auth-ready');
     await _utmReady;
-    // Si ya hay un caso activo (ej: visibilitychange rellamando sbLoadCasos), no tocar nada
-    if (activeCasoId) {
-      dbg('LOAD[L2] caso ya activo (' + activeCasoId.slice(0,8) + ') — omitiendo restore');
-      return;
-    }
-    // Resolver qué caso cargar: lastId si existe, si no el último del índice
-    const _targetId = (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId))
-      ? _resolvedLastId
-      : (_localIdx.length > 0 ? _localIdx[_localIdx.length - 1].id : null);
-
-    if (_targetId) {
-      dbg('LOAD[L2] restaurando caso local: ' + _targetId.slice(0,8));
-      if (activeCasoId !== _targetId) {
-        switchCaso(_targetId);
-      } else {
-        // Re-aplicar sesión si pantalla vacía
-        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-        if (rawCheck) {
-          try {
-            const sCheck = JSON.parse(rawCheck);
-            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-              !document.getElementById('clpAmount')?.value &&
-              !document.getElementById('salaryAmount')?.value;
-            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-              applySession(sCheck);
-            }
-          } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
+    if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
+      if (!(_welcomeScreenVisible && window._loadFromVisibility)) {
+        dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
+        if (activeCasoId !== _resolvedLastId) {
+          switchCaso(_resolvedLastId);
+        } else {
+          // Re-aplicar sesión si pantalla vacía
+          const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+          if (rawCheck) {
+            try {
+              const sCheck = JSON.parse(rawCheck);
+              const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+                !document.getElementById('clpAmount')?.value &&
+                !document.getElementById('salaryAmount')?.value;
+              if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+                applySession(sCheck);
+              }
+            } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
+          }
+          updateActiveCasoBadge();
+          renderCasosList();
         }
-        updateActiveCasoBadge();
-        renderCasosList();
+        return;
       }
-      return;
     }
-    // Sin ningún caso local → abrir modal nuevo caso
+    // Sin caso válido local → welcome
     renderCasosList();
     showWelcomeScreen();
   };
@@ -6431,7 +6440,12 @@ async function _sbSyncBackground(rows) {
         }
       }
 
-      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
+      // Fix 1: no restaurar casos que ya fueron eliminados localmente
+      if (!_deletedCasoIds.has(row.id)) {
+        finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
+      } else {
+        dbg('SYNC[BG] ⛔ ' + row.id.slice(0,8) + ' — en _deletedCasoIds, ignorando');
+      }
     });
 
     // Rescatar casos locales huérfanos recientes (creados offline)
@@ -6454,8 +6468,8 @@ async function _sbSyncBackground(rows) {
     renderCasosList();
     dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
 
-    // ── Si no hay caso activo y Supabase trajo casos, restaurar automáticamente ──
-    if (!activeCasoId && finalIdx.length > 0) {
+    // ── Si welcome screen está visible y Supabase trajo casos, restaurar automáticamente ──
+    if (_welcomeScreenVisible && finalIdx.length > 0) {
       const metaId = sbCurrentUser?.user_metadata?.last_caso || null;
       const localLastId = localStorage.getItem('pension_utm_last_caso');
       const targetId = (metaId && finalIdx.find(c => c.id === metaId))
@@ -6463,7 +6477,8 @@ async function _sbSyncBackground(rows) {
         : (localLastId && finalIdx.find(c => c.id === localLastId))
           ? localLastId
           : finalIdx[finalIdx.length - 1].id;
-      dbg('SYNC[BG] sin caso activo + casos encontrados → restaurando: ' + targetId.slice(0,8));
+      dbg('SYNC[BG] welcome visible + casos encontrados → restaurando: ' + targetId.slice(0,8));
+      hideWelcomeScreen();
       switchCaso(targetId);
     }
 
