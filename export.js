@@ -1083,8 +1083,8 @@ function showNewCasoModal() {
 function hideNewCasoModal() {
   document.getElementById('newCasoModal').classList.replace('flex','hidden');
   unlockBody();
-  // Si se cerró sin crear caso → crear borrador automático
-  if (!activeCasoId) {
+  // Si se cerró sin crear caso Y no existe ningún caso → crear borrador automático
+  if (!activeCasoId && getCasosIndex().length === 0) {
     _crearBorrador();
   }
   const app = document.getElementById('app-container');

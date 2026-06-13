@@ -6323,7 +6323,7 @@ async function sbLoadCasos() {
     document.body.classList.add('auth-ready');
     await _utmReady;
     if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
-      if (!(_welcomeScreenVisible && window._loadFromVisibility)) {
+      {
         dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
         if (activeCasoId !== _resolvedLastId) {
           switchCaso(_resolvedLastId);
@@ -6446,8 +6446,8 @@ async function _sbSyncBackground(rows) {
     renderCasosList();
     dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
 
-    // ── Si welcome screen está visible y Supabase trajo casos, restaurar automáticamente ──
-    if (_welcomeScreenVisible && finalIdx.length > 0) {
+    // ── Si no hay caso activo y Supabase trajo casos, restaurar automáticamente ──
+    if (!activeCasoId && finalIdx.length > 0) {
       const metaId = sbCurrentUser?.user_metadata?.last_caso || null;
       const localLastId = localStorage.getItem('pension_utm_last_caso');
       const targetId = (metaId && finalIdx.find(c => c.id === metaId))
@@ -6455,8 +6455,7 @@ async function _sbSyncBackground(rows) {
         : (localLastId && finalIdx.find(c => c.id === localLastId))
           ? localLastId
           : finalIdx[finalIdx.length - 1].id;
-      dbg('SYNC[BG] welcome visible + casos encontrados → restaurando: ' + targetId.slice(0,8));
-      hideWelcomeScreen();
+      dbg('SYNC[BG] sin caso activo + casos encontrados → restaurando: ' + targetId.slice(0,8));
       switchCaso(targetId);
     }
 
