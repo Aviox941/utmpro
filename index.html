@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v74">
+ <meta name="app-version" content="2.0613.v75">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -330,8 +330,11 @@ try {
 <!-- Bloquea cualquier flash: oculta el app-container hasta que el login resuelva -->
 
 <script>
-// Safety: si en 800ms Supabase no respondió, mostrar la app igual
-setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
+// Safety: si en 4s sbLoadCasos() no agregó auth-ready (Supabase nunca respondió),
+// mostrar la app de todos modos. El timeout anterior era 800ms — muy corto en Android,
+// causaba flash de welcome screen cuando IDB tardaba más de 800ms en restaurar.
+// Ahora sbLoadCasos() agrega auth-ready cuando tiene certeza; este es solo el último recurso.
+setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 </script>
 <script>
 // ── Panel de diagnóstico temprano — aparece con 5 taps en cualquier lugar ──
@@ -5423,7 +5426,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v74</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v75</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

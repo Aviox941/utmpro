@@ -8,45 +8,45 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v74
-SW cache      : pension-utm-v147
-Archivos mod  : index.html, sw.js, CAMBIOS.txt
+App version   : 2.0613.v75
+SW cache      : pension-utm-v148
+Archivos mod  : index.html, sw.js, modals.html, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Welcome screen falsa al iniciar + debug panel oculto por defecto
------------------------------------------------------------------------
+FIX — Flash de welcome screen al iniciar + quitar título/logo de welcome
+------------------------------------------------------------------------
 
-PROBLEMA 1: Al iniciar sesión, la pantalla de bienvenida aparecía aunque el
-usuario tenía casos guardados. Causa raíz: sbLoadCasos() Fase 1 leía
-localStorage antes de que _idbRestorePromise terminara de restaurarlo
-(Android limpia localStorage; IDB lo recupera de forma asíncrona).
+PROBLEMA 1: Welcome screen aparecía 1-2 segundos y luego desaparecía.
+Causa raíz: el setTimeout de 800ms en el <head> agregaba auth-ready
+antes de que sbLoadCasos() tuviera certeza sobre si mostrar welcome o no.
+En Android, cuando IDB restore tardaba más de 800ms, se mostraba welcome
+brevemente y luego Supabase la ocultaba (red de seguridad de v74).
 
-FIX 1 — Fase 1 espera IDB restore (index.html):
-  sbLoadCasos() ahora hace await Promise.race([_idbRestorePromise, timeout(800ms)])
-  antes de leer localStorage. Si el restore no termina en 800ms, continúa igual.
-  Así getCasosIndex() ya lee el índice restaurado y no muestra welcome en falso.
+FIX 1 — Timeout de fallback subido de 800ms → 4000ms (index.html):
+  El fallback en el <head> ahora espera 4 segundos antes de forzar auth-ready.
+  sbLoadCasos() ya agrega auth-ready cuando tiene certeza (con o sin IDB restore).
+  El timeout largo solo actúa si Supabase nunca responde (caso extremo).
+  Resultado: sin flash, sin delay visible — el usuario ve el estado correcto
+  desde el primer render.
 
-FIX 2 — Red de seguridad en _sbSyncBackground() (index.html):
-  Si por alguna razón la Fase 1 igual mostró welcome screen, cuando Supabase
-  termina el fetch en background y trae casos, se ejecuta automáticamente:
-    hideWelcomeScreen() + switchCaso(targetId)
-  Prioridad del targetId: user_metadata.last_caso → pension_utm_last_caso → último del índice.
+PROBLEMA 2: La welcome screen mostraba el logo/título "Liquidación Pro"
+ocupando espacio innecesario y apareciendo muy abajo en la pantalla.
 
-PROBLEMA 2: El panel de debug aparecía abierto al iniciar la app.
-FIX 3 — Debug panel oculto por defecto (index.html):
-  Cambiado display:block → display:none en el panel de diagnóstico temprano.
-  Sigue accesible desde sidebar → "Consola de debug".
+FIX 2 — UI de welcome screen (modals.html):
+  - Eliminado bloque de logo + título ("Liquidación Pro" + subtítulo)
+  - Cambiado justify-content: center → flex-start con padding-top: 52px
+  - El card ahora aparece más arriba en la pantalla
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
 v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background
 v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
 v72b : sbLoadCasos timeout 10s + fallback localStorage
 v72  : IDB auth backup/restore inicial + fix logs duplicados
-v71b : Eliminado _appVersion → reload (causa raíz doble init)
 ================================================================================
