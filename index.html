@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v66">
+ <meta name="app-version" content="2.0612.v67d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2021,9 +2021,11 @@ utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 // dispare INITIAL_SESSION y llame switchCaso → applySession con utmData vacío.
 cargarUTMLocal();
 async function fetchUTM() {
+dbg('UTM[1] fetchUTM() iniciado — utmData.length=' + utmData.length);
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
-renderUtmTicker(); // FIX: mostrar datos locales de inmediato sin esperar la red
+dbg('UTM[2] cargarUTMLocal() hecho — utmData.length=' + utmData.length);
+renderUtmTicker();
 setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
@@ -2033,6 +2035,8 @@ try {
   const raw = localStorage.getItem(UTM_CACHE_KEY);
   if (raw) {
     const { ts, valores } = JSON.parse(raw);
+    const edadDias = ((Date.now() - ts) / 86400000).toFixed(1);
+    dbg('UTM[3] localStorage cache — edad=' + edadDias + 'd vigente=' + (Date.now() - ts < UTM_CACHE_TTL));
     if (Date.now() - ts < UTM_CACHE_TTL) {
       Object.entries(valores).forEach(([key, valor]) => {
         const [anio, mIdx] = key.split('-').map(Number);
@@ -2045,17 +2049,24 @@ try {
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
       renderUtmTicker();
+      dbg('UTM[4] _utmReady resuelto via localStorage — utmData.length=' + utmData.length);
       _utmReadyResolve();
-      return; // ← localStorage vigente, sin llamadas
+      return;
+    } else {
+      dbg('UTM[3b] localStorage vencido — continuando a Supabase');
     }
+  } else {
+    dbg('UTM[3c] localStorage vacio — continuando a Supabase');
   }
-} catch(e) {}
+} catch(e) { dbg('UTM[3e] localStorage ERROR: ' + e.message); }
 
 // 2. Intentar caché centralizado de Supabase
 // (evita llamadas a CMF si otro usuario ya actualizó recientemente)
+dbg('UTM[5] intentando sbGetUtmCache...');
 if (typeof sbGetUtmCache === 'function') {
   try {
     const sbValores = await sbGetUtmCache();
+    dbg('UTM[6] sbGetUtmCache result: ' + (sbValores ? Object.keys(sbValores).length + ' entradas' : 'null'));
     if (sbValores) {
       Object.entries(sbValores).forEach(([key, valor]) => {
         const [anio, mIdx] = key.split('-').map(Number);
@@ -2067,22 +2078,29 @@ if (typeof sbGetUtmCache === 'function') {
         }
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
-      // Propagar a localStorage para la próxima carga sin red
       try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: sbValores })); } catch(e) {}
       renderUtmTicker();
+      dbg('UTM[7] _utmReady resuelto via Supabase — utmData.length=' + utmData.length);
       _utmReadyResolve();
-      return; // ← Supabase vigente, sin llamada a CMF
+      return;
+    } else {
+      dbg('UTM[6b] sbGetUtmCache vacio — continuando a CMF');
     }
-  } catch(e) { console.warn('[fetchUTM] sbGetUtmCache error:', e); }
+  } catch(e) { dbg('UTM[6e] sbGetUtmCache ERROR: ' + e.message); }
+} else {
+  dbg('UTM[5b] sbGetUtmCache no disponible');
 }
 // 3. Sin caché válido → llamar a la API CMF y actualizar Supabase para todos
 const CMF_KEY = 'ab35052100de900ef5d4ee73030e1a56f3a27f13';
+dbg('UTM[8] bloque CMF — todosLosAnios keys=' + Object.keys(todosLosAnios).join(','));
 const aniosAConsultar = [...new Set(
 Object.entries(todosLosAnios)
 .filter(([,vals]) => vals.some(v => v === 0))
 .map(([y]) => parseInt(y))
 )];
-if (aniosAConsultar.length === 0) { renderUtmTicker(); _utmReadyResolve(); return; }
+dbg('UTM[9] aniosAConsultar=' + JSON.stringify(aniosAConsultar));
+if (aniosAConsultar.length === 0) { renderUtmTicker(); dbg('UTM[10] early return sin CMF — _utmReady resuelto'); _utmReadyResolve(); return; }
+dbg('UTM[11] llamando CMF API para ' + aniosAConsultar.length + ' años...');
 try {
   const results = await Promise.all(aniosAConsultar.map(y =>
     fetch(`https://api.cmfchile.cl/api-sbifv3/recursos_api/utm/${y}?apikey=${CMF_KEY}&formato=json`, { signal: AbortSignal.timeout(8000) })
@@ -2129,6 +2147,7 @@ try {
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
+dbg('UTM[12] _utmReady resuelto via CMF — utmData.length=' + utmData.length);
 _utmReadyResolve();
 }
 async function fetchTasasCMF() {
@@ -5254,7 +5273,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v66</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v67d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5359,7 +5378,15 @@ function toggleDebugPanel() {
   }
 }
 
-// ── DEBUG AUTO-SHOW: desactivado en v66 (diagnóstico completado) ──
+// ── DEBUG AUTO-SHOW: abre el panel inmediatamente al cargar ──
+window.addEventListener('DOMContentLoaded', () => {
+  const p = document.getElementById('_dbgPanel');
+  if (p) {
+    p.style.display = 'block';
+    dbg('=== DEBUG AUTO-SHOW v67d ===');
+    dbg('Panel abierto al DOMContentLoaded');
+  }
+});
 
 // ══════════════════════════════════════════════════════════
 // SUPABASE CACHE — UTM Y TASAS CMF
@@ -6179,11 +6206,11 @@ async function sbLoadCasos() {
       // Hay último caso recordado → restaurar directo sin pantalla intermedia
       dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
       document.body.classList.add('auth-ready');
-      // ── Esperar que fetchUTM() haya poblado utmData antes de applySession ──
-      // Si INITIAL_SESSION llega antes de window.onload, utmData estaría vacío
-      // y startIndex/endIndex no se reconstruirían correctamente.
+      dbg('LOAD[A] antes de await _utmReady — utmData.length=' + utmData.length);
       await _utmReady;
+      dbg('LOAD[B] _utmReady resuelto — utmData.length=' + utmData.length + ' activeCasoId=' + (activeCasoId||'null'));
       if (activeCasoId !== lastId) {
+        dbg('LOAD[C] llamando switchCaso(' + lastId.slice(0,8) + ')');
         switchCaso(lastId);
       } else {
         dbg('LOAD: caso ya activo — verificando si pantalla tiene datos');

@@ -8,33 +8,39 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v66
-SW cache      : pension-utm-v134
+App version   : 2.0612.v67d  ← versión de diagnóstico profundo, TEMPORAL
+SW cache      : pension-utm-v135
 Archivos mod  : index.html, sw.js
 
 ================================================================================
-BUG CORREGIDO
+PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-PROBLEMA: Al reabrir la app, no se restauraba el último caso activo.
-          La pantalla quedaba en blanco aunque user_metadata y localStorage
-          tenían el last_caso correcto.
+VERSIÓN DE DIAGNÓSTICO PROFUNDO — panel de debug abre al DOMContentLoaded
+(antes que cualquier auth o fetch), con logs numerados en cada rama de fetchUTM.
 
-CAUSA RAÍZ: En fetchUTM() (index.html), cuando todos los años UTM ya
-          tienen valores en utmData (no hay ceros que rellenar) y el caché
-          de localStorage está vencido o ausente, el código cae al bloque CMF
-          y ejecuta este early return sin resolver _utmReady:
+Logs agregados:
+  UTM[1]  fetchUTM() iniciado
+  UTM[2]  después de cargarUTMLocal()
+  UTM[3]  localStorage cache — edad en días, vigente true/false
+  UTM[3b] localStorage vencido
+  UTM[3c] localStorage vacío
+  UTM[3e] localStorage ERROR
+  UTM[4]  _utmReady resuelto vía localStorage
+  UTM[5]  intentando sbGetUtmCache
+  UTM[6]  resultado de sbGetUtmCache (n entradas o null)
+  UTM[6b] sbGetUtmCache vacío
+  UTM[6e] sbGetUtmCache ERROR
+  UTM[7]  _utmReady resuelto vía Supabase
+  UTM[8]  bloque CMF — keys de todosLosAnios
+  UTM[9]  aniosAConsultar (años con ceros)
+  UTM[10] early return sin CMF — _utmReady resuelto
+  UTM[11] llamando CMF API
+  UTM[12] _utmReady resuelto vía CMF
+  LOAD[A] antes de await _utmReady
+  LOAD[B] _utmReady resuelto — utmData.length + activeCasoId
+  LOAD[C] llamando switchCaso
 
-            if (aniosAConsultar.length === 0) { renderUtmTicker(); return; }
-
-          _utmReady nunca resolvía → sbLoadCasos() quedaba colgado en
-          "await _utmReady" → switchCaso() nunca se llamaba → activeCasoId
-          permanecía null → app abre en blanco.
-
-FIX: Agregar _utmReadyResolve() en ese return temprano:
-
-            if (aniosAConsultar.length === 0) { renderUtmTicker(); _utmReadyResolve(); return; }
-
-ADICIONAL: Panel de debug auto-show desactivado (diagnóstico completado).
+Una vez capturado el log, se entregará v68 con el fix definitivo.
 
 ================================================================================
