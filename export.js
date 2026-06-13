@@ -711,6 +711,12 @@ function switchCaso(id) {
 if (activeCasoId) saveCurrentCasoNow();
 activeCasoId = id;
 localStorage.setItem('pension_utm_last_caso', id);
+// ── Persistir en user_metadata para sobrevivir cambios de origen (Vercel previews, etc.) ──
+// Fire-and-forget: no bloquea UI. Si falla, localStorage sigue siendo el fallback.
+if (typeof sb !== 'undefined' && typeof sbCurrentUser !== 'undefined' && sbCurrentUser) {
+  sb.auth.updateUser({ data: { last_caso: id } })
+    .catch(e => dbg('SWITCH: user_metadata update error — ' + e.message));
+}
 // Ocultar welcome screen si estaba visible (restauración de caso)
 if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();
 // Limpiar siempre antes de cargar el nuevo caso
@@ -725,7 +731,27 @@ dbg('SWITCH: applySession saved_at='+(s.saved_at||'?').slice(0,19));
 applySession(s);
 } catch(e) { dbg('SWITCH PARSE ERROR: '+e.message); }
 } else {
-dbg('SWITCH: SIN DATOS localStorage — caso nuevo o sin datos locales');
+// Sin datos locales — intentar bajar desde Supabase directamente
+dbg('SWITCH: SIN DATOS localStorage — intentando fetch desde Supabase');
+if (typeof sb !== 'undefined' && typeof sbCurrentUser !== 'undefined' && sbCurrentUser) {
+  sb.from('casos').select('data').eq('id', id).eq('user_id', sbCurrentUser.id).single()
+    .then(({ data: row, error }) => {
+      if (error || !row?.data) { dbg('SWITCH FETCH ERROR: ' + (error?.message || 'sin datos')); return; }
+      const payload = row.data;
+      const hasData = payload && typeof payload === 'object' && (
+        payload.utmAmount !== undefined || payload.clpAmount !== undefined || payload.calculationMode !== undefined
+      );
+      if (!hasData) { dbg('SWITCH FETCH: payload vacío'); return; }
+      localStorage.setItem(getCasoKey(id), JSON.stringify(payload));
+      dbg('SWITCH FETCH: datos recuperados desde Supabase, aplicando sesión');
+      try { applySession(payload); } catch(e) { dbg('SWITCH FETCH APPLY ERROR: '+e.message); }
+      updateActiveCasoBadge();
+      renderCasosList();
+    })
+    .catch(e => dbg('SWITCH FETCH EXCEPTION: '+e.message));
+} else {
+  dbg('SWITCH: sin Supabase o usuario — caso nuevo vacío');
+}
 }
 updateActiveCasoBadge();
 renderCasosList();

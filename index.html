@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v61">
+ <meta name="app-version" content="2.0612.v69d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -190,7 +190,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
 (function() {
   var p = document.createElement('div');
   p.id = '_dbgPanel';
-  p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
+  p.style.cssText = 'display:block;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
     // Panel controlado desde sidebar — ver toggleDebugPanel()
@@ -1885,6 +1885,11 @@ const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 let utmData = [];
 let todosLosAnios = {}; // FIX Bug A: declarado a nivel módulo para que fetchUTM pueda accederlo
+// ── Promesa que se resuelve cuando fetchUTM() termina (utmData poblado) ──
+// sbLoadCasos() la espera antes de restaurar el caso activo para evitar
+// que applySession() corra con utmData vacío (race condition INITIAL_SESSION vs onload).
+let _utmReadyResolve;
+const _utmReady = new Promise(res => { _utmReadyResolve = res; });
 let startIndex = -1, endIndex = -1;
 // Rango que se preserva para el cálculo aunque el formulario se limpie
 let calcStartIndex = -1, calcEndIndex = -1;
@@ -2016,9 +2021,11 @@ utmData = fetched.sort((a, b) => a.sortKey - b.sortKey);
 // dispare INITIAL_SESSION y llame switchCaso → applySession con utmData vacío.
 cargarUTMLocal();
 async function fetchUTM() {
+dbg('UTM[1] fetchUTM() iniciado — utmData.length=' + utmData.length);
 setLoadingProgress(10, 'Cargando datos UTM...');
 cargarUTMLocal();
-renderUtmTicker(); // FIX: mostrar datos locales de inmediato sin esperar la red
+dbg('UTM[2] cargarUTMLocal() hecho — utmData.length=' + utmData.length);
+renderUtmTicker();
 setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
@@ -2028,6 +2035,8 @@ try {
   const raw = localStorage.getItem(UTM_CACHE_KEY);
   if (raw) {
     const { ts, valores } = JSON.parse(raw);
+    const edadDias = ((Date.now() - ts) / 86400000).toFixed(1);
+    dbg('UTM[3] localStorage cache — edad=' + edadDias + 'd vigente=' + (Date.now() - ts < UTM_CACHE_TTL));
     if (Date.now() - ts < UTM_CACHE_TTL) {
       Object.entries(valores).forEach(([key, valor]) => {
         const [anio, mIdx] = key.split('-').map(Number);
@@ -2040,16 +2049,24 @@ try {
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
       renderUtmTicker();
-      return; // ← localStorage vigente, sin llamadas
+      dbg('UTM[4] _utmReady resuelto via localStorage — utmData.length=' + utmData.length);
+      _utmReadyResolve();
+      return;
+    } else {
+      dbg('UTM[3b] localStorage vencido — continuando a Supabase');
     }
+  } else {
+    dbg('UTM[3c] localStorage vacio — continuando a Supabase');
   }
-} catch(e) {}
+} catch(e) { dbg('UTM[3e] localStorage ERROR: ' + e.message); }
 
 // 2. Intentar caché centralizado de Supabase
 // (evita llamadas a CMF si otro usuario ya actualizó recientemente)
+dbg('UTM[5] intentando sbGetUtmCache...');
 if (typeof sbGetUtmCache === 'function') {
   try {
     const sbValores = await sbGetUtmCache();
+    dbg('UTM[6] sbGetUtmCache result: ' + (sbValores ? Object.keys(sbValores).length + ' entradas' : 'null'));
     if (sbValores) {
       Object.entries(sbValores).forEach(([key, valor]) => {
         const [anio, mIdx] = key.split('-').map(Number);
@@ -2061,21 +2078,29 @@ if (typeof sbGetUtmCache === 'function') {
         }
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
-      // Propagar a localStorage para la próxima carga sin red
       try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: sbValores })); } catch(e) {}
       renderUtmTicker();
-      return; // ← Supabase vigente, sin llamada a CMF
+      dbg('UTM[7] _utmReady resuelto via Supabase — utmData.length=' + utmData.length);
+      _utmReadyResolve();
+      return;
+    } else {
+      dbg('UTM[6b] sbGetUtmCache vacio — continuando a CMF');
     }
-  } catch(e) { console.warn('[fetchUTM] sbGetUtmCache error:', e); }
+  } catch(e) { dbg('UTM[6e] sbGetUtmCache ERROR: ' + e.message); }
+} else {
+  dbg('UTM[5b] sbGetUtmCache no disponible');
 }
 // 3. Sin caché válido → llamar a la API CMF y actualizar Supabase para todos
 const CMF_KEY = 'ab35052100de900ef5d4ee73030e1a56f3a27f13';
+dbg('UTM[8] bloque CMF — todosLosAnios keys=' + Object.keys(todosLosAnios).join(','));
 const aniosAConsultar = [...new Set(
 Object.entries(todosLosAnios)
 .filter(([,vals]) => vals.some(v => v === 0))
 .map(([y]) => parseInt(y))
 )];
-if (aniosAConsultar.length === 0) { renderUtmTicker(); return; }
+dbg('UTM[9] aniosAConsultar=' + JSON.stringify(aniosAConsultar));
+if (aniosAConsultar.length === 0) { renderUtmTicker(); dbg('UTM[10] early return sin CMF — _utmReady resuelto'); _utmReadyResolve(); return; }
+dbg('UTM[11] llamando CMF API para ' + aniosAConsultar.length + ' años...');
 try {
   const results = await Promise.all(aniosAConsultar.map(y =>
     fetch(`https://api.cmfchile.cl/api-sbifv3/recursos_api/utm/${y}?apikey=${CMF_KEY}&formato=json`, { signal: AbortSignal.timeout(8000) })
@@ -2122,6 +2147,8 @@ try {
   }
 } catch(err) { dbg('CMF API ERROR: ' + (err?.message||err)); }
 renderUtmTicker();
+dbg('UTM[12] _utmReady resuelto via CMF — utmData.length=' + utmData.length);
+_utmReadyResolve();
 }
 async function fetchTasasCMF() {
   // JUDICIAL (Art. 19 Ley 14.908): solo tasa reajustable única.
@@ -5100,10 +5127,34 @@ localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // visibilitychange → 'hidden' es el evento más confiable en mobile.
 document.addEventListener('visibilitychange', async () => {
   // Al volver a primer plano → sync Supabase en background (no bloquear UI)
-  if (document.visibilityState === 'visible' && sbCurrentUser) {
-    dbg('VISIBILITY: app en primer plano — sync Supabase en background');
-    window._loadFromVisibility = true;
-    sbLoadCasos().finally(() => { window._loadFromVisibility = false; });
+  if (document.visibilityState === 'visible') {
+    if (sbCurrentUser) {
+      dbg('VISIBILITY: app en primer plano (usuario activo) — sync Supabase');
+      window._loadFromVisibility = true;
+      sbLoadCasos().finally(() => { window._loadFromVisibility = false; });
+    } else {
+      // sbCurrentUser aún null — Supabase no inicializó (proceso recién reiniciado).
+      // onAuthStateChange(INITIAL_SESSION) lo manejará; si no llega en 3s, forzar getSession.
+      dbg('VISIBILITY: app en primer plano (sin usuario aún) — esperando INITIAL_SESSION');
+      clearTimeout(window._visibilityFallbackTimer);
+      window._visibilityFallbackTimer = setTimeout(async () => {
+        if (sbCurrentUser) return; // ya resolvió por INITIAL_SESSION
+        dbg('VISIBILITY FALLBACK: forzando getSession tras 3s sin INITIAL_SESSION');
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          if (session?.user && !sbCurrentUser) {
+            dbg('VISIBILITY FALLBACK: sesión recuperada, cargando casos');
+            sbCurrentUser = session.user;
+            sbAccessToken = session.access_token || null;
+            if (typeof hideLoginScreen === 'function') hideLoginScreen();
+            await sbLoadCasos();
+          } else if (!session?.user) {
+            dbg('VISIBILITY FALLBACK: sin sesión — mostrando login');
+            if (typeof showLoginScreen === 'function') showLoginScreen();
+          }
+        } catch(e) { dbg('VISIBILITY FALLBACK ERROR: ' + e.message); }
+      }, 3000);
+    }
     return;
   }
   if (document.visibilityState !== 'hidden') return;
@@ -5222,7 +5273,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v61</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v69d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5326,6 +5377,12 @@ function toggleDebugPanel() {
     closeSidebar();
   }
 }
+
+// ── DEBUG AUTO-SHOW: panel ya visible desde creacion (display:block en IIFE) ──
+// Agregar marca de inicio para saber que el panel esta activo
+window.addEventListener('DOMContentLoaded', () => {
+  dbg('=== DEBUG AUTO-SHOW v69d — panel visible desde inicio ===');
+});
 
 // ══════════════════════════════════════════════════════════
 // SUPABASE CACHE — UTM Y TASAS CMF
@@ -6041,7 +6098,7 @@ async function sbLoadCasos() {
       .order('created_at', { ascending: true });
     if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
     const rows = data || [];
-    dbg('LOAD: ' + rows.length + ' casos desde Supabase');
+    dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase');
 
     // ── PASO 5: LAST WRITE WINS — comparar updated_at entre servidor y local ──
     const sbIds = new Set(rows.map(r => r.id));
@@ -6111,18 +6168,31 @@ async function sbLoadCasos() {
 
     // ── Aplicar índice final al localStorage ──
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
-    dbg('LOAD: índice guardado con ' + finalIdx.length + ' casos');
+    dbg('LOAD[SB2] indice guardado con ' + finalIdx.length + ' casos');
 
     renderCasosList();
+    dbg('LOAD[SB3] finalIdx.length=' + finalIdx.length);
     if (finalIdx.length === 0) {
-      // v38: sin casos → welcome screen (reemplaza openProfileModal)
+      dbg('LOAD[SB3b] sin casos — mostrando welcome screen');
       document.body.classList.add('auth-ready');
       showWelcomeScreen();
       return;
     }
 
     // ── Restaurar último caso recordado, o mostrar welcome screen para elegir ──
-    const lastId = localStorage.getItem('pension_utm_last_caso');
+    // Prioridad: user_metadata (cross-origin) > localStorage (same-origin)
+    const metaLastId = sbCurrentUser?.user_metadata?.last_caso || null;
+    const localLastId = localStorage.getItem('pension_utm_last_caso');
+    dbg('LOAD[SB4] metaLastId=' + (metaLastId||'null').slice(0,8) + ' localLastId=' + (localLastId||'null').slice(0,8));
+    const lastId = (metaLastId && finalIdx.find(c => c.id === metaLastId))
+      ? metaLastId
+      : localLastId;
+    dbg('LOAD[SB5] lastId=' + (lastId||'null').slice(0,8) + ' enIndice=' + !!(lastId && finalIdx.find(c => c.id === lastId)));
+    // Sincronizar localStorage con el valor de metadata si difieren
+    if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
+      localStorage.setItem('pension_utm_last_caso', metaLastId);
+      dbg('LOAD: lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
+    }
     if (lastId && finalIdx.find(c => c.id === lastId)) {
       // Solo respetar welcome screen si venimos de visibilitychange (no inicio frío)
       if (_welcomeScreenVisible && window._loadFromVisibility) {
@@ -6134,20 +6204,55 @@ async function sbLoadCasos() {
       // Hay último caso recordado → restaurar directo sin pantalla intermedia
       dbg('LOAD: lastId=' + lastId.slice(0,6) + ' — restaurando directo');
       document.body.classList.add('auth-ready');
+      dbg('LOAD[A] antes de await _utmReady — utmData.length=' + utmData.length);
+      await _utmReady;
+      dbg('LOAD[B] _utmReady resuelto — utmData.length=' + utmData.length + ' activeCasoId=' + (activeCasoId||'null'));
       if (activeCasoId !== lastId) {
+        dbg('LOAD[C] llamando switchCaso(' + lastId.slice(0,8) + ')');
         switchCaso(lastId);
       } else {
-        dbg('LOAD: caso ya activo, no se hace switch');
+        dbg('LOAD: caso ya activo — verificando si pantalla tiene datos');
+        // Si activeCasoId coincide pero la pantalla está vacía (proceso reiniciado
+        // y activeCasoId fue restaurado por una llamada previa sin applySession),
+        // re-aplicar la sesión para repintar la UI.
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              dbg('LOAD: pantalla vacía pero hay datos — re-aplicando sesión');
+              applySession(sCheck);
+            } else {
+              dbg('LOAD: caso ya activo y pantalla con datos — sin cambios');
+            }
+          } catch(e) { dbg('LOAD: error al re-verificar sesión — ' + e.message); }
+        }
         updateActiveCasoBadge();
         renderCasosList();
       }
     } else {
-      // Sin lastId → welcome screen para que el usuario elija o cree
-      dbg('LOAD: sin lastId válido — mostrando welcome screen');
-      document.body.classList.add('auth-ready');
-      showWelcomeScreen();
+      // Sin lastId válido → intentar restaurar el caso con saved_at más reciente
+      // (cubre el caso donde Android mató el proceso antes de guardar pension_utm_last_caso)
+      const sorted = finalIdx
+        .filter(c => c.saved_at)
+        .sort((a, b) => new Date(b.saved_at).getTime() - new Date(a.saved_at).getTime());
+      const fallbackId = sorted.length > 0 ? sorted[0].id : finalIdx[finalIdx.length - 1]?.id;
+      if (fallbackId) {
+        dbg('LOAD: sin lastId — restaurando caso más reciente: ' + fallbackId.slice(0,6));
+        localStorage.setItem('pension_utm_last_caso', fallbackId);
+        document.body.classList.add('auth-ready');
+        await _utmReady;
+        switchCaso(fallbackId);
+      } else {
+        dbg('LOAD: sin lastId válido — mostrando welcome screen');
+        document.body.classList.add('auth-ready');
+        showWelcomeScreen();
+      }
     }
-  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
+  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120)); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
