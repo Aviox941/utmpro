@@ -8,25 +8,41 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v71a
-SW cache      : pension-utm-v141
+App version   : 2.0613.v71b
+SW cache      : pension-utm-v142
 Archivos mod  : index.html, sw.js
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX: Eliminado el logger TAP que registraba cada toque en pantalla.
+FIX RAÍZ: Eliminado location.reload() del bloque _appVersion.
 
-El listener 'pointerdown' en el panel de debug escribía una línea de log
-por cada toque, lo que al hacer scroll forzaba el panel hacia abajo
-interrumpiendo la lectura. Se eliminó el bloque completo (tagName + coords).
+CAUSA RAÍZ CONFIRMADA POR EL LOG DE v71a:
+El log mostró que window.onload y todos los listeners (UTM, AUTO-SHOW,
+visibilitychange) se ejecutaban DOS VECES incluso sin SW activo
+(SW: scriptURL=none). Eso descartó al controllerchange como causa y apuntó
+al único reload restante: el bloque _appVersion al inicio del <head>.
 
-Los logs de AUTH, STORAGE, LOAD, CALC, etc. se mantienen intactos.
+Secuencia del problema:
+1. App abre con HTML viejo (servido por caché del browser, SW inactivo)
+2. _appVersion check: STORED="v71a" ≠ CURRENT="v71b" → location.reload()
+3. La página se recarga — pero el documento anterior NO se destruye
+   de inmediato: Chrome mantiene ambos en el mismo proceso brevemente.
+4. Ambos documentos ejecutan window.onload y se suscriben a
+   visibilitychange → todo aparece duplicado en el log.
+5. Ambos documentos intentan refrescar el token de Supabase
+   simultáneamente → reuse detection → sesión revocada →
+   INITIAL_SESSION user=none en el siguiente arranque.
 
-Incluye todos los cambios de v71:
-- Eliminado controllerchange → reload (fix pérdida de sesión Supabase)
-- Label AUTO-SHOW dinámico desde meta tag
-- SW bump a pension-utm-v141
+FIX: El bloque _appVersion ya no llama a location.reload(). Solo escribe
+la versión actual en localStorage (para trazabilidad). El SW con estrategia
+Network-First ya garantiza servir la versión más reciente sin necesidad
+de forzar un reload manual.
+
+Historial de esta sesión de fixes:
+- v71:  Eliminado controllerchange → reload (primer intento, insuficiente)
+- v71a: Eliminado logger TAP (scroll del panel)
+- v71b: Eliminado _appVersion → reload (causa raíz real del doble init)
 
 ================================================================================

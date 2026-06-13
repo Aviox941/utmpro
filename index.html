@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v71a">
+ <meta name="app-version" content="2.0613.v71b">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -60,15 +60,11 @@ try {
  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
  <script>
- // ── Auto-actualización: fuerza recarga si la versión cambió ──
+ // ── Registrar versión actual (sin reload — el SW Network-First ya sirve la versión nueva) ──
+ // Se eliminó el location.reload() que existía aquí: causaba doble ejecución de window.onload
+ // y doble uso del refresh token de Supabase (reuse detection → sesión revocada).
  (function() {
    const CURRENT = document.querySelector('meta[name="app-version"]')?.content || '1.0.0';
-   const STORED  = localStorage.getItem('_appVersion');
-   if (STORED && STORED !== CURRENT) {
-     localStorage.setItem('_appVersion', CURRENT);
-     location.reload();
-     return;
-   }
    localStorage.setItem('_appVersion', CURRENT);
  })();
  </script>
@@ -5317,7 +5313,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v71a</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v71b</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
