@@ -1,51 +1,36 @@
 ================================================================================
 INSTRUCCIONES DE VERSIONADO
 ================================================================================
-- Este archivo se SOBRESCRIBE en cada entrega. No se acumulan versiones aquí.
-- Cada modificación debe actualizar:
-    1. index.html  → <meta name="app-version" content="2.MMDD.vXX">
-    2. index.html  → <p id="appVersionLabel"> con el mismo valor
-    3. sw.js       → CACHE_NAME = 'pension-utm-vNNN'  (incrementar NNN)
-    4. Este archivo CAMBIOS.txt con el detalle de qué se modificó
-- La letra/sufijo de versión (ej. v65) debe coincidir siempre con el nombre
-  del zip entregado (ej. v65.zip).
+- Este archivo se SOBRESCRIBE en cada entrega.
+- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v65   (meta + appVersionLabel en index.html)
-SW cache      : pension-utm-v132   (sw.js)
+App version   : 2.0612.v65d  ← versión de diagnóstico, TEMPORAL
+SW cache      : pension-utm-v133
 Archivos mod  : index.html, sw.js
 
 ================================================================================
-CAMBIOS EN ESTA ENTREGA
+PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-1. FIX restauración de caso al reanudar (Android, proceso reiniciado)
-   (index.html — dos patches independientes)
+VERSIÓN DE DIAGNÓSTICO — el panel de debug se abre AUTOMÁTICAMENTE al arrancar.
 
-   PATCH A — visibilitychange sin usuario activo (index.html):
-   Cuando Android reinicia el proceso y visibilitychange → visible llega
-   antes de que Supabase ejecute onAuthStateChange(INITIAL_SESSION),
-   sbCurrentUser es null y el handler anterior no hacía nada. Ahora:
-   - Si sbCurrentUser existe: sync inmediato (igual que antes).
-   - Si sbCurrentUser es null: programa un timer de 3 segundos. Si
-     INITIAL_SESSION llega antes, el timer se cancela. Si no llega
-     (caso raro donde Supabase no dispara el evento en resume),
-     getSession() fuerza la recuperación de sesión manualmente.
+Pasos para diagnosticar:
+1. Desplegar v65d en Vercel / GitHub Pages
+2. Iniciar sesión y seleccionar un caso
+3. Cerrar la app completamente (o cambiar de app)
+4. Volver a abrir la app
+5. El panel negro en la parte inferior aparecerá solo con todos los logs
+6. Capturar screenshot de los logs y compartir
 
-   PATCH B — pantalla vacía con caso "ya activo" (index.html / sbLoadCasos):
-   Cuando activeCasoId === lastId, el código asumía que la pantalla
-   tenía datos y solo actualizaba el badge. Ahora verifica si los campos
-   principales (utmAmount, clpAmount, salaryAmount) están vacíos pero
-   hay datos en localStorage — si es así, re-aplica la sesión para
-   repintar la UI correctamente.
+Los logs muestran: eventos de auth (INITIAL_SESSION, SIGNED_IN, etc.),
+flujo de sbLoadCasos, valores de user_metadata.last_caso y localStorage,
+activeCasoId, y qué path tomó la restauración.
 
-   Fixes anteriores conservados:
-   - v62: await _utmReady (race condition fetchUTM)
-   - v63A: inferir caso más reciente por saved_at cuando no hay lastId
-   - v63B: fetch directo a Supabase en switchCaso si localStorage vacío
-   - v64: user_metadata cross-origin para Vercel previews
+Una vez identificado el bug, se entregará v66 con el fix definitivo
+y el auto-show del panel desactivado.
 
 ================================================================================

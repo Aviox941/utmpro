@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v65">
+ <meta name="app-version" content="2.0612.v65d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5254,7 +5254,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v65</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v65d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5358,6 +5358,23 @@ function toggleDebugPanel() {
     closeSidebar();
   }
 }
+
+// ── DEBUG AUTO-SHOW: abrir panel automáticamente al arrancar ──
+// Permite capturar el flujo completo de auth+restore en Android sin DevTools.
+// Para desactivar: comentar esta línea o usar toggleDebugPanel() para cerrarlo.
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const p = document.getElementById('_dbgPanel');
+    if (p) {
+      p.style.display = 'block';
+      dbg('🚀 DEBUG AUTO-SHOW activado — panel abierto al arrancar');
+      dbg('user_metadata.last_caso=' + (sbCurrentUser?.user_metadata?.last_caso?.slice(0,8) || 'null'));
+      dbg('localStorage.last_caso=' + (localStorage.getItem('pension_utm_last_caso')?.slice(0,8) || 'null'));
+      dbg('activeCasoId=' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
+      dbg('sbCurrentUser=' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null'));
+    }
+  }, 1500);
+});
 
 // ══════════════════════════════════════════════════════════
 // SUPABASE CACHE — UTM Y TASAS CMF
