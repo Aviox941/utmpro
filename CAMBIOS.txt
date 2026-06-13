@@ -8,50 +8,47 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v76
-SW cache      : pension-utm-v149
+App version   : 2.0613.v77
+SW cache      : pension-utm-v150
 Archivos mod  : index.html, sw.js, export.js, modals.html, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FEAT — Eliminación de welcome screen + creación automática de borrador
------------------------------------------------------------------------
+FEAT — Eliminación total de welcome screen + borrador
+------------------------------------------------------
 
-CAMBIO PRINCIPAL: La welcome screen fue eliminada completamente.
-El usuario ya nunca verá esa pantalla intermedia. En su lugar:
+CAMBIO PRINCIPAL: Welcome screen y toda la lógica de borrador eliminadas.
 
 NUEVO FLUJO AL INICIO:
-  - Si no hay casos → se crea automáticamente un caso "Borrador" y la app
-    abre directamente con él activo.
   - Si hay casos → se restaura el último caso usado (comportamiento normal).
-  - Si se cierra el modal judicial sin crear caso → también se crea borrador.
-
-BADGE DE BORRADOR:
-  - Cuando el caso activo es un borrador, aparece un chip amarillo sutil
-    "✏ Borrador" junto al nombre del caso en el header.
-  - Al hacer clic en el chip se abre un prompt para renombrar el caso.
-    Al renombrarlo, el flag esBorrador se limpia y el badge desaparece.
-  - El badge NO aparece en casos creados normalmente.
+  - Si no hay casos → se abre directamente el modal de nuevo caso para que
+    el usuario nombre su primer caso manualmente.
 
 FUNCIONES ELIMINADAS:
-  - showWelcomeScreen() → reemplazada por lógica de auto-borrador
+  - showWelcomeScreen() → reemplazada, solo activa último caso o abre modal
   - hideWelcomeScreen() → no-op mantenido por seguridad
   - checkWelcomeBtn()
   - crearCasoDesdeWelcome()
   - abrirCasoJudicialDesdeWelcome()
+  - _crearBorrador()
+  - _updateDraftBadge()
+  - _renombrarBorrador()
   - HTML del div#welcomeScreen en modals.html
 
-FUNCIONES NUEVAS (export.js):
-  - _crearBorrador()       → crea y activa un caso borrador
-  - _updateDraftBadge()    → muestra/oculta el chip amarillo en el header
-  - _renombrarBorrador()   → prompt inline para renombrar + limpiar flag
+FIXES ADICIONALES:
+  - eliminarPerfil: al eliminar caso activo, cambia al último caso disponible
+    en vez de dejar activeCasoId = null (causaba borrador en siguiente sync)
+  - _localReady: si activeCasoId ya tiene valor, no vuelve a hacer restore
+  - _sbSyncBackground: cambiado _welcomeScreenVisible → !activeCasoId
+  - _localReady: si no hay lastId pero hay casos, activa el último del índice
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
-v76  : Eliminar welcome screen + auto-crear borrador + badge sutil de borrador
+v77  : Eliminar welcome screen y borrador completamente
+v76  : Eliminar welcome screen + auto-crear borrador (revertido)
 v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
 v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background

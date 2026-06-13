@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v76">
+ <meta name="app-version" content="2.0613.v77">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5426,7 +5426,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v76</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v77</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6355,7 +6355,7 @@ async function sbLoadCasos() {
       }
       return;
     }
-    // Sin ningún caso local → crear borrador
+    // Sin ningún caso local → abrir modal nuevo caso
     renderCasosList();
     showWelcomeScreen();
   };
