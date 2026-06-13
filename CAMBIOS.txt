@@ -8,48 +8,51 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v77
-SW cache      : pension-utm-v150
-Archivos mod  : index.html, sw.js, export.js, modals.html, CAMBIOS.txt
+App version   : 2.0613.v76
+SW cache      : pension-utm-v149
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FEAT — Eliminación total de welcome screen + borrador
-------------------------------------------------------
+FIX — Casos eliminados reaparecen tras reinicio de Android
+-----------------------------------------------------------
 
-CAMBIO PRINCIPAL: Welcome screen y toda la lógica de borrador eliminadas.
+PROBLEMA RAÍZ: race condition de 4 capas entre _sbSyncBackground,
+_deletedCasoIds, IDB y pending_deletes que causaba que casos
+borrados regresaran al cerrar/reabrir la app.
 
-NUEVO FLUJO AL INICIO:
-  - Si hay casos → se restaura el último caso usado (comportamiento normal).
-  - Si no hay casos → se abre directamente el modal de nuevo caso para que
-    el usuario nombre su primer caso manualmente.
+FIX 1 — _sbSyncBackground: skip _deletedCasoIds en finalIdx (index.html):
+  El loop que construye finalIdx ahora salta cualquier row cuyo id esté
+  en _deletedCasoIds. Antes el guard existía solo en queueSave, pero el
+  caso igual entraba al índice final y reaparecía en la UI.
 
-FUNCIONES ELIMINADAS:
-  - showWelcomeScreen() → reemplazada, solo activa último caso o abre modal
-  - hideWelcomeScreen() → no-op mantenido por seguridad
-  - checkWelcomeBtn()
-  - crearCasoDesdeWelcome()
-  - abrirCasoJudicialDesdeWelcome()
-  - _crearBorrador()
-  - _updateDraftBadge()
-  - _renombrarBorrador()
-  - HTML del div#welcomeScreen en modals.html
+FIX 2 — pending_deletes en RESTORE_KEYS + _IDB_BACKUP_KEYS (index.html):
+  pending_deletes agregado a ambas listas. IDB lo respalda automáticamente
+  cada vez que se escribe, y lo incluye en el restore completo al arrancar
+  sin auth en localStorage.
 
-FIXES ADICIONALES:
-  - eliminarPerfil: al eliminar caso activo, cambia al último caso disponible
-    en vez de dejar activeCasoId = null (causaba borrador en siguiente sync)
-  - _localReady: si activeCasoId ya tiene valor, no vuelve a hacer restore
-  - _sbSyncBackground: cambiado _welcomeScreenVisible → !activeCasoId
-  - _localReady: si no hay lastId pero hay casos, activa el último del índice
+FIX 3 — Monkey-patch localStorage cubre pending_deletes (index.html):
+  setItem y removeItem del monkey-patch cubrían last_caso, casos_index y
+  datos de caso, pero NO pending_deletes. Agregado en ambos métodos: cualquier
+  escritura/limpieza de pending_deletes se refleja inmediatamente en IDB.
+
+FIX 4 — Restore de pending_deletes siempre al arranque (index.html):
+  El bloque de restore del IDB cortaba con resolve() si había auth en
+  localStorage, sin nunca leer pending_deletes. Ahora hace una lectura IDB
+  de pending_deletes ANTES del if (authPresent), usando _origSetItem (no el
+  monkey-patched) para evitar loop. El restore completo sigue condicionado
+  al auth ausente.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
-v77  : Eliminar welcome screen y borrador completamente
-v76  : Eliminar welcome screen + auto-crear borrador (revertido)
+v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
 v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
 v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background
+v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
+v72b : sbLoadCasos timeout 10s + fallback localStorage
+v72  : IDB auth backup/restore inicial + fix logs duplicados
 ================================================================================
