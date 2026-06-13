@@ -8,39 +8,27 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v67d  ← versión de diagnóstico profundo, TEMPORAL
-SW cache      : pension-utm-v135
+App version   : 2.0612.v68d  ← diagnóstico profundo sbLoadCasos, TEMPORAL
+SW cache      : pension-utm-v136
 Archivos mod  : index.html, sw.js
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-VERSIÓN DE DIAGNÓSTICO PROFUNDO — panel de debug abre al DOMContentLoaded
-(antes que cualquier auth o fetch), con logs numerados en cada rama de fetchUTM.
+v67d confirmó que _utmReady resuelve bien via localStorage (UTM[4]).
+Pero LOAD[A/B/C] nunca aparecen — sbLoadCasos termina antes de llegar
+al bloque de restauración. Esta versión agrega logs dentro de sbLoadCasos:
 
-Logs agregados:
-  UTM[1]  fetchUTM() iniciado
-  UTM[2]  después de cargarUTMLocal()
-  UTM[3]  localStorage cache — edad en días, vigente true/false
-  UTM[3b] localStorage vencido
-  UTM[3c] localStorage vacío
-  UTM[3e] localStorage ERROR
-  UTM[4]  _utmReady resuelto vía localStorage
-  UTM[5]  intentando sbGetUtmCache
-  UTM[6]  resultado de sbGetUtmCache (n entradas o null)
-  UTM[6b] sbGetUtmCache vacío
-  UTM[6e] sbGetUtmCache ERROR
-  UTM[7]  _utmReady resuelto vía Supabase
-  UTM[8]  bloque CMF — keys de todosLosAnios
-  UTM[9]  aniosAConsultar (años con ceros)
-  UTM[10] early return sin CMF — _utmReady resuelto
-  UTM[11] llamando CMF API
-  UTM[12] _utmReady resuelto vía CMF
-  LOAD[A] antes de await _utmReady
-  LOAD[B] _utmReady resuelto — utmData.length + activeCasoId
-  LOAD[C] llamando switchCaso
-
-Una vez capturado el log, se entregará v68 con el fix definitivo.
+  LOAD[SB1]  filas recibidas desde Supabase
+  LOAD[SB2]  índice guardado con N casos
+  LOAD[SB3]  finalIdx.length
+  LOAD[SB3b] si entra al early return de welcome screen
+  LOAD[SB4]  metaLastId y localLastId
+  LOAD[SB5]  lastId resuelto y si está en el índice
+  LOAD[A]    antes de await _utmReady
+  LOAD[B]    después de await _utmReady
+  LOAD[C]    llamando switchCaso
+  LOAD EXCEPTION (con stack trace si hay excepción)
 
 ================================================================================

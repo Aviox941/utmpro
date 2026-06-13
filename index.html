@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v67d">
+ <meta name="app-version" content="2.0612.v68d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5273,7 +5273,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v67d</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v68d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6102,7 +6102,7 @@ async function sbLoadCasos() {
       .order('created_at', { ascending: true });
     if (error) { dbg('LOAD ERROR: ' + JSON.stringify(error)); document.body.classList.add('auth-ready'); showWelcomeScreen(); return; }
     const rows = data || [];
-    dbg('LOAD: ' + rows.length + ' casos desde Supabase');
+    dbg('LOAD[SB1] ' + rows.length + ' casos desde Supabase');
 
     // ── PASO 5: LAST WRITE WINS — comparar updated_at entre servidor y local ──
     const sbIds = new Set(rows.map(r => r.id));
@@ -6172,11 +6172,12 @@ async function sbLoadCasos() {
 
     // ── Aplicar índice final al localStorage ──
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
-    dbg('LOAD: índice guardado con ' + finalIdx.length + ' casos');
+    dbg('LOAD[SB2] indice guardado con ' + finalIdx.length + ' casos');
 
     renderCasosList();
+    dbg('LOAD[SB3] finalIdx.length=' + finalIdx.length);
     if (finalIdx.length === 0) {
-      // v38: sin casos → welcome screen (reemplaza openProfileModal)
+      dbg('LOAD[SB3b] sin casos — mostrando welcome screen');
       document.body.classList.add('auth-ready');
       showWelcomeScreen();
       return;
@@ -6186,10 +6187,11 @@ async function sbLoadCasos() {
     // Prioridad: user_metadata (cross-origin) > localStorage (same-origin)
     const metaLastId = sbCurrentUser?.user_metadata?.last_caso || null;
     const localLastId = localStorage.getItem('pension_utm_last_caso');
-    // Usar el que sea más reciente entre metadata y local; si coinciden o solo hay uno, usar ese
+    dbg('LOAD[SB4] metaLastId=' + (metaLastId||'null').slice(0,8) + ' localLastId=' + (localLastId||'null').slice(0,8));
     const lastId = (metaLastId && finalIdx.find(c => c.id === metaLastId))
       ? metaLastId
       : localLastId;
+    dbg('LOAD[SB5] lastId=' + (lastId||'null').slice(0,8) + ' enIndice=' + !!(lastId && finalIdx.find(c => c.id === lastId)));
     // Sincronizar localStorage con el valor de metadata si difieren
     if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
       localStorage.setItem('pension_utm_last_caso', metaLastId);
@@ -6254,7 +6256,7 @@ async function sbLoadCasos() {
         showWelcomeScreen();
       }
     }
-  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
+  } catch(e) { dbg('LOAD EXCEPTION: ' + e.message + ' stack=' + (e.stack||'').slice(0,120)); document.body.classList.add('auth-ready'); showWelcomeScreen(); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
