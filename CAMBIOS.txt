@@ -8,23 +8,23 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 12-06-2026
-App version   : 2.0612.v69d  ← diagnóstico — panel visible desde inicio, TEMPORAL
-SW cache      : pension-utm-v137
+App version   : 2.0612.v70d  ← diagnóstico — pre-buffer captura todo, TEMPORAL
+SW cache      : pension-utm-v138
 Archivos mod  : index.html, sw.js
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-v68d mostró que los logs de sbLoadCasos (LOAD[SB1] en adelante) no aparecen.
-Causa: el panel _dbgPanel se agrega al body en DOMContentLoaded, pero
-onAuthStateChange + sbLoadCasos se disparan ANTES de DOMContentLoaded.
-_earlyDbgAdd sí captura los mensajes en el elemento p, pero el panel
-no estaba visible (display:none) así que no se veían al abrirse.
+El problema era que onAuthStateChange se dispara ANTES de DOMContentLoaded,
+antes de que el panel exista en el DOM. Por eso AUTH/LOAD aparecían antes
+que el panel y sus logs se perdían.
 
-FIX DE DIAGNÓSTICO: panel creado con display:block desde el IIFE inicial
-(antes de cualquier evento). Así todos los logs desde el primer ms son visibles.
+FIX: Script pre-buffer insertado como PRIMER script del HTML (antes de
+supabase.min.js). Define window.dbg = window._dbgEarly que guarda en
+window._dbgBuffer[]. Cuando DOMContentLoaded crea el panel, vuelca todo
+el buffer. Ahora NINGÚN log se pierde desde el primer milisegundo.
 
-Esta versión debería mostrar LOAD[SB1..SB5] y LOAD[A/B/C] completos.
+Esta versión debería mostrar TODOS los logs desde AUTH hasta LOAD[C].
 
 ================================================================================

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v69d">
+ <meta name="app-version" content="2.0612.v70d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -12,6 +12,17 @@
  <meta name="apple-mobile-web-app-title" content="2.0610.v20">
  <link rel="apple-touch-icon" href="icon-192.png">
  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+ <script>
+// ── PRE-BUFFER: captura logs ANTES de que el panel exista en el DOM ──
+window._dbgBuffer = [];
+window._dbgEarly = function(msg) {
+  var t = new Date().toLocaleTimeString();
+  window._dbgBuffer.push(t + ' ' + msg);
+};
+// Sobreescribir dbg con versión que también guarda en buffer
+// (dbg real se define después, pero _earlyDbgAdd lo reemplaza)
+window.dbg = window._dbgEarly;
+</script>
  <script src="https://cdn.tailwindcss.com"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
@@ -193,6 +204,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
   p.style.cssText = 'display:block;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
+    // Volcar buffer previo al panel
+    if (window._dbgBuffer && window._dbgBuffer.length) {
+      window._dbgBuffer.forEach(function(msg) {
+        var line = document.createElement('div');
+        line.textContent = msg;
+        p.appendChild(line);
+      });
+      p.scrollTop = p.scrollHeight;
+      window._dbgBuffer = [];
+    }
     // Panel controlado desde sidebar — ver toggleDebugPanel()
     // Log cada pointerdown con el elemento target
     document.addEventListener('pointerdown', function(e) {
@@ -5273,7 +5294,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v69d</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v70d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5290,7 +5311,11 @@ document.addEventListener('visibilitychange', async () => {
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
 function dbg(msg) {
   console.log('[DBG]', msg);
-  // Usar el panel temprano si ya existe
+  // Si el panel no existe aun, guardar en buffer pre-DOM
+  if (!document.getElementById('_dbgPanel')) {
+    if (window._dbgBuffer) window._dbgBuffer.push(new Date().toLocaleTimeString() + ' ' + msg);
+    return;
+  }
   if (window._earlyDbgAdd) { window._earlyDbgAdd(msg); }
   let p = document.getElementById('_dbgPanel');
   if (!p) {
