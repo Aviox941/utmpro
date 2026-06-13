@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0612.v68d">
+ <meta name="app-version" content="2.0612.v69d">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -190,7 +190,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 800);
 (function() {
   var p = document.createElement('div');
   p.id = '_dbgPanel';
-  p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
+  p.style.cssText = 'display:block;position:fixed;bottom:0;left:0;right:0;height:220px;background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;z-index:999999;padding:6px;border-top:2px solid #22d3ee;';
   document.addEventListener('DOMContentLoaded', function() {
     document.body.appendChild(p);
     // Panel controlado desde sidebar — ver toggleDebugPanel()
@@ -5273,7 +5273,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v68d</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0612.v69d</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5378,14 +5378,10 @@ function toggleDebugPanel() {
   }
 }
 
-// ── DEBUG AUTO-SHOW: abre el panel inmediatamente al cargar ──
+// ── DEBUG AUTO-SHOW: panel ya visible desde creacion (display:block en IIFE) ──
+// Agregar marca de inicio para saber que el panel esta activo
 window.addEventListener('DOMContentLoaded', () => {
-  const p = document.getElementById('_dbgPanel');
-  if (p) {
-    p.style.display = 'block';
-    dbg('=== DEBUG AUTO-SHOW v67d ===');
-    dbg('Panel abierto al DOMContentLoaded');
-  }
+  dbg('=== DEBUG AUTO-SHOW v69d — panel visible desde inicio ===');
 });
 
 // ══════════════════════════════════════════════════════════
