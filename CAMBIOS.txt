@@ -8,46 +8,42 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v73
-SW cache      : pension-utm-v146
+App version   : 2.0613.v74
+SW cache      : pension-utm-v147
 Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Inicio instantáneo: estrategia local-first en sbLoadCasos()
-------------------------------------------------------------------
-PROBLEMA ANTERIOR (v72c): Al abrir la app, sbLoadCasos() esperaba hasta 10
-segundos el fetch de Supabase antes de mostrar cualquier cosa. Si Supabase
-tardaba o no respondía, el usuario veía pantalla en blanco todo ese tiempo.
+FIX — Welcome screen falsa al iniciar + debug panel oculto por defecto
+-----------------------------------------------------------------------
 
-SOLUCIÓN — Local-first en dos fases:
+PROBLEMA 1: Al iniciar sesión, la pantalla de bienvenida aparecía aunque el
+usuario tenía casos guardados. Causa raíz: sbLoadCasos() Fase 1 leía
+localStorage antes de que _idbRestorePromise terminara de restaurarlo
+(Android limpia localStorage; IDB lo recupera de forma asíncrona).
 
-FASE 1 (0ms — inmediata):
-  sbLoadCasos() lee el localStorage inmediatamente y muestra la app sin
-  esperar a Supabase. Si hay un caso activo guardado localmente, se
-  restaura en <100ms (solo limitado por _utmReady).
+FIX 1 — Fase 1 espera IDB restore (index.html):
+  sbLoadCasos() ahora hace await Promise.race([_idbRestorePromise, timeout(800ms)])
+  antes de leer localStorage. Si el restore no termina en 800ms, continúa igual.
+  Así getCasosIndex() ya lee el índice restaurado y no muestra welcome en falso.
 
-FASE 2 (background — timeout reducido a 6s):
-  El fetch a Supabase corre en un IIFE async desacoplado. sbLoadCasos()
-  retorna antes de que termine el fetch. La nueva función _sbSyncBackground()
-  aplica la lógica LAST-WRITE-WINS completa (antes inline en sbLoadCasos):
-    - Si Supabase tiene datos más nuevos → actualiza localStorage.
-    - Si el caso activo fue actualizado → re-aplica applySession() silencioso.
-    - Casos huérfanos locales recientes → rescatar y re-subir.
-    - Casos locales más nuevos que Supabase → queueSave().
-    - Sincroniza lastId desde user_metadata si difiere del local.
+FIX 2 — Red de seguridad en _sbSyncBackground() (index.html):
+  Si por alguna razón la Fase 1 igual mostró welcome screen, cuando Supabase
+  termina el fetch en background y trae casos, se ejecuta automáticamente:
+    hideWelcomeScreen() + switchCaso(targetId)
+  Prioridad del targetId: user_metadata.last_caso → pension_utm_last_caso → último del índice.
 
-RESULTADO:
-  - Inicio frío con datos locales: <100ms (antes hasta 10s).
-  - Sin datos locales (primera instalación / Android limpió todo):
-    mismo comportamiento que antes — espera IDB restore → welcome screen.
-  - Timeout Supabase reducido de 10s a 6s (solo afecta el sync background).
+PROBLEMA 2: El panel de debug aparecía abierto al iniciar la app.
+FIX 3 — Debug panel oculto por defecto (index.html):
+  Cambiado display:block → display:none en el panel de diagnóstico temprano.
+  Sigue accesible desde sidebar → "Consola de debug".
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background
 v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
 v72b : sbLoadCasos timeout 10s + fallback localStorage
