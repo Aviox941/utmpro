@@ -6,64 +6,47 @@ INSTRUCCIONES DE VERSIONADO
 - En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
 - El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
 - El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
 - Nunca eliminar ninguna instrucción de este documento
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 14-06-2026
-App version   : 2.0614.v78-revalorizacion-utm
-SW cache      : pension-utm-v152
-Archivos mod  : export.js, CAMBIOS.txt
+App version   : 2.0614.v79-fechaliq-fix
+SW cache      : pension-utm-v153
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-MEJORA PRESENTACIÓN — Línea "Revalorización UTM" en Resumen Final (4 lugares)
+FIX Bug 1 — fechaLiquidacion no se actualizaba al cambiar período final
 --------------------------------------------------------------------------------
 
-CONTEXTO: El usuario veía un "Subtotal Bruto" y luego un "Total a Pagar" mayor,
-sin entender la diferencia. La causa es que el subtotal suma pesos nominales
-históricos de distintos meses, mientras que el total final convierte cada cuota
-a UTM del mes devengado y luego multiplica por la UTM del mes de liquidación —
-metodología SITFA/tribunal. La diferencia es legítima y necesitaba hacerse visible.
+Implementado A3 + B1:
+- Nueva función resetFechaLiquidacion(): al seleccionar un nuevo endIndex en el
+  calendario, fechaLiquidacion se resetea de forma automática y silenciosa
+  (sin toasts/alerts).
+- Si el período final = mes actual → fechaLiquidacion = hoy.
+- Si el período final es un mes pasado → fechaLiquidacion = último día de ese mes
+  (ej. Mar 2026 → 31/03/2026).
+- Llamada agregada en el handler de selección de endIndex en renderCalendar(),
+  justo después de `endIndex = idx;`. No se tocó calculate(), getFechaLiquidacion(),
+  ni ninguna fórmula de cálculo.
 
-CAMBIOS (capa de presentación únicamente — sin tocar lógica de cálculo):
+Bug 2 — Calendario fuera de rango en abono/parcial/lav
+--------------------------------------------------------------------------------
 
-1. Modal "Resumen de Liquidación" (buildResumenContent):
-   - "SUBTOTAL BRUTO" renombrado a "SUBTOTAL HISTÓRICO"
-   - Nueva fila "Revalorización UTM (1 UTM = $XX.XXX)" en púrpura/cursiva
-     ajusteUTM = round(totalFinalReal) - round(subtotalHistorico)
-   - Solo se muestra si ajusteUTM != 0
-   - Fondo lavanda (#faf5ff) para distinguirla visualmente
-
-2. PDF (generarPDF):
-   - "SUBTOTAL BRUTO" → "SUBTOTAL HISTÓRICO"
-   - Nueva fila en filasDesglose con marcador '_revalorizacion'
-   - willDrawCell aplica fondo #F5F3FF y texto púrpura para esa fila
-
-3. Excel (exportarExcel):
-   - "SUBTOTAL BRUTO" → "SUBTOTAL HISTÓRICO"
-   - Nueva fila en conceptos[] con flag rev:true
-   - Renderer aplica fondo F5F3FF, texto 6D28D9, cursiva
-
-4. Columna "UTM" en tabla de períodos (tablaFilas):
-   - Renombrada a "Cap. UTM" — aclara que muestra solo el capital en UTM
-     históricas del mes, no el total de deuda incluyendo intereses
-
-RESULTADO VISUAL (ejemplo sin pagos parciales):
-   Capital histórico:    $1.461.707
-   Intereses:              $24.132
-   ─────────────────────────────────
-   SUBTOTAL HISTÓRICO:  $1.485.839
-   Revalorización UTM:    +$18.898
-   ─────────────────────────────────
-   TOTAL A PAGAR:       $1.504.737   (21.31717 UTM × $70.588)
+Revisado: la lógica outOfRange (C2) ya estaba correctamente implementada —
+bloquea visualmente y deshabilita el onclick para meses fuera de
+[min(startIndex,endIndex), max(startIndex,endIndex)] en los modos abono,
+parcial y lav. Sin cambios necesarios.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
 v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
 v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
 v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
