@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v77">
+ <meta name="app-version" content="2.0613.v78">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5442,7 +5442,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v77</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v78</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6725,17 +6725,10 @@ async function sbDeleteCaso(id) {
 // Lógica async real del DELETE — llamada por _processQueue
 async function _sbDeleteCasoCore(id) {
   if (!sbCurrentUser || !id) return;
-  // No intentar DELETE si el id no es UUID válido — evita timeouts innecesarios
+  // columna id es tipo TEXT — acepta caso_timestamp y UUID por igual
+  // siempre intentar DELETE; si no existe en Supabase retorna 200/0 filas sin error
   const _isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-  if (!_isUUID) {
-    dbg('DELETE CORE: id ' + id.slice(0,8) + ' no es UUID — omitiendo query a Supabase, limpiando pending_deletes');
-    try {
-      const pd = JSON.parse(localStorage.getItem('pending_deletes') || '[]');
-      localStorage.setItem('pending_deletes', JSON.stringify(pd.filter(x => x !== id)));
-    } catch(e) {}
-    return;
-  }
-  dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + '...');
+  dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + (_isUUID ? '' : ' [id texto]') + '...');
   try {
     // DELETE real — usa la política owner_delete de RLS
     dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));

@@ -8,36 +8,37 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 13-06-2026
-App version   : 2.0613.v77
-SW cache      : pension-utm-v150
-Archivos mod  : index.html, export.js, sw.js, CAMBIOS.txt
+App version   : 2.0613.v78
+SW cache      : pension-utm-v151
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — IDs no-UUID generados desde welcome screen nunca se borraban de Supabase
+FIX — Casos con id texto (caso_timestamp) no se eliminaban de Supabase
 ------------------------------------------------------------------------
 
-PROBLEMA RAÍZ: dos bugs relacionados causaban que casos creados desde la
-welcome screen reaparecieran al reiniciar aunque el usuario los eliminara.
+DIAGNÓSTICO: La tabla casos tiene columna id tipo TEXT (no UUID). Supabase
+acepta ids como 'caso_1781389524160' y los almacena correctamente. El guard
+_isUUID introducido en v76/v77 bloqueaba el DELETE antes de llegar a Supabase
+para cualquier id no-UUID, dejando esos records huérfanos en la nube.
 
-FIX A — crearCasoDesdeWelcome() usaba siempre 'caso_' + Date.now() (export.js):
-  La función tenía el ID hardcodeado como string no-UUID, a diferencia de
-  crearCaso() que ya usaba crypto.randomUUID con fallback. Corregido para
-  usar exactamente la misma lógica: crypto.randomUUID() si está disponible,
-  fallback 'caso_' + Date.now() + random solo si no hay soporte.
+Confirmado en Supabase Table Editor: 2 records con ids tipo caso_timestamp
+y user_id UUID coincidente con el usuario → RLS pasaría sin problema, pero
+el fetch nunca se ejecutaba.
 
-FIX B — _sbDeleteCasoCore no limpiaba pending_deletes para IDs no-UUID (index.html):
-  El guard que omite el DELETE a Supabase cuando el id no es UUID hacía
-  return inmediato sin limpiar pending_deletes. El ID quedaba en la lista
-  permanentemente y en cada reinicio se reintentaba el delete sin éxito.
-  Ahora limpia pending_deletes antes del return, igual que hace el path
-  exitoso del DELETE real.
+FIX — _sbDeleteCasoCore: eliminar early return por id no-UUID (index.html):
+  El bloque que detectaba ids no-UUID hacía return tras limpiar pending_deletes,
+  sin ejecutar el fetch DELETE a Supabase. Removido el early return completo.
+  La variable _isUUID se conserva solo para logging informativo.
+  Un DELETE a un id inexistente retorna HTTP 200 con 0 filas — sin error.
+  La limpieza de pending_deletes ocurre en el path exitoso normal.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
 v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
 v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
 v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
