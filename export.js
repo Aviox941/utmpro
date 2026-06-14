@@ -381,11 +381,20 @@ fmt(totalIntPesos),
 ]);
 const subtotalBruto = totalCapPesos + totalIntPesos;
 filasDesglose.push([
-'SUBTOTAL BRUTO (capital + intereses)',
+'SUBTOTAL HISTÓRICO (capital + intereses)',
 fmt(subtotalBruto),
 (subtotalBruto / utmHoy).toFixed(4) + ' UTM',
 ''
 ]);
+const ajusteUTM_pdf = Math.round(totalFinalReal) - Math.round(subtotalBruto);
+if (ajusteUTM_pdf !== 0) {
+filasDesglose.push([
+'Revalorización UTM (1 UTM = ' + fmt(utmLiq) + ')',
+(ajusteUTM_pdf >= 0 ? '+' : '') + fmt(ajusteUTM_pdf),
+'',
+'_revalorizacion'
+]);
+}
 // FIX: Los LAV ahora están dentro de imputarAbonosArt1595.
 // capImputadoPDF incluye LAV + abonos ordinarios. Se muestran separados para claridad.
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
@@ -422,6 +431,7 @@ totalFinalRealUTM.toFixed(5) + ' UTM',
 ''
 ]);
 const idxSubtotal = 2;
+const idxRevalorizacion = filasDesglose.findIndex(f => f[3] === '_revalorizacion');
 const idxLast = filasDesglose.length - 1;
 const filasDesgloseClean = filasDesglose.map(f => [f[0], f[1], f[2]]);
 doc.autoTable({
@@ -441,6 +451,11 @@ if (data.section !== 'body') return;
 if (data.row.index === idxSubtotal) {
 doc.setFillColor(241, 245, 249);
 doc.setFont('helvetica', 'bold');
+}
+if (idxRevalorizacion >= 0 && data.row.index === idxRevalorizacion) {
+doc.setFillColor(245, 243, 255);
+doc.setTextColor(109, 40, 217);
+doc.setFont('helvetica', 'italic');
 }
 if (data.row.index === idxLast - 1 && totalAbonosCLP > 0) {
 doc.setFillColor(239, 246, 255);
@@ -1674,7 +1689,7 @@ function buildResumenContent() {
     const subHead = document.createElement('div');
     subHead.className = 'grid px-3 py-1 text-[8px] font-black uppercase';
     subHead.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:${colorHeader};opacity:0.7;background:${colorHeader}08;border-top:1px solid ${colorHeader}30`;
-    subHead.innerHTML = `<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>`;
+    subHead.innerHTML = `<span>Período</span><span>Cap. UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>`;
     wrap.appendChild(subHead);
     // Footer totales
     const totCap = datos.reduce((s,d) => s+d.cap,0);
@@ -1805,10 +1820,12 @@ function buildResumenContent() {
   // ── 5. Resumen Final ──
   seccion('Resumen Final', '#0369a1', '');
   const subtotalBruto = totalCapPesos + totalIntPesos;
+  const ajusteUTM_modal = Math.round(totalFinalReal) - Math.round(subtotalBruto);
   const resumenRows = [
     { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#334155', valColor: '#0f172a', bold: false },
     { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#334155', valColor: '#0284c7', bold: false },
-    { label: 'SUBTOTAL BRUTO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
+    { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
+    ...(ajusteUTM_modal !== 0 ? [{ label: `Revalorización UTM (1 UTM = ${fmt(utmLiq)})`, val: ajusteUTM_modal, labelColor: '#7c3aed', valColor: '#7c3aed', bold: false, italic: true }] : []),
   ];
   // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
   const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
@@ -1828,11 +1845,11 @@ function buildResumenContent() {
   resumenRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
-    row.style.cssText = `background:${r.sep?'#eff6ff':i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
+    row.style.cssText = `background:${r.sep?'#eff6ff':r.italic?'#faf5ff':i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
     const valDisplay = r.utmStr
       ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
-      : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
-    row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor}">${r.label}</span>${valDisplay}`;
+      : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
+    row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor};${r.italic?'font-style:italic':''}">${r.label}</span>${valDisplay}`;
     wrapR.appendChild(row);
   });
   // Total final destacado
@@ -2182,10 +2199,13 @@ async function exportarExcel() {
   addSectionHeader('📊  Resumen de Liquidación', COLORS.azulOscuro);
   addTableHeader(['Concepto','Monto $','','','','','',''], COLORS.azulMedio);
 
+  const subtotalBrutoExcel = totalCapPesos + totalIntPesos;
+  const ajusteUTM_excel = Math.round(totalFinalReal) - Math.round(subtotalBrutoExcel);
   const conceptos = [
     { label:'Capital total (pensiones impagas)', val:totalCapPesos, bold:false },
     { label:'Total intereses generados',         val:totalIntPesos, bold:false },
-    { label:'SUBTOTAL BRUTO',                    val:totalCapPesos+totalIntPesos, bold:true, sep:true },
+    { label:'SUBTOTAL HISTÓRICO',                val:subtotalBrutoExcel, bold:true, sep:true },
+    ...(ajusteUTM_excel !== 0 ? [{ label:`Revalorización UTM (1 UTM = ${fmt(utmLiqX)})`, val:ajusteUTM_excel, bold:false, rev:true }] : []),
   ];
   const lavTotalCLPexcel = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
   const abonosOrdCLPexcel = abonos.reduce((s,a) => s + a.amount, 0);
@@ -2199,14 +2219,15 @@ async function exportarExcel() {
     conceptos.push({ label:'(-) Abonos a capital (Art. 1595 CC)', val:-abonosOrdCLPexcel, bold:false, desc:true });
   }
   conceptos.forEach((c, i) => {
-    const bg = c.sep ? COLORS.azulClaro : i%2===0 ? COLORS.azulFila : COLORS.blanco;
+    const bg = c.sep ? COLORS.azulClaro : c.rev ? 'F5F3FF' : i%2===0 ? COLORS.azulFila : COLORS.blanco;
+    const textColor = c.rev ? '6D28D9' : c.desc ? COLORS.cianoOscuro : COLORS.negro;
     ws.getCell(currentRow,1).value = c.label;
     ws.getCell(currentRow,2).value = Math.round(c.val);
     ws.mergeCells(currentRow,2,currentRow,8);
     [1,2].forEach(col => {
       const cell = ws.getCell(currentRow,col);
       cell.style = {
-        font:{bold:c.bold||c.sep,size:10,name:'Calibri',color:{argb:'FF'+(c.desc?COLORS.cianoOscuro:COLORS.negro)}},
+        font:{bold:c.bold||c.sep,italic:!!c.rev,size:10,name:'Calibri',color:{argb:'FF'+textColor}},
         fill:{type:'pattern',pattern:'solid',fgColor:{argb:'FF'+bg}},
         alignment:{vertical:'middle'},
       };

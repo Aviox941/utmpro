@@ -12,43 +12,60 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 14-06-2026
-App version   : 2.0614.v78-exportJS-fix-subtotal
-SW cache      : pension-utm-v151
+App version   : 2.0614.v78-revalorizacion-utm
+SW cache      : pension-utm-v152
 Archivos mod  : export.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Resumen de Liquidación: Subtotal Bruto usaba capital original en vez de remanente
------------------------------------------------------------------------------------------
+MEJORA PRESENTACIÓN — Línea "Revalorización UTM" en Resumen Final (4 lugares)
+--------------------------------------------------------------------------------
 
-DIAGNÓSTICO: En buildResumenContent() (export.js), las variables totalCapPesos y
-totalIntPesos se calculaban con d.capOriginal / d.capOriginalBruto y d.intOriginal,
-que corresponden a las cuotas brutas ANTES de aplicar pagos parciales o abonos.
-Esto causaba que el "Resumen Final" del modal mostrara el capital completo original
-(ej. $1.461.707) en lugar del capital pendiente post-imputación (ej. $1.313.141),
-y el subtotal bruto tampoco coincidía con la suma de la tabla de períodos.
+CONTEXTO: El usuario veía un "Subtotal Bruto" y luego un "Total a Pagar" mayor,
+sin entender la diferencia. La causa es que el subtotal suma pesos nominales
+históricos de distintos meses, mientras que el total final convierte cada cuota
+a UTM del mes devengado y luego multiplica por la UTM del mes de liquidación —
+metodología SITFA/tribunal. La diferencia es legítima y necesitaba hacerse visible.
 
-Prueba de la inconsistencia: subtotalBruto_modal - pago_parcial = subtotal_tabla
-($1.481.279 - $148.566 = $1.332.713 = exacto total de la tabla).
+CAMBIOS (capa de presentación únicamente — sin tocar lógica de cálculo):
 
-FIX — buildResumenContent en export.js (líneas 1508-1509):
-  ANTES:
-    totalCapPesos = reduce(d.capOriginal ?? d.capOriginalBruto ?? d.cap)
-    totalIntPesos = reduce(d.intOriginal ?? d.inte)
-  DESPUÉS:
-    totalCapPesos = reduce(d.cap)   // capital post-imputación (remanente real)
-    totalIntPesos = reduce(d.inte)  // interés sobre el remanente (igual que la tabla)
+1. Modal "Resumen de Liquidación" (buildResumenContent):
+   - "SUBTOTAL BRUTO" renombrado a "SUBTOTAL HISTÓRICO"
+   - Nueva fila "Revalorización UTM (1 UTM = $XX.XXX)" en púrpura/cursiva
+     ajusteUTM = round(totalFinalReal) - round(subtotalHistorico)
+   - Solo se muestra si ajusteUTM != 0
+   - Fondo lavanda (#faf5ff) para distinguirla visualmente
 
-ALCANCE: Solo afecta el modal Resumen de Liquidación. Los cálculos del PDF
-(línea 37/41) y Excel (línea 1892/1893) conservan capOriginal bruto — correcto
-para esos documentos que deben mostrar la deuda devengada completa.
+2. PDF (generarPDF):
+   - "SUBTOTAL BRUTO" → "SUBTOTAL HISTÓRICO"
+   - Nueva fila en filasDesglose con marcador '_revalorizacion'
+   - willDrawCell aplica fondo #F5F3FF y texto púrpura para esa fila
+
+3. Excel (exportarExcel):
+   - "SUBTOTAL BRUTO" → "SUBTOTAL HISTÓRICO"
+   - Nueva fila en conceptos[] con flag rev:true
+   - Renderer aplica fondo F5F3FF, texto 6D28D9, cursiva
+
+4. Columna "UTM" en tabla de períodos (tablaFilas):
+   - Renombrada a "Cap. UTM" — aclara que muestra solo el capital en UTM
+     históricas del mes, no el total de deuda incluyendo intereses
+
+RESULTADO VISUAL (ejemplo sin pagos parciales):
+   Capital histórico:    $1.461.707
+   Intereses:              $24.132
+   ─────────────────────────────────
+   SUBTOTAL HISTÓRICO:  $1.485.839
+   Revalorización UTM:    +$18.898
+   ─────────────────────────────────
+   TOTAL A PAGAR:       $1.504.737   (21.31717 UTM × $70.588)
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
-v78-exportJS-fix-subtotal : Fix modal Resumen Final — capital/interés post-imputación
+v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
+v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
 v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
 v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
 v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
