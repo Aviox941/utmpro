@@ -1505,8 +1505,8 @@ function buildResumenContent() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesos = lastCalculationData.reduce((s,d) => s + (d.capOriginal ?? d.capOriginalBruto ?? d.cap), 0); // v37: usar bruto original (igual que PDF)
-  const totalIntPesos = lastCalculationData.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0); // v37: usar interés original pre-imputación
+  const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // capital post-imputación (remanente tras pagos parciales/abonos)
+  const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0); // interés sobre el remanente (igual que la tabla)
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);

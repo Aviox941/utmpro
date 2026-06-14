@@ -3,48 +3,56 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 - Este archivo se SOBRESCRIBE en cada entrega.
 - Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
+- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
+- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
+- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- Nunca eliminar ninguna instrucción de este documento
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 13-06-2026
-App version   : 2.0613.v78
+Fecha         : 14-06-2026
+App version   : 2.0614.v78-exportJS-fix-subtotal
 SW cache      : pension-utm-v151
-Archivos mod  : index.html, sw.js, CAMBIOS.txt
+Archivos mod  : export.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Casos con id texto (caso_timestamp) no se eliminaban de Supabase
-------------------------------------------------------------------------
+FIX — Resumen de Liquidación: Subtotal Bruto usaba capital original en vez de remanente
+-----------------------------------------------------------------------------------------
 
-DIAGNÓSTICO: La tabla casos tiene columna id tipo TEXT (no UUID). Supabase
-acepta ids como 'caso_1781389524160' y los almacena correctamente. El guard
-_isUUID introducido en v76/v77 bloqueaba el DELETE antes de llegar a Supabase
-para cualquier id no-UUID, dejando esos records huérfanos en la nube.
+DIAGNÓSTICO: En buildResumenContent() (export.js), las variables totalCapPesos y
+totalIntPesos se calculaban con d.capOriginal / d.capOriginalBruto y d.intOriginal,
+que corresponden a las cuotas brutas ANTES de aplicar pagos parciales o abonos.
+Esto causaba que el "Resumen Final" del modal mostrara el capital completo original
+(ej. $1.461.707) en lugar del capital pendiente post-imputación (ej. $1.313.141),
+y el subtotal bruto tampoco coincidía con la suma de la tabla de períodos.
 
-Confirmado en Supabase Table Editor: 2 records con ids tipo caso_timestamp
-y user_id UUID coincidente con el usuario → RLS pasaría sin problema, pero
-el fetch nunca se ejecutaba.
+Prueba de la inconsistencia: subtotalBruto_modal - pago_parcial = subtotal_tabla
+($1.481.279 - $148.566 = $1.332.713 = exacto total de la tabla).
 
-FIX — _sbDeleteCasoCore: eliminar early return por id no-UUID (index.html):
-  El bloque que detectaba ids no-UUID hacía return tras limpiar pending_deletes,
-  sin ejecutar el fetch DELETE a Supabase. Removido el early return completo.
-  La variable _isUUID se conserva solo para logging informativo.
-  Un DELETE a un id inexistente retorna HTTP 200 con 0 filas — sin error.
-  La limpieza de pending_deletes ocurre en el path exitoso normal.
+FIX — buildResumenContent en export.js (líneas 1508-1509):
+  ANTES:
+    totalCapPesos = reduce(d.capOriginal ?? d.capOriginalBruto ?? d.cap)
+    totalIntPesos = reduce(d.intOriginal ?? d.inte)
+  DESPUÉS:
+    totalCapPesos = reduce(d.cap)   // capital post-imputación (remanente real)
+    totalIntPesos = reduce(d.inte)  // interés sobre el remanente (igual que la tabla)
+
+ALCANCE: Solo afecta el modal Resumen de Liquidación. Los cálculos del PDF
+(línea 37/41) y Excel (línea 1892/1893) conservan capOriginal bruto — correcto
+para esos documentos que deben mostrar la deuda devengada completa.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v78-exportJS-fix-subtotal : Fix modal Resumen Final — capital/interés post-imputación
 v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
 v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
 v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
 v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
 v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background
-v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
-v72b : sbLoadCasos timeout 10s + fallback localStorage
-v72  : IDB auth backup/restore inicial + fix logs duplicados
 ================================================================================
