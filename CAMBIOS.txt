@@ -13,34 +13,43 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 15-06-2026
-App version   : 2.0615.v80-lav-resumen-total
-SW cache      : pension-utm-v154
-Archivos mod  : index.html, sw.js, CAMBIOS.txt
+App version   : 2.0615.v81-lav-hero-fix
+SW cache      : pension-utm-v155
+Archivos mod  : index.html, export.js, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-Feature — Resumen de Abonos LAV (tarjeta azul + resumen de liquidación)
+FIX — Corrección de implementación de Abonos LAV en tarjeta azul y resumen
 --------------------------------------------------------------------------------
 
-Ahora los Abonos LAV ingresados se reflejan de inmediato, independiente de si
-hay un período seleccionado:
+Corrige la versión anterior (v80), que había agregado una tarjeta nueva suelta
+en la pantalla principal en vez de mostrar el detalle en el modal de Resumen
+de Liquidación, y la tarjeta azul mostraba $0 en el número grande.
 
-- Tarjeta azul "Total Adeudado": nueva fila "Abonos LAV" con el total CLP y
-  total UTM de todos los depósitos LAV ingresados (heroLavRow).
-- Resumen de liquidación: nueva tarjeta "Abonos LAV — Detalle" (lavSummaryRow)
-  que lista cada depósito con fecha de pago, UTM del período del abono,
-  equivalencia en UTM de la cuota y monto CLP, además de los totales CLP/UTM.
-- Si NO hay período seleccionado (_noRange), calculate() ya no aborta sin
-  actualizar nada: ejecuta renderLavSummary() para mostrar estos totales y
-  detalle, dejando capital/interés en $0 (sin cambios de comportamiento ahí).
-- Si HAY período seleccionado: el comportamiento actual no cambia. El PASO 1
-  (pool LAV consume capital cronológicamente, elimina interés del mes cubierto)
-  sigue intacto, sin modificaciones. La nueva sección es puramente informativa
-  y adicional, basada en los mismos datos ya existentes en abonosLav
-  (amount, amountUtm, utmVal, date).
+Cambios:
+- index.html: se eliminó la tarjeta "Abonos LAV — Detalle" suelta de la
+  pantalla principal (lavSummaryRow).
+- index.html: renderLavSummary() reescrito:
+    * Si NO hay período/cálculo (lastCalculationData vacío): el número grande
+      de la tarjeta azul "Total Adeudado" (totalGrand/totalGrandUtm) ahora
+      muestra directamente el TOTAL de Abonos LAV en CLP (arriba) y UTM
+      (abajo), en vez de "$0 / 0.00 UTM".
+    * Si SÍ hay período/cálculo: el número grande sigue mostrando el Total
+      Adeudado normal (sin cambios), y se agrega debajo una fila pequeña
+      "Abonos LAV" con el total CLP/UTM de LAV (heroLavRow).
+    * Se agregó la llamada a renderLavSummary() también dentro del bloque de
+      reseteo a cero (rama lastCalculationData.length === 0 con período
+      definido), para que el total LAV se aplique después del reset.
+- export.js: la sección "Abonos LAV" del modal "Resumen de Liquidación" ahora
+  muestra el detalle completo por depósito: fecha de pago, UTM del período del
+  abono, equivalencia en UTM de la cuota, monto CLP, y totales CLP/UTM al
+  final. showResumenModal() ahora permite abrir el modal aunque no haya
+  período/cálculo, siempre que existan Abonos LAV.
+- export.js: la fila "(-) Abonos LAV" dentro de "Resumen Final" del modal solo
+  se muestra cuando hay período/cálculo (evita mostrar una resta de LAV contra
+  un total de $0 cuando no hay período).
 
-Nueva función: renderLavSummary() (junto a renderAbonosLav). No se modificó
-abonosLav, lastCalculationData, imputarAbonosArt1595, ni la lógica de
-intereses/capital del PASO 1/PASO 2.
+Sin cambios en: abonosLav, lastCalculationData, PASO 1 (pool LAV),
+imputarAbonosArt1595, ni ninguna fórmula de cálculo de capital/interés.

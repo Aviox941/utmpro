@@ -1493,7 +1493,8 @@ function eliminarPerfil(id) {
 // MODAL RESUMEN — vista completa equivalente al PDF
 // ============================================================
 function showResumenModal() {
-  if (!lastCalculationData || lastCalculationData.length === 0) {
+  const hayLav = typeof abonosLav !== 'undefined' && abonosLav.length > 0;
+  if ((!lastCalculationData || lastCalculationData.length === 0) && !hayLav) {
     alert('No hay datos calculados. Ingresa los datos y el cálculo se actualizará automáticamente.');
     return;
   }
@@ -1794,18 +1795,32 @@ function buildResumenContent() {
 
   // ── 4b. Abonos LAV ──
   if (typeof abonosLav !== 'undefined' && abonosLav.length > 0) {
-    seccion('Abonos LAV', '#059669', '');
+    seccion('Abonos LAV — Detalle', '#059669', '');
     const wrapLav = document.createElement('div');
     wrapLav.className = 'rounded-xl overflow-hidden';
     wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
-    abonosLav.forEach((p, i) => {
+    const lavOrdenado = abonosLav.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    lavOrdenado.forEach((p, i) => {
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
-      const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) : '—';
-      row.innerHTML = `<span style="color:#475569">${p.date}</span><span style="color:#059669">${utmStr} UTM</span><span class="font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
+      const fechaStr = p.date ? (() => {
+        const [yyyy, mm, dd] = p.date.split('-');
+        return `${dd}-${mm}-${yyyy}`;
+      })() : '—';
+      const utmPeriodoStr = (p.utmVal != null) ? fmt(p.utmVal) : '—';
+      const equivUtmStr = (p.amountUtm != null) ? p.amountUtm.toFixed(5) + ' UTM' : '—';
+      row.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1px;line-height:1.3">
+          <span style="color:#1e293b;font-weight:900">${fechaStr}</span>
+          <span style="color:#94a3b8;font-size:9px;font-weight:700">UTM período: ${utmPeriodoStr}</span>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;gap:1px;line-height:1.3">
+          <span style="color:#0f172a;font-weight:900">${fmt(p.amount)}</span>
+          <span style="color:#059669;font-size:9px;font-weight:700">${equivUtmStr}</span>
+        </div>`;
       wrapLav.appendChild(row);
     });
     // Fila total
@@ -1833,7 +1848,7 @@ function buildResumenContent() {
   if (intImputado > 0) {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
-  if (lavTotalCLPmodal > 0) {
+  if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
     resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
   }
   if (abonosOrdCLPmodal > 0) {
