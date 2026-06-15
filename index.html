@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0614.v79-fechaliq-fix">
+ <meta name="app-version" content="2.0615.v84-parcial-calendario-libre">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
+ <title>Pensión UTM Pro v17 · Parcial calendario libre sobre LAV v84</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="2.0610.v20">
  <meta name="apple-mobile-web-app-capable" content="2.0610.v20">
@@ -1245,6 +1245,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <div id="heroMetaRow" class="hero-total-card__meta hidden">
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
+          </div>
+          <div id="heroLavRow" class="hero-total-card__meta hidden" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">
+            <p class="hero-total-card__meta-line" style="font-weight:800;opacity:0.85;">Abonos LAV</p>
+            <p id="heroLavClp" class="hero-total-card__meta-line"></p>
+            <p id="heroLavUtm" class="hero-total-card__meta-line"></p>
           </div>
         </div>
 
@@ -3067,6 +3072,50 @@ function renderAbonosLav() {
   });
 }
 
+// ── Resumen de Abonos LAV (tarjeta azul) ───────────────────────────────────
+// Si NO hay cálculo de pensiones (lastCalculationData vacío / sin período):
+//   el número grande de la tarjeta azul (totalGrand/totalGrandUtm) muestra
+//   directamente el TOTAL de abonos LAV (CLP arriba, UTM abajo).
+// Si SÍ hay cálculo de pensiones:
+//   el número grande sigue mostrando el Total Adeudado (sin cambios), y se
+//   agrega una fila pequeña "Abonos LAV" debajo con el total CLP/UTM de LAV.
+// El detalle por depósito (fecha, UTM período, equivalencia UTM, monto) se
+// muestra en el modal "Resumen de Liquidación" (ver export.js).
+// Esto es puramente informativo/aditivo: NO modifica abonosLav, NO interactúa
+// con el pool LAV del PASO 1 ni con lastCalculationData.
+function renderLavSummary() {
+  const grandEl  = document.getElementById('totalGrand');
+  const grandUtm = document.getElementById('totalGrandUtm');
+  const heroRow  = document.getElementById('heroLavRow');
+  const heroClp  = document.getElementById('heroLavClp');
+  const heroUtm  = document.getElementById('heroLavUtm');
+  if (!grandEl || !heroRow) return;
+
+  const lav = Array.isArray(abonosLav) ? abonosLav : [];
+  const hayCalculo = typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0;
+
+  if (lav.length === 0) {
+    heroRow.classList.add('hidden');
+    return;
+  }
+
+  const totalClp = lav.reduce((s,p) => s + (p.amount || 0), 0);
+  const totalUtm = lav.reduce((s,p) => s + (p.amountUtm || 0), 0);
+
+  if (!hayCalculo) {
+    // Sin período/cálculo: el número grande de la tarjeta azul muestra el total LAV
+    grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalClp));
+    grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
+    if (grandUtm) grandUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+    heroRow.classList.add('hidden');
+  } else {
+    // Con cálculo: número grande = Total Adeudado (sin tocar), fila pequeña con total LAV
+    heroClp.textContent = `${format(totalClp)}`;
+    heroUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+    heroRow.classList.remove('hidden');
+  }
+}
+
 function checkBtnParcial() {
 const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempParcialMes').value;
@@ -4134,7 +4183,14 @@ if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
-if (_noRange) { dbg('CALC: sin rango definido — abortando sin error'); return; }
+if (_noRange) {
+  // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
+  // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
+  // y en el resumen de liquidación (totales + detalle por depósito).
+  renderLavSummary();
+  dbg('CALC: sin rango definido — abortando sin error (LAV summary actualizado)');
+  return;
+}
 dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len=' + utmData.length + ' utm=' + (document.getElementById('utmAmount').value||'?'));
 const hoy = getFechaLiquidacion();
 const aplicarRecargo = document.getElementById('recargoLey').checked;
@@ -4238,6 +4294,9 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
     d.capImputado = (d.capOriginalBruto - cuotaImputada.capPendiente);
   });
 }
+// Resumen de Abonos LAV (tarjeta azul + resumen de liquidación): se actualiza
+// siempre, independiente de si hay datos calculados de pensiones.
+renderLavSummary();
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
 // ── METODOLOGÍA TRIBUNAL (SITFA/PJUD) ────────────────────────────────────────
@@ -4368,6 +4427,8 @@ document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
 document.getElementById('abonoResultRow').classList.add('hidden');
+// Re-aplicar resumen LAV sobre la tarjeta azul (totalGrand recién fue reseteado a 0)
+renderLavSummary();
 }
 if (document.getElementById('calculationMode').value === 'salary_percent') {
 updateSalaryCalcChip();
@@ -4776,23 +4837,36 @@ btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
-if (m === 'abono' || m === 'parcial') {
-// Si no hay período definido, no abrir
+if (m === 'abono') {
+// Si no hay período definido, no abrir abono
 if (startIndex < 0 || endIndex < 0) {
 alert('Primero define el período "Desde / Hasta".');
 return;
 }
-// Siempre limpiar fecha previa al abrir (evita que quede seleccionada la última fecha usada)
-if (m === 'abono') {
-  document.getElementById('tempAbonoMes').value = '';
-  document.getElementById('tempAbonoAnio').value = '';
-  document.getElementById('tempAbonoDia').value = '';
-  const _lbl = document.getElementById('tempAbonoLabel');
-  if (_lbl) { _lbl.innerText = 'Día / Mes / Año'; _lbl.classList.add('text-slate-400'); _lbl.classList.remove('text-white'); }
-}
+// Siempre limpiar fecha previa al abrir
+document.getElementById('tempAbonoMes').value = '';
+document.getElementById('tempAbonoAnio').value = '';
+document.getElementById('tempAbonoDia').value = '';
+const _lbl = document.getElementById('tempAbonoLabel');
+if (_lbl) { _lbl.innerText = 'Día / Mes / Año'; _lbl.classList.add('text-slate-400'); _lbl.classList.remove('text-white'); }
 // Partir en el año del inicio del período
 const rangeStart = Math.min(startIndex, endIndex);
 selectedYear = utmData[rangeStart].y;
+} else if (m === 'parcial') {
+// Parcial: requiere período O al menos un abono LAV registrado
+if (startIndex < 0 || endIndex < 0) {
+  if (!abonosLav || abonosLav.length === 0) {
+    alert('Primero define el período "Desde / Hasta" o registra al menos un abono LAV.');
+    return;
+  }
+  // Sin período: arrancar en el año del primer abono LAV registrado
+  const primerLavSorted = abonosLav.slice().sort((a,b) => a.periodo.localeCompare(b.periodo));
+  selectedYear = primerLavSorted.length > 0 ? parseInt(primerLavSorted[0].periodo.slice(0,4)) : CURRENT_YEAR;
+} else {
+  // Con período: partir en el año del inicio del período
+  const rangeStart2 = Math.min(startIndex, endIndex);
+  selectedYear = utmData[rangeStart2].y;
+}
 } else if (m === 'histStart') {
 const anio = document.getElementById('histStartAnio').value;
 selectedYear = anio ? parseInt(anio) : CURRENT_YEAR;
@@ -4843,8 +4917,8 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
-// Para modos abono/parcial, limitar la navegación al rango del período
-if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
+// Para modo abono, limitar la navegación al rango del período
+if (calendarMode === 'abono') {
 if (startIndex < 0 || endIndex < 0) return;
 const rangeStart = Math.min(startIndex, endIndex);
 const rangeEnd = Math.max(startIndex, endIndex);
@@ -4852,6 +4926,34 @@ const minYear = utmData[rangeStart].y;
 const maxYear = utmData[rangeEnd].y;
 const next = selectedYear + v;
 if (next < minYear || next > maxYear) return;
+selectedYear = next;
+} else if (calendarMode === 'parcial') {
+// Parcial: si hay período, limitar al rango; si no, navegación libre por años con datos UTM (igual que LAV)
+const nextP = selectedYear + v;
+if (startIndex >= 0 && endIndex >= 0) {
+  const rangeStartP = Math.min(startIndex, endIndex);
+  const rangeEndP = Math.max(startIndex, endIndex);
+  const minYearP = utmData[rangeStartP].y;
+  const maxYearP = utmData[rangeEndP].y;
+  if (nextP < minYearP || nextP > maxYearP) return;
+} else {
+  const minYearParcial = utmData.length > 0 ? utmData[0].y : 2010;
+  if (nextP < minYearParcial || nextP > CURR_YEAR) return;
+}
+selectedYear = nextP;
+} else if (calendarMode === 'lav') {
+// LAV: si hay período definido, limitar al rango; si no, navegación libre por años con datos UTM
+const next = selectedYear + v;
+if (startIndex >= 0 && endIndex >= 0) {
+  const rangeStart = Math.min(startIndex, endIndex);
+  const rangeEnd = Math.max(startIndex, endIndex);
+  const minYear = utmData[rangeStart].y;
+  const maxYear = utmData[rangeEnd].y;
+  if (next < minYear || next > maxYear) return;
+} else {
+  const minYearLav = utmData.length > 0 ? utmData[0].y : 2010;
+  if (next < minYearLav || next > CURR_YEAR) return;
+}
 selectedYear = next;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
@@ -4890,6 +4992,7 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
       minY = utmData[Math.min(startIndex,endIndex)].y;
       maxY = utmData[Math.max(startIndex,endIndex)].y;
     }
+    // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -4901,7 +5004,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
 })();
 // Para abono/parcial calcular rango permitido
 let rangeStartIdx = -1, rangeEndIdx = -1;
-if ((calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') && startIndex >= 0 && endIndex >= 0) {
+const _periodoDefinido = startIndex >= 0 && endIndex >= 0;
+if ((calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') && _periodoDefinido) {
 rangeStartIdx = Math.min(startIndex, endIndex);
 rangeEndIdx = Math.max(startIndex, endIndex);
 }
@@ -4909,8 +5013,17 @@ monthsNames.forEach((name, i) => {
 const idx = utmData.findIndex(d => d.y === selectedYear && d.monthIdx === i);
 const btn = document.createElement('button');
 // Determinar si está fuera del rango permitido para abono/parcial
-const outOfRange = (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav')
-&& (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
+// Para LAV: si no hay período definido (sin rango), los abonos LAV pueden
+// registrarse en cualquier mes con datos UTM disponibles (registro libre
+// cuota a cuota, independiente del período actual).
+const outOfRange = calendarMode === 'lav'
+  ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
+  : calendarMode === 'parcial'
+    ? (_periodoDefinido
+        ? (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx)
+        : idx === -1)
+    : calendarMode === 'abono'
+      && (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
 // Bloquear meses futuros para modos start/end del período principal
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
@@ -5463,7 +5576,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0614.v79-fechaliq-fix</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v84-parcial-calendario-libre</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

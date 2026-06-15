@@ -12,35 +12,69 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 14-06-2026
-App version   : 2.0614.v79-fechaliq-fix
-SW cache      : pension-utm-v153
+Fecha         : 15-06-2026
+App version   : 2.0615.v84-parcial-calendario-libre
+SW cache      : pension-utm-v155
 Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-He consolidado los registros de correcciones extraídos de los archivos CAMBIOS.txt en un resumen cronológico inverso. Puedes copiar el siguiente contenido y guardarlo en un archivo llamado **resumen_correcciones.txt**:
-# Resumen de Correcciones - Pensión UTM Pro
-**v79-fechaliq-fix (14-06-2026)**
- * **FIX Bug 1:** La fechaLiquidacion no se actualizaba al cambiar el período final. Se implementó una nueva función resetFechaLiquidacion() al seleccionar un nuevo endIndex.
- * **Nota:** No se modificaron fórmulas de cálculo, solo la lógica de actualización de fecha.
-**v78-revalorizacion-utm (14-06-2026)**
- * **MEJORA PRESENTACIÓN:** Se añadió la línea "Revalorización UTM" en el Resumen Final (modal, PDF y Excel) para aclarar la diferencia entre el subtotal nominal histórico y el total convertido a UTM.
- * **Cambios visuales:** Se renombró "SUBTOTAL BRUTO" a "SUBTOTAL HISTÓRICO", se renombró la columna de la tabla a "Cap. UTM" y se aplicó formato visual (púrpura/cursiva) para diferenciar la línea de ajuste.
-**v78-exportJS-fix-subtotal (14-06-2026)**
- * **FIX Modal Resumen Final:** El subtotal bruto usaba incorrectamente el capital original en lugar del remanente post-imputación. Se ajustó el cálculo en buildResumenContent (export.js) para usar d.cap (remanente real) y d.inte.
-**v78 (13-06-2026)**
- * **FIX DELETE casos texto (caso_timestamp):** Se eliminó el guard _isUUID en _sbDeleteCasoCore que bloqueaba el borrado de casos con IDs tipo texto en Supabase. Ahora el proceso de borrado llega correctamente a la base de datos.
-**v77 (13-06-2026)**
- * **FIX IDs no-UUID:** Casos creados desde la welcome screen no se borraban de Supabase. Se unificó la lógica de generación de IDs para usar crypto.randomUUID() con fallback caso_timestamp.
- * **FIX limpieza:** Corregido un error donde los IDs no-UUID no limpiaban correctamente la lista pending_deletes, causando reintentos infinitos en cada reinicio.
-*Nota: Este archivo ha sido generado reuniendo los propósitos y cambios detallados en las entregas de versiones v77 a v79.*
+FIX — Calendario Pagos Parciales libre sin período previo
+--------------------------------------------------------------------------------
+Permitir registrar pagos parciales en el calendario sin necesidad de tener
+un período actual (Desde / Hasta) definido previamente, siempre que exista
+al menos un abono LAV registrado. Misma lógica que la liberación LAV en v83.
+
+CAMBIOS EN index.html
+--------------------------------------------------------------------------------
+
+1. openCalendar() — rama 'parcial' separada de 'abono':
+   - Antes: abono y parcial compartían un guard que bloqueaba si no había período.
+   - Ahora: 'abono' mantiene el guard (requiere período).
+     'parcial' tiene su propia rama:
+       · Sin período Y sin abonos LAV → alerta y return (igual que antes).
+       · Sin período Y CON abonos LAV → abre calendario libre, arranca en el
+         año del primer LAV registrado.
+       · Con período → arranca en el año del inicio del período (igual que antes).
+
+2. changeYear() — rama 'parcial' separada de 'abono':
+   - Antes: abono y parcial compartían la misma rama que retornaba si
+     startIndex < 0 || endIndex < 0, bloqueando navegación sin período.
+   - Ahora: 'parcial' tiene su propia rama:
+       · Con período → limita navegación al rango del período (igual que antes).
+       · Sin período → navegación libre entre el primer año con datos UTM y
+         CURR_YEAR (igual que LAV libre).
+
+3. renderCalendar() — outOfRange para 'parcial' sin período:
+   - Antes: outOfRange para parcial bloqueaba si idx < rangeStartIdx || idx > rangeEndIdx,
+     lo que deshabilita todos los meses cuando no hay rango (rangeStartIdx = -1).
+   - Ahora: si hay período → aplica restricción de rango (igual que antes).
+     Si NO hay período → solo bloquea si idx === -1 (sin datos UTM), igual que LAV.
+
+4. renderCalendar() — updateNavArrows para 'parcial' sin período:
+   - Sin período, maxY = CURR_YEAR (igual que LAV libre, ya estaba correcto
+     por compartir la rama, pero se documenta para consistencia).
+
+COMPORTAMIENTO
+--------------------------------------------------------------------------------
+- Sin período definido Y sin LAV:
+  · El botón "Seleccionar" de Pagos Parciales muestra alerta igual que antes.
+- Sin período definido Y CON abonos LAV registrados:
+  · El botón "Seleccionar" de Pagos Parciales abre el calendario normalmente.
+  · Se puede navegar entre años sin restricción (límite: datos UTM).
+  · Los meses sin datos UTM aparecen deshabilitados.
+  · Se puede registrar cualquier pago parcial libremente (sobre cuotas LAV).
+  · El pago queda registrado en pagosParciales y se procesa en calculate().
+- Con período definido: comportamiento idéntico al anterior (sin cambios).
+- Abonos: sin cambios, siguen requiriendo período previo.
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v84-parcial-calendario-libre : Calendario Parciales libre sin período (sobre LAV)
+v83-lav-calendario-libre : Calendario LAV libre sin período previo
 v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
 v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
 v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
