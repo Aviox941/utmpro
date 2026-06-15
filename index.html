@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0615.v83-lav-calendario-libre">
+ <meta name="app-version" content="2.0615.v84-parcial-calendario-libre">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v17 · LAV calendario libre sin período v83</title>
+ <title>Pensión UTM Pro v17 · Parcial calendario libre sobre LAV v84</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="2.0610.v20">
  <meta name="apple-mobile-web-app-capable" content="2.0610.v20">
@@ -4837,23 +4837,36 @@ btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
-if (m === 'abono' || m === 'parcial') {
-// Si no hay período definido, no abrir
+if (m === 'abono') {
+// Si no hay período definido, no abrir abono
 if (startIndex < 0 || endIndex < 0) {
 alert('Primero define el período "Desde / Hasta".');
 return;
 }
-// Siempre limpiar fecha previa al abrir (evita que quede seleccionada la última fecha usada)
-if (m === 'abono') {
-  document.getElementById('tempAbonoMes').value = '';
-  document.getElementById('tempAbonoAnio').value = '';
-  document.getElementById('tempAbonoDia').value = '';
-  const _lbl = document.getElementById('tempAbonoLabel');
-  if (_lbl) { _lbl.innerText = 'Día / Mes / Año'; _lbl.classList.add('text-slate-400'); _lbl.classList.remove('text-white'); }
-}
+// Siempre limpiar fecha previa al abrir
+document.getElementById('tempAbonoMes').value = '';
+document.getElementById('tempAbonoAnio').value = '';
+document.getElementById('tempAbonoDia').value = '';
+const _lbl = document.getElementById('tempAbonoLabel');
+if (_lbl) { _lbl.innerText = 'Día / Mes / Año'; _lbl.classList.add('text-slate-400'); _lbl.classList.remove('text-white'); }
 // Partir en el año del inicio del período
 const rangeStart = Math.min(startIndex, endIndex);
 selectedYear = utmData[rangeStart].y;
+} else if (m === 'parcial') {
+// Parcial: requiere período O al menos un abono LAV registrado
+if (startIndex < 0 || endIndex < 0) {
+  if (!abonosLav || abonosLav.length === 0) {
+    alert('Primero define el período "Desde / Hasta" o registra al menos un abono LAV.');
+    return;
+  }
+  // Sin período: arrancar en el año del primer abono LAV registrado
+  const primerLavSorted = abonosLav.slice().sort((a,b) => a.periodo.localeCompare(b.periodo));
+  selectedYear = primerLavSorted.length > 0 ? parseInt(primerLavSorted[0].periodo.slice(0,4)) : CURRENT_YEAR;
+} else {
+  // Con período: partir en el año del inicio del período
+  const rangeStart2 = Math.min(startIndex, endIndex);
+  selectedYear = utmData[rangeStart2].y;
+}
 } else if (m === 'histStart') {
 const anio = document.getElementById('histStartAnio').value;
 selectedYear = anio ? parseInt(anio) : CURRENT_YEAR;
@@ -4904,8 +4917,8 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
-// Para modos abono/parcial, limitar la navegación al rango del período
-if (calendarMode === 'abono' || calendarMode === 'parcial') {
+// Para modo abono, limitar la navegación al rango del período
+if (calendarMode === 'abono') {
 if (startIndex < 0 || endIndex < 0) return;
 const rangeStart = Math.min(startIndex, endIndex);
 const rangeEnd = Math.max(startIndex, endIndex);
@@ -4914,6 +4927,20 @@ const maxYear = utmData[rangeEnd].y;
 const next = selectedYear + v;
 if (next < minYear || next > maxYear) return;
 selectedYear = next;
+} else if (calendarMode === 'parcial') {
+// Parcial: si hay período, limitar al rango; si no, navegación libre por años con datos UTM (igual que LAV)
+const nextP = selectedYear + v;
+if (startIndex >= 0 && endIndex >= 0) {
+  const rangeStartP = Math.min(startIndex, endIndex);
+  const rangeEndP = Math.max(startIndex, endIndex);
+  const minYearP = utmData[rangeStartP].y;
+  const maxYearP = utmData[rangeEndP].y;
+  if (nextP < minYearP || nextP > maxYearP) return;
+} else {
+  const minYearParcial = utmData.length > 0 ? utmData[0].y : 2010;
+  if (nextP < minYearParcial || nextP > CURR_YEAR) return;
+}
+selectedYear = nextP;
 } else if (calendarMode === 'lav') {
 // LAV: si hay período definido, limitar al rango; si no, navegación libre por años con datos UTM
 const next = selectedYear + v;
@@ -4965,6 +4992,7 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
       minY = utmData[Math.min(startIndex,endIndex)].y;
       maxY = utmData[Math.max(startIndex,endIndex)].y;
     }
+    // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -4990,8 +5018,12 @@ const btn = document.createElement('button');
 // cuota a cuota, independiente del período actual).
 const outOfRange = calendarMode === 'lav'
   ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
-  : (calendarMode === 'abono' || calendarMode === 'parcial')
-    && (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
+  : calendarMode === 'parcial'
+    ? (_periodoDefinido
+        ? (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx)
+        : idx === -1)
+    : calendarMode === 'abono'
+      && (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
 // Bloquear meses futuros para modos start/end del período principal
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
@@ -5544,7 +5576,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v82-lav-calendario-fix</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v84-parcial-calendario-libre</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
