@@ -12,63 +12,35 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 14-06-2026
-App version   : 2.0614.v79-fechaliq-fix
-SW cache      : pension-utm-v153
+Fecha         : 15-06-2026
+App version   : 2.0615.v80-lav-resumen-total
+SW cache      : pension-utm-v154
 Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX Bug 1 — fechaLiquidacion no se actualizaba al cambiar período final
+Feature — Resumen de Abonos LAV (tarjeta azul + resumen de liquidación)
 --------------------------------------------------------------------------------
 
-Implementado A3 + B1:
-- Nueva función resetFechaLiquidacion(): al seleccionar un nuevo endIndex en el
-  calendario, fechaLiquidacion se resetea de forma automática y silenciosa
-  (sin toasts/alerts).
-- Si el período final = mes actual → fechaLiquidacion = hoy.
-- Si el período final es un mes pasado → fechaLiquidacion = último día de ese mes
-  (ej. Mar 2026 → 31/03/2026).
-- Llamada agregada en el handler de selección de endIndex en renderCalendar(),
-  justo después de `endIndex = idx;`. No se tocó calculate(), getFechaLiquidacion(),
-  ni ninguna fórmula de cálculo.
+Ahora los Abonos LAV ingresados se reflejan de inmediato, independiente de si
+hay un período seleccionado:
 
-Bug 2 — Calendario fuera de rango en abono/parcial/lav
---------------------------------------------------------------------------------
+- Tarjeta azul "Total Adeudado": nueva fila "Abonos LAV" con el total CLP y
+  total UTM de todos los depósitos LAV ingresados (heroLavRow).
+- Resumen de liquidación: nueva tarjeta "Abonos LAV — Detalle" (lavSummaryRow)
+  que lista cada depósito con fecha de pago, UTM del período del abono,
+  equivalencia en UTM de la cuota y monto CLP, además de los totales CLP/UTM.
+- Si NO hay período seleccionado (_noRange), calculate() ya no aborta sin
+  actualizar nada: ejecuta renderLavSummary() para mostrar estos totales y
+  detalle, dejando capital/interés en $0 (sin cambios de comportamiento ahí).
+- Si HAY período seleccionado: el comportamiento actual no cambia. El PASO 1
+  (pool LAV consume capital cronológicamente, elimina interés del mes cubierto)
+  sigue intacto, sin modificaciones. La nueva sección es puramente informativa
+  y adicional, basada en los mismos datos ya existentes en abonosLav
+  (amount, amountUtm, utmVal, date).
 
-Revisado: la lógica outOfRange (C2) ya estaba correctamente implementada —
-bloquea visualmente y deshabilita el onclick para meses fuera de
-[min(startIndex,endIndex), max(startIndex,endIndex)] en los modos abono,
-parcial y lav. Sin cambios necesarios.
-He consolidado los registros de correcciones extraídos de los archivos CAMBIOS.txt en un resumen cronológico inverso. Puedes copiar el siguiente contenido y guardarlo en un archivo llamado **resumen_correcciones.txt**:
-# Resumen de Correcciones - Pensión UTM Pro
-**v79-fechaliq-fix (14-06-2026)**
- * **FIX Bug 1:** La fechaLiquidacion no se actualizaba al cambiar el período final. Se implementó una nueva función resetFechaLiquidacion() al seleccionar un nuevo endIndex.
- * **Nota:** No se modificaron fórmulas de cálculo, solo la lógica de actualización de fecha.
-**v78-revalorizacion-utm (14-06-2026)**
- * **MEJORA PRESENTACIÓN:** Se añadió la línea "Revalorización UTM" en el Resumen Final (modal, PDF y Excel) para aclarar la diferencia entre el subtotal nominal histórico y el total convertido a UTM.
- * **Cambios visuales:** Se renombró "SUBTOTAL BRUTO" a "SUBTOTAL HISTÓRICO", se renombró la columna de la tabla a "Cap. UTM" y se aplicó formato visual (púrpura/cursiva) para diferenciar la línea de ajuste.
-**v78-exportJS-fix-subtotal (14-06-2026)**
- * **FIX Modal Resumen Final:** El subtotal bruto usaba incorrectamente el capital original en lugar del remanente post-imputación. Se ajustó el cálculo en buildResumenContent (export.js) para usar d.cap (remanente real) y d.inte.
-**v78 (13-06-2026)**
- * **FIX DELETE casos texto (caso_timestamp):** Se eliminó el guard _isUUID en _sbDeleteCasoCore que bloqueaba el borrado de casos con IDs tipo texto en Supabase. Ahora el proceso de borrado llega correctamente a la base de datos.
-**v77 (13-06-2026)**
- * **FIX IDs no-UUID:** Casos creados desde la welcome screen no se borraban de Supabase. Se unificó la lógica de generación de IDs para usar crypto.randomUUID() con fallback caso_timestamp.
- * **FIX limpieza:** Corregido un error donde los IDs no-UUID no limpiaban correctamente la lista pending_deletes, causando reintentos infinitos en cada reinicio.
-*Nota: Este archivo ha sido generado reuniendo los propósitos y cambios detallados en las entregas de versiones v77 a v79.*
-
-================================================================================
-HISTORIAL RECIENTE
-================================================================================
-v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
-v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
-v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
-v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
-v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
-v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
-v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
-v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
-v73  : Inicio instantáneo — local-first + sync Supabase en background
-================================================================================
+Nueva función: renderLavSummary() (junto a renderAbonosLav). No se modificó
+abonosLav, lastCalculationData, imputarAbonosArt1595, ni la lógica de
+intereses/capital del PASO 1/PASO 2.

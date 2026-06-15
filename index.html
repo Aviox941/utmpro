@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0614.v79-fechaliq-fix">
+ <meta name="app-version" content="2.0615.v80-lav-resumen-total">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1246,6 +1246,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
           </div>
+          <div id="heroLavRow" class="hero-total-card__meta hidden" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">
+            <p class="hero-total-card__meta-line" style="font-weight:800;opacity:0.85;">Abonos LAV</p>
+            <p id="heroLavClp" class="hero-total-card__meta-line"></p>
+            <p id="heroLavUtm" class="hero-total-card__meta-line"></p>
+          </div>
         </div>
 
         <!-- Tarjeta derecha: Detalle del cálculo -->
@@ -1286,6 +1291,17 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div id="abonoResultRow" class="hidden liq-abono-row" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);">
         <p class="liq-abono-row__label">Total Abonos</p>
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
+      </div>
+      <!-- Resumen detallado de Abonos LAV (condicional) -->
+      <div id="lavSummaryRow" class="hidden" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 4px rgba(0,0,0,0.05);padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <p style="font-size:11px;font-weight:800;color:#5a6380;margin:0;">📥 Abonos LAV — Detalle</p>
+          <div style="text-align:right;">
+            <p id="lavSummaryTotalClp" style="font-size:12px;font-weight:800;color:#10b981;margin:0;">$0</p>
+            <p id="lavSummaryTotalUtm" style="font-size:9px;font-weight:700;color:#10b981;margin:0;">0.00000 UTM</p>
+          </div>
+        </div>
+        <div id="lavSummaryList" style="display:flex;flex-direction:column;gap:4px;"></div>
       </div>
       <div id="yearTabsCard" class="hidden" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 4px rgba(0,0,0,0.05);padding:10px 12px;display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;justify-content:space-between;">
         <div id="yearTabs" class="flex gap-2 overflow-x-auto no-scrollbar"></div>
@@ -3067,6 +3083,67 @@ function renderAbonosLav() {
   });
 }
 
+// ── Resumen de Abonos LAV ──────────────────────────────────────────────────
+// Actualiza:
+//  1) Tarjeta azul de totales (heroLavRow): solo total CLP + total UTM.
+//  2) Resumen de liquidación (lavSummaryRow): detalle por depósito
+//     (fecha de pago, UTM del período, equivalencia UTM de la cuota, monto CLP)
+//     más los totales.
+// Esto es puramente informativo/aditivo: NO modifica abonosLav, NO interactúa
+// con el pool LAV del PASO 1 ni con lastCalculationData. Funciona con o sin
+// período seleccionado.
+function renderLavSummary() {
+  const heroRow   = document.getElementById('heroLavRow');
+  const heroClp   = document.getElementById('heroLavClp');
+  const heroUtm   = document.getElementById('heroLavUtm');
+  const sumRow    = document.getElementById('lavSummaryRow');
+  const sumList   = document.getElementById('lavSummaryList');
+  const sumTotClp = document.getElementById('lavSummaryTotalClp');
+  const sumTotUtm = document.getElementById('lavSummaryTotalUtm');
+  if (!heroRow || !sumRow) return;
+
+  const lav = Array.isArray(abonosLav) ? abonosLav : [];
+  if (lav.length === 0) {
+    heroRow.classList.add('hidden');
+    sumRow.classList.add('hidden');
+    if (sumList) sumList.innerHTML = '';
+    return;
+  }
+
+  const totalClp = lav.reduce((s,p) => s + (p.amount || 0), 0);
+  const totalUtm = lav.reduce((s,p) => s + (p.amountUtm || 0), 0);
+
+  // Tarjeta azul: solo totales
+  heroClp.textContent = `${format(totalClp)}`;
+  heroUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+  heroRow.classList.remove('hidden');
+
+  // Resumen de liquidación: detalle completo por depósito
+  sumTotClp.textContent = format(totalClp);
+  sumTotUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+  if (sumList) {
+    sumList.innerHTML = '';
+    lav.slice().sort((a,b) => (a.date||'').localeCompare(b.date||'')).forEach(p => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:4px 0;border-bottom:1px dashed rgba(0,0,0,0.06);';
+      const fechaStr = p.date ? new Date(p.date + 'T00:00:00').toLocaleDateString('es-CL') : '—';
+      const utmPeriodoStr = (p.utmVal != null) ? format(p.utmVal) : '—';
+      const equivUtmStr = (p.amountUtm != null) ? p.amountUtm.toFixed(5) + ' UTM' : '—';
+      row.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:1px;">
+          <span style="font-weight:800;color:var(--color-text-primary);">${fechaStr}</span>
+          <span style="font-size:9px;color:#94a3b8;">UTM período: ${utmPeriodoStr}</span>
+        </div>
+        <div style="text-align:right;display:flex;flex-direction:column;gap:1px;">
+          <span style="font-weight:800;color:#10b981;">${format(p.amount)}</span>
+          <span style="font-size:9px;font-weight:700;color:#10b981;">${equivUtmStr}</span>
+        </div>`;
+      sumList.appendChild(row);
+    });
+  }
+  sumRow.classList.remove('hidden');
+}
+
 function checkBtnParcial() {
 const amount = parseInt((document.getElementById('tempParcialClp').value || '').replace(/\./g, '')) || 0;
 const mes = document.getElementById('tempParcialMes').value;
@@ -4134,7 +4211,14 @@ if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
-if (_noRange) { dbg('CALC: sin rango definido — abortando sin error'); return; }
+if (_noRange) {
+  // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
+  // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
+  // y en el resumen de liquidación (totales + detalle por depósito).
+  renderLavSummary();
+  dbg('CALC: sin rango definido — abortando sin error (LAV summary actualizado)');
+  return;
+}
 dbg('CALC: startIndex=' + startIndex + ' endIndex=' + endIndex + ' utmData.len=' + utmData.length + ' utm=' + (document.getElementById('utmAmount').value||'?'));
 const hoy = getFechaLiquidacion();
 const aplicarRecargo = document.getElementById('recargoLey').checked;
@@ -4238,6 +4322,9 @@ if (imputacion.cuotasResultado && imputacion.cuotasResultado.length === lastCalc
     d.capImputado = (d.capOriginalBruto - cuotaImputada.capPendiente);
   });
 }
+// Resumen de Abonos LAV (tarjeta azul + resumen de liquidación): se actualiza
+// siempre, independiente de si hay datos calculados de pensiones.
+renderLavSummary();
 if (lastCalculationData.length > 0) {
 const lavTotalUTM = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
 // ── METODOLOGÍA TRIBUNAL (SITFA/PJUD) ────────────────────────────────────────
@@ -5463,7 +5550,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0614.v79-fechaliq-fix</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v80-lav-resumen-total</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
