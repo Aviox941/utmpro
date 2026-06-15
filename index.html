@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0613.v75">
+ <meta name="app-version" content="2.0614.v79-fechaliq-fix">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -89,7 +89,8 @@ try {
   var RESTORE_KEYS = [
     'pension_utm_auth',
     'pension_utm_last_caso',
-    'pension_utm_casos_index_v1'
+    'pension_utm_casos_index_v1',
+    'pending_deletes'  // Fix 2: sobrevivir reinicios de Android
   ];
 
   // Monkey-patch localStorage para que claves criticas se respalden automaticamente
@@ -101,6 +102,7 @@ try {
     if (key && (
       key === 'pension_utm_last_caso' ||
       key === 'pension_utm_casos_index_v1' ||
+      key === 'pending_deletes' ||  // Fix 3: respaldar pending_deletes
       key.indexOf('pension_utm_caso_v1_') === 0
     )) {
       window._idbSet && window._idbSet(key, value);
@@ -111,6 +113,7 @@ try {
     if (key && (
       key === 'pension_utm_last_caso' ||
       key === 'pension_utm_casos_index_v1' ||
+      key === 'pending_deletes' ||  // Fix 3: limpiar pending_deletes de IDB también
       key.indexOf('pension_utm_caso_v1_') === 0
     )) {
       window._idbDelete && window._idbDelete(key);
@@ -120,8 +123,21 @@ try {
   window._idbRestorePromise = window._idbOpen().then(function(db) {
     return new Promise(function(resolve) {
       var authPresent = localStorage.getItem(AUTH_KEY) !== null;
+
+      // Fix 4: pending_deletes se restaura SIEMPRE (con o sin auth)
+      // para que los deletes pendientes sobrevivan reinicios de Android.
+      var store4 = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE);
+      var r4 = store4.get('pending_deletes');
+      r4.onsuccess = function(e4) {
+        var pdVal = e4.target.result;
+        if (pdVal && localStorage.getItem('pending_deletes') === null) {
+          try { _origSetItem('pending_deletes', pdVal); window.dbg('IDB: pending_deletes restaurado (' + pdVal + ')'); } catch(ex) {}
+        }
+      };
+      r4.onerror = function() {};
+
       if (authPresent) {
-        window.dbg('IDB: localStorage ya tiene auth — no se restaura');
+        window.dbg('IDB: localStorage ya tiene auth — restore parcial (solo pending_deletes)');
         resolve(); return;
       }
       // localStorage vacio — restaurar todas las claves respaldadas
@@ -2034,6 +2050,26 @@ function getFechaLiquidacion() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   return hoy;
+}
+// Reset forzado y silencioso de fechaLiquidacion al cambiar el período final (endIndex).
+// B1: si el período final es el mes actual → hoy; si es un mes pasado → último día de ese mes.
+function resetFechaLiquidacion() {
+  if (endIndex < 0 || !utmData[endIndex]) return;
+  const item = utmData[endIndex];
+  const now = new Date();
+  const isCurrentMonth = (item.y === now.getFullYear() && item.monthIdx === now.getMonth());
+  const input = document.getElementById('fechaLiquidacion');
+  if (!input) return;
+  let nuevaFecha;
+  if (isCurrentMonth) {
+    nuevaFecha = now;
+  } else {
+    nuevaFecha = new Date(item.y, item.monthIdx + 1, 0); // último día del mes (día 0 del mes siguiente)
+  }
+  const yyyy = nuevaFecha.getFullYear();
+  const mm = String(nuevaFecha.getMonth() + 1).padStart(2, '0');
+  const dd = String(nuevaFecha.getDate()).padStart(2, '0');
+  input.value = `${yyyy}-${mm}-${dd}`;
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -4956,6 +4992,7 @@ updateUtmPeriodChips();
 return;
 } else if (calendarMode === 'end') {
 endIndex = idx;
+resetFechaLiquidacion();
 updateLabels(true);
 updateCalendarActionBtn();
 renderCalendar();
@@ -5426,7 +5463,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0613.v75</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0614.v79-fechaliq-fix</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -5623,7 +5660,8 @@ const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 var _IDB_BACKUP_KEYS = [
   'pension_utm_auth',
   'pension_utm_last_caso',
-  'pension_utm_casos_index_v1'
+  'pension_utm_casos_index_v1',
+  'pending_deletes'  // Fix 2b: respaldar deletes pendientes
 ];
 function _idbShouldBackup(key) {
   if (_IDB_BACKUP_KEYS.indexOf(key) !== -1) return true;
@@ -6423,7 +6461,12 @@ async function _sbSyncBackground(rows) {
         }
       }
 
-      finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
+      // Fix 1: no restaurar casos que ya fueron eliminados localmente
+      if (!_deletedCasoIds.has(row.id)) {
+        finalIdx.push({ ...(row.meta || {}), id: row.id, saved_at: row.saved_at });
+      } else {
+        dbg('SYNC[BG] ⛔ ' + row.id.slice(0,8) + ' — en _deletedCasoIds, ignorando');
+      }
     });
 
     // Rescatar casos locales huérfanos recientes (creados offline)
@@ -6703,13 +6746,10 @@ async function sbDeleteCaso(id) {
 // Lógica async real del DELETE — llamada por _processQueue
 async function _sbDeleteCasoCore(id) {
   if (!sbCurrentUser || !id) return;
-  // No intentar DELETE si el id no es UUID válido — evita timeouts innecesarios
+  // columna id es tipo TEXT — acepta caso_timestamp y UUID por igual
+  // siempre intentar DELETE; si no existe en Supabase retorna 200/0 filas sin error
   const _isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-  if (!_isUUID) {
-    dbg('DELETE CORE: id ' + id.slice(0,8) + ' no es UUID — omitiendo query a Supabase');
-    return;
-  }
-  dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + '...');
+  dbg('DELETE CORE: enviando DELETE a Supabase para ' + id.slice(0,8) + (_isUUID ? '' : ' [id texto]') + '...');
   try {
     // DELETE real — usa la política owner_delete de RLS
     dbg('[DIAG DELETE] user_id=' + sbCurrentUser.id.slice(0,8) + ' caso=' + id.slice(0,8));

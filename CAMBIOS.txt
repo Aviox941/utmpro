@@ -3,50 +3,51 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 - Este archivo se SOBRESCRIBE en cada entrega.
 - Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
+- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
+- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
+- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
+- Nunca eliminar ninguna instrucción de este documento
 
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 13-06-2026
-App version   : 2.0613.v75
-SW cache      : pension-utm-v148
-Archivos mod  : index.html, sw.js, modals.html, CAMBIOS.txt
+Fecha         : 14-06-2026
+App version   : 2.0614.v79-fechaliq-fix
+SW cache      : pension-utm-v153
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Flash de welcome screen al iniciar + quitar título/logo de welcome
-------------------------------------------------------------------------
-
-PROBLEMA 1: Welcome screen aparecía 1-2 segundos y luego desaparecía.
-Causa raíz: el setTimeout de 800ms en el <head> agregaba auth-ready
-antes de que sbLoadCasos() tuviera certeza sobre si mostrar welcome o no.
-En Android, cuando IDB restore tardaba más de 800ms, se mostraba welcome
-brevemente y luego Supabase la ocultaba (red de seguridad de v74).
-
-FIX 1 — Timeout de fallback subido de 800ms → 4000ms (index.html):
-  El fallback en el <head> ahora espera 4 segundos antes de forzar auth-ready.
-  sbLoadCasos() ya agrega auth-ready cuando tiene certeza (con o sin IDB restore).
-  El timeout largo solo actúa si Supabase nunca responde (caso extremo).
-  Resultado: sin flash, sin delay visible — el usuario ve el estado correcto
-  desde el primer render.
-
-PROBLEMA 2: La welcome screen mostraba el logo/título "Liquidación Pro"
-ocupando espacio innecesario y apareciendo muy abajo en la pantalla.
-
-FIX 2 — UI de welcome screen (modals.html):
-  - Eliminado bloque de logo + título ("Liquidación Pro" + subtítulo)
-  - Cambiado justify-content: center → flex-start con padding-top: 52px
-  - El card ahora aparece más arriba en la pantalla
+He consolidado los registros de correcciones extraídos de los archivos CAMBIOS.txt en un resumen cronológico inverso. Puedes copiar el siguiente contenido y guardarlo en un archivo llamado **resumen_correcciones.txt**:
+# Resumen de Correcciones - Pensión UTM Pro
+**v79-fechaliq-fix (14-06-2026)**
+ * **FIX Bug 1:** La fechaLiquidacion no se actualizaba al cambiar el período final. Se implementó una nueva función resetFechaLiquidacion() al seleccionar un nuevo endIndex.
+ * **Nota:** No se modificaron fórmulas de cálculo, solo la lógica de actualización de fecha.
+**v78-revalorizacion-utm (14-06-2026)**
+ * **MEJORA PRESENTACIÓN:** Se añadió la línea "Revalorización UTM" en el Resumen Final (modal, PDF y Excel) para aclarar la diferencia entre el subtotal nominal histórico y el total convertido a UTM.
+ * **Cambios visuales:** Se renombró "SUBTOTAL BRUTO" a "SUBTOTAL HISTÓRICO", se renombró la columna de la tabla a "Cap. UTM" y se aplicó formato visual (púrpura/cursiva) para diferenciar la línea de ajuste.
+**v78-exportJS-fix-subtotal (14-06-2026)**
+ * **FIX Modal Resumen Final:** El subtotal bruto usaba incorrectamente el capital original en lugar del remanente post-imputación. Se ajustó el cálculo en buildResumenContent (export.js) para usar d.cap (remanente real) y d.inte.
+**v78 (13-06-2026)**
+ * **FIX DELETE casos texto (caso_timestamp):** Se eliminó el guard _isUUID en _sbDeleteCasoCore que bloqueaba el borrado de casos con IDs tipo texto en Supabase. Ahora el proceso de borrado llega correctamente a la base de datos.
+**v77 (13-06-2026)**
+ * **FIX IDs no-UUID:** Casos creados desde la welcome screen no se borraban de Supabase. Se unificó la lógica de generación de IDs para usar crypto.randomUUID() con fallback caso_timestamp.
+ * **FIX limpieza:** Corregido un error donde los IDs no-UUID no limpiaban correctamente la lista pending_deletes, causando reintentos infinitos en cada reinicio.
+*Nota: Este archivo ha sido generado reuniendo los propósitos y cambios detallados en las entregas de versiones v77 a v79.*
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
+v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
+v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
+v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
+v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
+v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
 v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
 v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
 v73  : Inicio instantáneo — local-first + sync Supabase en background
-v72c : IDB backup completo (last_caso + casos_index + datos de casos) + monkey-patch
-v72b : sbLoadCasos timeout 10s + fallback localStorage
-v72  : IDB auth backup/restore inicial + fix logs duplicados
 ================================================================================
