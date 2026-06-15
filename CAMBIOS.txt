@@ -42,6 +42,22 @@ Revisado: la lógica outOfRange (C2) ya estaba correctamente implementada —
 bloquea visualmente y deshabilita el onclick para meses fuera de
 [min(startIndex,endIndex), max(startIndex,endIndex)] en los modos abono,
 parcial y lav. Sin cambios necesarios.
+He consolidado los registros de correcciones extraídos de los archivos CAMBIOS.txt en un resumen cronológico inverso. Puedes copiar el siguiente contenido y guardarlo en un archivo llamado **resumen_correcciones.txt**:
+# Resumen de Correcciones - Pensión UTM Pro
+**v79-fechaliq-fix (14-06-2026)**
+ * **FIX Bug 1:** La fechaLiquidacion no se actualizaba al cambiar el período final. Se implementó una nueva función resetFechaLiquidacion() al seleccionar un nuevo endIndex.
+ * **Nota:** No se modificaron fórmulas de cálculo, solo la lógica de actualización de fecha.
+**v78-revalorizacion-utm (14-06-2026)**
+ * **MEJORA PRESENTACIÓN:** Se añadió la línea "Revalorización UTM" en el Resumen Final (modal, PDF y Excel) para aclarar la diferencia entre el subtotal nominal histórico y el total convertido a UTM.
+ * **Cambios visuales:** Se renombró "SUBTOTAL BRUTO" a "SUBTOTAL HISTÓRICO", se renombró la columna de la tabla a "Cap. UTM" y se aplicó formato visual (púrpura/cursiva) para diferenciar la línea de ajuste.
+**v78-exportJS-fix-subtotal (14-06-2026)**
+ * **FIX Modal Resumen Final:** El subtotal bruto usaba incorrectamente el capital original en lugar del remanente post-imputación. Se ajustó el cálculo en buildResumenContent (export.js) para usar d.cap (remanente real) y d.inte.
+**v78 (13-06-2026)**
+ * **FIX DELETE casos texto (caso_timestamp):** Se eliminó el guard _isUUID en _sbDeleteCasoCore que bloqueaba el borrado de casos con IDs tipo texto en Supabase. Ahora el proceso de borrado llega correctamente a la base de datos.
+**v77 (13-06-2026)**
+ * **FIX IDs no-UUID:** Casos creados desde la welcome screen no se borraban de Supabase. Se unificó la lógica de generación de IDs para usar crypto.randomUUID() con fallback caso_timestamp.
+ * **FIX limpieza:** Corregido un error donde los IDs no-UUID no limpiaban correctamente la lista pending_deletes, causando reintentos infinitos en cada reinicio.
+*Nota: Este archivo ha sido generado reuniendo los propósitos y cambios detallados en las entregas de versiones v77 a v79.*
 
 ================================================================================
 HISTORIAL RECIENTE
