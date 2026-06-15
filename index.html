@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0615.v81-lav-hero-fix">
+ <meta name="app-version" content="2.0615.v83-lav-calendario-libre">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v17 · FIX LAV pool consume cuota bruta (capOriginal) v2045</title>
+ <title>Pensión UTM Pro v17 · LAV calendario libre sin período v83</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="2.0610.v20">
  <meta name="apple-mobile-web-app-capable" content="2.0610.v20">
@@ -4905,7 +4905,7 @@ function closeCalendar() { document.getElementById('calendarModal').classList.re
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
 // Para modos abono/parcial, limitar la navegación al rango del período
-if (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') {
+if (calendarMode === 'abono' || calendarMode === 'parcial') {
 if (startIndex < 0 || endIndex < 0) return;
 const rangeStart = Math.min(startIndex, endIndex);
 const rangeEnd = Math.max(startIndex, endIndex);
@@ -4913,6 +4913,20 @@ const minYear = utmData[rangeStart].y;
 const maxYear = utmData[rangeEnd].y;
 const next = selectedYear + v;
 if (next < minYear || next > maxYear) return;
+selectedYear = next;
+} else if (calendarMode === 'lav') {
+// LAV: si hay período definido, limitar al rango; si no, navegación libre por años con datos UTM
+const next = selectedYear + v;
+if (startIndex >= 0 && endIndex >= 0) {
+  const rangeStart = Math.min(startIndex, endIndex);
+  const rangeEnd = Math.max(startIndex, endIndex);
+  const minYear = utmData[rangeStart].y;
+  const maxYear = utmData[rangeEnd].y;
+  if (next < minYear || next > maxYear) return;
+} else {
+  const minYearLav = utmData.length > 0 ? utmData[0].y : 2010;
+  if (next < minYearLav || next > CURR_YEAR) return;
+}
 selectedYear = next;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
@@ -4962,7 +4976,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
 })();
 // Para abono/parcial calcular rango permitido
 let rangeStartIdx = -1, rangeEndIdx = -1;
-if ((calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') && startIndex >= 0 && endIndex >= 0) {
+const _periodoDefinido = startIndex >= 0 && endIndex >= 0;
+if ((calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav') && _periodoDefinido) {
 rangeStartIdx = Math.min(startIndex, endIndex);
 rangeEndIdx = Math.max(startIndex, endIndex);
 }
@@ -4970,8 +4985,13 @@ monthsNames.forEach((name, i) => {
 const idx = utmData.findIndex(d => d.y === selectedYear && d.monthIdx === i);
 const btn = document.createElement('button');
 // Determinar si está fuera del rango permitido para abono/parcial
-const outOfRange = (calendarMode === 'abono' || calendarMode === 'parcial' || calendarMode === 'lav')
-&& (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
+// Para LAV: si no hay período definido (sin rango), los abonos LAV pueden
+// registrarse en cualquier mes con datos UTM disponibles (registro libre
+// cuota a cuota, independiente del período actual).
+const outOfRange = calendarMode === 'lav'
+  ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
+  : (calendarMode === 'abono' || calendarMode === 'parcial')
+    && (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx);
 // Bloquear meses futuros para modos start/end del período principal
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
@@ -5524,7 +5544,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v81-lav-hero-fix</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v82-lav-calendario-fix</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

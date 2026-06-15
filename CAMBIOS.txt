@@ -13,43 +13,54 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 15-06-2026
-App version   : 2.0615.v81-lav-hero-fix
-SW cache      : pension-utm-v155
-Archivos mod  : index.html, export.js, sw.js, CAMBIOS.txt
+App version   : 2.0615.v83-lav-calendario-libre
+SW cache      : pension-utm-v154
+Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Corrección de implementación de Abonos LAV en tarjeta azul y resumen
+FIX — Calendario LAV libre sin período previo
 --------------------------------------------------------------------------------
+Permitir registrar abonos LAV en el calendario sin necesidad de tener
+un período actual (Desde / Hasta) definido previamente.
 
-Corrige la versión anterior (v80), que había agregado una tarjeta nueva suelta
-en la pantalla principal en vez de mostrar el detalle en el modal de Resumen
-de Liquidación, y la tarjeta azul mostraba $0 en el número grande.
+changeYear() — modo 'lav' separado de 'abono'/'parcial':
+- Antes: LAV, abono y parcial compartían la misma rama que devuelve
+  inmediatamente (return) si startIndex < 0 || endIndex < 0,
+  impidiendo navegar por años en el calendario LAV sin período.
+- Ahora: LAV tiene su propia rama:
+  · Si hay período definido → limita navegación al rango del período
+    (comportamiento idéntico al anterior).
+  · Si NO hay período → navegación libre entre el primer año con
+    datos UTM disponibles y el año actual (CURR_YEAR).
 
-Cambios:
-- index.html: se eliminó la tarjeta "Abonos LAV — Detalle" suelta de la
-  pantalla principal (lavSummaryRow).
-- index.html: renderLavSummary() reescrito:
-    * Si NO hay período/cálculo (lastCalculationData vacío): el número grande
-      de la tarjeta azul "Total Adeudado" (totalGrand/totalGrandUtm) ahora
-      muestra directamente el TOTAL de Abonos LAV en CLP (arriba) y UTM
-      (abajo), en vez de "$0 / 0.00 UTM".
-    * Si SÍ hay período/cálculo: el número grande sigue mostrando el Total
-      Adeudado normal (sin cambios), y se agrega debajo una fila pequeña
-      "Abonos LAV" con el total CLP/UTM de LAV (heroLavRow).
-    * Se agregó la llamada a renderLavSummary() también dentro del bloque de
-      reseteo a cero (rama lastCalculationData.length === 0 con período
-      definido), para que el total LAV se aplique después del reset.
-- export.js: la sección "Abonos LAV" del modal "Resumen de Liquidación" ahora
-  muestra el detalle completo por depósito: fecha de pago, UTM del período del
-  abono, equivalencia en UTM de la cuota, monto CLP, y totales CLP/UTM al
-  final. showResumenModal() ahora permite abrir el modal aunque no haya
-  período/cálculo, siempre que existan Abonos LAV.
-- export.js: la fila "(-) Abonos LAV" dentro de "Resumen Final" del modal solo
-  se muestra cuando hay período/cálculo (evita mostrar una resta de LAV contra
-  un total de $0 cuando no hay período).
+outOfRange en renderCalendar() — sin cambio efectivo:
+- La lógica ya era correcta: para LAV bloquea solo cuando idx === -1
+  (sin datos UTM) o cuando hay período Y el mes cae fuera del rango.
 
-Sin cambios en: abonosLav, lastCalculationData, PASO 1 (pool LAV),
-imputarAbonosArt1595, ni ninguna fórmula de cálculo de capital/interés.
+COMPORTAMIENTO
+- Sin período definido:
+  · El botón "Seleccionar" de LAV abre el calendario normalmente.
+  · Se puede navegar entre años sin restricción (límite: datos UTM).
+  · Los meses sin datos UTM aparecen deshabilitados.
+  · Se puede registrar cualquier abono LAV libremente.
+  · El total aparece en el hero card "Abonos LAV".
+- Con período definido: comportamiento idéntico al anterior.
+- Abonos y Parciales: sin cambios, siguen requiriendo período previo.
+
+================================================================================
+HISTORIAL RECIENTE
+================================================================================
+v83-lav-calendario-libre : Calendario LAV libre sin período previo
+v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
+v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
+v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
+v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
+v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
+v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
+v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
+v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
+v73  : Inicio instantáneo — local-first + sync Supabase en background
+================================================================================
