@@ -872,6 +872,7 @@ tasaMaxima: false,
 ticActual: document.getElementById('ticActual')?.checked || false,
 diaVencimiento: document.getElementById('diaVencimiento')?.value || '5',
 fechaLiquidacion: document.getElementById('fechaLiquidacion')?.value || '',
+lavCuotaUtm: document.getElementById('lavCuotaUtm')?.value || '',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension, abonosLav,
@@ -984,6 +985,9 @@ abonos = s.abonos || [];
 pagosParciales = s.pagosParciales || [];
 abonosLav = s.abonosLav || [];
 if (typeof renderAbonosLav === 'function') renderAbonosLav();
+// Restaurar cuota UTM modo libre LAV
+const _lavCuotaEl = document.getElementById('lavCuotaUtm');
+if (_lavCuotaEl) _lavCuotaEl.value = s.lavCuotaUtm || '';
 periodosPension = s.periodosPension || [];
 // Restaurar modo histórico (recalculable vs consolidada)
 if (s.histMode) {

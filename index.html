@@ -1444,6 +1444,19 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   </div>
   <div id="lavBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="dh-body space-y-3" style="padding:12px 14px">
+    <!-- ── Cuota mensual (modo libre LAV — se usa cuando no hay período definido) ── -->
+    <div id="lavModoLibreWrap">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid rgba(16,185,129,0.14);margin-bottom:2px;">
+        <div>
+          <p style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:#10b981;line-height:1.2;">Cuota mensual</p>
+          <p style="font-size:8px;color:#94a3b8;margin-top:2px;font-weight:600;">Valor en UTM · inicio = primer depósito</p>
+        </div>
+        <input type="number" id="lavCuotaUtm" placeholder="0.000" step="0.001" min="0"
+          inputmode="decimal"
+          oninput="calculate(); saveSession();"
+          class="input-number input-sm" style="width:88px;">
+      </div>
+    </div>
     <div class="grid grid-cols-2 gap-2">
       <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
         oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); checkBtnLav()"
@@ -4254,6 +4267,59 @@ function imputarAbonosArt1595(detalles, abonos) {
   saldoFinal = Math.max(0, saldoFinal);
   return { saldoFinal, totalAbonado, interesesPagados, capitalPagado, detalleImputacion, cuotasResultado: cuotas };
 }
+// ── Modo libre LAV ────────────────────────────────────────────────────────
+// Cuando el usuario no define un período pero sí ingresa depósitos LAV
+// y una cuota mensual en UTM, esta función construye lastCalculationData
+// sintéticamente: un mes por cada mes desde el primer depósito hasta hoy.
+// La lógica del pool LAV que sigue en calculate() aplica igual que siempre.
+function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
+  const diaVenc = getDiaVencimiento();
+  const sorted  = [...abonosLav].sort((a,b) => a.date.localeCompare(b.date));
+  if (!sorted.length) return { capital:0, intereses:0, capitalUTM:0, detalles:[] };
+  // Inicio = mes del primer depósito LAV
+  const firstDate = sorted[0].date; // "YYYY-MM-DD"
+  const startY    = parseInt(firstDate.substring(0, 4));
+  const startM    = parseInt(firstDate.substring(5, 7)) - 1; // 0-indexed
+  // Fin = mes de la fecha de liquidación
+  const endY = hoy.getFullYear();
+  const endM = hoy.getMonth(); // 0-indexed
+  let capital = 0, intereses = 0, capitalUTM = 0;
+  const detalles = [];
+  let idx = 0, y = startY, mi = startM;
+  while (y < endY || (y === endY && mi <= endM)) {
+    const item = utmData.find(d => d.y === y && d.monthIdx === mi);
+    if (!item) { mi++; if (mi > 11) { mi = 0; y++; } idx++; continue; }
+    const capCLP  = cuotaUtm * item.v;
+    const fechaVenc = new Date(y, mi, diaVenc);
+    const diasMora  = calcularDiasMora(fechaVenc, hoy);
+    const usarTicActual = document.getElementById('ticActual')?.checked || false;
+    const tY = usarTicActual ? hoy.getFullYear() : y;
+    const tM = usarTicActual ? hoy.getMonth()    : mi;
+    const _ti = getTasaAnualInfo(tY, tM, false, false, capCLP, item.v, diasMora);
+    const tasaBase  = _ti.valor;
+    const tasaAnual = (aplicarRecargo && diasMora > 0) ? tasaBase * 1.5 : tasaBase;
+    const intCLP    = calcularInteres(capCLP, tasaAnual, diasMora);
+    capital    += capCLP;
+    capitalUTM += cuotaUtm;
+    intereses  += intCLP;
+    detalles.push({
+      id: 'lm' + idx,
+      periodo: `${item.m} ${item.y}`,
+      utmVal: item.v,
+      cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtm,
+      inte: intCLP, intOriginal: intCLP,
+      tasa: tasaAnual, tasaBase, tasaHist: tasaBase,
+      tasaEsAproximada: _ti.esAproximada,
+      mora: diasMora, sub: capCLP + intCLP,
+      year: y, monthIdx: mi, isDebt: false,
+      usarMaxima: false, ticActual: usarTicActual,
+      capParaInteres: capCLP, hayParcialConRemanente: false,
+      esLav: false, excedenteParcialAplicado: 0,
+    });
+    mi++; if (mi > 11) { mi = 0; y++; } idx++;
+  }
+  return { capital, intereses, capitalUTM, detalles };
+}
 function calculate() {
 if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 // Guard: si utmData aún no cargó, no hay nada que calcular
@@ -4280,12 +4346,23 @@ const _utmLiqEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx
 const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
 // Nota: los pagos parciales ya están descontados del capital en calculatePensiones()
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
-const resPensiones = calculatePensiones(aplicarRecargo, hoy);
-const resHistorical = histMode === 'consolidada'
-  ? calculateConsolidada(hoy, aplicarRecargo)
-  : calculateHistoricalDebt(aplicarRecargo, hoy);
-const totalCap = resPensiones.capital + resHistorical.capital;
-const totalInt = resPensiones.intereses + resHistorical.intereses;
+// ── Modo libre LAV: sin período definido + cuota UTM ingresada ──────────────
+const _lavCuotaUtm = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
+const _sinPeriodoCalc = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
+const _modoLibreLAV  = _hayLav && _lavCuotaUtm > 0 && _sinPeriodoCalc;
+let resPensiones, resHistorical;
+if (_modoLibreLAV) {
+  resPensiones  = buildModoLibreLAVData(_lavCuotaUtm, hoy, aplicarRecargo);
+  resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
+  dbg('CALC: modo libre LAV — cuota=' + _lavCuotaUtm + ' UTM, ' + resPensiones.detalles.length + ' meses generados');
+} else {
+  resPensiones  = calculatePensiones(aplicarRecargo, hoy);
+  resHistorical = histMode === 'consolidada'
+    ? calculateConsolidada(hoy, aplicarRecargo)
+    : calculateHistoricalDebt(aplicarRecargo, hoy);
+}
+const totalCap    = resPensiones.capital    + resHistorical.capital;
+const totalInt    = resPensiones.intereses  + resHistorical.intereses;
 const totalCapUTM = (resPensiones.capitalUTM || 0) + (resHistorical.capitalUTM || 0);
 lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // --- Metodología TRIBUNAL (SITFA/PJUD) confirmada RIT Z-617-2024 ---

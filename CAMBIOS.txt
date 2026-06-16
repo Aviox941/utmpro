@@ -1,31 +1,55 @@
-VERSIÓN: 2.0616.v95-ajuste-utm
+VERSIÓN: 2.0616.v96-modo-libre-lav
 FECHA: 2025-06-16
-ARCHIVOS MODIFICADOS: export.js, index.html
+ARCHIVOS MODIFICADOS: index.html, export.js
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FIX + RENOMBRE: "Revalorización UTM" → "Ajuste UTM Actual"
+NUEVO: Modo libre LAV — cuota UTM + cálculo automático
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PROBLEMA (cálculo):
-En el PDF, la columna UTM del "SUBTOTAL HISTÓRICO" se calculaba dividiendo
-la suma CLP por utmHoy (UTM del mes actual), en lugar de usar UTM históricas
-por cuota. Esto producía un "ajuste" artificial que no correspondía a una
-diferencia real — era solo el resultado de usar dos bases UTM distintas en
-el mismo resumen, generando una cifra incorrecta en la fila de ajuste.
+CONTEXTO:
+Hasta v95, cuando el usuario ingresaba depósitos LAV sin definir un período
+en "Período Actual", la tarjeta azul solo mostraba la suma bruta de los LAV
+sin calcular intereses ni detectar meses adeudados o parciales.
 
-CORRECCIÓN (export.js — bloque RESUMEN FINAL DE LIQUIDACION):
-  • Los intereses ahora se expresan en UTM históricas:
-      totalIntUTMpdf = Σ (inte_cuota / utmMes_cuota)  — igual que el tribunal
-  • El subtotal UTM = totalCapUTM + totalIntUTMpdf  (ambos en UTM históricas)
-  • La columna UTM del subtotal muestra ese valor consistente con el total final
-  • El "Ajuste UTM Actual" ahora solo aparece si hay diferencia real de redondeo
-    (en la práctica debería ser 0 o ±1 peso)
-  • Se renombra "SUBTOTAL HISTÓRICO" → "SUBTOTAL BRUTO" para mayor claridad
+CAMBIOS (index.html):
 
-RENOMBRE (3 lugares en export.js):
-  PDF:            "Revalorización UTM (1 UTM = $X)" → "Ajuste UTM Actual (1 UTM = $X)"
-  Modal resumen:  ídem
-  Excel:          ídem
+1. CAMPO NUEVO — "Cuota mensual" en tarjeta Depósitos LAV:
+   • Input #lavCuotaUtm (tipo number, step 0.001) dentro de #lavModoLibreWrap
+   • Visible SOLO cuando no hay período definido en el formulario principal
+     (startIndex = -1, endIndex = -1, calcStartIndex = -1, calcEndIndex = -1,
+      periodosPension vacío)
+   • Se oculta automáticamente cuando el usuario define un período (el cálculo
+     normal de Período Actual tiene prioridad y no necesita este campo)
 
-El marcador interno '_revalorizacion' (usado para el estilo de color de la fila
-en la tabla PDF) NO fue modificado — es código, no texto visible al usuario.
+2. FUNCIÓN NUEVA — buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo):
+   • Detecta el mes del primer depósito LAV como inicio automático del período
+   • Extiende el rango hasta la fecha de liquidación (o hoy si no hay fecha)
+   • Por cada mes del rango genera un detalle idéntico en estructura a los que
+     produce calculatePensiones(), usando la UTM histórica del mes, TIC del mes
+     y días de mora desde el día de vencimiento (diaVencimiento, default 5)
+   • Retorna { capital, intereses, capitalUTM, detalles } compatible con el
+     pipeline existente de pool LAV + imputarAbonosArt1595
+
+3. FUNCIÓN NUEVA — updateLavModoLibreUI():
+   • Muestra/oculta #lavModoLibreWrap según si hay período definido
+   • Se llama al inicio de cada calculate() y tras applySession()
+
+4. HOOK EN calculate():
+   • Detecta "modo libre LAV": _hayLav && _lavCuotaUtm > 0 && _sinPeriodo
+   • Si activo: usa buildModoLibreLAVData en lugar de calculatePensiones
+   • Si no: flujo normal (sin cambio de comportamiento existente)
+   • El pool LAV, imputarAbonosArt1595 y todo el render posterior funciona
+     idéntico — la función solo provee los detalles de entrada
+
+CAMBIOS (export.js):
+
+5. buildSession: guarda lavCuotaUtm en la sesión
+6. applySession: restaura lavCuotaUtm y llama updateLavModoLibreUI()
+
+COMPORTAMIENTO RESULTANTE:
+• Usuario sin período definido + LAV ingresados + cuota UTM → la app genera
+  automáticamente todos los meses desde el primer LAV hasta hoy, aplica el
+  pool LAV cuota a cuota, y muestra el desglose con ✅ pagado / ⚠️ parcial
+  / ❌ adeudado con su interés correspondiente
+• Si la cuota UTM está vacía: comportamiento anterior (suma bruta LAV)
+• Si hay período definido: campo oculto, comportamiento anterior sin cambio
