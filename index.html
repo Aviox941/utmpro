@@ -1243,7 +1243,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <div id="heroLavRow" class="hero-total-card__meta hidden" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">
             <p class="hero-total-card__meta-line" style="font-weight:800;opacity:0.85;">Abonos LAV</p>
             <p id="heroLavClp" class="hero-total-card__meta-line"></p>
-            <p id="heroLavUtm" class="hero-total-card__meta-line"></p>
+            <p id="heroLavUtm" class="hero-total-card__meta-line" style="font-weight:800;color:rgba(255,255,255,0.95);"></p>
           </div>
         </div>
 
@@ -3199,9 +3199,17 @@ function renderLavSummary() {
     if (grandUtm) grandUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
     heroRow.classList.add('hidden');
   } else {
-    // Con cálculo: número grande = Total Adeudado (sin tocar), fila pequeña con total LAV
-    heroClp.textContent = `${format(totalClp)}`;
-    heroUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+    // Con cálculo: número grande = Total Adeudado (sin tocar).
+    // Fila LAV muestra: abono total + interés generado sobre el remanente no cubierto.
+    // Interés sobre remanente = suma de d.inte de meses con capital > 0 tras aplicar pool LAV.
+    // Esto incluye meses parcialmente cubiertos (d.esLav=true pero d.cap>0) y
+    // meses no cubiertos (d.esLav=false).
+    const interesRemanente = lastCalculationData.reduce((s, d) => {
+      return s + (d.inte > 0 ? d.inte : 0);
+    }, 0);
+    const heroTotalLav = totalClp + interesRemanente;
+    heroClp.textContent = `${format(totalClp)} abonado${interesRemanente > 0 ? ` · +${format(Math.round(interesRemanente))} int. remanente` : ''}`;
+    heroUtm.textContent = `Hero Total LAV: ${format(Math.round(heroTotalLav))} (${totalUtm.toFixed(4)} UTM)`;
     heroRow.classList.remove('hidden');
   }
 }
@@ -4409,7 +4417,18 @@ if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
   let poolRestante = poolLavUTM;
   for (const d of lastCalculationData) {
-    if (poolRestante <= 0) break;
+    // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
+    // del pool también inicialicen capOriginalBruto/intOriginal y marquen esLav=false.
+    // El break previo dejaba esos meses sin inicializar, causando valores incorrectos en
+    // el hero y el PDF. Con continue, simplemente no se aplica LAV pero sí se inicializa.
+    if (poolRestante <= 0) {
+      d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
+      d.intOriginal      = d.intOriginal ?? d.inte;
+      d.esLav = false;
+      d.lavAplicadoUTM = 0; d.lavAplicadoCLP = 0;
+      d.lavIntAplicadoUTM = 0; d.lavIntAplicadoCLP = 0;
+      continue;
+    }
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
     // Guardar originales ANTES de mutar (el PDF los necesita para mostrar cargos brutos)
     d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;

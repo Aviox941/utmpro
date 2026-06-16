@@ -1,55 +1,60 @@
-VERSIÓN: 2.0616.v96-modo-libre-lav
-FECHA: 2025-06-16
-ARCHIVOS MODIFICADOS: index.html, export.js
+VERSIÓN: 2.0616.v97-lav-interes-remanente
+FECHA: 2026-06-16
+ARCHIVOS MODIFICADOS: index.html
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-NUEVO: Modo libre LAV — cuota UTM + cálculo automático
+FIX: Hero Total LAV = abono + interés por remanente
+FIX: Pool LAV — break → continue para inicializar meses post-pool
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-CONTEXTO:
-Hasta v95, cuando el usuario ingresaba depósitos LAV sin definir un período
-en "Período Actual", la tarjeta azul solo mostraba la suma bruta de los LAV
-sin calcular intereses ni detectar meses adeudados o parciales.
+PROBLEMA 1 — break en pool LAV dejaba meses sin inicializar:
+  • El loop del pool LAV tenía `if (poolRestante <= 0) break` (línea ~4412).
+  • Los meses posteriores al agotamiento del pool NO se visitaban → sus
+    campos capOriginalBruto, intOriginal, esLav, lavAplicadoUTM, etc.
+    quedaban sin definir.
+  • Esto causaba inconsistencias en el hero, el detalle por año y el PDF.
+  
+  CORRECCIÓN (index.html, bloque pool LAV en calculate()):
+  • Cambiar `break` por `continue` con inicialización explícita de los
+    campos en meses donde poolRestante ≤ 0:
+      d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap
+      d.intOriginal = d.intOriginal ?? d.inte
+      d.esLav = false
+      d.lavAplicadoUTM/CLP = 0
+      d.lavIntAplicadoUTM/CLP = 0
+  • Los meses cubiertos por el pool siguen funcionando igual (cap=0, inte=0).
+  • Los meses NO cubiertos conservan su cap e inte originales de
+    buildModoLibreLAVData (interés calculado desde día 5 hasta hoy/fechaLiq).
 
-CAMBIOS (index.html):
+PROBLEMA 2 — Hero Total LAV solo mostraba monto bruto del depósito:
+  • renderLavSummary() mostraba solo `format(totalClp)` y las UTM.
+  • El usuario esperaba: abono total + interés generado sobre el remanente
+    (meses o fracción de mes no cubiertos por el pool LAV).
 
-1. CAMPO NUEVO — "Cuota mensual" en tarjeta Depósitos LAV:
-   • Input #lavCuotaUtm (tipo number, step 0.001) dentro de #lavModoLibreWrap
-   • Visible SOLO cuando no hay período definido en el formulario principal
-     (startIndex = -1, endIndex = -1, calcStartIndex = -1, calcEndIndex = -1,
-      periodosPension vacío)
-   • Se oculta automáticamente cuando el usuario define un período (el cálculo
-     normal de Período Actual tiene prioridad y no necesita este campo)
-
-2. FUNCIÓN NUEVA — buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo):
-   • Detecta el mes del primer depósito LAV como inicio automático del período
-   • Extiende el rango hasta la fecha de liquidación (o hoy si no hay fecha)
-   • Por cada mes del rango genera un detalle idéntico en estructura a los que
-     produce calculatePensiones(), usando la UTM histórica del mes, TIC del mes
-     y días de mora desde el día de vencimiento (diaVencimiento, default 5)
-   • Retorna { capital, intereses, capitalUTM, detalles } compatible con el
-     pipeline existente de pool LAV + imputarAbonosArt1595
-
-3. FUNCIÓN NUEVA — updateLavModoLibreUI():
-   • Muestra/oculta #lavModoLibreWrap según si hay período definido
-   • Se llama al inicio de cada calculate() y tras applySession()
-
-4. HOOK EN calculate():
-   • Detecta "modo libre LAV": _hayLav && _lavCuotaUtm > 0 && _sinPeriodo
-   • Si activo: usa buildModoLibreLAVData en lugar de calculatePensiones
-   • Si no: flujo normal (sin cambio de comportamiento existente)
-   • El pool LAV, imputarAbonosArt1595 y todo el render posterior funciona
-     idéntico — la función solo provee los detalles de entrada
-
-CAMBIOS (export.js):
-
-5. buildSession: guarda lavCuotaUtm en la sesión
-6. applySession: restaura lavCuotaUtm y llama updateLavModoLibreUI()
+  CORRECCIÓN (index.html, función renderLavSummary):
+  • En la rama `hayCalculo = true`:
+    - Calcular interesRemanente = suma de d.inte de todos los detalles con
+      d.inte > 0 (estos son exactamente los meses no cubiertos o parciales
+      tras aplicar el pool LAV).
+    - heroLavClp → "${format(totalClp)} abonado · +${format(interesRemanente)} int. remanente"
+    - heroLavUtm → "Hero Total LAV: ${format(heroTotalLav)} (X.XXXX UTM)"
+      donde heroTotalLav = totalClp + interesRemanente.
+  • Línea heroLavUtm con font-weight:800 para destacar el total.
 
 COMPORTAMIENTO RESULTANTE:
-• Usuario sin período definido + LAV ingresados + cuota UTM → la app genera
-  automáticamente todos los meses desde el primer LAV hasta hoy, aplica el
-  pool LAV cuota a cuota, y muestra el desglose con ✅ pagado / ⚠️ parcial
-  / ❌ adeudado con su interés correspondiente
-• Si la cuota UTM está vacía: comportamiento anterior (suma bruta LAV)
-• Si hay período definido: campo oculto, comportamiento anterior sin cambio
+  • Ingreso 150.000 CLP en enero 2026 (modo libre LAV):
+    - buildModoLibreLAVData genera 6 meses (Ene–Jun 2026).
+    - Pool LAV cubre 1 mes completo o parcialmente según UTM de enero.
+    - Meses siguientes (donde pool = 0) conservan su cap e inte.
+    - Hero muestra: "150.000 abonado · +$X.XXX int. remanente"
+    - Total LAV hero = 150.000 + interés acumulado sobre lo que no cubrió.
+  • Si se ingresa Fecha de Liquidación: getFechaLiquidacion() la usa como
+    `hoy` en buildModoLibreLAVData y en calcularDiasMora → el interés se
+    calcula hasta esa fecha, no hasta el día actual.
+  • Si hay un segundo abono LAV posterior: el pool aumenta, cubre más meses,
+    el interés remanente baja automáticamente al recalcular.
+
+SIN CAMBIOS EN:
+  • Modo con período definido (flujo normal de calculatePensiones).
+  • imputarAbonosArt1595 (abonos ordinarios).
+  • export.js (la lógica de sesión no cambia).
