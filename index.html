@@ -2,9 +2,9 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0615.v86-header-casos-derecha">
+ <meta name="app-version" content="2.0615.v87-fix-parcial-descuento">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
- <title>Pensión UTM Pro v17 · Header casos derecha v86</title>
+ <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
  <meta name="theme-color" content="2.0610.v20">
  <meta name="apple-mobile-web-app-capable" content="2.0610.v20">
@@ -4198,7 +4198,9 @@ if (!validateDates()) { dbg('CALC: validateDates falló'); return; }
 // Guard: si utmData aún no cargó, no hay nada que calcular
 if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'); return; }
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
-const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
+const _hayLav = abonosLav && abonosLav.length > 0;
+const _hayParciales = pagosParciales && pagosParciales.length > 0;
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales;
 if (_noRange) {
   // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
@@ -5592,7 +5594,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v86-header-casos-derecha</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v87-fix-parcial-descuento</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
