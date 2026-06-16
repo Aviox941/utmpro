@@ -13,48 +13,39 @@ INSTRUCCIONES DE VERSIONADO
 VERSIÓN ACTUAL
 ================================================================================
 Fecha         : 15-06-2026
-App version   : 2.0615.v85-fix-registro-periodos
-SW cache      : pension-utm-v156
+App version   : 2.0615.v86-header-casos-derecha
+SW cache      : pension-utm-v157
 Archivos mod  : index.html, sw.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Registro de períodos no se visualizaba en tarjeta período actual
+MEJORA — Reubicación botón Casos y ticker Caso activo en el header
 --------------------------------------------------------------------------------
-Al presionar "Registrar período", el período se guardaba en el array pero
-no aparecía en la lista visual de la tarjeta. Dos causas:
+Reorganización visual del utmTicker (barra inferior del header):
 
-1. FUNCIÓN FALTANTE — recalcCalcRange() no estaba definida:
-   - Era llamada en 3 lugares (addPeriodoPension, removePeriodoPension,
-     y el modal de edición de períodos) pero nunca implementada.
-   - Causaba un ReferenceError silencioso que abortaba la ejecución de
-     addPeriodoPension() antes de llegar a renderPeriodosPension().
-   - FIX: se implementó recalcCalcRange() junto a la declaración de
-     calcStartIndex/calcEndIndex. Calcula esos índices como la unión
-     de todos los rangos de periodosPension sobre utmData.
+ANTES:
+  [Casos btn] | [Caso activo card] [UTM Actual card] | [spacer fantasma]
 
-2. VISUAL — overflow:hidden de .dh-card recortaba la lista:
-   - La regla global .dh-card { overflow:hidden } cortaba visualmente
-     los items de periodosPensionList cuando la lista crecía.
-   - FIX: se agregó overflow:visible al style inline de la card de pensiones.
-   - Además se aumentó max-h-32 → max-h-40 en periodosPensionList para
-     dar más espacio antes de activar el scroll interno.
-   - Se redujo margin-top del bloque Vencimiento/Liquidación de 10px a 4px.
+AHORA:
+  [Caso activo card] | [UTM Actual card] | [Casos btn]
 
-CAMBIOS EN index.html
+CAMBIOS EN index.html (utmTicker)
 --------------------------------------------------------------------------------
-- Declaración de calcStartIndex: añadida función recalcCalcRange()
-- <div class="dh-card"> pensiones: añadido overflow:visible
-- periodosPensionList: max-h-32 → max-h-40, añadido margin-bottom:8px
-- Bloque Día de Vencimiento: margin-top:10px → margin-top:4px
-- meta app-version y appVersionLabel: v84 → v85
-- title: actualizado a v85
+- Tarjeta "Caso activo": movida al extremo IZQUIERDO (flex-shrink:0).
+- Botón "Casos": movido al extremo DERECHO (flex-shrink:0).
+- Tarjeta "UTM Actual": permanece centrada en el flex:1 restante.
+- tickerSpacer eliminado: era un elemento fantasma invisible que solo
+  existía para balancear el centrado cuando Casos estaba a la izquierda.
+  Ya no es necesario con el nuevo layout simétrico.
+- meta app-version y appVersionLabel: v85 → v86
+- title: actualizado a v86
 
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
+v86-header-casos-derecha     : Botón Casos → derecha, Caso activo → izquierda
 v85-fix-registro-periodos    : Fix períodos no visibles + recalcCalcRange faltante
 v84-parcial-calendario-libre : Calendario Parciales libre sin período (sobre LAV)
 v83-lav-calendario-libre : Calendario LAV libre sin período previo
