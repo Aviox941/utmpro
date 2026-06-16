@@ -4399,37 +4399,15 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 
 // PASO 1: Aplicar pool LAV sobre cuotas (orden cronológico, Art. 1595 CC)
 // ══════════════════════════════════════════════════════════════════════════════
-// METODOLOGÍA UNIFICADA — tres casos posibles por cuota:
-//
-//  A) CUOTA LIMPIA (sin pago parcial previo) y el pool la toca POR PRIMERA VEZ
-//     en la secuencia cronológica (esExcedente = false):
-//     → El pool cubre solo el CAPITAL bruto del mes, sin tocar intereses.
-//       Esto replica la lógica del tribunal: el depósito LAV es cumplimiento
-//       directo de la cuota, no un abono Art. 1595.
-//     → Si el pool cubre el capital completo y aún sobra → esExcedente = true.
-//
-//  B) CUOTA CON PAGO PARCIAL PREVIO (hayParcialConRemanente = true):
-//     → Ya existe un pago parcial registrado que cubrió parte de la cuota.
-//       El pool LAV llega sobre ese remanente como si fuera un abono externo.
-//     → Aplica Art. 1595 CC sobre el remanente pendiente:
-//         1° Intereses devengados sobre el remanente (d.inte, ya calculado
-//            en calculatePensiones sobre el remanente correcto).
-//         2° Capital remanente (d.cap = cuota - parcial pagado).
-//     → Si el pool cubre el remanente completo y aún sobra → esExcedente = true.
-//
-//  C) EXCEDENTE ENTRE CUOTAS (esExcedente = true):
-//     → El pool viene de haber cubierto una cuota anterior completa con saldo.
-//       Ese saldo es tratado como abono Art. 1595 sobre la cuota siguiente:
-//         1° Intereses devengados del mes siguiente.
-//         2° Capital disponible (bruto − parcial si lo hubiera).
-//
-// REGLA: parcialUTMMes siempre se excluye del tope de consumo del pool para
-// evitar doble contabilidad (el parcial ya está descontado en d.cap).
+// METODOLOGÍA UNIFICADA — Art. 1595 CC, igual para toda cuota:
+//   1° Intereses devengados del mes (d.inte)
+//   2° Capital pendiente (capDisponUTM = bruto − ya pagado con parcial)
+// El excedente de un mes fluye automáticamente al siguiente con el mismo orden.
+// REGLA: parcialUTMMes se excluye del consumo del pool (ya descontado en d.cap).
 // ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
   let poolRestante = poolLavUTM;
-  let esExcedente = false; // true cuando el pool viene de haber cubierto una cuota completa
   for (const d of lastCalculationData) {
     if (poolRestante <= 0) break;
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
@@ -4440,49 +4418,27 @@ if (abonosLav && abonosLav.length > 0) {
       d.capParcialRemanente = d.cap; // remanente = cap ya reducido por pago parcial
     }
     const capBrutoUTM   = d.capOriginalBruto / utmMes; // cuota completa del mes en UTM
-    // parcialUTMMes = lo que ya pagó el pago parcial manual en UTM (puede ser 0)
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
     const parcialUTMMes = parcialCLPMes / utmMes;
-    // capDisponUTM = lo que realmente falta pagar de capital en este mes
-    const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes);
+    const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
     const inteUTM       = d.inte / utmMes; // interés devengado del mes en UTM
-    let intAplicadoUTM = 0;
-    let capAplicadoUTM = 0;
-    if (!esExcedente && !d.hayParcialConRemanente) {
-      // CASO A: cuota limpia, primer toque del pool → solo capital (lógica tribunal)
-      capAplicadoUTM = Math.min(poolRestante, capBrutoUTM);
-      poolRestante  -= capAplicadoUTM;
-      // Si cubrió el capital completo y sobra → próximas cuotas son excedente Art. 1595
-      if (capAplicadoUTM >= capBrutoUTM - 0.0001 && poolRestante > 0.0001) {
-        esExcedente = true;
-      }
-    } else {
-      // CASO B (parcial previo) o CASO C (excedente) → Art. 1595 CC:
-      // 1° Intereses devengados del remanente
-      if (inteUTM > 0.0001 && poolRestante > 0) {
-        intAplicadoUTM = Math.min(poolRestante, inteUTM);
-        poolRestante  -= intAplicadoUTM;
-      }
-      // 2° Capital disponible
-      if (capDisponUTM > 0.0001 && poolRestante > 0) {
-        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
-        poolRestante  -= capAplicadoUTM;
-      }
-      // Si cubrió el remanente completo (interés + capital) y sobra → sigue excedente
-      if (poolRestante > 0.0001) esExcedente = true;
+    let intAplicadoUTM  = 0;
+    let capAplicadoUTM  = 0;
+    // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
+    if (inteUTM > 0.0001 && poolRestante > 0) {
+      intAplicadoUTM = Math.min(poolRestante, inteUTM);
+      poolRestante  -= intAplicadoUTM;
     }
-    // Aplicar resultados: capital pendiente = bruto - LAV - parcial (nunca < 0)
+    if (capDisponUTM > 0.0001 && poolRestante > 0) {
+      capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+      poolRestante  -= capAplicadoUTM;
+    }
+    // Aplicar al mes: lo que quedó sin cubrir
     const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
     const intePostLavCLP = Math.max(0, d.inte - intAplicadoUTM * utmMes);
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
-    // CORRECCIÓN BUG: En CASO A (LAV puro, sin parcial manual previo), si el pool LAV
-    // cubrió solo parte del capital (parcial LAV), d.inte viene calculado sobre la cuota
-    // completa desde calculatePensiones(). Se debe recalcular sobre el capital remanente.
-    if (capPostLavUTM > 0.0001 && capAplicadoUTM > 0.0001 && intAplicadoUTM < 0.0001 && !d.hayParcialConRemanente) {
-      d.inte = calcularInteres(d.cap, d.tasa, d.mora);
-    }
     d.sub    = d.cap + d.inte;
     d.esLav  = (capAplicadoUTM > 0.0001 || intAplicadoUTM > 0.0001);
     d.lavAplicadoUTM    = capAplicadoUTM;
