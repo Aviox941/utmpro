@@ -1,56 +1,81 @@
-VERSIÓN: 2.0616.v99-parcial-clasificacion
+VERSIÓN: 2.0616.v102-pdf-resumen-fix
 FECHA: 2026-06-16
-ARCHIVOS MODIFICADOS: index.html
+ARCHIVOS MODIFICADOS: export.js
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v102 — PDF resumen final: mismos fixes que modal v101
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FIX 1 — lavCapCubiertoPDF: suma real vs resta
+  Antes: lavCapCubiertoPDF = lavTotalCLPpdf - lavIntCubiertoPDF.
+  Incluía el remanente LAV no imputado en el descuento.
+  Ahora: Σ d.lavAplicadoCLP de lastCalculationData.
+  Si hay remanente LAV > $50 sin imputar, aparece como fila
+  informativa "LAV remanente sin imputar (saldo a favor)".
+
+FIX 2 — Eliminado "Ajuste UTM" del resumen PDF
+  Antes: fila "Ajuste UTM Actual" aparecía cuando subtotalBruto
+  (cargos originales) no coincidía con totalFinalReal (neto).
+  Era conceptualmente incorrecto: la diferencia no es un ajuste,
+  es la brecha entre bruto pre-descuento y neto post-descuento.
+  El PDF muestra CARGOS originales y luego descuenta LAV/abonos;
+  el total final siempre fue correcto, solo el desglose confundía.
+  Eliminados: ajusteUTM_pdf, idxRevalorizacion, bloque willDrawCell.
+
+FIX 3 — cuotasResPDF: fallback más estricto (length > 0)
+  Igual que fix en modal (v101).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v101 — Modal resumen: fuente canónica y LAV correcto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FIX 1 — Capital e Interés en Resumen Final: fuente canónica
+  totalCapPesos/totalIntPesos ahora derivan de cuotasRes_h × utmLiq.
+  Eliminada fila "Ajuste UTM" — ya no hay divergencia.
+
+FIX 2 — LAV capital cubierto: suma real de lavAplicadoCLP.
+  Remanente LAV sin imputar aparece como fila informativa.
+
+FIX 3 — cuotasRes_h: fallback más estricto (length > 0).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+v100 — Modo libre LAV: fallback a cuota del período actual
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FIX — Hero Capital/Interés mostraban $0 sin período registrado.
+  _cuotaParaModoLibre usa cuota del período actual como fallback.
+
+CONFIRMADO — Fecha de liquidación en modo libre LAV:
+  getFechaLiquidacion() ya se usa correctamente como tope de mora.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 v99 — Hero LAV + clasificación pago parcial vs abono
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-FIX 1 — Hero total card: interés remanente incorrecto con LAV
-  renderLavSummary() leía d.inte directo de lastCalculationData
-  (interés pre-imputación, sin recalculo a hoy sobre capital remanente).
-  Ahora lee intPendiente de lastImputacion.cuotasResultado, que contiene
-  el interés ya recalculado a fecha de liquidación sobre el capital
-  remanente real post-LAV. Fallback a lastCalculationData si
-  lastImputacion aún no existe.
-  heroLavUtm limpiado: antes mostraba texto de debug interno,
-  ahora muestra "X.XXXX UTM abonadas".
-
-FIX 2 — Clasificación correcta: pago parcial vs abono
-  Un pago igual o superior a la cuota no es pago parcial —
-  es un abono ordinario Art. 1595 CC.
-  Antes: se mostraba advertencia pero el usuario podía confirmar,
-  y el excedente se restaba del capital total global (sin imputación
-  cronológica mes a mes).
-  Ahora: si monto >= cuota, el registro se bloquea. El modal explica
-  que debe registrarse en Abonos, donde la imputación es cronológica
-  correcta (intereses → capital → excedente al mes siguiente).
-  Cambios técnicos:
-    - addPagoParcial(): condición > cambia a >=, siempre retorna
-    - addPagoParcial(): ya no es async
-    - showParcialWarn(): ya no retorna Promise, solo muestra y cierra
-    - Modal: botón "Registrar" eliminado, solo "Entendido"
+FIX 1 — Hero: interés remanente leído de lastImputacion.cuotasResultado.
+FIX 2 — Pago >= cuota bloquea registro; redirige a Abonos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 v98 — Bug D: early return recalcula interés a hoy
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-FIX — imputarAbonosArt1595() early return sin abonos ordinarios:
-  Antes: con solo LAV (sin abonos ordinarios), retornaba con
-  intPendiente = d.inte del build, sin recalcular sobre el capital
-  remanente post-LAV ni a la fecha de liquidación.
-  Ahora: recalcula intPendiente a hoy sobre d.cap remanente en todos
-  los meses. Meses cubiertos por LAV (d.cap=0) quedan con intPendiente=0.
-
-PASO 1 pool LAV: sin cambios respecto a v97.
-  La lógica Art. 1595 CC (1° intereses, 2° capital) es correcta
-  según guía SITFA/PJUD Ejemplo 2. Los comentarios que afirmaban
-  que LAV "no usa Art. 1595" fueron eliminados y reemplazados por
-  la descripción correcta.
+FIX — imputarAbonosArt1595() early return: recalcula
+  intPendiente a hoy sobre cap remanente post-LAV.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 v97 (base) — LAV: interés sobre remanente
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Versión de entrada. Pool LAV con Art. 1595 CC correcto.
-Comentarios internos inconsistentes (corregidos en v98).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INSTRUCCIONES DE VERSIONADO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Siempre leer este archivo ANTES de hacer cualquier cambio.
+- Nunca borrar el historial de versiones anteriores.
+- Nunca borrar esta sección de instrucciones.
+- Cada entrega debe incluir un ZIP completo con index.html,
+  export.js (si fue modificado) y este CAMBIOS.txt actualizado.
+- El nombre del ZIP debe reflejar la versión: v{N}-{descripcion}.zip
+- La versión en el encabezado sigue el formato: 2.MMDD.v{N}-{slug}

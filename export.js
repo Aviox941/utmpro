@@ -254,7 +254,8 @@ const imputacionPDF = lastImputacion;
 // NO usar suma de pesos nominales LAV: las UTM históricas valen más que a UTM de hoy.
 const lavTotalUTMpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
 // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
-const cuotasResPDF = (imputacionPDF && imputacionPDF.cuotasResultado) ? imputacionPDF.cuotasResultado
+const cuotasResPDF = (imputacionPDF && imputacionPDF.cuotasResultado && imputacionPDF.cuotasResultado.length > 0)
+  ? imputacionPDF.cuotasResultado
   : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
 const totalDeudaUTMpdf = Math.max(0, cuotasResPDF.reduce((s, c) => {
   const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
@@ -426,21 +427,16 @@ filasDesglose.push([
   subtotalUTMpdf.toFixed(4) + ' UTM',
   ''
 ]);
-// 4 · Ajuste UTM actual (revalorización a UTM vigente)
-const ajusteUTM_pdf = Math.round(totalFinalReal) - Math.round(subtotalBruto);
-if (ajusteUTM_pdf !== 0) {
-  const ajusteUTM_val = ajusteUTM_pdf / utmHoy;
-  filasDesglose.push([
-    'Ajuste UTM Actual (1 UTM = ' + fmt(utmLiq) + ')',
-    (ajusteUTM_pdf >= 0 ? '+' : '') + fmt(ajusteUTM_pdf),
-    (ajusteUTM_val >= 0 ? '+' : '') + ajusteUTM_val.toFixed(4) + ' UTM',
-    '_revalorizacion'
-  ]);
-}
+// 4 · Ajuste UTM eliminado: el PDF muestra CARGOS brutos (pre-imputación) por lo que
+// subtotalBruto no coincide con totalFinalReal por diseño — no es un "ajuste", es la
+// diferencia entre bruto y neto que se explica con los descuentos LAV/abonos de abajo.
 // 5 y 6 · Descuento LAV (desglosado si hay intereses cubiertos)
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
 const lavIntCubiertoPDF = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
-const lavCapCubiertoPDF = lavTotalCLPpdf - lavIntCubiertoPDF;
+// Capital cubierto = suma real de lavAplicadoCLP (no resta: evita incluir remanente no imputado)
+const lavCapCubiertoPDF = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoCLP || 0), 0);
+const lavTotalImputadoPDF = lavIntCubiertoPDF + lavCapCubiertoPDF;
+const lavRemanentePDF = lavTotalCLPpdf - lavTotalImputadoPDF;
 if (lavTotalCLPpdf > 0) {
   if (lavIntCubiertoPDF > 0) {
     filasDesglose.push([
@@ -458,8 +454,16 @@ if (lavTotalCLPpdf > 0) {
   } else {
     filasDesglose.push([
       '(-) Abonos LAV (depósitos cuenta vista)',
-      '-' + fmt(lavTotalCLPpdf),
+      '-' + fmt(lavCapCubiertoPDF),
       '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+      ''
+    ]);
+  }
+  if (lavRemanentePDF > 50) {
+    filasDesglose.push([
+      'LAV remanente sin imputar (saldo a favor)',
+      '+' + fmt(Math.round(lavRemanentePDF)),
+      '',
       ''
     ]);
   }
@@ -472,7 +476,6 @@ filasDesglose.push([
   ''
 ]);
 const idxSubtotal = 2;
-const idxRevalorizacion = filasDesglose.findIndex(f => f[3] === '_revalorizacion');
 const idxLast = filasDesglose.length - 1;
 const filasDesgloseClean = filasDesglose.map(f => [f[0], f[1], f[2]]);
 doc.autoTable({
@@ -492,11 +495,6 @@ if (data.section !== 'body') return;
 if (data.row.index === idxSubtotal) {
 doc.setFillColor(241, 245, 249);
 doc.setFont('helvetica', 'bold');
-}
-if (idxRevalorizacion >= 0 && data.row.index === idxRevalorizacion) {
-doc.setFillColor(245, 243, 255);
-doc.setTextColor(109, 40, 217);
-doc.setFont('helvetica', 'italic');
 }
 if (data.row.index === idxLast - 1 && totalAbonosCLP > 0) {
 doc.setFillColor(239, 246, 255);
@@ -1566,19 +1564,29 @@ function buildResumenContent() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // capital post-imputación (remanente tras pagos parciales/abonos)
-  const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0); // interés sobre el remanente (igual que la tabla)
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
   // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
-  const cuotasRes_h = (imputacion && imputacion.cuotasResultado) ? imputacion.cuotasResultado
+  // Fuente canónica: cuotasResultado de lastImputacion (ya recalculado a fecha liq).
+  // Si no existe, fallback a lastCalculationData.
+  const cuotasRes_h = (imputacion && imputacion.cuotasResultado && imputacion.cuotasResultado.length > 0)
+    ? imputacion.cuotasResultado
     : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
   const totalDeudaUTM_h = cuotasRes_h.reduce((s, c) => {
     const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
     return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
   }, 0);
   const totalFinalReal = Math.max(0, totalDeudaUTM_h) * utmLiq; // UTM del mes de liquidación
+  // Capital e interés en CLP: derivar desde cuotasRes_h × utmLiq (misma metodología que el hero)
+  const totalCapPesos = cuotasRes_h.reduce((s,c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.capPendiente / utm) * utmLiq;
+  }, 0);
+  const totalIntPesos = cuotasRes_h.reduce((s,c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.intPendiente / utm) * utmLiq;
+  }, 0);
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
@@ -1898,12 +1906,12 @@ function buildResumenContent() {
   // ── 5. Resumen Final ──
   seccion('Resumen Final', '#0369a1', '');
   const subtotalBruto = totalCapPesos + totalIntPesos;
-  const ajusteUTM_modal = Math.round(totalFinalReal) - Math.round(subtotalBruto);
+  // totalCapPesos + totalIntPesos ya derivan de cuotasRes_h × utmLiq,
+  // igual que totalFinalReal — no hay ajuste UTM necesario.
   const resumenRows = [
     { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#334155', valColor: '#0f172a', bold: false },
     { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#334155', valColor: '#0284c7', bold: false },
     { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
-    ...(ajusteUTM_modal !== 0 ? [{ label: `Ajuste UTM Actual (1 UTM = ${fmt(utmLiq)})`, val: ajusteUTM_modal, labelColor: '#7c3aed', valColor: '#7c3aed', bold: false, italic: true }] : []),
   ];
   // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
   const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
@@ -1913,12 +1921,19 @@ function buildResumenContent() {
   }
   if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
     const lavIntCubiertoModal = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
-    const lavCapCubiertoModal = lavTotalCLPmodal - lavIntCubiertoModal;
+    // Capital cubierto = suma real de lavAplicadoCLP por cuota (no resta: evita incluir remanente no imputado)
+    const lavCapCubiertoModal = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoCLP || 0), 0);
+    const lavTotalImputado = lavIntCubiertoModal + lavCapCubiertoModal;
+    const lavRemanenteCLP = lavTotalCLPmodal - lavTotalImputado;
     if (lavIntCubiertoModal > 0) {
       resumenRows.push({ label: '(-) LAV — intereses cubiertos (Art. 1595 CC)', val: -lavIntCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false });
       resumenRows.push({ label: '(-) LAV — capital cubierto (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
     } else {
-      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    }
+    // Si hay remanente LAV sin imputar (pool mayor que deuda total), mostrarlo informativo
+    if (lavRemanenteCLP > 50) {
+      resumenRows.push({ label: 'LAV remanente sin imputar (saldo a favor)', val: lavRemanenteCLP, labelColor: '#059669', valColor: '#059669', bold: false, italic: true });
     }
   }
   if (abonosOrdCLPmodal > 0) {

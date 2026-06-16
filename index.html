@@ -4377,13 +4377,18 @@ const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
 // ── Modo libre LAV: sin período definido + cuota UTM ingresada ──────────────
 const _lavCuotaUtm = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
+// Fallback: si el campo cuota LAV está vacío, usar la cuota del período actual
+// (campo utmAmount). Permite el modo libre LAV cuando el usuario ingresó su cuota
+// en el período actual pero no copió el valor al campo cuota mensual LAV.
+const { cuotaMensualUTM: _cuotaPeriodoActual } = getMonthlyValues();
+const _cuotaParaModoLibre = _lavCuotaUtm > 0 ? _lavCuotaUtm : _cuotaPeriodoActual;
 const _sinPeriodoCalc = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
-const _modoLibreLAV  = _hayLav && _lavCuotaUtm > 0 && _sinPeriodoCalc;
+const _modoLibreLAV  = _hayLav && _cuotaParaModoLibre > 0 && _sinPeriodoCalc;
 let resPensiones, resHistorical;
 if (_modoLibreLAV) {
-  resPensiones  = buildModoLibreLAVData(_lavCuotaUtm, hoy, aplicarRecargo);
+  resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo);
   resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
-  dbg('CALC: modo libre LAV — cuota=' + _lavCuotaUtm + ' UTM, ' + resPensiones.detalles.length + ' meses generados');
+  dbg('CALC: modo libre LAV — cuota=' + _cuotaParaModoLibre + ' UTM (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
 } else {
   resPensiones  = calculatePensiones(aplicarRecargo, hoy);
   resHistorical = histMode === 'consolidada'
