@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0616.v91-lav-export-1595">
+ <meta name="app-version" content="2.0616.v95-ajuste-utm">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3110,17 +3110,23 @@ function renderAbonosLav() {
         cuotaUTMPeriodo = cuotaMensualCLP > 0 ? cuotaMensualCLP / utmMesP : cuotaGlobal;
       }
       if (cuotaUTMPeriodo > 0 && p.amountUtm != null) {
-        const diff = cuotaUTMPeriodo - p.amountUtm; // positivo = parcial; negativo/cero = cubierto
+        // CORRECCIÓN: usar la suma acumulada de TODOS los depósitos LAV del mismo mes,
+        // no solo el depósito individual. El pool es acumulado → el estado del mes
+        // depende del total, no de cada depósito por separado.
+        const totalLavMes = abonosLav
+          .filter(x => x.periodo === p.periodo)
+          .reduce((s, x) => s + (x.amountUtm || 0), 0);
+        const diff = cuotaUTMPeriodo - totalLavMes; // positivo = parcial; negativo/cero = cubierto
         const utmMesUsado = p.utmVal || getUtmActualVal();
         if (diff > 0.0001) {
-          // Pago LAV menor que la cuota → pago parcial detectado automáticamente
+          // Total LAV del mes menor que la cuota → mes parcialmente cubierto
           const remanenteClp = Math.round(diff * utmMesUsado);
-          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">⚠ Parcial · Rem: <span class="text-[#c084fc]">${diff.toFixed(5)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span> · genera interés diario</span></div>`;
+          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">⚠ Parcial · Rem. mes: <span class="text-[#c084fc]">${diff.toFixed(5)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span> · genera interés diario</span></div>`;
         } else if (diff < -0.0001) {
-          // Pago LAV mayor que la cuota → excedente que va al pool LAV siguiente cuota
+          // Total LAV del mes mayor que la cuota → excedente suma al pool del mes siguiente
           const excedenteUTM = Math.abs(diff);
           const excedenteClp = Math.round(excedenteUTM * utmMesUsado);
-          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente: ${excedenteUTM.toFixed(5)} UTM ≈ ${format(excedenteClp)} → cubre cuota siguiente</span></div>`;
+          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente mes: ${excedenteUTM.toFixed(5)} UTM ≈ ${format(excedenteClp)} → suma al pool LAV</span></div>`;
         } else {
           // Cuota cubierta exactamente
           lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">✓ Cuota cubierta</span></div>`;
@@ -4394,6 +4400,12 @@ if (abonosLav && abonosLav.length > 0) {
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
+    // CORRECCIÓN BUG: En CASO A (LAV puro, sin parcial manual previo), si el pool LAV
+    // cubrió solo parte del capital (parcial LAV), d.inte viene calculado sobre la cuota
+    // completa desde calculatePensiones(). Se debe recalcular sobre el capital remanente.
+    if (capPostLavUTM > 0.0001 && capAplicadoUTM > 0.0001 && intAplicadoUTM < 0.0001 && !d.hayParcialConRemanente) {
+      d.inte = calcularInteres(d.cap, d.tasa, d.mora);
+    }
     d.sub    = d.cap + d.inte;
     d.esLav  = (capAplicadoUTM > 0.0001 || intAplicadoUTM > 0.0001);
     d.lavAplicadoUTM    = capAplicadoUTM;
@@ -5702,7 +5714,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v91-lav-export-1595</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v95-ajuste-utm</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
