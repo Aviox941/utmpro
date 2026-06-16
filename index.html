@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0616.v95-ajuste-utm">
+ <meta name="app-version" content="2.0616.v99-parcial-clasificacion">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -932,13 +932,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div class="bg-black/30 rounded-xl p-3 space-y-1 font-mono text-[11px]">
         <div class="flex justify-between"><span class="text-slate-400">Cuota del mes</span><span id="parcialWarnCuota" class="text-white font-bold"></span></div>
         <div class="flex justify-between"><span class="text-slate-400">Pago ingresado</span><span id="parcialWarnPago" class="text-[#bfdbfe] font-bold"></span></div>
-        <div class="flex justify-between border-t border-slate-700 pt-1 mt-1"><span class="text-slate-400">Exceso</span><span id="parcialWarnExceso" class="text-red-400 font-bold"></span></div>
+        <div class="flex justify-between border-t border-slate-700 pt-1 mt-1"><span class="text-slate-400">Exceso</span><span id="parcialWarnExceso" class="text-emerald-400 font-bold"></span></div>
       </div>
-      <p class="text-slate-400 text-[10px]">El excedente de <span id="parcialWarnExcesoUtm" class="text-emerald-400 font-bold"></span> UTM se <span class="text-emerald-400 font-bold">descontará automáticamente del capital</span> del mes siguiente.</p>
+      <p class="text-slate-300 text-[10px] leading-relaxed">Un pago igual o superior a la cuota <span class="text-white font-bold">no es un pago parcial</span> — es un <span class="text-[#93c5fd] font-bold">Abono (Art. 1595 CC)</span>. Se imputa primero a intereses, luego a capital, y el excedente cubre cuotas siguientes automáticamente.</p>
+      <p class="text-emerald-400 text-[10px] font-bold">→ Regístralo en la sección Abonos con la misma fecha y monto.</p>
     </div>
-    <div class="px-5 pb-4 pt-1 grid grid-cols-2 gap-2">
-      <button id="parcialWarnCancel" class="btn-base btn-ghost btn-flex">Cancelar</button>
-      <button id="parcialWarnConfirm" class="btn-base btn-secondary btn-flex">Registrar</button>
+    <div class="px-5 pb-4 pt-1 grid grid-cols-1 gap-2">
+      <button id="parcialWarnCancel" class="btn-base btn-ghost btn-flex">Entendido</button>
     </div>
   </div>
  </div>
@@ -2641,18 +2641,19 @@ function showHelpModal(tipo) {
 function showParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('hidden','flex'); lockBody(); }
 function hideParcialHelp() { document.getElementById('parcialHelpModal').classList.replace('flex','hidden'); unlockBody(); }
 function showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal) {
+  // Este modal informa que el monto >= cuota y no es un pago parcial sino un abono.
+  // Solo tiene botón "Entendido" — no permite continuar el registro.
   const fmt = n => new Intl.NumberFormat('es-CL', {style:'currency', currency:'CLP', maximumFractionDigits:0}).format(n);
-  document.getElementById('parcialWarnMsg').textContent = `El pago de ${periodoLabel} supera la cuota del mes.`;
+  document.getElementById('parcialWarnMsg').textContent = `El pago de ${periodoLabel} iguala o supera la cuota del mes.`;
   document.getElementById('parcialWarnCuota').textContent = fmt(capitalMes);
   document.getElementById('parcialWarnPago').textContent = fmt(totalConNuevo);
-  document.getElementById('parcialWarnExceso').textContent = fmt(exceso);
+  document.getElementById('parcialWarnExceso').textContent = exceso > 0 ? fmt(exceso) : '(cuota exacta)';
   const excUtmEl = document.getElementById('parcialWarnExcesoUtm');
-  if (excUtmEl) excUtmEl.textContent = utmMesVal ? (exceso / utmMesVal).toFixed(4) : '—';
+  if (excUtmEl) excUtmEl.textContent = '';
   document.getElementById('parcialWarnModal').classList.replace('hidden','flex'); lockBody();
-  return new Promise(resolve => {
-    document.getElementById('parcialWarnConfirm').onclick = () => { document.getElementById('parcialWarnModal').classList.replace('flex','hidden'); unlockBody(); resolve(true); };
-    document.getElementById('parcialWarnCancel').onclick = () => { document.getElementById('parcialWarnModal').classList.replace('flex','hidden'); unlockBody(); resolve(false); };
-  });
+  document.getElementById('parcialWarnCancel').onclick = () => {
+    document.getElementById('parcialWarnModal').classList.replace('flex','hidden'); unlockBody();
+  };
 }
 function checkHistReady() {
   // Llamado cuando cambia el monto; si el calendario hist está abierto actualiza su botón
@@ -3200,17 +3201,19 @@ function renderLavSummary() {
     heroRow.classList.add('hidden');
   } else {
     // Con cálculo: número grande = Total Adeudado (sin tocar).
-    // Fila LAV muestra: abono total + interés generado sobre el remanente no cubierto.
-    // Interés sobre remanente = suma de d.inte de meses con capital > 0 tras aplicar pool LAV.
-    // Esto incluye meses parcialmente cubiertos (d.esLav=true pero d.cap>0) y
-    // meses no cubiertos (d.esLav=false).
-    const interesRemanente = lastCalculationData.reduce((s, d) => {
-      return s + (d.inte > 0 ? d.inte : 0);
+    // Fila LAV: interés remanente = suma de intPendiente de cuotasResultado
+    // (interés recalculado a hoy sobre capital remanente post-LAV y post-imputación).
+    // Si lastImputacion está disponible usamos cuotasResultado; si no, lastCalculationData.
+    const cuotasRef = (typeof lastImputacion !== 'undefined' && lastImputacion && lastImputacion.cuotasResultado && lastImputacion.cuotasResultado.length > 0)
+      ? lastImputacion.cuotasResultado
+      : lastCalculationData.map(d => ({ intPendiente: d.inte }));
+    const interesRemanente = cuotasRef.reduce((s, c) => {
+      const inte = c.intPendiente !== undefined ? c.intPendiente : (c.inte || 0);
+      return s + (inte > 0 ? inte : 0);
     }, 0);
-    const heroTotalLav = totalClp + interesRemanente;
     heroClp.textContent = `${format(totalClp)} abonado${interesRemanente > 0 ? ` · +${format(Math.round(interesRemanente))} int. remanente` : ''}`;
-    heroUtm.textContent = `Hero Total LAV: ${format(Math.round(heroTotalLav))} (${totalUtm.toFixed(4)} UTM)`;
     heroRow.classList.remove('hidden');
+    heroUtm.textContent = `${totalUtm.toFixed(4)} UTM abonadas`;
   }
 }
 
@@ -3277,7 +3280,7 @@ function updateParcialUtmFromDate() {
   // Actualizar placeholder con valor UTM del mes como referencia
   if (utmEl) utmEl.placeholder = `UTM ${utmMes.v.toLocaleString('es-CL')}`;
 }
-async function addPagoParcial() {
+function addPagoParcial() {
 const raw = document.getElementById('tempParcialClp').value.replace(/\./g, '');
 const amount = parseInt(raw) || 0;
 const mes = document.getElementById('tempParcialMes').value;
@@ -3297,10 +3300,12 @@ if (cuotaMensualUTM > 0 && utmMesVal) {
   const capitalMes = cuotaMensualUTM * utmMesVal.v;
   const yaRegistrado = pagosParciales.filter(p => p.periodo === periodo).reduce((s,p) => s + p.amount, 0);
   const totalConNuevo = yaRegistrado + amount;
-  if (totalConNuevo > capitalMes) {
-    const exceso = totalConNuevo - capitalMes;
-    const continuar = await showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal.v);
-    if (!continuar) return;
+  if (totalConNuevo >= capitalMes) {
+    // Monto >= cuota → no es pago parcial, es abono ordinario Art. 1595 CC.
+    // Bloquear registro y mostrar explicación para que lo registre en Abonos.
+    const exceso = Math.max(0, totalConNuevo - capitalMes);
+    showParcialWarn(periodoLabel, capitalMes, totalConNuevo, exceso, utmMesVal.v);
+    return; // siempre bloquear
   }
 }
 // Calcular y guardar UTM del período y equivalencia
@@ -4166,8 +4171,24 @@ function imputarAbonosArt1595(detalles, abonos) {
   // NO se fusionan aquí como abonos para evitar doble contabilidad.
   const todosAbonos = [...(abonos || [])];
   if (todosAbonos.length === 0) {
-    const saldo = detalles.reduce((s, d) => s + d.cap + d.inte, 0);
-    return { saldoFinal: Math.max(0, saldo), totalAbonado: 0, interesesPagados: 0, capitalPagado: 0, detalleImputacion: [], cuotasResultado: detalles.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte })) };
+    // Bug D fix: recalcular interés a hoy sobre el capital remanente, igual que el
+    // path con abonos. Sin este recalculo, los meses con cap remanente post-LAV
+    // usaban d.inte del build (calculado con diasMora hasta el momento del build)
+    // en lugar del interés recalculado sobre el cap remanente real.
+    const hoyD = getFechaLiquidacion();
+    const diaVencD = getDiaVencimiento();
+    const mesesD = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
+    const cuotasD = detalles.map(d => {
+      const partesD = (d.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
+      const cMesD   = mesesD[partesD[0]] ?? 0;
+      const cAnioD  = parseInt(partesD[1]) || (d.year||2000);
+      const fechaVencD = new Date(cAnioD, cMesD, diaVencD);
+      const diasMoraD  = Math.max(0, Math.floor((hoyD - fechaVencD) / (1000*60*60*24)));
+      const intHoyD    = (d.cap > 0.01 && diasMoraD > 0) ? calcularInteres(d.cap, d.tasa, diasMoraD) : 0;
+      return { ...d, capPendiente: d.cap, intPendiente: intHoyD };
+    });
+    const saldo = cuotasD.reduce((s, d) => s + d.capPendiente + d.intPendiente, 0);
+    return { saldoFinal: Math.max(0, saldo), totalAbonado: 0, interesesPagados: 0, capitalPagado: 0, detalleImputacion: [], cuotasResultado: cuotasD };
   }
   // Ordenar todos los abonos cronológicamente por fecha exacta
   const abonosOrdenados = todosAbonos.sort((a, b) => a.date.localeCompare(b.date));
@@ -4238,10 +4259,10 @@ function imputarAbonosArt1595(detalles, abonos) {
         imputThis.porCuota.push({ cuota: cuota.periodo, tipo: 'capital', monto: aplicado });
       }
     }
-    // Abonos ordinarios Art. 1595 CC: el remanente se imputa a cuotas pendientes
+    // Abonos ordinarios: el remanente se imputa a cuotas pendientes
     // en orden cronológico (capital más antiguo primero).
-    // NOTA: los depósitos LAV nunca llegan aquí — se procesan en calculate() antes
-    // de llamar esta función. Ver bloque "DEPÓSITOS LAV" en calculate().
+    // NOTA: los depósitos LAV se procesan en calculate() (PASO 1) antes de llegar
+    // aquí. imputarAbonosArt1595 opera sobre el capital remanente post-LAV.
     if (remanente > 0) {
       for (const cuota of cuotas) {
         if (remanente <= 0) break;
@@ -4375,42 +4396,37 @@ const totalCapUTM = (resPensiones.capitalUTM || 0) + (resHistorical.capitalUTM |
 lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // --- Metodología TRIBUNAL (SITFA/PJUD) confirmada RIT Z-617-2024 ---
 // ══════════════════════════════════════════════════════════════════════════════
-// DEPÓSITOS LAV — NATURALEZA JURÍDICA Y LÓGICA DE CÁLCULO
+// DEPÓSITOS LAV — LÓGICA DE IMPUTACIÓN (Art. 1595 CC)
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Los depósitos LAV (Libreta de Ahorro Vista, Banco Estado) son los PAGOS
-// DIRECTOS de la pensión que el alimentante realiza en la cuenta del tribunal.
-// NO son "abonos" en el sentido del Art. 1595 CC y NO se procesan con esa lógica.
+// Los depósitos LAV (Libreta de Ahorro Vista, Banco Estado) son los pagos
+// de pensión que el alimentante realiza en la cuenta del tribunal. SITFA los
+// imputa con el mismo orden de prelación del Art. 1595 CC:
 //
-// DIFERENCIA FUNDAMENTAL:
-//   • Abono ordinario (Art. 1595 CC): pago voluntario al acreedor, se imputa
-//     primero a intereses devengados y luego a capital, en orden cronológico.
-//   • Depósito LAV: cumplimiento directo de la cuota mensual ante el tribunal.
-//     Se suma al pool total UTM y se descuenta del capital de las cuotas,
-//     comenzando por la más antigua, sin tocar la lógica de intereses del Art. 1595.
+// ALGORITMO (confirmado RIT Z-617-2024, guía SITFA/PJUD):
+//   1. Sumar todos los depósitos LAV → pool total en UTM.
+//   2. Aplicar el pool cuota a cuota en orden cronológico:
+//        1° Intereses devengados del mes (d.inte)
+//        2° Capital pendiente del mes (capDisponUTM)
+//        El excedente de cada mes fluye al siguiente con el mismo orden.
+//   3. Si el mes queda con cap=0 e inte=0 → sin mora (cuota cubierta).
+//   4. Si queda cap>0 → interés sobre ese remanente según TIC histórica
+//      y días de mora desde vencimiento hasta fecha de liquidación.
 //
-// ALGORITMO (confirmado RIT Z-617-2024, Juzgado de Familia Talca):
-//   1. Sumar todos los depósitos LAV → pool total en UTM históricas.
-//   2. Aplicar el pool cuota a cuota en orden cronológico estricto:
-//        - Si pool >= cuota del mes → mes cubierto, cap=0, inte=0.
-//        - Si pool < cuota del mes  → mes parcialmente cubierto, adeudado=cuota-pool.
-//        - Si pool = 0              → mes adeudado, se calculan días de mora e interés.
-//   3. Los meses con cap=0 no generan interés.
-//   4. Los meses con cap>0 (adeudados o parciales) generan interés según TIC histórica
-//      y días de mora desde su fecha de vencimiento hasta la fecha de liquidación.
-//
-// REGLA DE ORO: esta función es solo una SUMA y RESTA de UTM.
-//   NO modificar para agregar lógica Art. 1595, matching 1-a-1 LAV→mes,
-//   ni ningún tipo de arrastre o remanente entre depósitos individuales.
-//   Cualquier cambio aquí rompe la equivalencia con el resultado del tribunal.
+// Ejemplo guía SITFA (Ejemplo 2): pool 8.0 UTM, remanente Abril 2.63 UTM
+//   → cubre intereses Abril + capital Abril (2.63) + capital Mayo (4.76)
+//   → saldo a favor ~0.60 UTM.
 // ══════════════════════════════════════════════════════════════════════════════
 
 // PASO 1: Aplicar pool LAV sobre cuotas (orden cronológico, Art. 1595 CC)
 // ══════════════════════════════════════════════════════════════════════════════
-// METODOLOGÍA UNIFICADA — Art. 1595 CC, igual para toda cuota:
+// METODOLOGÍA UNIFICADA — Art. 1595 CC, confirmada guía SITFA/PJUD:
 //   1° Intereses devengados del mes (d.inte)
 //   2° Capital pendiente (capDisponUTM = bruto − ya pagado con parcial)
 // El excedente de un mes fluye automáticamente al siguiente con el mismo orden.
+// Ejemplo 2 guía SITFA: pool 8.0 UTM → cubre intereses Abril + cap Abril (2.63)
+//   + cap Mayo (4.76) → saldo a favor ~0.60 UTM. El pool SÍ consume intereses.
+// Si el mes queda cap=0 e inte=0 tras el pool, inte=0 (sin mora por def.).
 // REGLA: parcialUTMMes se excluye del consumo del pool (ya descontado en d.cap).
 // ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
@@ -5766,7 +5782,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v95-ajuste-utm</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v99-parcial-clasificacion</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
