@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0615.v87-fix-parcial-descuento">
+ <meta name="app-version" content="2.0616.v91-lav-export-1595">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3077,13 +3077,68 @@ function renderAbonosLav() {
   if (!container) return;
   container.innerHTML = '';
   if (!Array.isArray(abonosLav) || abonosLav.length === 0) return;
+  const { cuotaMensualUTM: cuotaGlobal, modoEsPesos: modoGlobal } = getMonthlyValues();
   abonosLav.forEach((p, i) => {
     const div = document.createElement('div');
     div.className = 'abono-item animate-fadeIn';
     div.style.borderColor = '#6ee7b7';
     const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) + ' UTM' : '';
     const displayLabel = p.periodoLabelOriginal || p.periodoLabel;
-    div.innerHTML = `<div class="text-[10px] font-black"><span style="color:#6ee7b7" class="font-black">${displayLabel}</span><span class="mx-1 text-slate-300">|</span><span class="font-black" style="color:var(--color-text-primary)">${format(p.amount)}</span>${utmStr ? `<span class="ml-1 text-[9px] font-bold" style="color:#6ee7b7">${utmStr}</span>` : ''}</div><button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2">×</button>`;
+
+    // ── Detección automática de pago parcial LAV ──────────────────────────
+    // Obtener la cuota UTM efectiva del período de este depósito,
+    // respetando períodos variables (igual lógica que renderPagosParciales).
+    let cuotaUTMPeriodo = cuotaGlobal;
+    let lavInfoHtml = '';
+    const periodoStr = p.periodo || ''; // "YYYY-MM"
+    const [pAnioStr, pMesStr] = periodoStr.split('-');
+    const pAnio = parseInt(pAnioStr);
+    const pMesIdx = parseInt(pMesStr) - 1; // 0-based
+    if (!isNaN(pAnio) && !isNaN(pMesIdx)) {
+      const override = getPeriodoCuotaParaMes(pAnio, pMesIdx);
+      if (override) {
+        if (override.modoEsPesos) {
+          const utmMesP = p.utmVal || getUtmActualVal();
+          cuotaUTMPeriodo = override.cuotaCLP / utmMesP;
+        } else {
+          cuotaUTMPeriodo = override.cuotaUTM;
+        }
+      } else if (modoGlobal) {
+        // Cuota en pesos: convertir a UTM usando la UTM histórica del depósito
+        const { cuotaMensualCLP } = getMonthlyValues();
+        const utmMesP = p.utmVal || getUtmActualVal();
+        cuotaUTMPeriodo = cuotaMensualCLP > 0 ? cuotaMensualCLP / utmMesP : cuotaGlobal;
+      }
+      if (cuotaUTMPeriodo > 0 && p.amountUtm != null) {
+        const diff = cuotaUTMPeriodo - p.amountUtm; // positivo = parcial; negativo/cero = cubierto
+        const utmMesUsado = p.utmVal || getUtmActualVal();
+        if (diff > 0.0001) {
+          // Pago LAV menor que la cuota → pago parcial detectado automáticamente
+          const remanenteClp = Math.round(diff * utmMesUsado);
+          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">⚠ Parcial · Rem: <span class="text-[#c084fc]">${diff.toFixed(5)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span> · genera interés diario</span></div>`;
+        } else if (diff < -0.0001) {
+          // Pago LAV mayor que la cuota → excedente que va al pool LAV siguiente cuota
+          const excedenteUTM = Math.abs(diff);
+          const excedenteClp = Math.round(excedenteUTM * utmMesUsado);
+          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente: ${excedenteUTM.toFixed(5)} UTM ≈ ${format(excedenteClp)} → cubre cuota siguiente</span></div>`;
+        } else {
+          // Cuota cubierta exactamente
+          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">✓ Cuota cubierta</span></div>`;
+        }
+      }
+    }
+
+    div.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div class="text-[10px] font-black flex flex-wrap items-center gap-1">
+          <span style="color:#6ee7b7" class="font-black">${displayLabel}</span>
+          <span class="mx-1 text-slate-300">|</span>
+          <span class="font-black" style="color:var(--color-text-primary)">${format(p.amount)}</span>
+          ${utmStr ? `<span class="ml-1 text-[9px] font-bold" style="color:#6ee7b7">${utmStr}</span>` : ''}
+        </div>
+        ${lavInfoHtml}
+      </div>
+      <button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
     container.appendChild(div);
   });
 }
@@ -4259,44 +4314,92 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 //   Cualquier cambio aquí rompe la equivalencia con el resultado del tribunal.
 // ══════════════════════════════════════════════════════════════════════════════
 
-// PASO 1: Aplicar pool LAV sobre capital de cuotas (orden cronológico)
+// PASO 1: Aplicar pool LAV sobre cuotas (orden cronológico, Art. 1595 CC)
+// ══════════════════════════════════════════════════════════════════════════════
+// METODOLOGÍA UNIFICADA — tres casos posibles por cuota:
+//
+//  A) CUOTA LIMPIA (sin pago parcial previo) y el pool la toca POR PRIMERA VEZ
+//     en la secuencia cronológica (esExcedente = false):
+//     → El pool cubre solo el CAPITAL bruto del mes, sin tocar intereses.
+//       Esto replica la lógica del tribunal: el depósito LAV es cumplimiento
+//       directo de la cuota, no un abono Art. 1595.
+//     → Si el pool cubre el capital completo y aún sobra → esExcedente = true.
+//
+//  B) CUOTA CON PAGO PARCIAL PREVIO (hayParcialConRemanente = true):
+//     → Ya existe un pago parcial registrado que cubrió parte de la cuota.
+//       El pool LAV llega sobre ese remanente como si fuera un abono externo.
+//     → Aplica Art. 1595 CC sobre el remanente pendiente:
+//         1° Intereses devengados sobre el remanente (d.inte, ya calculado
+//            en calculatePensiones sobre el remanente correcto).
+//         2° Capital remanente (d.cap = cuota - parcial pagado).
+//     → Si el pool cubre el remanente completo y aún sobra → esExcedente = true.
+//
+//  C) EXCEDENTE ENTRE CUOTAS (esExcedente = true):
+//     → El pool viene de haber cubierto una cuota anterior completa con saldo.
+//       Ese saldo es tratado como abono Art. 1595 sobre la cuota siguiente:
+//         1° Intereses devengados del mes siguiente.
+//         2° Capital disponible (bruto − parcial si lo hubiera).
+//
+// REGLA: parcialUTMMes siempre se excluye del tope de consumo del pool para
+// evitar doble contabilidad (el parcial ya está descontado en d.cap).
+// ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
   let poolRestante = poolLavUTM;
+  let esExcedente = false; // true cuando el pool viene de haber cubierto una cuota completa
   for (const d of lastCalculationData) {
     if (poolRestante <= 0) break;
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
     // Guardar originales ANTES de mutar (el PDF los necesita para mostrar cargos brutos)
-    // capOriginal = cuota bruta completa del mes (sin descuento de pagos parciales).
-    // capOriginalBruto se inicializa con capOriginal para que el pool LAV consuma
-    // la cuota entera, independientemente de si hay un pago parcial en ese mes.
     d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
     d.intOriginal      = d.intOriginal      ?? d.inte;
-    // Guardar remanente real del pago parcial ANTES de que LAV sobreescriba d.cap
-    // (usado por export.js para mostrar "Rem: X de Y" correctamente)
     if (d.hayParcialConRemanente && d.capParcialRemanente === undefined) {
       d.capParcialRemanente = d.cap; // remanente = cap ya reducido por pago parcial
     }
-    // El pool LAV consume contra la cuota BRUTA original (antes de pagos parciales).
-    // Los pagos parciales y los LAV son flujos independientes: si ambos se aplican
-    // sobre el mismo cap reducido, el pago parcial se descuenta dos veces.
-    const capBrutoUTM = d.capOriginalBruto / utmMes;
-    const aplicadoUTM = Math.min(poolRestante, capBrutoUTM);
-    // El parcial ya está descontado en d.cap antes de entrar al bloque LAV.
-    // La diferencia capOriginal - cap equivale al parcial pagado en este mes.
-    // Hay que preservar ese descuento al sobreescribir d.cap con el resultado LAV.
+    const capBrutoUTM   = d.capOriginalBruto / utmMes; // cuota completa del mes en UTM
+    // parcialUTMMes = lo que ya pagó el pago parcial manual en UTM (puede ser 0)
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
     const parcialUTMMes = parcialCLPMes / utmMes;
-    // Capital pendiente = bruto - LAV - parcial, nunca < 0
-    const capPostLavUTM = Math.max(0, capBrutoUTM - aplicadoUTM - parcialUTMMes);
+    // capDisponUTM = lo que realmente falta pagar de capital en este mes
+    const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes);
+    const inteUTM       = d.inte / utmMes; // interés devengado del mes en UTM
+    let intAplicadoUTM = 0;
+    let capAplicadoUTM = 0;
+    if (!esExcedente && !d.hayParcialConRemanente) {
+      // CASO A: cuota limpia, primer toque del pool → solo capital (lógica tribunal)
+      capAplicadoUTM = Math.min(poolRestante, capBrutoUTM);
+      poolRestante  -= capAplicadoUTM;
+      // Si cubrió el capital completo y sobra → próximas cuotas son excedente Art. 1595
+      if (capAplicadoUTM >= capBrutoUTM - 0.0001 && poolRestante > 0.0001) {
+        esExcedente = true;
+      }
+    } else {
+      // CASO B (parcial previo) o CASO C (excedente) → Art. 1595 CC:
+      // 1° Intereses devengados del remanente
+      if (inteUTM > 0.0001 && poolRestante > 0) {
+        intAplicadoUTM = Math.min(poolRestante, inteUTM);
+        poolRestante  -= intAplicadoUTM;
+      }
+      // 2° Capital disponible
+      if (capDisponUTM > 0.0001 && poolRestante > 0) {
+        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+        poolRestante  -= capAplicadoUTM;
+      }
+      // Si cubrió el remanente completo (interés + capital) y sobra → sigue excedente
+      if (poolRestante > 0.0001) esExcedente = true;
+    }
+    // Aplicar resultados: capital pendiente = bruto - LAV - parcial (nunca < 0)
+    const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
+    const intePostLavCLP = Math.max(0, d.inte - intAplicadoUTM * utmMes);
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
-    d.inte   = d.cap > 0 ? d.inte : 0; // mes cubierto → sin interés pendiente
+    d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
     d.sub    = d.cap + d.inte;
-    d.esLav  = (aplicadoUTM > 0);
-    d.lavAplicadoUTM = aplicadoUTM;
-    d.lavAplicadoCLP = Math.round(aplicadoUTM * utmMes);
-    poolRestante -= aplicadoUTM;
+    d.esLav  = (capAplicadoUTM > 0.0001 || intAplicadoUTM > 0.0001);
+    d.lavAplicadoUTM    = capAplicadoUTM;
+    d.lavAplicadoCLP    = Math.round(capAplicadoUTM * utmMes);
+    d.lavIntAplicadoUTM = intAplicadoUTM;
+    d.lavIntAplicadoCLP = Math.round(intAplicadoUTM * utmMes);
   }
 }
 
@@ -5599,7 +5702,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0615.v87-fix-parcial-descuento</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v91-lav-export-1595</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

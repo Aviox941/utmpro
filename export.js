@@ -167,6 +167,7 @@ body: pensiones.map(d => {
   const intUtm = d.utmVal > 0 ? (intMostrado / d.utmVal).toFixed(5) : '0.00000';
   let periodoLabel = d.hayParcialConRemanente ? d.periodo + '*' : d.periodo;
   if ((d.excedenteParcialAplicado || 0) > 0) periodoLabel += '†';
+  if ((d.lavIntAplicadoCLP || 0) > 0) periodoLabel += '‡';
   return [periodoLabel, fmt(capMostrado), capUTMMostrado.toFixed(3), d.mora,
     ((d.tasa * 10).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
     fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado)];
@@ -191,6 +192,12 @@ if (pensiones.some(d => d.hayParcialConRemanente)) {
 if (pensiones.some(d => d.excedenteParcialAplicado > 0)) {
   doc.setFontSize(6); doc.setTextColor(21,128,61);
   doc.text('† Excedente de pago parcial descontado del capital total adeudado.', MARGIN, y);
+  y += 5;
+}
+// Nota al pie si hay meses con interés cubierto por excedente LAV (Art. 1595 CC)
+if (pensiones.some(d => (d.lavIntAplicadoCLP || 0) > 0)) {
+  doc.setFontSize(6); doc.setTextColor(5,150,105);
+  doc.text('‡ Interés cubierto por excedente LAV (Art. 1595 CC): primero intereses, luego capital.', MARGIN, y);
   y += 5;
 }
 y += 4;
@@ -399,6 +406,9 @@ filasDesglose.push([
 // capImputadoPDF incluye LAV + abonos ordinarios. Se muestran separados para claridad.
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
 const abonosOrdCLPpdf = abonos.reduce((s,a) => s + a.amount, 0);
+// Calcular qué parte del pool LAV cubrió intereses (Art. 1595 excedente) vs capital
+const lavIntCubiertoPDF = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
+const lavCapCubiertoPDF = lavTotalCLPpdf - lavIntCubiertoPDF;
 if (intImputadoPDF > 0) {
 filasDesglose.push([
 '(-) Abonos imputados a intereses (Art. 1595 CC)',
@@ -408,12 +418,28 @@ filasDesglose.push([
 ]);
 }
 if (lavTotalCLPpdf > 0) {
-filasDesglose.push([
-'(-) Abonos LAV (depósitos cuenta vista)',
-'-' + fmt(lavTotalCLPpdf),
-'-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
-''
-]);
+  if (lavIntCubiertoPDF > 0) {
+    // Desglosar LAV: intereses cubiertos por excedente + capital
+    filasDesglose.push([
+      '(-) LAV — intereses cubiertos (Art. 1595 CC)',
+      '-' + fmt(lavIntCubiertoPDF),
+      '-' + (lavIntCubiertoPDF / utmHoy).toFixed(4) + ' UTM',
+      ''
+    ]);
+    filasDesglose.push([
+      '(-) LAV — capital cubierto (depósitos cuenta vista)',
+      '-' + fmt(lavCapCubiertoPDF),
+      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+      ''
+    ]);
+  } else {
+    filasDesglose.push([
+      '(-) Abonos LAV (depósitos cuenta vista)',
+      '-' + fmt(lavTotalCLPpdf),
+      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+      ''
+    ]);
+  }
 }
 if (abonosOrdCLPpdf > 0) {
 filasDesglose.push([
@@ -1665,8 +1691,12 @@ function buildResumenContent() {
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
-      const lavTag = '';
+      const lavTag = (d.lavIntAplicadoCLP || 0) > 0 ? `<span style="color:#059669;font-size:7.5px;font-weight:900"> ‡</span>` : '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
+      // Sub-chip LAV interés (excedente Art. 1595)
+      const lavIntChip = (d.lavIntAplicadoCLP || 0) > 0
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">‡ Int. cubierto LAV: ${fmt(d.lavIntAplicadoCLP)}</div>`
+        : '';
       // Sub-chip de remanente para cuotas con pago parcial
       // Usar capParcialRemanente si existe (cuando hay LAV, d.cap es post-LAV y ya no
       // refleja el remanente del pago parcial — el valor correcto se guardó antes del LAV)
@@ -1675,7 +1705,7 @@ function buildResumenContent() {
         ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">Rem: ${fmt(_capRemDisplay)} de ${fmt(d.capOriginal)}</div>`
         : '';
       row.innerHTML = `
-        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}</span>
+        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}${lavIntChip}</span>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
         <span style="color:#334155">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
@@ -1849,7 +1879,14 @@ function buildResumenContent() {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
   if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
-    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    const lavIntCubiertoModal = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
+    const lavCapCubiertoModal = lavTotalCLPmodal - lavIntCubiertoModal;
+    if (lavIntCubiertoModal > 0) {
+      resumenRows.push({ label: '(-) LAV — intereses cubiertos (Art. 1595 CC)', val: -lavIntCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false });
+      resumenRows.push({ label: '(-) LAV — capital cubierto (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    } else {
+      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    }
   }
   if (abonosOrdCLPmodal > 0) {
     resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -abonosOrdCLPmodal, labelColor: '#0891b2', valColor: '#0891b2', bold: false });

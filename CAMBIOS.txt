@@ -12,59 +12,38 @@ INSTRUCCIONES DE VERSIONADO
 ================================================================================
 VERSIÓN ACTUAL
 ================================================================================
-Fecha         : 15-06-2026
-App version   : 2.0615.v87-fix-parcial-descuento
-SW cache      : pension-utm-v158
-Archivos mod  : index.html, sw.js, CAMBIOS.txt
+Fecha         : 16-06-2026
+App version   : 2.0616.v91-lav-export-1595
+SW cache      : pension-utm-v162
+Archivos mod  : index.html, sw.js, export.js, CAMBIOS.txt
 
 ================================================================================
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Pago parcial no se descontaba cuando había abonos LAV registrados
+FEATURE — Resumen de liquidación y PDF reflejan imputación Art. 1595 del excedente LAV
 --------------------------------------------------------------------------------
-El bloque de aplicación del pool LAV consume contra capOriginalBruto (cuota
-bruta completa) y luego sobreescribe d.cap con el resultado LAV, ignorando
-que calculatePensiones() ya había reducido d.cap con el pago parcial del mes.
+Los cambios de cálculo introducidos en v90 (excedente LAV cubre intereses antes
+de capital en cuotas con parcial previo o como excedente entre cuotas) ahora son
+visibles en el resumen modal y en el PDF exportado.
 
-Ejemplo del problema:
-  Cuota mes = 100.000
-  Pago parcial = 30.000 → calculatePensiones entrega d.cap = 70.000
-  Pool LAV cubre el mes → capBrutoUTM usa 100.000, resultado: d.cap = 0
-  El parcial de 30.000 quedaba sin efecto (pisado por el bloque LAV)
+CAMBIOS EN export.js:
 
-FIX en bloque LAV (calculate()):
-  Antes de sobreescribir d.cap, se calcula el parcial del mes como la
-  diferencia entre d.capOriginal (cuota bruta) y d.cap (ya reducido por parcial).
-  Esa diferencia se resta adicionalmente del capital post-LAV:
-    capPostLavUTM = bruto - LAV - parcial  (nunca < 0)
-  Esto garantiza que LAV y pago parcial sean independientes y acumulativos.
+1. TABLA DE CUOTAS (PDF y modal):
+   • Nueva marca ‡ en el período de cuotas donde el excedente LAV cubrió intereses.
+   • Sub-chip verde en modal: "‡ Int. cubierto LAV: $X.XXX" por debajo del período.
+   • Nota al pie en PDF: "‡ Interés cubierto por excedente LAV (Art. 1595 CC)..."
 
-FIX adicional — Guard _noRange:
-  En modo calendario libre (v84), con solo LAV + parciales sin período definido,
-  calcStartIndex === -1 y calculate() abortaba antes de procesar nada.
-  _noRange ahora también verifica !_hayLav && !_hayParciales.
+2. RESUMEN FINAL — PDF y modal:
+   Cuando alguna cuota tiene lavIntAplicadoCLP > 0, la línea LAV se desglosa:
+     ANTES: "(-) Abonos LAV (depósitos cuenta vista)  -$X.XXX"
+     AHORA: "(-) LAV — intereses cubiertos (Art. 1595 CC)  -$X.XXX"
+            "(-) LAV — capital cubierto (depósitos cuenta vista)  -$X.XXX  -X.XXXXX UTM"
+   Si no hay intereses cubiertos por LAV, se mantiene la fila única original.
 
-CAMBIOS EN index.html
---------------------------------------------------------------------------------
-- Bloque LAV en calculate(): capPostLavUTM ahora resta parcialUTMMes
-  (calculado como diferencia capOriginal - cap antes de mutar d.cap)
-- Guard _noRange: extendido con !_hayLav && !_hayParciales
-- meta app-version y appVersionLabel: v86 → v87
-- title: actualizado a v87
+3. SIN CAMBIOS en la lógica de CARGOS:
+   La tabla de cuotas sigue mostrando capOriginal e intOriginal (valores brutos
+   pre-LAV) para reflejar los cargos totales antes de descuentos, igual que el
+   tribunal en la sección de CARGOS de su liquidación oficial.
 
-================================================================================
-HISTORIAL RECIENTE
-================================================================================
-v87-fix-parcial-descuento    : Fix pago parcial no descontaba con LAV activos
-v86-header-casos-derecha     : Botón Casos → derecha, Caso activo → izquierda
-v85-fix-registro-periodos    : Fix períodos no visibles + recalcCalcRange faltante
-v84-parcial-calendario-libre : Calendario Parciales libre sin período (sobre LAV)
-v83-lav-calendario-libre : Calendario LAV libre sin período previo
-v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
-v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
-v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
-v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
-v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
-v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
-================================================================================
+Archivos modificados: index.html (versión), sw.js (cache), export.js (4 bloques)
