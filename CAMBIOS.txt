@@ -21,27 +21,34 @@ Archivos mod  : index.html, sw.js, CAMBIOS.txt
 PROPÓSITO DE ESTA VERSIÓN
 ================================================================================
 
-FIX — Pago parcial no se descontaba del capital al ser registrado
+FIX — Pago parcial no se descontaba cuando había abonos LAV registrados
 --------------------------------------------------------------------------------
-Dos causas identificadas:
+El bloque de aplicación del pool LAV consume contra capOriginalBruto (cuota
+bruta completa) y luego sobreescribe d.cap con el resultado LAV, ignorando
+que calculatePensiones() ya había reducido d.cap con el pago parcial del mes.
 
-1. BLOQUE LAV pisaba el descuento del parcial:
-   El pool LAV consume contra capOriginalBruto (cuota bruta) y luego
-   sobreescribe d.cap = capPostLavUTM * utmMes, ignorando que calculatePensiones()
-   ya había reducido d.cap con el pago parcial de ese mes.
-   FIX: al calcular capPostLavUTM, se resta también el parcialUTM del mes,
-   de modo que el capital pendiente final es: bruto - LAV - parcial.
+Ejemplo del problema:
+  Cuota mes = 100.000
+  Pago parcial = 30.000 → calculatePensiones entrega d.cap = 70.000
+  Pool LAV cubre el mes → capBrutoUTM usa 100.000, resultado: d.cap = 0
+  El parcial de 30.000 quedaba sin efecto (pisado por el bloque LAV)
 
-2. Guard _noRange abortaba calculate() cuando solo había LAV + parciales:
-   En el modo "calendario libre" (v84), es posible tener abonos LAV y pagos
-   parciales sin período definido. En ese caso calcStartIndex === -1 y
-   _noRange era true, abortando calculate() antes de procesar nada.
-   FIX: _noRange ahora también considera _hayLav y _hayParciales — solo
-   aborta si no hay ningún dato ingresado de ningún tipo.
+FIX en bloque LAV (calculate()):
+  Antes de sobreescribir d.cap, se calcula el parcial del mes como la
+  diferencia entre d.capOriginal (cuota bruta) y d.cap (ya reducido por parcial).
+  Esa diferencia se resta adicionalmente del capital post-LAV:
+    capPostLavUTM = bruto - LAV - parcial  (nunca < 0)
+  Esto garantiza que LAV y pago parcial sean independientes y acumulativos.
+
+FIX adicional — Guard _noRange:
+  En modo calendario libre (v84), con solo LAV + parciales sin período definido,
+  calcStartIndex === -1 y calculate() abortaba antes de procesar nada.
+  _noRange ahora también verifica !_hayLav && !_hayParciales.
 
 CAMBIOS EN index.html
 --------------------------------------------------------------------------------
-- Bloque LAV en calculate(): capPostLavUTM resta parcialUTMEsteM del mes
+- Bloque LAV en calculate(): capPostLavUTM ahora resta parcialUTMMes
+  (calculado como diferencia capOriginal - cap antes de mutar d.cap)
 - Guard _noRange: extendido con !_hayLav && !_hayParciales
 - meta app-version y appVersionLabel: v86 → v87
 - title: actualizado a v87
@@ -49,7 +56,7 @@ CAMBIOS EN index.html
 ================================================================================
 HISTORIAL RECIENTE
 ================================================================================
-v87-fix-parcial-descuento    : Fix pago parcial no descontaba capital (LAV + _noRange)
+v87-fix-parcial-descuento    : Fix pago parcial no descontaba con LAV activos
 v86-header-casos-derecha     : Botón Casos → derecha, Caso activo → izquierda
 v85-fix-registro-periodos    : Fix períodos no visibles + recalcCalcRange faltante
 v84-parcial-calendario-libre : Calendario Parciales libre sin período (sobre LAV)

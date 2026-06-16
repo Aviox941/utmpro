@@ -4282,8 +4282,13 @@ if (abonosLav && abonosLav.length > 0) {
     // sobre el mismo cap reducido, el pago parcial se descuenta dos veces.
     const capBrutoUTM = d.capOriginalBruto / utmMes;
     const aplicadoUTM = Math.min(poolRestante, capBrutoUTM);
-    // El capital pendiente post-LAV es: bruto - LAV aplicado, pero nunca < 0
-    const capPostLavUTM = Math.max(0, capBrutoUTM - aplicadoUTM);
+    // El parcial ya está descontado en d.cap antes de entrar al bloque LAV.
+    // La diferencia capOriginal - cap equivale al parcial pagado en este mes.
+    // Hay que preservar ese descuento al sobreescribir d.cap con el resultado LAV.
+    const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
+    const parcialUTMMes = parcialCLPMes / utmMes;
+    // Capital pendiente = bruto - LAV - parcial, nunca < 0
+    const capPostLavUTM = Math.max(0, capBrutoUTM - aplicadoUTM - parcialUTMMes);
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = d.cap > 0 ? d.inte : 0; // mes cubierto → sin interés pendiente
