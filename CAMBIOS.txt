@@ -1,104 +1,41 @@
-VERSIÓN: 2.0616.v103-lav-inte-al-deposito
-FECHA: 2026-06-16
-ARCHIVOS MODIFICADOS: index.html
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v103 — LAV PASO 1: interés devengado hasta fecha del depósito
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-BUG: El pool LAV (PASO 1) calculaba el interés a consumir (Art. 1595 CC)
-  usando d.inte, que es el interés devengado hasta HOY (fecha de liquidación).
-  Esto causaba que el pool primero cubriera intereses futuros aún no devengados
-  al momento del depósito, dejando menos pool para capital → mayor remanente.
-
-  Ejemplo: depósito LAV 02-09-2025, cuota Sep 2025.
-  Con bug: inteUTM = interés acumulado 263 días (Sep 2025 → May 2026)
-           → pool consume ~$4.954 en intereses → remanente capital = 0.2566 UTM ❌
-  Sin bug: inteUTM = interés devengado 0 días (depósito = día vencimiento)
-           → pool consume ~$0 en intereses → remanente capital = 0.1851 UTM ✅
-
-FIX: En PASO 1, para cada cuota, se calcula el interés devengado solo hasta
-  la fecha del primer depósito LAV (ordenado cronológicamente).
-  Se usa: calcularInteres(capParaInteres, d.tasa, diasMoraAlLav)
-  donde diasMoraAlLav = días entre vencimiento de la cuota y fecha del depósito.
-  Si el depósito es anterior o igual al vencimiento → diasMoraAlLav = 0 → inteUTM = 0.
-
-ARCHIVOS: index.html — bloque PASO 1 (≈línea 4437)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v102 — PDF resumen final: mismos fixes que modal v101
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FIX 1 — lavCapCubiertoPDF: suma real vs resta
-  Antes: lavCapCubiertoPDF = lavTotalCLPpdf - lavIntCubiertoPDF.
-  Incluía el remanente LAV no imputado en el descuento.
-  Ahora: Σ d.lavAplicadoCLP de lastCalculationData.
-  Si hay remanente LAV > $50 sin imputar, aparece como fila
-  informativa "LAV remanente sin imputar (saldo a favor)".
-
-FIX 2 — Eliminado "Ajuste UTM" del resumen PDF
-  Antes: fila "Ajuste UTM Actual" aparecía cuando subtotalBruto
-  (cargos originales) no coincidía con totalFinalReal (neto).
-  Era conceptualmente incorrecto: la diferencia no es un ajuste,
-  es la brecha entre bruto pre-descuento y neto post-descuento.
-  El PDF muestra CARGOS originales y luego descuenta LAV/abonos;
-  el total final siempre fue correcto, solo el desglose confundía.
-  Eliminados: ajusteUTM_pdf, idxRevalorizacion, bloque willDrawCell.
-
-FIX 3 — cuotasResPDF: fallback más estricto (length > 0)
-  Igual que fix en modal (v101).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v101 — Modal resumen: fuente canónica y LAV correcto
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FIX 1 — Capital e Interés en Resumen Final: fuente canónica
-  totalCapPesos/totalIntPesos ahora derivan de cuotasRes_h × utmLiq.
-  Eliminada fila "Ajuste UTM" — ya no hay divergencia.
-
-FIX 2 — LAV capital cubierto: suma real de lavAplicadoCLP.
-  Remanente LAV sin imputar aparece como fila informativa.
-
-FIX 3 — cuotasRes_h: fallback más estricto (length > 0).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v100 — Modo libre LAV: fallback a cuota del período actual
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FIX — Hero Capital/Interés mostraban $0 sin período registrado.
-  _cuotaParaModoLibre usa cuota del período actual como fallback.
-
-CONFIRMADO — Fecha de liquidación en modo libre LAV:
-  getFechaLiquidacion() ya se usa correctamente como tope de mora.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v99 — Hero LAV + clasificación pago parcial vs abono
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FIX 1 — Hero: interés remanente leído de lastImputacion.cuotasResultado.
-FIX 2 — Pago >= cuota bloquea registro; redirige a Abonos.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v98 — Bug D: early return recalcula interés a hoy
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-FIX — imputarAbonosArt1595() early return: recalcula
-  intPendiente a hoy sobre cap remanente post-LAV.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-v97 (base) — LAV: interés sobre remanente
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Versión de entrada. Pool LAV con Art. 1595 CC correcto.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+================================================================================
 INSTRUCCIONES DE VERSIONADO
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+================================================================================
+- Este archivo se SOBRESCRIBE en cada entrega.
+- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
+- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
+- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
+- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
+- Nunca eliminar ninguna instrucción de este documento
 
-- Siempre leer este archivo ANTES de hacer cualquier cambio.
-- Nunca borrar el historial de versiones anteriores.
-- Nunca borrar esta sección de instrucciones.
-- Cada entrega debe incluir un ZIP completo con index.html,
-  export.js (si fue modificado) y este CAMBIOS.txt actualizado.
-- El nombre del ZIP debe reflejar la versión: v{N}-{descripcion}.zip
-- La versión en el encabezado sigue el formato: 2.MMDD.v{N}-{slug}
+================================================================================
+VERSIÓN ACTUAL
+================================================================================
+Fecha         : 16-06-2026
+App version   : 2.0616.v104-lav-campo-utm
+Archivos mod  : index.html, CAMBIOS.txt
+
+================================================================================
+PROPÓSITO DE ESTA VERSIÓN
+================================================================================
+
+Feature — Campo UTM con conversión automática en tarjeta Depósitos LAV
+--------------------------------------------------------------------------------
+
+- Nuevo campo UTM junto al campo CLP, estructura idéntica a tarjeta Pagos
+  Parciales (div.relative + input-currency w-full + etiqueta flotante derecha).
+- Conversión automática UTM → CLP: al escribir UTM con mes seleccionado,
+  calcula y rellena CLP automáticamente.
+- Conversión automática CLP → UTM: al escribir CLP con mes seleccionado,
+  calcula y muestra equivalente UTM.
+- Al seleccionar mes en calendario, ambos campos se reconvierten con el
+  valor UTM del nuevo período.
+- Chip debajo de los campos: muestra "UTM Mar 2026: $69.889" al seleccionar
+  período, oculto mientras no hay mes seleccionado.
+- Al agregar el abono, se prioriza el valor UTM ingresado directamente en el
+  campo (más preciso). Ambos campos y chip se limpian al agregar.
+
+Nuevas funciones: _lavGetUtmVal(), updateLavChip(), onLavUtmInput(),
+onLavClpInput(), onLavPeriodoChanged(). Se modificó checkBtnLav() y
+addAbonoLav(). Sin cambios en lógica de cálculo, abonosLav[], ni PASO 1.

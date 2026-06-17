@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0616.v103-lav-inte-al-deposito">
+ <meta name="app-version" content="2.0616.v104-lav-campo-utm">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1458,17 +1458,27 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2">
-      <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
-        oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); checkBtnLav()"
-        class="input-currency">
+      <div class="relative">
+        <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
+          oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
+          class="input-currency w-full">
+        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+      </div>
+      <div class="relative">
+        <input type="text" id="tempLavUtm" placeholder="— UTM" inputmode="decimal"
+          oninput="onLavUtmInput()"
+          class="input-currency w-full">
+        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+      </div>
       <input type="hidden" id="tempLavMes" value="">
       <input type="hidden" id="tempLavAnio" value="">
       <input type="hidden" id="tempLavDia" value="">
-      <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="input-date">
+      <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="input-date w-full">
         <span class="input-date__sublabel">Fecha pago</span>
         <span id="tempLavLabel" class="input-date__value">Seleccionar</span>
       </button>
     </div>
+    <div id="lavUtmChip" style="display:none;font-size:9px;font-weight:800;color:#10b981;padding:2px 8px;background:rgba(16,185,129,0.1);border-radius:6px;text-align:center;"></div>
     <button id="btnAddLav" onclick="addAbonoLav()" disabled
       class="btn-base btn-full text-[10px] font-black transition-all"
       style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
@@ -2982,6 +2992,64 @@ container.appendChild(div);
 });
 }
 // ── Depósitos LAV (manual) ────────────────────────────────────
+// ── Helpers conversión UTM ↔ CLP tarjeta LAV ──────────────────────────────
+function _lavGetUtmVal() {
+  const mes  = document.getElementById('tempLavMes').value;
+  const anio = document.getElementById('tempLavAnio').value;
+  if (!mes || !anio) return null;
+  const entry = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === parseInt(mes) - 1);
+  return entry ? entry.v : null;
+}
+function updateLavChip() {
+  const chip = document.getElementById('lavUtmChip');
+  if (!chip) return;
+  const utmVal = _lavGetUtmVal();
+  const mes  = document.getElementById('tempLavMes').value;
+  const anio = document.getElementById('tempLavAnio').value;
+  if (utmVal && mes && anio) {
+    const mNom = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(mes)-1];
+    chip.textContent = `UTM ${mNom} ${anio}: ${new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(utmVal)}`;
+    chip.style.display = 'block';
+  } else {
+    chip.style.display = 'none';
+  }
+}
+function onLavUtmInput() {
+  const utm    = parseFloat((document.getElementById('tempLavUtm').value || '').replace(',','.')) || 0;
+  const utmVal = _lavGetUtmVal();
+  const clpEl  = document.getElementById('tempLavClp');
+  if (utmVal && utm > 0) {
+    clpEl.value = new Intl.NumberFormat('es-CL').format(Math.round(utm * utmVal));
+  } else if (!utm) {
+    clpEl.value = '';
+  }
+  checkBtnLav();
+}
+function onLavClpInput() {
+  const clp    = parseInt((document.getElementById('tempLavClp').value || '').replace(/\./g,'')) || 0;
+  const utmVal = _lavGetUtmVal();
+  const utmEl  = document.getElementById('tempLavUtm');
+  if (utmVal && clp > 0) {
+    utmEl.value = (clp / utmVal).toFixed(5);
+  } else if (!clp) {
+    utmEl.value = '';
+  }
+  checkBtnLav();
+}
+function onLavPeriodoChanged() {
+  updateLavChip();
+  const utm    = parseFloat((document.getElementById('tempLavUtm').value || '').replace(',','.')) || 0;
+  const utmVal = _lavGetUtmVal();
+  const clpEl  = document.getElementById('tempLavClp');
+  const utmEl  = document.getElementById('tempLavUtm');
+  if (utm > 0 && utmVal) {
+    clpEl.value = new Intl.NumberFormat('es-CL').format(Math.round(utm * utmVal));
+  } else {
+    const clp = parseInt((clpEl.value || '').replace(/\./g,'')) || 0;
+    if (clp > 0 && utmVal) utmEl.value = (clp / utmVal).toFixed(5);
+  }
+  checkBtnLav();
+}
 function checkBtnLav() {
   const amount = parseInt((document.getElementById('tempLavClp').value || '').replace(/\./g, '')) || 0;
   const mes  = document.getElementById('tempLavMes').value;
@@ -3068,13 +3136,17 @@ function addAbonoLav() {
   const date = `${anio}-${mes}-${String(dia).padStart(2,'0')}`;
   const utmEntry = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === mIdx);
   const utmVal = utmEntry ? utmEntry.v : null;
-  const amountUtm = utmVal ? amount / utmVal : null;
+  const utmFieldVal = parseFloat((document.getElementById('tempLavUtm')?.value || '').replace(',','.')) || null;
+  const amountUtm = utmFieldVal || (utmVal ? amount / utmVal : null);
   abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
   document.getElementById('tempLavClp').value = '';
+  if (document.getElementById('tempLavUtm')) document.getElementById('tempLavUtm').value = '';
   document.getElementById('tempLavMes').value = '';
   document.getElementById('tempLavAnio').value = '';
   if (document.getElementById('tempLavDia')) document.getElementById('tempLavDia').value = '';
   document.getElementById('tempLavLabel').textContent = 'Seleccionar';
+  const chip = document.getElementById('lavUtmChip');
+  if (chip) chip.style.display = 'none';
   checkBtnLav();
   renderAbonosLav();
   calculate();
@@ -5363,6 +5435,7 @@ return;
 const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('tempLavMes').value = mesVal;
 document.getElementById('tempLavAnio').value = String(selectedYear);
+onLavPeriodoChanged();
 renderDaySelector(selectedYear, i);
 return;
 } else if (calendarMode === 'histStart') {
