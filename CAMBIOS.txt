@@ -1,87 +1,30 @@
-================================================================================
-INSTRUCCIONES DE VERSIONADO
-================================================================================
-- Este archivo se SOBRESCRIBE en cada entrega.
-- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
-- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
-- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
-- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
-- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
-- Nunca eliminar ninguna instrucción de este documento
+CAMBIOS v107 → v107-fix-equiv-utm
+==================================
+Fecha: 2026-06-17
 
-================================================================================
-VERSIÓN ACTUAL
-================================================================================
-Fecha         : 15-06-2026
-App version   : 2.0615.v84-parcial-calendario-libre
-SW cache      : pension-utm-v155
-Archivos mod  : index.html, sw.js, CAMBIOS.txt
+BUG CORREGIDO
+─────────────
+Campo "Equiv. UTM" desactualizado al cambiar "Inicio Mora" en modo CLP
 
-================================================================================
-PROPÓSITO DE ESTA VERSIÓN
-================================================================================
+SÍNTOMA:
+  Al ingresar un monto en CLP (ej. $200.000) y luego seleccionar una
+  fecha de Inicio Mora histórica (ej. Ene 2023), el campo numérico
+  "Equiv. UTM" permanecía calculado con la UTM actual (~$71.506)
+  mostrando ~2.80 UTM, en lugar de actualizarse a la UTM histórica de
+  Ene 2023 ($61.769), que debería mostrar ~3.24 UTM.
 
-FIX — Calendario Pagos Parciales libre sin período previo
---------------------------------------------------------------------------------
-Permitir registrar pagos parciales en el calendario sin necesidad de tener
-un período actual (Desde / Hasta) definido previamente, siempre que exista
-al menos un abono LAV registrado. Misma lógica que la liberación LAV en v83.
+CAUSA:
+  El campo utmAmount solo se recalculaba cuando el usuario escribía en
+  el campo CLP (oninput de updateFromClp). Al cambiar startIndex desde
+  el calendario, se actualizaban etiquetas y chips pero no el campo UTM.
 
-CAMBIOS EN index.html
---------------------------------------------------------------------------------
+FIX (index.html):
+  En el handler del calendario, bloque calendarMode === 'start', se
+  agregó recálculo explícito del campo utmAmount usando la UTM histórica
+  del nuevo startIndex, condicionado a que el modo sea CLP y haya monto.
 
-1. openCalendar() — rama 'parcial' separada de 'abono':
-   - Antes: abono y parcial compartían un guard que bloqueaba si no había período.
-   - Ahora: 'abono' mantiene el guard (requiere período).
-     'parcial' tiene su propia rama:
-       · Sin período Y sin abonos LAV → alerta y return (igual que antes).
-       · Sin período Y CON abonos LAV → abre calendario libre, arranca en el
-         año del primer LAV registrado.
-       · Con período → arranca en el año del inicio del período (igual que antes).
+NOTA:
+  El cálculo real de la deuda no se veía afectado (ya usa UTM histórica
+  mes a mes). Solo era un display bug en el campo de referencia.
 
-2. changeYear() — rama 'parcial' separada de 'abono':
-   - Antes: abono y parcial compartían la misma rama que retornaba si
-     startIndex < 0 || endIndex < 0, bloqueando navegación sin período.
-   - Ahora: 'parcial' tiene su propia rama:
-       · Con período → limita navegación al rango del período (igual que antes).
-       · Sin período → navegación libre entre el primer año con datos UTM y
-         CURR_YEAR (igual que LAV libre).
-
-3. renderCalendar() — outOfRange para 'parcial' sin período:
-   - Antes: outOfRange para parcial bloqueaba si idx < rangeStartIdx || idx > rangeEndIdx,
-     lo que deshabilita todos los meses cuando no hay rango (rangeStartIdx = -1).
-   - Ahora: si hay período → aplica restricción de rango (igual que antes).
-     Si NO hay período → solo bloquea si idx === -1 (sin datos UTM), igual que LAV.
-
-4. renderCalendar() — updateNavArrows para 'parcial' sin período:
-   - Sin período, maxY = CURR_YEAR (igual que LAV libre, ya estaba correcto
-     por compartir la rama, pero se documenta para consistencia).
-
-COMPORTAMIENTO
---------------------------------------------------------------------------------
-- Sin período definido Y sin LAV:
-  · El botón "Seleccionar" de Pagos Parciales muestra alerta igual que antes.
-- Sin período definido Y CON abonos LAV registrados:
-  · El botón "Seleccionar" de Pagos Parciales abre el calendario normalmente.
-  · Se puede navegar entre años sin restricción (límite: datos UTM).
-  · Los meses sin datos UTM aparecen deshabilitados.
-  · Se puede registrar cualquier pago parcial libremente (sobre cuotas LAV).
-  · El pago queda registrado en pagosParciales y se procesa en calculate().
-- Con período definido: comportamiento idéntico al anterior (sin cambios).
-- Abonos: sin cambios, siguen requiriendo período previo.
-
-================================================================================
-HISTORIAL RECIENTE
-================================================================================
-v84-parcial-calendario-libre : Calendario Parciales libre sin período (sobre LAV)
-v83-lav-calendario-libre : Calendario LAV libre sin período previo
-v79-fechaliq-fix         : Fix fechaLiquidacion auto-reset al cambiar período final (A3+B1)
-v78-revalorizacion-utm   : Línea Revalorización UTM en modal/PDF/Excel + renombre Cap. UTM
-v78-exportJS-fix-subtotal: Fix modal Resumen Final — capital/interés post-imputación
-v78  : Fix DELETE casos texto (caso_timestamp) — quitar guard UUID en _sbDeleteCasoCore
-v77  : Fix IDs no-UUID welcome screen + limpiar pending_deletes en delete no-UUID
-v76  : Fix casos eliminados reaparecen — 4 fixes en _sbSyncBackground + IDB
-v75  : Fix flash welcome screen (timeout 800ms→4000ms) + quitar logo/título welcome
-v74  : Fix welcome screen falsa al inicio + debug panel oculto por defecto
-v73  : Inicio instantáneo — local-first + sync Supabase en background
-================================================================================
+SERVICE WORKER: v165 → v166

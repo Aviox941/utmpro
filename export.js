@@ -148,37 +148,63 @@ y += 10;
 if (pensiones.length > 0) {
 seccion('PENSIONES MENSUALES IMPAGAS', [37,99,155]);
 // Para cada mes se usan los valores POST-LAV (lo que realmente se adeuda):
-//   • Mes cubierto por LAV (cap=0, inte=0)  → capMostrado=0, intMostrado=0
-//   • Mes parcialmente cubierto (cap>0 LAV) → capMostrado=d.cap, intMostrado=d.inte
-//   • Mes adeudado sin LAV                  → capMostrado=d.capOriginalBruto, intMostrado=d.intOriginal
-// Los totales del pie reflejan los mismos valores para coincidir con la UI.
-const pensCap = pensiones.reduce((s,d) => s + (d.esLav ? d.cap : (d.capOriginalBruto ?? d.cap)), 0);
-const pensInt = pensiones.reduce((s,d) => s + (d.esLav ? d.inte : (d.intOriginal ?? d.inte)), 0);
-const pensSub = pensCap + pensInt;
-const pensCapUTM = pensiones.reduce((s,d) => { const c = d.esLav ? d.cap : (d.capOriginalBruto ?? d.cap); return s + (d.utmVal > 0 ? c / d.utmVal : 0); }, 0);
+//   • Mes cubierto por LAV (cap=0, inte=0)  → muestra $0 / $0
+//   • Mes parcialmente cubierto (cap>0 LAV) → muestra remanente + interés sobre remanente
+//   • Mes adeudado sin LAV                  → muestra capital + interés completos
+// Los totales del pie y del resumen reflejan los mismos valores para coincidir con la UI.
+const pensCap    = pensiones.reduce((s,d) => s + d.cap,  0);
+const pensInt    = pensiones.reduce((s,d) => s + d.inte, 0);
+const pensSub    = pensCap + pensInt;
+const pensCapUTM = pensiones.reduce((s,d) => s + (d.utmVal > 0 ? d.cap / d.utmVal : 0), 0);
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
 body: pensiones.map(d => {
-  // Cap e interés a mostrar según estado del mes
-  const capMostrado = d.capOriginal ?? d.capOriginalBruto ?? d.cap;
-  const intMostrado = d.intOriginal ?? d.inte;
+  // Valores netos: 0 si cubierto por LAV, remanente si parcial, completo si adeudado
+  const capMostrado = d.cap;
+  const intMostrado = d.inte;
   const capUTMMostrado = d.utmVal > 0 ? capMostrado / d.utmVal : 0;
   const intUtm = d.utmVal > 0 ? (intMostrado / d.utmVal).toFixed(5) : '0.00000';
   let periodoLabel = d.hayParcialConRemanente ? d.periodo + '*' : d.periodo;
   if ((d.excedenteParcialAplicado || 0) > 0) periodoLabel += '†';
+  if ((d.lavIntAplicadoCLP || 0) > 0) periodoLabel += '‡';
+  // Sub-línea detalle: remanente (pago parcial) o excedente LAV
+  if (d.hayParcialConRemanente && d.capOriginal > 0) {
+    const _capRem = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
+    const _remUTM = d.utmVal > 0 ? (_capRem / d.utmVal).toFixed(4) : '—';
+    periodoLabel += '\nRem: ' + fmt(_capRem) + ' (' + _remUTM + ' UTM)';
+  } else if ((d.excedenteParcialAplicado || 0) > 0) {
+    const _excUTM = d.utmVal > 0 ? (d.excedenteParcialAplicado / d.utmVal).toFixed(4) : '—';
+    periodoLabel += '\nExc: ' + fmt(Math.round(d.excedenteParcialAplicado * (d.utmVal || 1))) + ' (' + _excUTM + ' UTM)';
+  } else if (d.esLav && d.lavAplicadoCLP > 0 && d.cap > 0) {
+    // LAV parcial: cubierto parcialmente
+    const _capRemLav = d.cap;
+    const _remUTM = d.utmVal > 0 ? (_capRemLav / d.utmVal).toFixed(4) : '—';
+    periodoLabel += '\nLAV parcial · Rem: ' + fmt(_capRemLav) + ' (' + _remUTM + ' UTM)';
+  } else if (d.esLav && d.lavAplicadoCLP > 0 && d.cap <= 0.01) {
+    periodoLabel += '\nCubierto LAV';
+  }
   return [periodoLabel, fmt(capMostrado), capUTMMostrado.toFixed(3), d.mora,
     ((d.tasa * 10).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
     fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado)];
 }),
-foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>{ const i=d.esLav?d.inte:(d.intOriginal??d.inte); return s+(d.utmVal>0?i/d.utmVal:0);},0)).toFixed(5)+' UTM', fmt(pensSub)]],
+foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>s+(d.utmVal>0?d.inte/d.utmVal:0),0)).toFixed(5)+' UTM', fmt(pensSub)]],
 showFoot: 'lastPage',
 theme:'grid',
 headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'center'},
 footStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'right'},
 styles:{fontSize:6,cellPadding:1.5,textColor:[15,23,42]},
-columnStyles:{0:{cellWidth:20},1:{halign:'right'},2:{halign:'right',cellWidth:14},3:{halign:'center',cellWidth:11},4:{halign:'center',cellWidth:13},5:{halign:'right'},6:{halign:'right',cellWidth:16},7:{halign:'right'}},
-margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
+columnStyles:{0:{cellWidth:22},1:{halign:'right'},2:{halign:'right',cellWidth:14},3:{halign:'center',cellWidth:11},4:{halign:'center',cellWidth:13},5:{halign:'right'},6:{halign:'right',cellWidth:16},7:{halign:'right'}},
+margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W,
+didParseCell: function(data) {
+  if (data.section === 'body' && data.column.index === 0) {
+    const text = (data.cell.raw || '').toString();
+    if (text.includes('\n')) {
+      // La sub-línea se renderiza más pequeña y en color secundario (jsPDF-autoTable la maneja por split)
+      data.cell.styles.fontSize = 5.5;
+    }
+  }
+},
 });
 y = doc.lastAutoTable.finalY + 4;
 // Nota al pie si hay meses con pago parcial (interés calculado sobre remanente)
@@ -191,6 +217,12 @@ if (pensiones.some(d => d.hayParcialConRemanente)) {
 if (pensiones.some(d => d.excedenteParcialAplicado > 0)) {
   doc.setFontSize(6); doc.setTextColor(21,128,61);
   doc.text('† Excedente de pago parcial descontado del capital total adeudado.', MARGIN, y);
+  y += 5;
+}
+// Nota al pie si hay meses con interés cubierto por excedente LAV (Art. 1595 CC)
+if (pensiones.some(d => (d.lavIntAplicadoCLP || 0) > 0)) {
+  doc.setFontSize(6); doc.setTextColor(5,150,105);
+  doc.text('‡ Interés cubierto por excedente LAV (Art. 1595 CC): primero intereses, luego capital.', MARGIN, y);
   y += 5;
 }
 y += 4;
@@ -222,7 +254,8 @@ const imputacionPDF = lastImputacion;
 // NO usar suma de pesos nominales LAV: las UTM históricas valen más que a UTM de hoy.
 const lavTotalUTMpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
 // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
-const cuotasResPDF = (imputacionPDF && imputacionPDF.cuotasResultado) ? imputacionPDF.cuotasResultado
+const cuotasResPDF = (imputacionPDF && imputacionPDF.cuotasResultado && imputacionPDF.cuotasResultado.length > 0)
+  ? imputacionPDF.cuotasResultado
   : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
 const totalDeudaUTMpdf = Math.max(0, cuotasResPDF.reduce((s, c) => {
   const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
@@ -339,20 +372,30 @@ checkPage(40);
 seccion('ABONOS LAV (descontados del capital total)', [5,150,105]);
 const lavTotal = abonosLav.reduce((s,p) => s + p.amount, 0);
 const lavTotalUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
+// Agrupar visualmente: Abonos LAV "normales" primero, subcategoría
+// "Otros Abonos" (Sección IV del PJUD, importados vía OCR) al final.
+// El descuento se calcula igual para ambos grupos — es solo agrupación
+// visual para trazabilidad del origen de cada depósito.
+const lavOrdenadoPdf = abonosLav.slice().sort((a,b) => {
+  const catA = a.origen === 'otros_abonos' ? 1 : 0;
+  const catB = b.origen === 'otros_abonos' ? 1 : 0;
+  return catA - catB;
+});
 doc.autoTable({
   startY: y,
-  head: [['N°','Fecha depósito','Monto ($)','UTM mes','Equiv. UTM']],
-  body: abonosLav.map((p,i) => {
+  head: [['N°','Fecha depósito','Categoría','Monto ($)','UTM mes','Equiv. UTM']],
+  body: lavOrdenadoPdf.map((p,i) => {
     const utmP = p.utmVal || utmHoy;
     const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
-    return [i+1, p.date, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
+    const categoria = p.origen === 'otros_abonos' ? 'Otros Abonos' : 'LAV';
+    return [i+1, p.date, categoria, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
   }),
-  foot: [['','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
+  foot: [['','','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
   theme:'grid',
   headStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
   footStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
   styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
-  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:24},2:{halign:'right',cellWidth:28},3:{halign:'center',cellWidth:22},4:{halign:'center',cellWidth:28}},
+  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:22},2:{halign:'center',cellWidth:20},3:{halign:'right',cellWidth:24},4:{halign:'center',cellWidth:18},5:{halign:'center',cellWidth:24}},
   margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;
@@ -367,71 +410,88 @@ doc.setFontSize(9); doc.setFont('helvetica', 'bold');
 doc.text('RESUMEN FINAL DE LIQUIDACION', MARGIN + 3, y + 5.5);
 y += 11;
 const filasDesglose = [];
+// 1 · Capital total bruto
 filasDesglose.push([
-'Capital total (pensiones impagas)',
-fmt(totalCapPesos),
-totalCapUTM.toFixed(4) + ' UTM',
-''
+  'Capital total (pensiones impagas)',
+  fmt(totalCapPesos),
+  totalCapUTM.toFixed(4) + ' UTM',
+  ''
 ]);
+// 2 · Intereses totales (en UTM históricas, igual que el tribunal)
+const totalIntUTMpdf = lastCalculationData.reduce((s,d) => {
+  const utm = d.utmVal && d.utmVal > 0 ? d.utmVal : utmHoy;
+  return s + Math.max(0, (d.intOriginal ?? d.inte) / utm);
+}, 0);
 filasDesglose.push([
-'Total intereses generados',
-fmt(totalIntPesos),
-(totalIntPesos / utmHoy).toFixed(4) + ' UTM',
-''
+  'Total intereses generados',
+  fmt(totalIntPesos),
+  totalIntUTMpdf.toFixed(4) + ' UTM',
+  ''
 ]);
+// 3 · Subtotal histórico
 const subtotalBruto = totalCapPesos + totalIntPesos;
+const subtotalUTMpdf = totalCapUTM + totalIntUTMpdf;
 filasDesglose.push([
-'SUBTOTAL HISTÓRICO (capital + intereses)',
-fmt(subtotalBruto),
-(subtotalBruto / utmHoy).toFixed(4) + ' UTM',
-''
+  'SUBTOTAL HISTÓRICO',
+  fmt(subtotalBruto),
+  subtotalUTMpdf.toFixed(4) + ' UTM',
+  ''
 ]);
-const ajusteUTM_pdf = Math.round(totalFinalReal) - Math.round(subtotalBruto);
-if (ajusteUTM_pdf !== 0) {
-filasDesglose.push([
-'Revalorización UTM (1 UTM = ' + fmt(utmLiq) + ')',
-(ajusteUTM_pdf >= 0 ? '+' : '') + fmt(ajusteUTM_pdf),
-'',
-'_revalorizacion'
-]);
-}
-// FIX: Los LAV ahora están dentro de imputarAbonosArt1595.
-// capImputadoPDF incluye LAV + abonos ordinarios. Se muestran separados para claridad.
+// 4 · Ajuste UTM eliminado: el PDF muestra CARGOS brutos (pre-imputación) por lo que
+// subtotalBruto no coincide con totalFinalReal por diseño — no es un "ajuste", es la
+// diferencia entre bruto y neto que se explica con los descuentos LAV/abonos de abajo.
+// 5 y 6 · Descuento LAV (desglosado si hay intereses cubiertos)
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
-const abonosOrdCLPpdf = abonos.reduce((s,a) => s + a.amount, 0);
-if (intImputadoPDF > 0) {
-filasDesglose.push([
-'(-) Abonos imputados a intereses (Art. 1595 CC)',
-'-' + fmt(intImputadoPDF),
-'-' + (intImputadoPDF / utmHoy).toFixed(4) + ' UTM',
-''
-]);
-}
+// FIX precisión: sumar en UTM sin redondear (lavIntAplicadoUTM/lavAplicadoUTM) y convertir
+// a CLP una sola vez al final. Antes se sumaban lavIntAplicadoCLP/lavAplicadoCLP, ya redondeados
+// mes a mes — eso acumulaba sesgo de redondeo y desconectaba este total del usado en
+// totalFinalReal (que sí opera 100% en UTM histórica), rompiendo la cuadratura
+// bruto - LAV imputado = TOTAL ADEUDADO.
+const lavIntCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
+const lavCapCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoUTM || 0), 0);
+const lavIntCubiertoPDF = lavIntCubiertoUTMpdf * utmLiq;
+const lavCapCubiertoPDF = lavCapCubiertoUTMpdf * utmLiq;
+const lavTotalImputadoPDF = lavIntCubiertoPDF + lavCapCubiertoPDF;
+const lavRemanentePDF = lavTotalCLPpdf - lavTotalImputadoPDF;
 if (lavTotalCLPpdf > 0) {
-filasDesglose.push([
-'(-) Abonos LAV (depósitos cuenta vista)',
-'-' + fmt(lavTotalCLPpdf),
-'-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
-''
-]);
+  if (lavIntCubiertoPDF > 0) {
+    filasDesglose.push([
+      '(-) LAV — intereses cubiertos (Art. 1595 CC)',
+      '-' + fmt(lavIntCubiertoPDF),
+      '-' + (lavIntCubiertoPDF / utmHoy).toFixed(4) + ' UTM',
+      ''
+    ]);
+    filasDesglose.push([
+      '(-) LAV — capital cubierto (depósitos cuenta vista)',
+      '-' + fmt(lavCapCubiertoPDF),
+      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+      ''
+    ]);
+  } else {
+    filasDesglose.push([
+      '(-) Abonos LAV (depósitos cuenta vista)',
+      '-' + fmt(lavCapCubiertoPDF),
+      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
+      ''
+    ]);
+  }
+  if (lavRemanentePDF > 50) {
+    filasDesglose.push([
+      'LAV remanente sin imputar (saldo a favor)',
+      '+' + fmt(Math.round(lavRemanentePDF)),
+      '',
+      ''
+    ]);
+  }
 }
-if (abonosOrdCLPpdf > 0) {
+// Fila final: TOTAL ADEUDADO
 filasDesglose.push([
-'(-) Abonos imputados a capital (Art. 1595 CC)',
-'-' + fmt(abonosOrdCLPpdf),
-'-' + (abonosOrdCLPpdf / utmHoy).toFixed(4) + ' UTM',
-''
-]);
-}
-// Fila de TOTAL FINAL
-filasDesglose.push([
-'TOTAL ADEUDADO (saldo neto a la fecha)',
-fmt(Math.round(totalFinalReal)),
-totalFinalRealUTM.toFixed(5) + ' UTM',
-''
+  'TOTAL ADEUDADO (saldo neto a la fecha)',
+  fmt(Math.round(totalFinalReal)),
+  totalFinalRealUTM.toFixed(5) + ' UTM',
+  ''
 ]);
 const idxSubtotal = 2;
-const idxRevalorizacion = filasDesglose.findIndex(f => f[3] === '_revalorizacion');
 const idxLast = filasDesglose.length - 1;
 const filasDesgloseClean = filasDesglose.map(f => [f[0], f[1], f[2]]);
 doc.autoTable({
@@ -451,11 +511,6 @@ if (data.section !== 'body') return;
 if (data.row.index === idxSubtotal) {
 doc.setFillColor(241, 245, 249);
 doc.setFont('helvetica', 'bold');
-}
-if (idxRevalorizacion >= 0 && data.row.index === idxRevalorizacion) {
-doc.setFillColor(245, 243, 255);
-doc.setTextColor(109, 40, 217);
-doc.setFont('helvetica', 'italic');
 }
 if (data.row.index === idxLast - 1 && totalAbonosCLP > 0) {
 doc.setFillColor(239, 246, 255);
@@ -814,6 +869,7 @@ tasaMaxima: false,
 ticActual: document.getElementById('ticActual')?.checked || false,
 diaVencimiento: document.getElementById('diaVencimiento')?.value || '5',
 fechaLiquidacion: document.getElementById('fechaLiquidacion')?.value || '',
+lavCuotaUtm: document.getElementById('lavCuotaUtm')?.value || '',
 startPeriod: startIndex >= 0 ? { y: utmData[startIndex].y, m: utmData[startIndex].monthIdx } : null,
 endPeriod: endIndex >= 0 ? { y: utmData[endIndex].y, m: utmData[endIndex].monthIdx } : null,
 historicalDebts, abonos, pagosParciales, periodosPension, abonosLav,
@@ -926,6 +982,9 @@ abonos = s.abonos || [];
 pagosParciales = s.pagosParciales || [];
 abonosLav = s.abonosLav || [];
 if (typeof renderAbonosLav === 'function') renderAbonosLav();
+// Restaurar cuota UTM modo libre LAV
+const _lavCuotaEl = document.getElementById('lavCuotaUtm');
+if (_lavCuotaEl) _lavCuotaEl.value = s.lavCuotaUtm || '';
 periodosPension = s.periodosPension || [];
 // Restaurar modo histórico (recalculable vs consolidada)
 if (s.histMode) {
@@ -1521,19 +1580,29 @@ function buildResumenContent() {
   const pensiones  = lastCalculationData.filter(d => !d.isDebt);
   const historicas = lastCalculationData.filter(d =>  d.isDebt);
   const imputacion = lastImputacion;
-  const totalCapPesos = lastCalculationData.reduce((s,d) => s + d.cap, 0); // capital post-imputación (remanente tras pagos parciales/abonos)
-  const totalIntPesos = lastCalculationData.reduce((s,d) => s + d.inte, 0); // interés sobre el remanente (igual que la tabla)
   const totalAbonosCLP = abonos.reduce((s,a) => s + a.amount, 0);
   const totalParcialesCLP = pagosParciales.reduce((s,p) => s + p.amount, 0);
   const lavTotalUTM_h = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + (p.amountUtm||0), 0);
   // METODOLOGÍA TRIBUNAL: total en UTM históricas (cap/utmMes + int/utmMes por cuota)
-  const cuotasRes_h = (imputacion && imputacion.cuotasResultado) ? imputacion.cuotasResultado
+  // Fuente canónica: cuotasResultado de lastImputacion (ya recalculado a fecha liq).
+  // Si no existe, fallback a lastCalculationData.
+  const cuotasRes_h = (imputacion && imputacion.cuotasResultado && imputacion.cuotasResultado.length > 0)
+    ? imputacion.cuotasResultado
     : lastCalculationData.map(d => ({ ...d, capPendiente: d.cap, intPendiente: d.inte }));
   const totalDeudaUTM_h = cuotasRes_h.reduce((s, c) => {
     const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
     return s + Math.max(0, c.capPendiente / utm) + Math.max(0, c.intPendiente / utm);
   }, 0);
   const totalFinalReal = Math.max(0, totalDeudaUTM_h) * utmLiq; // UTM del mes de liquidación
+  // Capital e interés en CLP: derivar desde cuotasRes_h × utmLiq (misma metodología que el hero)
+  const totalCapPesos = cuotasRes_h.reduce((s,c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.capPendiente / utm) * utmLiq;
+  }, 0);
+  const totalIntPesos = cuotasRes_h.reduce((s,c) => {
+    const utm = c.utmVal && c.utmVal > 0 ? c.utmVal : utmHoy;
+    return s + Math.max(0, c.intPendiente / utm) * utmLiq;
+  }, 0);
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
@@ -1635,8 +1704,8 @@ function buildResumenContent() {
     let lastYear = null;
     let rowIndex = 0;
     datos.forEach((d) => {
-      // Capital $ siempre muestra la cuota original del período (cuotaUTM × UTM del mes)
-      const cap0 = d.capOriginal ?? d.capOriginalBruto ?? d.cap;
+      // Capital $ muestra el valor POST-LAV (lo que realmente se adeuda: 0 si cubierto)
+      const cap0 = d.cap;
       const int0 = d.inte;
       // Extraer año del período (ej: "Ene 2020" → 2020)
       const periodoClean = d.periodo.replace(/^HIST /,'').replace(/^CONS /,'');
@@ -1665,17 +1734,35 @@ function buildResumenContent() {
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
-      const lavTag = '';
+      const lavTag = (d.lavIntAplicadoCLP || 0) > 0 ? `<span style="color:#059669;font-size:7.5px;font-weight:900"> ‡</span>` : '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
-      // Sub-chip de remanente para cuotas con pago parcial
-      // Usar capParcialRemanente si existe (cuando hay LAV, d.cap es post-LAV y ya no
-      // refleja el remanente del pago parcial — el valor correcto se guardó antes del LAV)
+      // Sub-chip LAV interés (excedente Art. 1595)
+      const lavIntChip = (d.lavIntAplicadoCLP || 0) > 0
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">‡ Int. cubierto LAV: ${fmt(d.lavIntAplicadoCLP)}</div>`
+        : '';
+      // Sub-chip de remanente para cuotas con pago parcial manual
       const _capRemDisplay = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
+      const _capRemUTM = (d.utmVal && d.utmVal > 0) ? (_capRemDisplay / d.utmVal).toFixed(4) : '—';
       const remChip = d.hayParcialConRemanente && d.capOriginal > 0
-        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">Rem: ${fmt(_capRemDisplay)} de ${fmt(d.capOriginal)}</div>`
+        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">↳ Rem: ${fmt(_capRemDisplay)} <span style="opacity:0.75">(${_capRemUTM} UTM)</span> de ${fmt(d.capOriginal)}</div>`
+        : '';
+      // Sub-chip de excedente de pago parcial arrastrado al total
+      const _excCLP = (d.excedenteParcialAplicado || 0) > 0
+        ? Math.round(d.excedenteParcialAplicado * (d.utmVal || 1)) : 0;
+      const _excUTM = (d.excedenteParcialAplicado || 0) > 0 && d.utmVal > 0
+        ? d.excedenteParcialAplicado.toFixed(4) : '—';
+      const excedenteChip = _excCLP > 0
+        ? `<div style="font-size:7.5px;color:#16a34a;font-weight:700;margin-top:1px">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
+        : '';
+      // Sub-chip LAV: cubierto completo o parcial
+      const _cubiertaLavChip = (d.esLav && d.cap <= 0.01)
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">✓ Cubierto LAV (-${fmt(d.lavAplicadoCLP + (d.lavIntAplicadoCLP||0))} / -${((d.lavAplicadoUTM||0)+(d.lavIntAplicadoUTM||0)).toFixed(4)} UTM)</div>`
+        : '';
+      const _lavParcialChip = (d.esLav && (d.lavAplicadoCLP || 0) > 0 && d.cap > 0.01)
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">LAV: -${fmt(d.lavAplicadoCLP)} <span style="opacity:0.75">(-${(d.lavAplicadoUTM||0).toFixed(4)} UTM)</span> · Rem: ${fmt(d.cap)} (${(d.utmVal>0?d.cap/d.utmVal:0).toFixed(4)} UTM)</div>`
         : '';
       row.innerHTML = `
-        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}</span>
+        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}</span>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
         <span style="color:#334155">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
@@ -1801,8 +1888,26 @@ function buildResumenContent() {
     wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
-    const lavOrdenado = abonosLav.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
+    // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
+    // al final, bajo su propio encabezado. El cálculo (descuento directo +
+    // posible suspensión de intereses del mes) es idéntico para ambos
+    // grupos — esta es puramente una separación visual.
+    const lavOrdenado = abonosLav.slice().sort((a,b) => {
+      const catA = a.origen === 'otros_abonos' ? 1 : 0;
+      const catB = b.origen === 'otros_abonos' ? 1 : 0;
+      if (catA !== catB) return catA - catB;
+      return (a.date||'').localeCompare(b.date||'');
+    });
+    let otrosHeaderShown = false;
     lavOrdenado.forEach((p, i) => {
+      if (p.origen === 'otros_abonos' && !otrosHeaderShown) {
+        otrosHeaderShown = true;
+        const subHeader = document.createElement('div');
+        subHeader.style.cssText = 'padding:4px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#2563eb;background:rgba(37,99,235,0.06);border-top:1px solid rgba(37,99,235,0.15)';
+        subHeader.textContent = 'Otros Abonos';
+        wrapLav.appendChild(subHeader);
+      }
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
@@ -1835,12 +1940,12 @@ function buildResumenContent() {
   // ── 5. Resumen Final ──
   seccion('Resumen Final', '#0369a1', '');
   const subtotalBruto = totalCapPesos + totalIntPesos;
-  const ajusteUTM_modal = Math.round(totalFinalReal) - Math.round(subtotalBruto);
+  // totalCapPesos + totalIntPesos ya derivan de cuotasRes_h × utmLiq,
+  // igual que totalFinalReal — no hay ajuste UTM necesario.
   const resumenRows = [
     { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#334155', valColor: '#0f172a', bold: false },
     { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#334155', valColor: '#0284c7', bold: false },
     { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
-    ...(ajusteUTM_modal !== 0 ? [{ label: `Revalorización UTM (1 UTM = ${fmt(utmLiq)})`, val: ajusteUTM_modal, labelColor: '#7c3aed', valColor: '#7c3aed', bold: false, italic: true }] : []),
   ];
   // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
   const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
@@ -1849,7 +1954,24 @@ function buildResumenContent() {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
   if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
-    resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavTotalCLPmodal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    // FIX precisión: sumar en UTM sin redondear y convertir a CLP al final (ver mismo fix en PDF),
+    // para que esta resta cuadre con totalFinalReal en vez de acumular sesgo de redondeo mensual.
+    const lavIntCubiertoUTMmodal = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
+    const lavCapCubiertoUTMmodal = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoUTM || 0), 0);
+    const lavIntCubiertoModal = lavIntCubiertoUTMmodal * utmLiq;
+    const lavCapCubiertoModal = lavCapCubiertoUTMmodal * utmLiq;
+    const lavTotalImputado = lavIntCubiertoModal + lavCapCubiertoModal;
+    const lavRemanenteCLP = lavTotalCLPmodal - lavTotalImputado;
+    if (lavIntCubiertoModal > 0) {
+      resumenRows.push({ label: '(-) LAV — intereses cubiertos (Art. 1595 CC)', val: -lavIntCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false });
+      resumenRows.push({ label: '(-) LAV — capital cubierto (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    } else {
+      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+    }
+    // Si hay remanente LAV sin imputar (pool mayor que deuda total), mostrarlo informativo
+    if (lavRemanenteCLP > 50) {
+      resumenRows.push({ label: 'LAV remanente sin imputar (saldo a favor)', val: lavRemanenteCLP, labelColor: '#059669', valColor: '#059669', bold: false, italic: true });
+    }
   }
   if (abonosOrdCLPmodal > 0) {
     resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -abonosOrdCLPmodal, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
@@ -2220,7 +2342,7 @@ async function exportarExcel() {
     { label:'Capital total (pensiones impagas)', val:totalCapPesos, bold:false },
     { label:'Total intereses generados',         val:totalIntPesos, bold:false },
     { label:'SUBTOTAL HISTÓRICO',                val:subtotalBrutoExcel, bold:true, sep:true },
-    ...(ajusteUTM_excel !== 0 ? [{ label:`Revalorización UTM (1 UTM = ${fmt(utmLiqX)})`, val:ajusteUTM_excel, bold:false, rev:true }] : []),
+    ...(ajusteUTM_excel !== 0 ? [{ label:`Ajuste UTM Actual (1 UTM = ${fmt(utmLiqX)})`, val:ajusteUTM_excel, bold:false, rev:true }] : []),
   ];
   const lavTotalCLPexcel = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
   const abonosOrdCLPexcel = abonos.reduce((s,a) => s + a.amount, 0);
@@ -2695,7 +2817,7 @@ function _ocrRenderPreview(items) {
       montoStr = '—'; utmStr = '—';
     }
     const seccionBadge = item.seccion === 'otros_abonos'
-      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otro abono</span>'
+      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otros Abonos (LAV)</span>'
       : '';
     return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
       <div class="min-w-0 flex-1 mr-2">
@@ -2757,15 +2879,18 @@ function ocrConfirmar() {
       return; // sin monto válido
     }
     if (!amount || amount <= 0) return;
-    if (item.seccion === 'otros_abonos') {
-      // Sección IV "Otros abonos" → imputación Art. 1595 CC (primero intereses, luego capital)
-      abonos.push({ amount, date: yyyy + '-' + mm });
-      added++;
-    } else {
-      // Sección V "Abonos LAV" → descuento directo por depósito cuenta vista
-      abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
-      added++;
-    }
+    // Ambas secciones del PJUD (V "Abonos LAV" y IV "Otros abonos") se
+    // registran ahora como Abonos LAV: descuento directo del capital con
+    // posible suspensión de intereses del mes — misma metodología, mismo
+    // array. `origen` queda marcado únicamente para fines de visualización
+    // (subcategoría "Otros Abonos" en el resumen LAV y en el PDF); el
+    // cálculo es idéntico para ambos orígenes.
+    abonosLav.push({
+      date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel,
+      amount, utmVal, amountUtm,
+      origen: item.seccion === 'otros_abonos' ? 'otros_abonos' : 'lav'
+    });
+    added++;
   });
   if (added > 0) {
     reasignarPeriodosLav();
@@ -2773,7 +2898,7 @@ function ocrConfirmar() {
     renderAbonosList();
     calculate();
     saveSession();
-    dbg('OCR: ' + added + ' abonos importados (LAV + Art.1595)');
+    dbg('OCR: ' + added + ' abonos LAV importados (incl. subcategoría Otros Abonos)');
   }
   closeOcrLav();
 }
