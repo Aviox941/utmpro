@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0616.v99-parcial-clasificacion">
+ <meta name="app-version" content="2.0616.v103-lav-inte-al-deposito">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4436,6 +4436,17 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
+  // CORRECCIÓN: el interés que el pool LAV debe cubrir (Art. 1595 CC) es el devengado
+  // hasta la fecha del depósito, NO hasta la fecha de liquidación (hoy).
+  // Un depósito del 02-09-2025 no puede imputarse a intereses que se devengarán
+  // en los 8 meses siguientes. Usamos la fecha del primer depósito LAV (orden cron.)
+  // como referencia, ya que el pool se suma y aplica cuota a cuota desde la más antigua.
+  const _lavsSorted = abonosLav.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const _fechaPrimerLav = (function() {
+    const p = _lavsSorted[0].date.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  })();
+  const _diaVencLav = getDiaVencimiento();
   let poolRestante = poolLavUTM;
   for (const d of lastCalculationData) {
     // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
@@ -4461,7 +4472,18 @@ if (abonosLav && abonosLav.length > 0) {
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
     const parcialUTMMes = parcialCLPMes / utmMes;
     const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
-    const inteUTM       = d.inte / utmMes; // interés devengado del mes en UTM
+    // CORRECCIÓN Art. 1595: calcular interés devengado solo hasta la fecha del primer
+    // depósito LAV, no hasta hoy. Esto evita que el pool "consuma" intereses futuros
+    // aún no devengados al momento del depósito.
+    const _periodoPartes = (d.periodo || '').replace('HIST ', '').replace('CONS ', '').split(' ');
+    const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
+    const _cMesLav  = _mesesMap[_periodoPartes[0]] ?? 0;
+    const _cAnioLav = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
+    const _fechaVencLav = new Date(_cAnioLav, _cMesLav, _diaVencLav);
+    const _diasMoraAlLav = Math.max(0, Math.floor((_fechaPrimerLav - _fechaVencLav) / (1000*60*60*24)));
+    const _capParaInteBase = d.capParaInteres !== undefined ? d.capParaInteres : (d.capOriginalBruto > 0 ? d.capOriginalBruto : d.cap);
+    const _inteAlLav = (_diasMoraAlLav > 0 && _capParaInteBase > 0) ? calcularInteres(_capParaInteBase, d.tasa, _diasMoraAlLav) : 0;
+    const inteUTM = _inteAlLav / utmMes; // interés devengado hasta fecha del depósito LAV
     let intAplicadoUTM  = 0;
     let capAplicadoUTM  = 0;
     // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
