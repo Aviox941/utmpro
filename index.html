@@ -5432,6 +5432,15 @@ updateCalendarActionBtn();
 renderCalendar();
 updateClpHistoricoChip();
 updateUtmPeriodChips();
+// Recalcular Equiv. UTM si el modo activo es CLP y hay un monto ingresado
+if (document.getElementById('calculationMode').value === 'clp') {
+  const clp = parseInt(document.getElementById('clpAmount').value.replace(/\./g, '')) || 0;
+  if (clp > 0) {
+    const startItem = startIndex !== -1 ? utmData[startIndex] : null;
+    const utmHistorica = (startItem && startItem.v > 0) ? startItem.v : getUtmActualVal();
+    document.getElementById('utmAmount').value = (clp / utmHistorica).toFixed(2);
+  }
+}
 return;
 } else if (calendarMode === 'end') {
 endIndex = idx;
