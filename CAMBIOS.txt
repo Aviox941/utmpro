@@ -1,62 +1,87 @@
-CAMBIOS — v105 — Fix precisión LAV en Resumen Final (PDF + Modal)
-============================================================
+CAMBIOS — v107 — Fusión "Otros Abonos" (OCR) dentro de Abonos LAV
+==============================================================================
 
-Versión: 2.0617.v105-fix-precision-lav-resumen (antes: v104-lav-campo-utm)
-Cache: pension-utm-v163 (antes: v162)
+Versión: 2.0617.v107-fusion-otros-abonos-lav (antes: v106-fix-valorizacion-utm-colision-lav)
+Cache: pension-utm-v165 (antes: v164)
 
 ARCHIVOS MODIFICADOS:
-- export.js   → fix de cálculo (ver detalle abajo)
-- index.html  → solo meta app-version bumpeada a v105 (sin cambios de lógica)
-- sw.js       → CACHE_NAME bumpeado a v163 + fecha de build actualizada
+- export.js   → ocrConfirmar() + tablas de detalle LAV (PDF y modal)
+- index.html  → renderAbonosLav() + meta app-version bumpeada a v107
+- sw.js       → CACHE_NAME bumpeado a v165 + fecha de build actualizada
 
-PROBLEMA DETECTADO:
-En el "Resumen Final" (tanto del PDF como del modal HTML), el LAV
-imputado se calculaba sumando lavAplicadoCLP / lavIntAplicadoCLP,
-campos que ya estaban redondeados a CLP entero mes a mes (Math.round
-aplicado en index.html al construir cada cuota). Sumar valores ya
-redondeados, en vez de sumar los floats en UTM y redondear una sola
-vez al final, generaba dos problemas:
+CAMBIO SOLICITADO POR EL USUARIO:
+El OCR de liquidaciones PJUD detectaba automáticamente dos secciones
+distintas del documento ("V. Abonos LAV" y "IV. Otros abonos") y las
+enviaba a dos arrays/categorías distintas dentro de la app:
+- Sección V → abonosLav (descuento directo, posible suspensión de
+  intereses del mes).
+- Sección IV → abonos generales (imputación Art. 1595 CC: primero
+  intereses devengados, luego capital, SIN suspensión de intereses).
 
-1. Sesgo de redondeo acumulado: con múltiples depósitos LAV (en el
-   caso de prueba, 6 depósitos), el error de redondeo por mes se
-   acumula y desvía el total agregado en varios pesos.
+Se solicitó eliminar esa separación automática: a partir de esta
+versión, AMBAS secciones se registran como Abonos LAV (mismo array,
+misma metodología de cálculo — descuento directo + posible
+suspensión de intereses del mes). Los movimientos que antes
+provenían de la sección "Otros abonos" del PJUD ahora se muestran
+como una SUBCATEGORÍA visual llamada "Otros Abonos" dentro del
+listado de Abonos LAV, del resumen de liquidación (modal) y del PDF,
+para mantener trazabilidad de su origen sin afectar el cálculo.
 
-2. Inconsistencia estructural: el "TOTAL ADEUDADO" final del
-   PDF/modal NO se deriva de estas filas (Capital bruto, Intereses,
-   LAV imputado) — se sustituye directamente por totalFinalReal,
-   una variable calculada aparte a partir de cuotasResultado
-   (capPendiente/intPendiente por cuota en UTM histórica, ya
-   post-imputación). Esto rompía la cuadratura visual:
-   "bruto - LAV imputado" no coincidía con el total real mostrado.
+NOTA IMPORTANTE SOBRE EL CAMBIO DE METODOLOGÍA:
+Se confirmó explícitamente con el usuario que el cálculo de estos
+movimientos debe cambiar de Art. 1595 CC a metodología LAV completa
+(no es solo un cambio visual). Esto significa que, a partir de esta
+versión, un movimiento de "Otros Abonos" que cubra la cuota íntegra
+de un mes SUSPENDE el cálculo de intereses de ese mes — algo que
+antes no ocurría bajo Art. 1595 CC.
 
-FIX APLICADO (quirúrgico, sin nueva UI):
-Se reemplazó la fuente de lavIntCubiertoPDF/lavCapCubiertoPDF (PDF) y
-lavIntCubiertoModal/lavCapCubiertoModal (modal) para que sumen los
-campos UTM sin redondear — lavAplicadoUTM y lavIntAplicadoUTM, ya
-existentes en lastCalculationData — y conviertan a CLP una sola vez
-al multiplicar por utmLiq (UTM del mes de liquidación), igual
-metodología que ya usa totalFinalReal. Esto:
-- Elimina el sesgo de redondeo acumulado mes a mes.
-- Hace que el LAV imputado mostrado provenga de la MISMA fuente de
-  datos (post-imputación, UTM histórica) que el total final real,
-  acercando la cuadratura aritmética de las filas del resumen.
+FIX APLICADO:
 
-Líneas modificadas en export.js:
-- ~435-444 (bloque generarPDF / Resumen Final del PDF)
-- ~1923-1934 (bloque buildResumenContent / Resumen Final del modal)
+1. export.js → ocrConfirmar() (antes ~líneas 2853-2862):
+   Se eliminó la rama que empujaba los movimientos de
+   "seccion: otros_abonos" al array `abonos` (Art. 1595 CC). Ahora
+   TODOS los movimientos del OCR (LAV y Otros Abonos) se empujan a
+   `abonosLav`, con un campo nuevo `origen` ('lav' u 'otros_abonos')
+   que se usa ÚNICAMENTE para la subcategoría visual. Los abonos
+   ingresados manualmente vía "Abonos generales" (UI, no-OCR) no se
+   ven afectados y siguen usando el array `abonos` / Art. 1595 CC.
 
-Variables de salida preservadas (mismo nombre, mismo tipo):
-lavIntCubiertoPDF, lavCapCubiertoPDF, lavTotalImputadoPDF,
-lavRemanentePDF, lavIntCubiertoModal, lavCapCubiertoModal,
-lavTotalImputado, lavRemanenteCLP.
+2. index.html → renderAbonosLav() (tarjeta de Abonos LAV en pantalla):
+   Se refactorizó el render de cada item en una función interna
+   reutilizable, y se agregó agrupación visual: los abonos con
+   origen 'otros_abonos' se renderizan al final de la lista, bajo un
+   encabezado "— Otros Abonos —". El índice usado por
+   removeAbonoLav(i) se preserva sin cambios (es el índice real en
+   el array abonosLav, no el de la lista reordenada).
 
-NO se agregaron modales, botones, tabs ni elementos de UI nuevos.
+3. export.js → tabla "ABONOS LAV" del PDF (~líneas 369-396):
+   Se agregó una columna "Categoría" (LAV / Otros Abonos) y se
+   ordenan las filas agrupando primero LAV y luego Otros Abonos. El
+   total de la tabla sigue siendo el total combinado (correcto, ya
+   que ahora es una sola metodología).
 
-PENDIENTE DE VALIDACIÓN POR EL USUARIO:
-Se recomienda volver a generar el PDF/modal con el caso real
-"Test1" (Liquidacion_31-05-2026) para confirmar numéricamente que
-SUBTOTAL HISTÓRICO - LAV imputado ahora se acerca a TOTAL ADEUDADO
-($879.033 declarado en la versión anterior). La magnitud exacta del
-ajuste depende de los lavAplicadoUTM/lavIntAplicadoUTM reales mes a
-mes, que no se imprimen en el PDF y por tanto no pudieron verificarse
-fuera del entorno de ejecución de la app.
+4. export.js → tabla "Abonos LAV — Detalle" del modal de resumen
+   (buildResumenContent, ~líneas 1883-1933):
+   Se ordenó el detalle agrupando Otros Abonos al final, con un
+   encabezado de subsección "Otros Abonos" antes de esas filas. El
+   total ("TOTAL LAV") sigue siendo el agregado de ambos grupos.
+
+5. export.js → badge de la vista previa del OCR (antes de confirmar
+   importación): se actualizó el texto de "Otro abono" a
+   "Otros Abonos (LAV)" para reflejar que ya no es una categoría
+   separada, sino una subcategoría dentro de LAV.
+
+CONSUMIDORES VERIFICADOS SIN CAMBIOS NECESARIOS:
+- reasignarPeriodosLav(): no requiere cambios — la colisión de
+  depósitos en el mismo mes calendario aplica igual a ambos
+  subgrupos, ya que ahora ambos son depósitos LAV.
+- poolLavUTM, lavTotalUTM, lavTotalCLP y demás sumatorias sobre
+  abonosLav (PASO 1 del cálculo, hero card, Excel): no requieren
+  cambios porque ya suman sobre TODO el array abonosLav sin
+  distinguir origen — el nuevo campo `origen` no interfiere.
+- saveSession()/buildSession(): serializan abonosLav por referencia
+  completa (JSON.stringify), por lo que el campo `origen` persiste
+  correctamente entre sesiones sin cambios adicionales.
+
+NO se agregaron modales, botones, tabs ni elementos de UI nuevos
+(solo encabezados de subsección dentro de listas/tablas existentes).

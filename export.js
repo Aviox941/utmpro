@@ -372,20 +372,30 @@ checkPage(40);
 seccion('ABONOS LAV (descontados del capital total)', [5,150,105]);
 const lavTotal = abonosLav.reduce((s,p) => s + p.amount, 0);
 const lavTotalUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
+// Agrupar visualmente: Abonos LAV "normales" primero, subcategoría
+// "Otros Abonos" (Sección IV del PJUD, importados vía OCR) al final.
+// El descuento se calcula igual para ambos grupos — es solo agrupación
+// visual para trazabilidad del origen de cada depósito.
+const lavOrdenadoPdf = abonosLav.slice().sort((a,b) => {
+  const catA = a.origen === 'otros_abonos' ? 1 : 0;
+  const catB = b.origen === 'otros_abonos' ? 1 : 0;
+  return catA - catB;
+});
 doc.autoTable({
   startY: y,
-  head: [['N°','Fecha depósito','Monto ($)','UTM mes','Equiv. UTM']],
-  body: abonosLav.map((p,i) => {
+  head: [['N°','Fecha depósito','Categoría','Monto ($)','UTM mes','Equiv. UTM']],
+  body: lavOrdenadoPdf.map((p,i) => {
     const utmP = p.utmVal || utmHoy;
     const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
-    return [i+1, p.date, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
+    const categoria = p.origen === 'otros_abonos' ? 'Otros Abonos' : 'LAV';
+    return [i+1, p.date, categoria, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
   }),
-  foot: [['','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
+  foot: [['','','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
   theme:'grid',
   headStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
   footStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
   styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
-  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:24},2:{halign:'right',cellWidth:28},3:{halign:'center',cellWidth:22},4:{halign:'center',cellWidth:28}},
+  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:22},2:{halign:'center',cellWidth:20},3:{halign:'right',cellWidth:24},4:{halign:'center',cellWidth:18},5:{halign:'center',cellWidth:24}},
   margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
 y = doc.lastAutoTable.finalY + 8;
@@ -1878,8 +1888,26 @@ function buildResumenContent() {
     wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
-    const lavOrdenado = abonosLav.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
+    // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
+    // al final, bajo su propio encabezado. El cálculo (descuento directo +
+    // posible suspensión de intereses del mes) es idéntico para ambos
+    // grupos — esta es puramente una separación visual.
+    const lavOrdenado = abonosLav.slice().sort((a,b) => {
+      const catA = a.origen === 'otros_abonos' ? 1 : 0;
+      const catB = b.origen === 'otros_abonos' ? 1 : 0;
+      if (catA !== catB) return catA - catB;
+      return (a.date||'').localeCompare(b.date||'');
+    });
+    let otrosHeaderShown = false;
     lavOrdenado.forEach((p, i) => {
+      if (p.origen === 'otros_abonos' && !otrosHeaderShown) {
+        otrosHeaderShown = true;
+        const subHeader = document.createElement('div');
+        subHeader.style.cssText = 'padding:4px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#2563eb;background:rgba(37,99,235,0.06);border-top:1px solid rgba(37,99,235,0.15)';
+        subHeader.textContent = 'Otros Abonos';
+        wrapLav.appendChild(subHeader);
+      }
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
       row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
@@ -2789,7 +2817,7 @@ function _ocrRenderPreview(items) {
       montoStr = '—'; utmStr = '—';
     }
     const seccionBadge = item.seccion === 'otros_abonos'
-      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otro abono</span>'
+      ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otros Abonos (LAV)</span>'
       : '';
     return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
       <div class="min-w-0 flex-1 mr-2">
@@ -2851,15 +2879,18 @@ function ocrConfirmar() {
       return; // sin monto válido
     }
     if (!amount || amount <= 0) return;
-    if (item.seccion === 'otros_abonos') {
-      // Sección IV "Otros abonos" → imputación Art. 1595 CC (primero intereses, luego capital)
-      abonos.push({ amount, date: yyyy + '-' + mm });
-      added++;
-    } else {
-      // Sección V "Abonos LAV" → descuento directo por depósito cuenta vista
-      abonosLav.push({ date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel, amount, utmVal, amountUtm });
-      added++;
-    }
+    // Ambas secciones del PJUD (V "Abonos LAV" y IV "Otros abonos") se
+    // registran ahora como Abonos LAV: descuento directo del capital con
+    // posible suspensión de intereses del mes — misma metodología, mismo
+    // array. `origen` queda marcado únicamente para fines de visualización
+    // (subcategoría "Otros Abonos" en el resumen LAV y en el PDF); el
+    // cálculo es idéntico para ambos orígenes.
+    abonosLav.push({
+      date, periodo, periodoLabel, periodoLabelOriginal: periodoLabel,
+      amount, utmVal, amountUtm,
+      origen: item.seccion === 'otros_abonos' ? 'otros_abonos' : 'lav'
+    });
+    added++;
   });
   if (added > 0) {
     reasignarPeriodosLav();
@@ -2867,7 +2898,7 @@ function ocrConfirmar() {
     renderAbonosList();
     calculate();
     saveSession();
-    dbg('OCR: ' + added + ' abonos importados (LAV + Art.1595)');
+    dbg('OCR: ' + added + ' abonos LAV importados (incl. subcategoría Otros Abonos)');
   }
   closeOcrLav();
 }

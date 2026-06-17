@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0617.v105-fix-precision-lav-resumen">
+ <meta name="app-version" content="2.0617.v107-fusion-otros-abonos-lav">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3117,11 +3117,15 @@ function reasignarPeriodosLav() {
     // Preservar el label original (fecha real del depósito) para visualización
     if (!lav.periodoLabelOriginal) lav.periodoLabelOriginal = lav.periodoLabel;
     lav.periodoLabel = mNames[mm - 1] + ' ' + yyyy;
-    const utmEntry = utmData.find(d => d.y === yyyy && d.monthIdx === mm - 1);
-    if (utmEntry) {
-      lav.utmVal = utmEntry.v;
-      lav.amountUtm = lav.amount / utmEntry.v;
-    }
+    // NOTA: NO se recalculan lav.utmVal / lav.amountUtm aquí.
+    // Esta función solo reasigna el PERÍODO DE IMPUTACIÓN (a qué cuota
+    // se aplica el pago cuando hay colisión en el mismo mes). La
+    // VALORIZACIÓN (UTM usada para convertir CLP→UTM) debe permanecer
+    // fija con la UTM del mes calendario real en que el depósito se
+    // efectuó — calculada una sola vez en addAbonoLav() — igual que
+    // hace el PJUD. Sobreescribirla aquí con la UTM del mes reasignado
+    // mezclaba imputación con valorización y producía un monto en UTM
+    // distinto al oficial cuando había dos depósitos en el mismo mes.
   });
 }
 function addAbonoLav() {
@@ -3164,7 +3168,8 @@ function renderAbonosLav() {
   container.innerHTML = '';
   if (!Array.isArray(abonosLav) || abonosLav.length === 0) return;
   const { cuotaMensualUTM: cuotaGlobal, modoEsPesos: modoGlobal } = getMonthlyValues();
-  abonosLav.forEach((p, i) => {
+
+  function renderItem(p, i) {
     const div = document.createElement('div');
     div.className = 'abono-item animate-fadeIn';
     div.style.borderColor = '#6ee7b7';
@@ -3232,7 +3237,27 @@ function renderAbonosLav() {
       </div>
       <button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
     container.appendChild(div);
+  }
+
+  // Agrupar visualmente: depósitos LAV "normales" primero, y la
+  // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
+  // al final, bajo su propio encabezado. El cálculo (descuento directo +
+  // posible suspensión de intereses del mes) es idéntico para ambos
+  // grupos — esta es puramente una separación visual para trazabilidad
+  // del origen del depósito.
+  const grupoOtros = [];
+  abonosLav.forEach((p, i) => {
+    if (p.origen === 'otros_abonos') { grupoOtros.push({ p, i }); return; }
+    renderItem(p, i);
   });
+  if (grupoOtros.length > 0) {
+    const header = document.createElement('div');
+    header.className = 'text-[8px] font-black uppercase tracking-wide px-1 pt-2 pb-0.5';
+    header.style.color = '#60a5fa';
+    header.textContent = '— Otros Abonos —';
+    container.appendChild(header);
+    grupoOtros.forEach(({ p, i }) => renderItem(p, i));
+  }
 }
 
 // ── Resumen de Abonos LAV (tarjeta azul) ───────────────────────────────────
