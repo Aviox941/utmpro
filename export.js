@@ -432,9 +432,15 @@ filasDesglose.push([
 // diferencia entre bruto y neto que se explica con los descuentos LAV/abonos de abajo.
 // 5 y 6 · Descuento LAV (desglosado si hay intereses cubiertos)
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
-const lavIntCubiertoPDF = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
-// Capital cubierto = suma real de lavAplicadoCLP (no resta: evita incluir remanente no imputado)
-const lavCapCubiertoPDF = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoCLP || 0), 0);
+// FIX precisión: sumar en UTM sin redondear (lavIntAplicadoUTM/lavAplicadoUTM) y convertir
+// a CLP una sola vez al final. Antes se sumaban lavIntAplicadoCLP/lavAplicadoCLP, ya redondeados
+// mes a mes — eso acumulaba sesgo de redondeo y desconectaba este total del usado en
+// totalFinalReal (que sí opera 100% en UTM histórica), rompiendo la cuadratura
+// bruto - LAV imputado = TOTAL ADEUDADO.
+const lavIntCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
+const lavCapCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoUTM || 0), 0);
+const lavIntCubiertoPDF = lavIntCubiertoUTMpdf * utmLiq;
+const lavCapCubiertoPDF = lavCapCubiertoUTMpdf * utmLiq;
 const lavTotalImputadoPDF = lavIntCubiertoPDF + lavCapCubiertoPDF;
 const lavRemanentePDF = lavTotalCLPpdf - lavTotalImputadoPDF;
 if (lavTotalCLPpdf > 0) {
@@ -1920,9 +1926,12 @@ function buildResumenContent() {
     resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
   }
   if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
-    const lavIntCubiertoModal = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoCLP || 0), 0);
-    // Capital cubierto = suma real de lavAplicadoCLP por cuota (no resta: evita incluir remanente no imputado)
-    const lavCapCubiertoModal = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoCLP || 0), 0);
+    // FIX precisión: sumar en UTM sin redondear y convertir a CLP al final (ver mismo fix en PDF),
+    // para que esta resta cuadre con totalFinalReal en vez de acumular sesgo de redondeo mensual.
+    const lavIntCubiertoUTMmodal = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
+    const lavCapCubiertoUTMmodal = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoUTM || 0), 0);
+    const lavIntCubiertoModal = lavIntCubiertoUTMmodal * utmLiq;
+    const lavCapCubiertoModal = lavCapCubiertoUTMmodal * utmLiq;
     const lavTotalImputado = lavIntCubiertoModal + lavCapCubiertoModal;
     const lavRemanenteCLP = lavTotalCLPmodal - lavTotalImputado;
     if (lavIntCubiertoModal > 0) {

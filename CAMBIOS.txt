@@ -1,41 +1,62 @@
-================================================================================
-INSTRUCCIONES DE VERSIONADO
-================================================================================
-- Este archivo se SOBRESCRIBE en cada entrega.
-- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
-- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
-- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
-- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
-- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
-- Nunca eliminar ninguna instrucción de este documento
+CAMBIOS — v105 — Fix precisión LAV en Resumen Final (PDF + Modal)
+============================================================
 
-================================================================================
-VERSIÓN ACTUAL
-================================================================================
-Fecha         : 16-06-2026
-App version   : 2.0616.v104-lav-campo-utm
-Archivos mod  : index.html, CAMBIOS.txt
+Versión: 2.0617.v105-fix-precision-lav-resumen (antes: v104-lav-campo-utm)
+Cache: pension-utm-v163 (antes: v162)
 
-================================================================================
-PROPÓSITO DE ESTA VERSIÓN
-================================================================================
+ARCHIVOS MODIFICADOS:
+- export.js   → fix de cálculo (ver detalle abajo)
+- index.html  → solo meta app-version bumpeada a v105 (sin cambios de lógica)
+- sw.js       → CACHE_NAME bumpeado a v163 + fecha de build actualizada
 
-Feature — Campo UTM con conversión automática en tarjeta Depósitos LAV
---------------------------------------------------------------------------------
+PROBLEMA DETECTADO:
+En el "Resumen Final" (tanto del PDF como del modal HTML), el LAV
+imputado se calculaba sumando lavAplicadoCLP / lavIntAplicadoCLP,
+campos que ya estaban redondeados a CLP entero mes a mes (Math.round
+aplicado en index.html al construir cada cuota). Sumar valores ya
+redondeados, en vez de sumar los floats en UTM y redondear una sola
+vez al final, generaba dos problemas:
 
-- Nuevo campo UTM junto al campo CLP, estructura idéntica a tarjeta Pagos
-  Parciales (div.relative + input-currency w-full + etiqueta flotante derecha).
-- Conversión automática UTM → CLP: al escribir UTM con mes seleccionado,
-  calcula y rellena CLP automáticamente.
-- Conversión automática CLP → UTM: al escribir CLP con mes seleccionado,
-  calcula y muestra equivalente UTM.
-- Al seleccionar mes en calendario, ambos campos se reconvierten con el
-  valor UTM del nuevo período.
-- Chip debajo de los campos: muestra "UTM Mar 2026: $69.889" al seleccionar
-  período, oculto mientras no hay mes seleccionado.
-- Al agregar el abono, se prioriza el valor UTM ingresado directamente en el
-  campo (más preciso). Ambos campos y chip se limpian al agregar.
+1. Sesgo de redondeo acumulado: con múltiples depósitos LAV (en el
+   caso de prueba, 6 depósitos), el error de redondeo por mes se
+   acumula y desvía el total agregado en varios pesos.
 
-Nuevas funciones: _lavGetUtmVal(), updateLavChip(), onLavUtmInput(),
-onLavClpInput(), onLavPeriodoChanged(). Se modificó checkBtnLav() y
-addAbonoLav(). Sin cambios en lógica de cálculo, abonosLav[], ni PASO 1.
+2. Inconsistencia estructural: el "TOTAL ADEUDADO" final del
+   PDF/modal NO se deriva de estas filas (Capital bruto, Intereses,
+   LAV imputado) — se sustituye directamente por totalFinalReal,
+   una variable calculada aparte a partir de cuotasResultado
+   (capPendiente/intPendiente por cuota en UTM histórica, ya
+   post-imputación). Esto rompía la cuadratura visual:
+   "bruto - LAV imputado" no coincidía con el total real mostrado.
+
+FIX APLICADO (quirúrgico, sin nueva UI):
+Se reemplazó la fuente de lavIntCubiertoPDF/lavCapCubiertoPDF (PDF) y
+lavIntCubiertoModal/lavCapCubiertoModal (modal) para que sumen los
+campos UTM sin redondear — lavAplicadoUTM y lavIntAplicadoUTM, ya
+existentes en lastCalculationData — y conviertan a CLP una sola vez
+al multiplicar por utmLiq (UTM del mes de liquidación), igual
+metodología que ya usa totalFinalReal. Esto:
+- Elimina el sesgo de redondeo acumulado mes a mes.
+- Hace que el LAV imputado mostrado provenga de la MISMA fuente de
+  datos (post-imputación, UTM histórica) que el total final real,
+  acercando la cuadratura aritmética de las filas del resumen.
+
+Líneas modificadas en export.js:
+- ~435-444 (bloque generarPDF / Resumen Final del PDF)
+- ~1923-1934 (bloque buildResumenContent / Resumen Final del modal)
+
+Variables de salida preservadas (mismo nombre, mismo tipo):
+lavIntCubiertoPDF, lavCapCubiertoPDF, lavTotalImputadoPDF,
+lavRemanentePDF, lavIntCubiertoModal, lavCapCubiertoModal,
+lavTotalImputado, lavRemanenteCLP.
+
+NO se agregaron modales, botones, tabs ni elementos de UI nuevos.
+
+PENDIENTE DE VALIDACIÓN POR EL USUARIO:
+Se recomienda volver a generar el PDF/modal con el caso real
+"Test1" (Liquidacion_31-05-2026) para confirmar numéricamente que
+SUBTOTAL HISTÓRICO - LAV imputado ahora se acerca a TOTAL ADEUDADO
+($879.033 declarado en la versión anterior). La magnitud exacta del
+ajuste depende de los lavAplicadoUTM/lavIntAplicadoUTM reales mes a
+mes, que no se imprimen en el PDF y por tanto no pudieron verificarse
+fuera del entorno de ejecución de la app.
