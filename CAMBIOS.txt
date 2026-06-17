@@ -1,30 +1,39 @@
-CAMBIOS v107 → v107-fix-equiv-utm
-==================================
+CAMBIOS v107-fix-equiv-utm → v107-fix-lav-clp-fijo
+====================================================
 Fecha: 2026-06-17
 
 BUG CORREGIDO
 ─────────────
-Campo "Equiv. UTM" desactualizado al cambiar "Inicio Mora" en modo CLP
+Modo libre LAV con cuota en CLP: UTM fija en vez de CLP fijo
 
 SÍNTOMA:
-  Al ingresar un monto en CLP (ej. $200.000) y luego seleccionar una
-  fecha de Inicio Mora histórica (ej. Ene 2023), el campo numérico
-  "Equiv. UTM" permanecía calculado con la UTM actual (~$71.506)
-  mostrando ~2.80 UTM, en lugar de actualizarse a la UTM histórica de
-  Ene 2023 ($61.769), que debería mostrar ~3.24 UTM.
+  Al ingresar el monto de la cuota en PESOS (modo CLP) y agregar una cuota
+  LAV en modo automático (sin período definido), los meses se calculaban
+  usando la cuota como UTM fija × UTM histórica del mes → capital CLP
+  distinto cada mes. La lógica correcta es que en modo CLP el monto en
+  pesos es fijo y la UTM equivalente varía mes a mes.
 
 CAUSA:
-  El campo utmAmount solo se recalculaba cuando el usuario escribía en
-  el campo CLP (oninput de updateFromClp). Al cambiar startIndex desde
-  el calendario, se actualizaban etiquetas y chips pero no el campo UTM.
+  En calculate(), el fallback para modo libre LAV extraía solo
+  cuotaMensualUTM de getMonthlyValues(). Cuando el modo es CLP, ese valor
+  es cuotaMensualCLP / utmActual (UTM actual fija), que buildModoLibreLAVData
+  multiplicaba por item.v de cada mes → cuota CLP variable incorrecta.
 
 FIX (index.html):
-  En el handler del calendario, bloque calendarMode === 'start', se
-  agregó recálculo explícito del campo utmAmount usando la UTM histórica
-  del nuevo startIndex, condicionado a que el modo sea CLP y haya monto.
+  1. buildModoLibreLAVData() ahora acepta cuotaClpFija (4.° parámetro).
+     Cuando viene > 0 (modo CLP), capCLP = cuotaClpFija (constante) y
+     cuotaUtmMes = cuotaClpFija / item.v (variable por mes).
+
+  2. En calculate(), se detecta si el modo activo es CLP (modoEsPesos && 
+     campo LAV vacío) y se pasa _cuotaClpFijaParaModoLibre al 4.° parámetro.
+     La condición _modoLibreLAV también acepta el caso CLP fijo.
+
+  3. capitalUTM y capUTM en el objeto detalles usan cuotaUtmMes (variable)
+     en lugar de cuotaUtm (fija), para que el resumen UTM sea correcto.
 
 NOTA:
-  El cálculo real de la deuda no se veía afectado (ya usa UTM histórica
-  mes a mes). Solo era un display bug en el campo de referencia.
+  El campo "cuota LAV" manual (lavCuotaUtm) no se ve afectado — sigue
+  funcionando como UTM fija cuando el usuario lo rellena explícitamente.
+  Solo el fallback automático desde el período actual aplica esta corrección.
 
-SERVICE WORKER: v165 → v166
+SERVICE WORKER: v166 → v167

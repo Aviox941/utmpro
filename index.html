@@ -4398,7 +4398,10 @@ function imputarAbonosArt1595(detalles, abonos) {
 // y una cuota mensual en UTM, esta función construye lastCalculationData
 // sintéticamente: un mes por cada mes desde el primer depósito hasta hoy.
 // La lógica del pool LAV que sigue en calculate() aplica igual que siempre.
-function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
+function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
+  // cuotaClpFija: cuando el modo es CLP, el monto en pesos es fijo y la UTM équivalente varía mes a mes.
+  // cuotaUtm: cuando el modo es UTM, la cuota en UTM es fija y el CLP equivalente varía mes a mes.
+  const modoEsClpFijo = cuotaClpFija > 0;
   const diaVenc = getDiaVencimiento();
   const sorted  = [...abonosLav].sort((a,b) => a.date.localeCompare(b.date));
   if (!sorted.length) return { capital:0, intereses:0, capitalUTM:0, detalles:[] };
@@ -4415,7 +4418,10 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
   while (y < endY || (y === endY && mi <= endM)) {
     const item = utmData.find(d => d.y === y && d.monthIdx === mi);
     if (!item) { mi++; if (mi > 11) { mi = 0; y++; } idx++; continue; }
-    const capCLP  = cuotaUtm * item.v;
+    // Modo CLP fijo: el monto en pesos es constante, la UTM equivalente varía mes a mes.
+    // Modo UTM fijo: la cuota en UTM es constante, el CLP equivalente varía mes a mes.
+    const cuotaUtmMes = modoEsClpFijo ? (item.v > 0 ? cuotaClpFija / item.v : 0) : cuotaUtm;
+    const capCLP = modoEsClpFijo ? cuotaClpFija : cuotaUtm * item.v;
     const fechaVenc = new Date(y, mi, diaVenc);
     const diasMora  = calcularDiasMora(fechaVenc, hoy);
     const usarTicActual = document.getElementById('ticActual')?.checked || false;
@@ -4426,13 +4432,13 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
     const tasaAnual = (aplicarRecargo && diasMora > 0) ? tasaBase * 1.5 : tasaBase;
     const intCLP    = calcularInteres(capCLP, tasaAnual, diasMora);
     capital    += capCLP;
-    capitalUTM += cuotaUtm;
+    capitalUTM += cuotaUtmMes;
     intereses  += intCLP;
     detalles.push({
       id: 'lm' + idx,
       periodo: `${item.m} ${item.y}`,
       utmVal: item.v,
-      cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtm,
+      cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtmMes,
       inte: intCLP, intOriginal: intCLP,
       tasa: tasaAnual, tasaBase, tasaHist: tasaBase,
       tasaEsAproximada: _ti.esAproximada,
@@ -4472,20 +4478,23 @@ const _utmLiqEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx
 const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
 // Nota: los pagos parciales ya están descontados del capital en calculatePensiones()
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
-// ── Modo libre LAV: sin período definido + cuota UTM ingresada ──────────────
+// ── Modo libre LAV: sin período definido + cuota UTM/CLP ingresada ─────────
 const _lavCuotaUtm = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
 // Fallback: si el campo cuota LAV está vacío, usar la cuota del período actual
 // (campo utmAmount). Permite el modo libre LAV cuando el usuario ingresó su cuota
 // en el período actual pero no copió el valor al campo cuota mensual LAV.
-const { cuotaMensualUTM: _cuotaPeriodoActual } = getMonthlyValues();
+const { cuotaMensualUTM: _cuotaPeriodoActual, cuotaMensualCLP: _cuotaClpActual, modoEsPesos: _modoEsPesosActual } = getMonthlyValues();
+// Si el modo es CLP: la cuota en pesos es fija, la UTM varía mes a mes.
+// Si el modo es UTM: la cuota en UTM es fija, el CLP equivalente varía mes a mes.
+const _cuotaClpFijaParaModoLibre = (_lavCuotaUtm === 0 && _modoEsPesosActual && _cuotaClpActual > 0) ? _cuotaClpActual : 0;
 const _cuotaParaModoLibre = _lavCuotaUtm > 0 ? _lavCuotaUtm : _cuotaPeriodoActual;
 const _sinPeriodoCalc = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
-const _modoLibreLAV  = _hayLav && _cuotaParaModoLibre > 0 && _sinPeriodoCalc;
+const _modoLibreLAV  = _hayLav && (_cuotaParaModoLibre > 0 || _cuotaClpFijaParaModoLibre > 0) && _sinPeriodoCalc;
 let resPensiones, resHistorical;
 if (_modoLibreLAV) {
-  resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo);
+  resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo, _cuotaClpFijaParaModoLibre);
   resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
-  dbg('CALC: modo libre LAV — cuota=' + _cuotaParaModoLibre + ' UTM (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
+  dbg('CALC: modo libre LAV — ' + (_cuotaClpFijaParaModoLibre > 0 ? 'CLP fijo=$' + _cuotaClpFijaParaModoLibre : 'UTM=' + _cuotaParaModoLibre) + ' (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
 } else {
   resPensiones  = calculatePensiones(aplicarRecargo, hoy);
   resHistorical = histMode === 'consolidada'
