@@ -1,31 +1,48 @@
-CAMBIOS v112i-prefill-dispatch → v112j-fechaliq-text
+CAMBIOS v112i-welcome-final → v112k-welcome-fix
 =====================================================
 Fecha: 2026-06-18
 
-FIX / CAMPO "CALCULAR HASTA" — Android no mostraba valor
+FIX / WELCOME SCREEN — usuarios atrapados sin poder avanzar
 ──────────────────────────────────────────────────────────
-Android Chrome no renderiza el valor de type="date" seteado por JS
-hasta que el usuario abre y confirma el picker nativo. Solución definitiva:
-reemplazar el input por type="text" con formato visual DD/MM/AAAA.
+Bug: showWelcomeScreen() se disparaba en sbLoadCasos() cada vez que no
+había casos en localStorage, SIN verificar si el usuario ya estaba
+autenticado y tenía casos previos en Supabase. Esto atrapaba a usuarios
+existentes con caché limpia, dispositivo nuevo o repo recién clonado en
+la pantalla de bienvenida, ya que los botones del welcome solo ejecutan
+hideWelcomeScreen() y no cargan ni crean ningún caso.
+
+Adicionalmente, mientras welcome estaba visible, _welcomeScreenVisible
+quedaba en true y el guard en sbLoadCasos() podía bloquear la
+restauración del caso activo al volver de background.
 
 CAMBIOS (index.html):
 
-1. Input fechaLiquidacion: type="date" → type="text"
-   • placeholder="DD/MM/AAAA", maxlength=10, inputmode="numeric"
-   • oninput llama a _fmtFechaLiq(this) para autoformatear mientras escribe
+1. Nuevas funciones helper (junto a showWelcomeScreen/hideWelcomeScreen):
+   • _welcomeShownKey(userId) → arma key 'welcome_shown_<userId>'
+   • hasSeenWelcome(userId)   → lee flag en localStorage
+   • markWelcomeSeen(userId)  → escribe flag en localStorage
 
-2. Nueva función _fmtFechaLiq(el):
-   • Inserta las barras automáticamente: 18 → 18/ → 18/06/ → 18/06/2026
+2. hideWelcomeScreen():
+   • Ahora marca markWelcomeSeen(sbCurrentUser.id) al cerrarse, además
+     de ocultar el div y resetear _welcomeScreenVisible.
 
-3. getFechaLiquidacion() actualizada:
-   • Acepta DD/MM/YYYY (nuevo formato) y YYYY-MM-DD (legacy/sesión guardada)
+3. sbLoadCasos() → _localReady():
+   • ANTES: showWelcomeScreen() se llamaba siempre que no había caso
+     local válido restaurado.
+   • AHORA: solo se llama si además hasSeenWelcome(sbCurrentUser?.id)
+     es false, es decir, la PRIMERA vez que ese usuario hace login en
+     ESE dispositivo/navegador. Logins posteriores (con o sin casos
+     locales) ya no vuelven a mostrar welcome.
 
-4. resetFechaLiquidacion() actualizada:
-   • Ahora escribe DD/MM/YYYY en lugar de YYYY-MM-DD
+NOTA: los 7 botones del welcomeScreen siguen llamando solo a
+hideWelcomeScreen() (sin crear casos ni abrir modales). Eso queda
+pendiente para una iteración futura donde cada opción dirija a su
+sección correspondiente de la app.
 
-5. Prefill en window.onload:
-   • Escribe DD/MM/YYYY (visible inmediatamente en Android e iOS)
+NO SE TOCÓ: imputarAbonosArt1595, lógica del PASO 1 (pool LAV), ni el
+guard _welcomeScreenVisible && window._loadFromVisibility (se deja
+como red de seguridad ante condición de carrera con visibilitychange).
 
 ARCHIVOS MODIFICADOS: index.html, sw.js
-SERVICE WORKER: v172i → v172j
+SERVICE WORKER: v172i → v172k
 
