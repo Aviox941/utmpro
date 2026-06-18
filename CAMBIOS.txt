@@ -1,3 +1,126 @@
+CAMBIOS v111-patron4-label → v112-mora-labels-dh
+=================================================
+Fecha: 2026-06-18
+
+UI / NOMENCLATURA
+─────────────────
+Consistencia Patrón 2: mismos labels en modal Deuda Histórica
+
+CAMBIO (index.html):
+  Los sublabels de fecha en el modal de Deuda Histórica se alinearon
+  con los de la tarjeta principal (Patrón 2 ya aplicado en v109):
+
+  • "Inicio de mora"  →  "Mes que dejó de pagar"
+  • "Fin de mora"     →  "Último mes sin pago"
+
+  Solo afecta texto visible. No se modifica ningún id ni lógica.
+
+SERVICE WORKER: v171 → v172
+
+CAMBIOS v110-patron3-label → v111-patron4-label
+================================================
+Fecha: 2026-06-18
+
+UI / NOMENCLATURA
+─────────────────
+Patrón 4 del Glosario: renombrar botón de períodos variables
+
+CAMBIO (index.html):
+  El botón secundario de la tarjeta de períodos se renombró usando
+  el nombre técnico acordado (modal de ayuda explicativo pendiente):
+
+  • "Registrar período"  →  "Agregar UTM variable"
+
+  Solo afecta texto visible del botón #btnAddPeriodoPension.
+  No se modifica ningún id, lógica ni estructura de datos.
+
+SERVICE WORKER: v170 → v171
+
+CAMBIOS v109-patron2-labels → v110-patron3-label
+=================================================
+Fecha: 2026-06-18
+
+UI / NOMENCLATURA
+─────────────────
+Patrón 3 del Glosario: renombrar etiqueta de fecha de liquidación
+
+CAMBIO (index.html):
+  El label de la tarjeta de fecha de corte se renombró según el
+  Patrón 3 del GLOSARIO-NOMENCLATURA (versión corta acordada):
+
+  • "Fecha de Liquidación"  →  "Calcular hasta"
+
+  Solo afecta texto visible (p.text-[10px]).
+  No se modifica ningún id, lógica ni estructura de datos.
+
+SERVICE WORKER: v169 → v170
+
+CAMBIOS v108-fix-coma-decimal-utm → v109-patron2-labels
+========================================================
+Fecha: 2026-06-18
+
+UI / NOMENCLATURA
+─────────────────
+Patrón 2 del Glosario: renombrar etiquetas de fecha de mora
+
+CAMBIO (index.html):
+  Los sublabels de los dos botones de selección de fecha (tarjeta
+  principal) se renombraron según el Patrón 2 del GLOSARIO-NOMENCLATURA:
+  "[Sustantivo temporal] que [verbo en pasado, en lenguaje cotidiano]".
+
+  • "Inicio mora"  →  "Mes que dejó de pagar"
+  • "Fin mora"     →  "Último mes sin pago"
+
+  Solo afecta texto visible (span.input-date__sublabel).
+  No se modifica ningún id, lógica ni estructura de datos.
+
+SERVICE WORKER: v168 → v169
+
+CAMBIOS v107-fix-lav-clp-fijo → v108-fix-coma-decimal-utm
+===========================================================
+Fecha: 2026-06-17
+
+BUG CORREGIDO
+─────────────
+Coma decimal rechazada en silencio en campos UTM (cuota cero sin aviso)
+
+SÍNTOMA:
+  Al escribir la cuota en UTM usando coma como separador decimal (ej:
+  "2,80"), en navegadores/dispositivos que no aceptan coma en un input
+  nativo type="number" (ej: iOS Safari), el campo queda vacío o con un
+  valor distinto al escrito, sin ningún mensaje de error. El cálculo de
+  la pensión continúa usando cuotaMensualUTM = 0, generando un resultado
+  silenciosamente incorrecto. En Android, donde el teclado numérico suele
+  adaptarse al locale es-CL, el mismo campo podía funcionar bien — el bug
+  era inconsistente entre dispositivos.
+
+CAUSA:
+  Los campos utmAmount (tarjeta "Período Actual") e historicalDebtUtm
+  (modal "Registrar período") eran type="number", cuyo valor interno solo
+  acepta punto como separador decimal por especificación HTML. Además,
+  los 4 puntos donde se leía su .value con parseFloat() no normalizaban
+  coma a punto, a diferencia de otros campos UTM de la misma app
+  (tempLavUtm, tempParcialUtm) que sí lo hacían.
+
+FIX (index.html):
+  1. utmAmount: type="number" → type="text" (se retira step="0.01", ya
+     no aplica). Se mantiene inputmode="decimal".
+  2. historicalDebtUtm: mismo cambio (type="number" → type="text").
+  3. tryRegisterHistorical(): parseFloat(...) ahora normaliza con
+     .replace(',', '.') antes de leer historicalDebtUtm.
+  4. Función de registro de pago parcial: mismo .replace(',', '.') al
+     leer utmAmount.
+  5. updateFromUtm(): mismo .replace(',', '.') al leer utmAmount.
+  6. getMonthlyValues(): mismo .replace(',', '.') al leer utmAmount.
+
+NOTA:
+  Se detectó código huérfano que referencia un campo ppUtmAmount (líneas
+  ~3568-3685) sin ningún <input> con ese id en este archivo. No se tocó
+  porque está fuera del alcance de este fix — queda pendiente revisar si
+  es un modal removido o vive en otro componente.
+
+SERVICE WORKER: v167 → v168
+
 CAMBIOS v107-fix-equiv-utm → v107-fix-lav-clp-fijo
 ====================================================
 Fecha: 2026-06-17

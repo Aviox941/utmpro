@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0617.v107-fusion-otros-abonos-lav">
+ <meta name="app-version" content="2.0617.v108-fix-coma-decimal-utm">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1303,7 +1303,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
         </svg>
       </div>
-      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Período actual</p>
+      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Datos de Pensión</p>
     </div>
   </div>
 
@@ -1327,12 +1327,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
     <div id="utmClpInputs" class="space-y-2">
       <div class="grid grid-cols-2 gap-3">
-        <div style="position:relative;">
-          <input type="number" id="utmAmount" placeholder="Equiv. UTM" step="0.01" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
-          <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+        <div class="space-y-1">
+          <label class="input-label">Valor cuota en UTM</label>
+          <div style="position:relative;">
+            <input type="text" id="utmAmount" placeholder="0,000" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
+            <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+          </div>
         </div>
         <div class="space-y-1">
-          <input type="text" id="clpAmount" placeholder="Monto pesos ($)" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
+          <label class="input-label">Valor cuota en pesos</label>
+          <input type="text" id="clpAmount" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
         </div>
       </div>
       <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
@@ -1373,11 +1377,11 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
     <div class="grid grid-cols-2 gap-3" style="margin-top:10px;">
       <button onclick="openCalendar('start')" id="startBtn" class="input-date">
-        <span class="input-date__sublabel">Inicio mora</span>
+        <span class="input-date__sublabel">Mes que dejó de pagar</span>
         <span id="startLabel" class="input-date__value">Seleccionar</span>
       </button>
       <button onclick="openCalendar('end')" id="endBtn" class="input-date">
-        <span class="input-date__sublabel">Fin mora</span>
+        <span class="input-date__sublabel">Último mes sin pago</span>
         <span id="endLabel" class="input-date__value">Seleccionar</span>
       </button>
     </div>
@@ -1392,7 +1396,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
           onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Registrar período
+          Agregar UTM variable
         </button>
         <button onclick="showPeriodoHelp()" style="position:absolute;right:0;width:16px;height:16px;border-radius:50%;background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.18);font-size:8px;font-weight:900;color:#93c5fd;display:flex;align-items:center;justify-content:center;cursor:pointer;">?</button>
       </div>
@@ -1413,7 +1417,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
     <div class="flex justify-between items-center border-t border-white/7 pt-3">
       <div>
-        <p class="text-[10px] font-black uppercase text-[#93c5fd]">Fecha de Liquidación</p>
+        <p class="text-[10px] font-black uppercase text-[#93c5fd]">Calcular hasta</p>
         <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
       </div>
       <div class="flex items-center gap-2">
@@ -1458,17 +1462,23 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2">
-      <div class="relative">
-        <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
-          oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
-          class="input-currency w-full">
-        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+      <div class="space-y-1">
+        <label class="input-label">Valor depósito en pesos</label>
+        <div class="relative">
+          <input type="text" id="tempLavClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*"
+            oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
+            class="input-currency w-full">
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+        </div>
       </div>
-      <div class="relative">
-        <input type="text" id="tempLavUtm" placeholder="— UTM" inputmode="decimal"
-          oninput="onLavUtmInput()"
-          class="input-currency w-full">
-        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+      <div class="space-y-1">
+        <label class="input-label">Valor depósito en UTM</label>
+        <div class="relative">
+          <input type="text" id="tempLavUtm" placeholder="0,000" inputmode="decimal"
+            oninput="onLavUtmInput()"
+            class="input-currency w-full">
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+        </div>
       </div>
       <input type="hidden" id="tempLavMes" value="">
       <input type="hidden" id="tempLavAnio" value="">
@@ -1538,7 +1548,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div class="dh-section">
         <div style="margin-bottom:10px">
           <label class="input-label input-label--plain">Monto mensual en UTM (cuota)</label>
-          <input type="number" id="historicalDebtUtm" placeholder="0.00" step="0.01" inputmode="decimal"
+          <input type="text" id="historicalDebtUtm" placeholder="0.00" inputmode="decimal"
             oninput="checkHistReady(); tryRegisterHistorical();" class="input-number">
           <div id="histUtmPeriodChip" class="hidden items-center gap-1 mt-1 px-2 py-1 rounded-lg" style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.14);">
             <span style="font-size:9px;font-weight:700;color:#c2410c;" id="histUtmPeriodChipText">—</span>
@@ -1548,13 +1558,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <input type="hidden" id="histStartMes" value="">
           <input type="hidden" id="histStartAnio" value="">
           <button onclick="openCalendar('histStart')" id="histStartPickerBtn" class="input-date">
-            <span class="input-date__sublabel">Inicio de mora</span>
+            <span class="input-date__sublabel">Mes que dejó de pagar</span>
             <span id="histStartLabel" class="input-date__value">Seleccionar</span>
           </button>
           <input type="hidden" id="histEndMes" value="">
           <input type="hidden" id="histEndAnio" value="">
           <button onclick="openCalendar('histEnd')" id="histEndPickerBtn" class="input-date">
-            <span class="input-date__sublabel">Fin de mora <span class="normal-case font-bold opacity-60">(opcional)</span></span>
+            <span class="input-date__sublabel">Último mes sin pago <span class="normal-case font-bold opacity-60">(opcional)</span></span>
             <span id="histEndLabel" class="input-date__value">Mes actual</span>
           </button>
         </div>
@@ -1807,17 +1817,23 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
  <div class="dh-body space-y-3" style="padding:12px 14px">
  <div class="space-y-2">
  <div class="grid grid-cols-2 gap-2">
+ <div class="space-y-1">
+ <label class="input-label">Valor depósito en pesos</label>
  <div class="relative">
- <input type="text" id="tempParcialClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
+ <input type="text" id="tempParcialClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*"
    oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); syncParcialUtm(); checkBtnParcial()"
    class="input-currency w-full">
  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
  </div>
+ </div>
+ <div class="space-y-1">
+ <label class="input-label">Valor depósito en UTM</label>
  <div class="relative">
- <input type="text" id="tempParcialUtm" placeholder="— UTM" inputmode="decimal"
+ <input type="text" id="tempParcialUtm" placeholder="0,000" inputmode="decimal"
    oninput="syncParcialClpFromUtm(); checkBtnParcial()"
    class="input-currency w-full">
  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+ </div>
  </div>
  </div>
  <input type="hidden" id="tempParcialMes" value="">
@@ -2687,7 +2703,7 @@ function getHistMonthsCount() {
   return Math.max(0, end - start + 1);
 }
 function tryRegisterHistorical() {
-  const utm = parseFloat(document.getElementById('historicalDebtUtm').value) || 0;
+  const utm = parseFloat((document.getElementById('historicalDebtUtm').value || '').replace(',', '.')) || 0;
   const startMes = document.getElementById('histStartMes').value;
   const startAnio = document.getElementById('histStartAnio').value;
   if (utm <= 0 || !startMes || !startAnio) return;
@@ -3732,7 +3748,7 @@ function addPeriodoPension() {
 
   let nuevo;
   // Detectar modo efectivo: si está en modo utm/clp, verificar cuál campo tiene valor
-  const utmVal = parseFloat(document.getElementById('utmAmount').value) || 0;
+  const utmVal = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
   const clpVal = parseInt((document.getElementById('clpAmount').value || '').replace(/\./g, '').replace(/[^0-9]/g, '')) || 0;
   // Modo efectivo: si calculationMode es utm o clp, elegir según qué campo tiene dato
   const modeEffective = (mode === 'utm' || mode === 'clp')
@@ -4014,7 +4030,7 @@ function updateClpHistoricoChip() {
 // chip eliminado del diseño
 }
 function updateFromUtm() {
-const utm = parseFloat(document.getElementById('utmAmount').value) || 0;
+const utm = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 const startItem = startIndex !== -1 ? utmData[startIndex] : null;
 const utmRef = (startItem && startItem.v > 0) ? startItem.v : getUtmActualVal();
 // Si el usuario edita UTM, volver a modo UTM
@@ -4031,7 +4047,7 @@ const utmActual = getUtmActualVal();
 const mode = document.getElementById('calculationMode').value;
 let cuotaMensualCLP = 0, cuotaMensualUTM = 0, modoEsPesos = false;
 if (mode === 'utm') {
-cuotaMensualUTM = parseFloat(document.getElementById('utmAmount').value) || 0;
+cuotaMensualUTM = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 cuotaMensualCLP = cuotaMensualUTM * utmActual;
 } else if (mode === 'clp') {
 cuotaMensualCLP = parseInt(document.getElementById('clpAmount').value.replace(/\./g, '')) || 0;
