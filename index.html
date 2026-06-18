@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0617.v112e-missing-labels">
+ <meta name="app-version" content="2.0617.v112f-label-contrast-fecha-hint">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -340,6 +340,11 @@ try {
   transform: translateZ(0);
 }
 /* setOcrTab: tab inactivo visible sobre fondo blanco */
+/* input[type=date] placeholder simulado via data-placeholder */
+input[type="date"]#fechaLiquidacion:not([value=""]):not(:focus) { color: #1a1d2e; }
+input[type="date"]#fechaLiquidacion::-webkit-datetime-edit { color: #1a1d2e; }
+input[type="date"]#fechaLiquidacion:invalid::-webkit-datetime-edit,
+input[type="date"]#fechaLiquidacion:not([value])::-webkit-datetime-edit { color: #9aa3bb; }
 </style>
 </head>
 <body style="background:#f5f6f8;">
@@ -1378,8 +1383,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <!-- ── DÍA DE VENCIMIENTO — parte de la orden judicial, junto al monto ── -->
     <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:10px;">
       <div>
-        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
-        <p class="text-[8px] opacity-60">Día del mes en que vence cada cuota</p>
+        <p class="text-[10px] font-black uppercase" style="color:#5a6380;">Día de Vencimiento</p>
+        <p class="text-[8px]" style="color:#5a6380;opacity:0.7;">Día del mes en que vence cada cuota</p>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
@@ -1406,12 +1411,27 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:4px;">
       <div>
         <p class="text-[10px] font-black uppercase text-[#93c5fd]">Calcular hasta</p>
-        <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
+        <p id="fechaLiquidacionHint" class="text-[8px]" style="color:#5a6380;opacity:0.7;">Vacío = fecha de hoy</p>
       </div>
       <div class="flex items-center gap-2">
         <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
       </div>
     </div>
+    <script>
+    (function(){
+      var el = document.getElementById('fechaLiquidacion');
+      var hint = document.getElementById('fechaLiquidacionHint');
+      if(el){
+        var now = new Date();
+        var dd = String(now.getDate()).padStart(2,'0');
+        var mm = String(now.getMonth()+1).padStart(2,'0');
+        var yyyy = now.getFullYear();
+        var fechaStr = dd+'/'+mm+'/'+yyyy;
+        el.title = 'Hoy: '+fechaStr;
+        if(hint) hint.textContent = 'Vacío = '+fechaStr;
+      }
+    })();
+    </script>
 
     <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
     <div id="periodosVariablesWrap" style="margin-top:12px;">
