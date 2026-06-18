@@ -1,3 +1,24 @@
+CAMBIOS v112-mora-labels-dh → v112b-label-colors-placeholders
+==============================================================
+Fecha: 2026-06-18
+
+UI / LEGIBILIDAD
+────────────────
+Labels de la tarjeta "Datos de Pensión" más oscuros y legibles,
+más placeholders informativos en los inputs UTM y CLP.
+
+CAMBIO (styles.css):
+  Bloque "REFINAMIENTO UI PREMIUM" — regla .input-label:
+  • color: #9aa3bb → #5a6380   (más oscuro, mejor contraste)
+  • font-weight: 500 → 600     (más peso para legibilidad)
+
+CAMBIO (index.html):
+  • Placeholder input UTM (utmAmount): "0,000" → "0,000 UTM"
+  • Placeholder input CLP (clpAmount): "$ 0" → "$ 0 CLP"
+
+ARCHIVOS MODIFICADOS: styles.css, index.html, sw.js
+SERVICE WORKER: v172 → v172b
+
 CAMBIOS v111-patron4-label → v112-mora-labels-dh
 =================================================
 Fecha: 2026-06-18

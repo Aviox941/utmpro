@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0617.v108-fix-coma-decimal-utm">
+ <meta name="app-version" content="2.0617.v112e-missing-labels">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1330,13 +1330,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <div class="space-y-1">
           <label class="input-label">Valor cuota en UTM</label>
           <div style="position:relative;">
-            <input type="text" id="utmAmount" placeholder="0,000" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
+            <input type="text" id="utmAmount" placeholder="0,000 UTM" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
             <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
           </div>
         </div>
         <div class="space-y-1">
           <label class="input-label">Valor cuota en pesos</label>
-          <input type="text" id="clpAmount" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
+          <input type="text" id="clpAmount" placeholder="$ 0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
         </div>
       </div>
       <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
@@ -1375,6 +1375,19 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <input type="hidden" id="minimumPercent" value="">
       <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
     </div>
+    <!-- ── DÍA DE VENCIMIENTO — parte de la orden judicial, junto al monto ── -->
+    <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:10px;">
+      <div>
+        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
+        <p class="text-[8px] opacity-60">Día del mes en que vence cada cuota</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
+        <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
+      </div>
+    </div>
+
+    <!-- ── LÍNEA DE TIEMPO ─────────────────────────────────── -->
     <div class="grid grid-cols-2 gap-3" style="margin-top:10px;">
       <button onclick="openCalendar('start')" id="startBtn" class="input-date">
         <span class="input-date__sublabel">Mes que dejó de pagar</span>
@@ -1387,6 +1400,17 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
     <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-3 text-[10px] font-black text-red-400 flex items-center gap-2">
       La fecha "Desde" no puede ser posterior a "Hasta"
+    </div>
+
+    <!-- ── CORTE DEL REPORTE ───────────────────────────────── -->
+    <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:4px;">
+      <div>
+        <p class="text-[10px] font-black uppercase text-[#93c5fd]">Calcular hasta</p>
+        <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
+      </div>
     </div>
 
     <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
@@ -1402,27 +1426,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       </div>
       <!-- Lista de períodos registrados -->
       <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-bottom:8px;"></div>
-    </div>
-
-    <!-- Día de Vencimiento y Fecha de Liquidación -->
-    <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:4px;">
-      <div>
-        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
-        <p class="text-[8px] opacity-60">Día del mes en que vence cada cuota</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
-        <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
-      </div>
-    </div>
-    <div class="flex justify-between items-center border-t border-white/7 pt-3">
-      <div>
-        <p class="text-[10px] font-black uppercase text-[#93c5fd]">Calcular hasta</p>
-        <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
-      </div>
     </div>
 
   </div>
@@ -1683,6 +1686,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
           <!-- Monto -->
           <div>
+            <label class="input-label">Monto ($)</label>
             <input type="text" id="consolidadaMontoCLP" placeholder="Monto ($ pesos)"
               inputmode="numeric" pattern="[0-9]*"
               oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');tryRegisterConsolidada();"
@@ -1787,7 +1791,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   <div id="abonosBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="dh-body space-y-3" style="padding:12px 14px">
  <div class="grid grid-cols-2 gap-2">
- <input type="text" id="tempAbonoClp" placeholder="0.00" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnAbono()" class="input-currency">
+ <div class="space-y-1">
+   <label class="input-label">Monto ($)</label>
+   <input type="text" id="tempAbonoClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); checkBtnAbono()" class="input-currency">
+ </div>
  <input type="hidden" id="tempAbonoMes" value="">
  <input type="hidden" id="tempAbonoAnio" value="">
  <input type="hidden" id="tempAbonoDia" value="">
