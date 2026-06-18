@@ -5764,13 +5764,8 @@ function initCollapsibles() {
   });
 }
 window.onload = async () => {
-await fetchUTM();
-fetchTasasCMF();
-fetchMinimumSalary();
-hideLoadingBar();
-handleCalculationModeChange();
-initCollapsibles();
-// Prellenar fechaLiquidacion con hoy si está vacío (applySession lo sobreescribe si hay sesión guardada)
+// Prellenar fechaLiquidacion con hoy inmediatamente (antes de cualquier await)
+// applySession() lo sobreescribe si hay sesión guardada con otra fecha
 (function() {
   const fl = document.getElementById('fechaLiquidacion');
   if (fl && !fl.value) {
@@ -5781,6 +5776,12 @@ initCollapsibles();
     fl.value = `${yyyy}-${mm}-${dd}`;
   }
 })();
+await fetchUTM();
+fetchTasasCMF();
+fetchMinimumSalary();
+hideLoadingBar();
+handleCalculationModeChange();
+initCollapsibles();
 // En desktop el sidebar es siempre visible — poblar lista aunque no haya caso activo aún
 if (window.innerWidth >= 1024) renderCasosList();
 // NO restaurar casos aquí — onAuthStateChange → sbLoadCasos() es la fuente de verdad.

@@ -1,22 +1,18 @@
-CAMBIOS v112f-venc-ui → v112g-fechaliq-prefill
-===============================================
+CAMBIOS v112g-fechaliq-prefill → v112h-prefill-early
+=====================================================
 Fecha: 2026-06-18
 
-UI / CAMPO "CALCULAR HASTA"
-────────────────────────────
-Prellenado con la fecha de hoy al cargar la app.
+FIX / CAMPO "CALCULAR HASTA"
+──────────────────────────────
+El prellenado con fecha de hoy se movió al inicio de window.onload,
+ANTES del await fetchUTM(). Así el campo muestra la fecha de inmediato
+sin esperar a que carguen los datos UTM (evita que en Android aparezca
+vacío durante la carga inicial).
 
-COMPORTAMIENTO:
-  • Al abrir la app, fechaLiquidacion muestra la fecha actual (YYYY-MM-DD).
-  • Si hay una sesión guardada con fecha distinta, applySession() la sobreescribe
-    normalmente — no hay conflicto.
-  • getFechaLiquidacion() no se modifica: sigue usando .value si hay fecha,
-    o hoy como fallback (por si acaso el campo quedara vacío de otra forma).
-
-CAMBIO (index.html — window.onload):
-  Bloque IIFE añadido después de initCollapsibles():
-    if (!fl.value) → pone yyyy-mm-dd de hoy.
+CAMBIO (index.html):
+  El bloque IIFE de prellenado se reubicó como primera instrucción
+  de window.onload, antes de "await fetchUTM()".
 
 ARCHIVOS MODIFICADOS: index.html, sw.js
-SERVICE WORKER: v172f → v172g
+SERVICE WORKER: v172g → v172h
 
