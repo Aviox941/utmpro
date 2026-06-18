@@ -1,21 +1,31 @@
-CAMBIOS v112h-prefill-early → v112i-prefill-dispatch
+CAMBIOS v112i-prefill-dispatch → v112j-fechaliq-text
 =====================================================
 Fecha: 2026-06-18
 
-FIX / CAMPO "CALCULAR HASTA" — Android
-────────────────────────────────────────
-El prefill ya funcionaba (el calendario abría con el día 18 resaltado),
-pero Android no muestra el valor en la casilla hasta que el usuario
-presiona "Establecer" en el picker nativo.
+FIX / CAMPO "CALCULAR HASTA" — Android no mostraba valor
+──────────────────────────────────────────────────────────
+Android Chrome no renderiza el valor de type="date" seteado por JS
+hasta que el usuario abre y confirma el picker nativo. Solución definitiva:
+reemplazar el input por type="text" con formato visual DD/MM/AAAA.
 
-Fix: después de asignar fl.value, se dispara un evento 'change' sintético
-para que el navegador Android tome el valor como confirmado y lo muestre
-en la casilla sin que el usuario tenga que interactuar.
+CAMBIOS (index.html):
 
-CAMBIO (index.html — window.onload IIFE):
-  fl.dispatchEvent(new Event('change', { bubbles: true }));
-  añadido después de fl.value = yyyy-mm-dd.
+1. Input fechaLiquidacion: type="date" → type="text"
+   • placeholder="DD/MM/AAAA", maxlength=10, inputmode="numeric"
+   • oninput llama a _fmtFechaLiq(this) para autoformatear mientras escribe
+
+2. Nueva función _fmtFechaLiq(el):
+   • Inserta las barras automáticamente: 18 → 18/ → 18/06/ → 18/06/2026
+
+3. getFechaLiquidacion() actualizada:
+   • Acepta DD/MM/YYYY (nuevo formato) y YYYY-MM-DD (legacy/sesión guardada)
+
+4. resetFechaLiquidacion() actualizada:
+   • Ahora escribe DD/MM/YYYY en lugar de YYYY-MM-DD
+
+5. Prefill en window.onload:
+   • Escribe DD/MM/YYYY (visible inmediatamente en Android e iOS)
 
 ARCHIVOS MODIFICADOS: index.html, sw.js
-SERVICE WORKER: v172h → v172i
+SERVICE WORKER: v172i → v172j
 
