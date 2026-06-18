@@ -1,18 +1,21 @@
-CAMBIOS v112g-fechaliq-prefill → v112h-prefill-early
+CAMBIOS v112h-prefill-early → v112i-prefill-dispatch
 =====================================================
 Fecha: 2026-06-18
 
-FIX / CAMPO "CALCULAR HASTA"
-──────────────────────────────
-El prellenado con fecha de hoy se movió al inicio de window.onload,
-ANTES del await fetchUTM(). Así el campo muestra la fecha de inmediato
-sin esperar a que carguen los datos UTM (evita que en Android aparezca
-vacío durante la carga inicial).
+FIX / CAMPO "CALCULAR HASTA" — Android
+────────────────────────────────────────
+El prefill ya funcionaba (el calendario abría con el día 18 resaltado),
+pero Android no muestra el valor en la casilla hasta que el usuario
+presiona "Establecer" en el picker nativo.
 
-CAMBIO (index.html):
-  El bloque IIFE de prellenado se reubicó como primera instrucción
-  de window.onload, antes de "await fetchUTM()".
+Fix: después de asignar fl.value, se dispara un evento 'change' sintético
+para que el navegador Android tome el valor como confirmado y lo muestre
+en la casilla sin que el usuario tenga que interactuar.
+
+CAMBIO (index.html — window.onload IIFE):
+  fl.dispatchEvent(new Event('change', { bubbles: true }));
+  añadido después de fl.value = yyyy-mm-dd.
 
 ARCHIVOS MODIFICADOS: index.html, sw.js
-SERVICE WORKER: v172g → v172h
+SERVICE WORKER: v172h → v172i
 

@@ -5774,6 +5774,7 @@ window.onload = async () => {
     const mm = String(hoy.getMonth() + 1).padStart(2, '0');
     const dd = String(hoy.getDate()).padStart(2, '0');
     fl.value = `${yyyy}-${mm}-${dd}`;
+    fl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 })();
 await fetchUTM();
