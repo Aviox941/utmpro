@@ -1402,7 +1402,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <!-- ── CORTE DEL REPORTE ───────────────────────────────── -->
     <div class="border-t border-white/7 pt-3" style="margin-top:4px;">
       <p class="text-[10px] font-black uppercase text-[#93c5fd]" style="margin-bottom:4px;">Calcular hasta</p>
-      <input type="text" id="fechaLiquidacion" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="_fmtFechaLiq(this); calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:130px;color:#1a1d2e;">
+      <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
     </div>
 
     <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
@@ -2072,29 +2072,17 @@ if (!raw || isNaN(raw) || raw < 1) return 5;
 return Math.min(raw, 28);
 }
 function getFechaLiquidacion() {
-  // Acepta DD/MM/YYYY (input texto) o YYYY-MM-DD (legacy/sesión guardada)
-  const raw = (document.getElementById('fechaLiquidacion')?.value || '').trim();
-  if (raw) {
-    let fecha;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-      const [d, m, y] = raw.split('/').map(Number);
-      fecha = new Date(y, m - 1, d);
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      const [y, m, d] = raw.split('-').map(Number);
-      fecha = new Date(y, m - 1, d);
-    }
-    if (fecha) { fecha.setHours(0,0,0,0); if (!isNaN(fecha.getTime())) return fecha; }
+  // Si el usuario ingresó una fecha de liquidación, usarla; si no, usar hoy.
+  const raw = document.getElementById('fechaLiquidacion')?.value; // "YYYY-MM-DD"
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    const fecha = new Date(y, m - 1, d);
+    fecha.setHours(0, 0, 0, 0);
+    if (!isNaN(fecha.getTime())) return fecha;
   }
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   return hoy;
-}
-// Formatea automáticamente DD/MM/AAAA mientras el usuario escribe
-function _fmtFechaLiq(el) {
-  let v = el.value.replace(/\D/g, '').slice(0, 8);
-  if (v.length > 4) v = v.slice(0,2) + '/' + v.slice(2,4) + '/' + v.slice(4);
-  else if (v.length > 2) v = v.slice(0,2) + '/' + v.slice(2);
-  el.value = v;
 }
 // Reset forzado y silencioso de fechaLiquidacion al cambiar el período final (endIndex).
 // B1: si el período final es el mes actual → hoy; si es un mes pasado → último día de ese mes.
@@ -2114,7 +2102,7 @@ function resetFechaLiquidacion() {
   const yyyy = nuevaFecha.getFullYear();
   const mm = String(nuevaFecha.getMonth() + 1).padStart(2, '0');
   const dd = String(nuevaFecha.getDate()).padStart(2, '0');
-  input.value = `${dd}/${mm}/${yyyy}`;
+  input.value = `${yyyy}-${mm}-${dd}`;
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -5785,7 +5773,8 @@ window.onload = async () => {
     const yyyy = hoy.getFullYear();
     const mm = String(hoy.getMonth() + 1).padStart(2, '0');
     const dd = String(hoy.getDate()).padStart(2, '0');
-    fl.value = `${dd}/${mm}/${yyyy}`;
+    fl.value = `${yyyy}-${mm}-${dd}`;
+    fl.dispatchEvent(new Event('change', { bubbles: true }));
   }
 })();
 await fetchUTM();
