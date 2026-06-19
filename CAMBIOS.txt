@@ -1,68 +1,50 @@
-CAMBIOS v112m-header-minimal → v112n-hero-total-only
+CAMBIOS v112n-hero-total-only → v112o-header-solo-casos
 =====================================================
 Fecha: 2026-06-18
 
-UI / HERO TOTAL ADEUDADO — tarjeta única centrada y más grande
+UI / HEADER — ticker UTM eliminado, badge de usuario eliminado,
+botón "Casos" reubicado junto a la hamburguesa
 ─────────────────────────────────────────────────────────
-Pedido: eliminar la tarjeta de detalle a la derecha del hero,
-dejar solo "Total Adeudado" centrado (CLP arriba, UTM abajo),
-agrandar la tarjeta verticalmente y el texto del monto.
+Pedido: quitar el ticker "Caso activo / UTM Actual" y el icono
+de usuario al lado del menú hamburguesa; mantener solo el botón
+"Casos", reubicado justo donde estaba el icono de usuario.
 
 CAMBIOS (index.html):
 
-1. Eliminada visualmente la "hero-detail-card" (tarjeta blanca
-   derecha con Capital sin interés / Interés acumulado / Pagos
-   parciales). Esos 3 datos ya existen en "Detalle del cálculo"
-   y "Resumen final" más abajo en la pantalla.
-2. Ocultado el bloque heroMetaRow (UTM ref + fecha de liquidación
-   bajo el monto), tal como se pidió.
-3. heroLavRow (Abonos LAV) se mantuvo sin cambios — no se pidió
-   tocarlo y sigue apareciendo solo cuando hay abonos LAV.
+1. Botón "Casos" (id="casosManagerBtn", onclick="openCasosManagerModal()"):
+   se MOVIÓ desde el final del ticker UTM hasta el header,
+   inmediatamente a la derecha del botón hamburguesa (donde antes
+   estaba el badge de usuario). Mismo id y mismo onclick — solo
+   cambió de posición en el DOM y se redujo de tamaño (icono
+   14px en vez de 16px, padding 6px 10px, font-size 11px).
 
-IMPORTANTE — por qué no se borraron los IDs del DOM:
-El cálculo (más abajo en el script) escribe directamente vía
-document.getElementById('totalCap'/'totalCapUtm'/'totalInt'/
-'totalIntUtm').innerText SIN validar que el elemento exista
-(sin "if (el) ...").  Si esos elementos se eliminaban del HTML,
-esas líneas habrían lanzado TypeError ("Cannot set property
-'innerText' of null") y roto la ejecución del script completo
-para abajo — el mismo tipo de falla que causó el bug de la
-welcome screen en una versión anterior (ver CAMBIOS v112l).
+2. activeCasoBadge (icono de usuario + nombre de caso, que abría
+   abrirUserProfile()): oculto con display:none !important.
 
-Por eso, en vez de eliminar esos <span>, se dejaron en el DOM
-pero envueltos en un <div style="display:none !important;">.
-El cálculo sigue escribiendo en ellos con normalidad, pero no
-se muestran en pantalla. heroParcialRow/heroParcialClp/Utm se
-trataron igual (tienen guard "if (!parcialRow) return", pero se
-mantuvieron ocultos por consistencia).
+3. #utmTicker completo (Caso activo + UTM Actual): oculto con
+   display:none !important.
 
-CAMBIOS (styles.css):
+IMPORTANTE — por qué no se eliminaron del DOM:
+El script (más abajo) escribe directamente sobre estos elementos
+SIN validar que existan:
+  - document.getElementById('utmActualMes').innerText = ...
+  - document.getElementById('utmActualVal').innerText = ...
+  - document.getElementById('utmTicker').classList.remove('hidden')
+  - document.getElementById('utmTicker').style.display = 'flex'
+  - document.getElementById('activeCasoNombreHeader').innerText = email
+    (en el flujo de actualización del badge de correo)
+Eliminar esos elementos del HTML habría lanzado TypeError
+("Cannot set property ... of null") y roto la ejecución del
+script para abajo — el mismo patrón de falla que causó el bug de
+la welcome screen en una versión anterior (ver CAMBIOS v112l).
 
-1. .hero-total-card: ahora ocupa todo el ancho (border-radius
-   uniforme 14px, ya no "14px 6px 6px 14px" pensado para ir
-   pegada a otra tarjeta). align-items/text-align cambiados de
-   flex-start/left a center. Padding vertical aumentado (26px
-   arriba / 24px abajo) y min-height: 168px para la altura
-   vertical pedida.
-2. .hero-total-card__amount: tamaño aumentado de
-   clamp(20px,6vw,34px) a clamp(34px,11vw,56px).
-3. .hero-total-card__label y __utm: tamaños de fuente y
-   letter-spacing ligeramente aumentados para acompañar la
-   tarjeta más grande.
-4. .hero-total-card__amount-row: justify-content cambiado de
-   flex-start a center.
-5. Media query mobile (~2845) y tablet ≥768px (~3011): ajustados
-   los paddings/font-size que antes achicaban la tarjeta, para
-   que se mantenga grande también en pantallas chicas.
-6. Reglas .hero-detail-card__title / .hero-detail-row* se
-   dejaron en el CSS (quedan inertes, sin elemento al que
-   aplicarse) — no se tocaron para minimizar el diff.
+Por eso se dejaron en el DOM pero ocultos visualmente. El script
+sigue corriendo exactamente igual; estos elementos simplemente no
+se muestran en pantalla.
 
-NO SE TOCÓ: ninguna lógica de cálculo (imputarAbonosArt1595,
-PASO 1 pool LAV, etc.), ningún listener/onclick, ni los valores
-que el script escribe en pantalla — solo se ocultaron
-visualmente y se reordenó el layout.
+NO SE TOCÓ: ninguna lógica de cálculo, ningún otro onclick/handler,
+ni el comportamiento de openSidebar()/openCasosManagerModal()/
+abrirUserProfile() — solo se reordenó/ocultó HTML.
 
-ARCHIVOS MODIFICADOS: index.html, styles.css
-SERVICE WORKER: sin cambios (no hubo cambios de lógica/cache que
-requieran bump de SW).
+ARCHIVOS MODIFICADOS: index.html
+SERVICE WORKER: sin cambios.

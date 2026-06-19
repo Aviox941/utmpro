@@ -1152,7 +1152,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   <!-- Fila principal de controles -->
   <div class="header-row-main">
 
-    <!-- Botón Casos (dropdown) + badge usuario -->
+    <!-- Botón Casos (dropdown) -->
     <div class="flex items-center gap-2 flex-shrink-0">
 
       <!-- Menú hamburguesa (original) -->
@@ -1160,8 +1160,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
 
+      <!-- Botón Casos: reubicado aquí desde el ticker UTM (mismo id/onclick, solo se movió y achicó) -->
+      <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-1.5" id="casosManagerBtn"
+        style="flex-shrink:0;touch-action:manipulation;padding:6px 10px;font-size:11px;">
+        <svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Casos
+      </button>
 
-      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+      <!-- activeCasoBadge: oculto (icono usuario + nombre). Se conserva en el DOM porque
+           abrirUserProfile/activeCasoNombreHeader se siguen usando sin guard desde JS. -->
+      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:none !important;">
         <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
         </svg>
@@ -1199,8 +1207,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <span id="loadingText" class="text-[9px] font-black text-white/40 loading-pulse">Cargando datos UTM...</span>
   </div>
 
-  <!-- Tarjetas UTM -->
-  <div id="utmTicker" class="hidden" style="display:none;flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
+  <!-- Tarjetas UTM: oculto por completo (Casos se movió junto a la hamburguesa).
+       Se conserva en el DOM porque el script escribe en utmActualVal/utmActualMes
+       y togglea utmTicker.classList/style sin validar que existan. -->
+  <div id="utmTicker" class="hidden" style="display:none !important;flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
     <div class="utm-card-premium utm-card-premium--secondary" style="flex-shrink:0;flex-basis:160px;min-width:0;display:flex;flex-direction:column;justify-content:center;background:#eff6ff;border-color:#bfdbfe;">
       <span class="utm-card-label" style="color:#3b82f6;">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
@@ -1216,11 +1226,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         </div>
       </div>
     </div>
-    <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-2" id="casosManagerBtn"
-      style="flex-shrink:0;touch-action:manipulation;align-self:stretch;">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      Casos
-    </button>
   </div>
 </header>
 <!-- cmfTasasStatus: elemento fantasma para compatibilidad JS (no visible) -->
