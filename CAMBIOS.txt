@@ -1,36 +1,25 @@
-CAMBIOS v112p-header-fix-ticker-persistente → v112q-eliminar-barra-total-abonos
+CAMBIOS v112q → v113-calc-summary
 ==================================================================================
 Fecha: 2026-06-18
 
-UI: eliminada la barra "Total Abonos" debajo del hero
+NUEVA FUNCIONALIDAD: Tarjeta "Resumen del cálculo"
 ─────────────────────────────────────────────────────────
-Se trata del elemento id="abonoResultRow" (clase CSS .liq-abono-row),
-la franja blanca delgada que aparece justo debajo de la tarjeta azul
-"Total Adeudado" mostrando algo como "Total Abonos  −$148.566 LAV
-(2.14489 UTM)".
+Se agrega una nueva tarjeta colapsable entre el hero "Total Adeudado" y la
+barra de tarjetas anuales (yearTabsCard).
 
-Mismo patrón de riesgo ya visto con el ticker UTM (ver CAMBIOS
-v112p): el script hace
+Muestra el desglose final de la liquidación:
+  • Capital total (pensiones impagas) en CLP
+  • Total intereses generados en CLP (azul)
+  • Pagos parciales (verde, solo si existen)
+  • Abonos LAV (verde, solo si existen)
+  • Subtotal histórico
+  • Revalorización UTM (con valor 1 UTM = $X mes)
+  • Caja final oscura con: total CLP, total UTM, referencia UTM
 
-  abonoRow.classList.remove('hidden');
-  document.getElementById('totalAbonoDisplay').innerText = abonoLabel;
+La tarjeta es colapsable (chevron ▲/▼). El estado inicial es abierto.
+Se oculta correctamente cuando no hay cálculo activo.
 
-sin validar que los elementos existan. Además, la clase ".hidden"
-es de Tailwind y NO lleva !important, así que con solo dejarla
-puesta en el HTML, el "classList.remove('hidden')" del script la
-habría vuelto a mostrar igual que pasó con el ticker.
-
-FIX: se agregó la clase ".abono-row-removed" (display:none
-!important + height/padding/margin en 0 !important) al elemento
-abonoResultRow en el HTML, y se definió esa clase en styles.css.
-Por tener !important en una regla de hoja de estilos, esta clase
-vence cualquier "classList.remove('hidden')" o asignación de texto
-que el script siga haciendo sobre estos elementos — quedan ocultos
-de forma permanente y sin reservar espacio.
-
-NO SE TOCÓ: ninguna lógica de cálculo ni la función que arma el
-label de abonos (abonoLabel) — sigue ejecutándose igual, solo que
-ya no es visible.
-
-ARCHIVOS MODIFICADOS: index.html, styles.css
-SERVICE WORKER: sin cambios.
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (HTML tarjeta + lógica JS renderCalcSummary + toggleCalcSummary)
+- sw.js       (CACHE_NAME: pension-utm-v173)
