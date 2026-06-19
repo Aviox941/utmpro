@@ -1544,7 +1544,7 @@ function showResumenModal() {
     alert('No hay datos calculados. Ingresa los datos y el cálculo se actualizará automáticamente.');
     return;
   }
-  buildResumenContent();
+  buildResumenContent(); // siempre regenera en #resumenContent
   document.getElementById('resumenModal').classList.replace('hidden','flex');
   lockBody();
 }

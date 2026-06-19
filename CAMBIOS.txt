@@ -1,25 +1,27 @@
-CAMBIOS v112q → v113-calc-summary
+CAMBIOS v113 → v114-inline-detail
 ==================================================================================
 Fecha: 2026-06-18
 
-NUEVA FUNCIONALIDAD: Tarjeta "Resumen del cálculo"
-─────────────────────────────────────────────────────────
-Se agrega una nueva tarjeta colapsable entre el hero "Total Adeudado" y la
-barra de tarjetas anuales (yearTabsCard).
+FIX: Reemplaza tarjeta de resumen manual (v113) por el contenido real del modal
+──────────────────────────────────────────────────────────────────────────────────
+La tarjeta inline "Detalle del cálculo" ahora reutiliza buildResumenContent()
+de export.js — la misma función que genera el modal y el PDF.
 
-Muestra el desglose final de la liquidación:
-  • Capital total (pensiones impagas) en CLP
-  • Total intereses generados en CLP (azul)
-  • Pagos parciales (verde, solo si existen)
-  • Abonos LAV (verde, solo si existen)
-  • Subtotal histórico
-  • Revalorización UTM (con valor 1 UTM = $X mes)
-  • Caja final oscura con: total CLP, total UTM, referencia UTM
+Esto significa que la tarjeta muestra exactamente:
+  • Tabla por columnas: Período · UTM · Capital $ · Días · Tasa · Interés · Subtotal
+  • Separadores por año con sub-headers
+  • Sección "Deuda Histórica" si aplica
+  • Abonos Realizados (Art. 1595 CC) si existen
+  • Pagos Parciales por Mes con remanentes
+  • Abonos LAV — Detalle con fechas y UTM equivalente
+  • Resumen Final con caja oscura de total en CLP y UTM
 
-La tarjeta es colapsable (chevron ▲/▼). El estado inicial es abierto.
-Se oculta correctamente cuando no hay cálculo activo.
+La tarjeta es colapsable (chevron ▲/▼, abierta por defecto).
+El modal del botón del header sigue funcionando (regenera buildResumenContent
+en #resumenContent directamente al abrirse).
 
 ARCHIVOS MODIFICADOS
 ─────────────────────
-- index.html  (HTML tarjeta + lógica JS renderCalcSummary + toggleCalcSummary)
-- sw.js       (CACHE_NAME: pension-utm-v173)
+- index.html  (HTML tarjeta + lógica renderCalcSummaryCard)
+- export.js   (showResumenModal: siempre regenera en #resumenContent)
+- sw.js       (CACHE_NAME: pension-utm-v174)

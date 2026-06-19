@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0618.v113-calc-summary">
+ <meta name="app-version" content="2.0618.v114-inline-detail">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1275,61 +1275,27 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <p class="liq-abono-row__label">Total Abonos</p>
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
       </div>
-      <!-- ── Resumen de cálculo (debajo del hero, arriba de yearTabs) ── -->
-      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.06);overflow:hidden;">
+      <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
+      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
         <!-- Header colapsable -->
-        <button id="calcSummaryToggle" onclick="toggleCalcSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;cursor:pointer;text-align:left;">
+        <button onclick="toggleCalcSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;cursor:pointer;text-align:left;border-bottom:1px solid rgba(0,0,0,0.06);">
           <div style="display:flex;align-items:center;gap:9px;">
-            <div style="width:28px;height:28px;border-radius:9px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
-            <span style="font-size:11px;font-weight:700;color:#1e293b;letter-spacing:0.01em;">Resumen del cálculo</span>
-          </div>
-          <svg id="calcSummaryChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;transform:rotate(180deg);"><polyline points="18 15 12 9 6 15"/></svg>
-        </button>
-        <!-- Cuerpo colapsable -->
-        <div id="calcSummaryBody" style="padding:0 14px 13px;">
-          <!-- Filas de detalle -->
-          <div style="display:flex;flex-direction:column;gap:0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:11px;color:#64748b;">Capital total (pensiones impagas)</span>
-              <span id="csCapTotal" style="font-size:11px;font-weight:700;color:#1e293b;">—</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:11px;color:#64748b;">Total intereses generados</span>
-              <span id="csIntTotal" style="font-size:11px;font-weight:700;color:#3b82f6;">—</span>
-            </div>
-            <div id="csParcialRow" style="display:none;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:11px;color:#64748b;">Pagos parciales</span>
-              <span id="csParcialVal" style="font-size:11px;font-weight:700;color:#10b981;">—</span>
-            </div>
-            <div id="csLavRow" style="display:none;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:11px;color:#64748b;">Abonos LAV</span>
-              <span id="csLavVal" style="font-size:11px;font-weight:700;color:#10b981;">—</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;">
-              <span style="font-size:11px;color:#64748b;">Subtotal histórico</span>
-              <span id="csSubtotal" style="font-size:11px;font-weight:700;color:#1e293b;">—</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;">
-              <span id="csRevalLabel" style="font-size:11px;color:#3b82f6;">Revalorización UTM</span>
-              <span id="csRevalVal" style="font-size:11px;font-weight:700;color:#3b82f6;">—</span>
-            </div>
-          </div>
-          <!-- Caja total final -->
-          <div style="margin-top:10px;background:#0d1117;border-radius:12px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">
             <div>
-              <p style="font-size:9px;font-weight:600;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">Total a pagar – Liquidación final</p>
-              <p id="csTotalFinal" style="font-size:22px;font-weight:800;color:#fff;font-family:'DM Sans',system-ui,sans-serif;letter-spacing:-0.02em;">—</p>
-            </div>
-            <div style="text-align:right;">
-              <p id="csTotalUtm" style="font-size:13px;font-weight:800;color:#60a5fa;">—</p>
-              <p id="csTotalUtmRef" style="font-size:9px;color:rgba(255,255,255,0.45);margin-top:2px;">—</p>
+              <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
+              <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
             </div>
           </div>
+          <svg id="calcSummaryChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;transform:rotate(180deg);flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <!-- Contenido: reutiliza buildResumenContent() pero sin la sección "Datos del Caso" -->
+        <div id="calcSummaryBody" style="padding:12px 0 4px;">
+          <div id="calcSummaryContent" class="space-y-4 text-[11px] text-[#5a6380]" style="padding:0 0 8px;"></div>
         </div>
       </div>
-      <!-- /Resumen del cálculo -->
+      <!-- /Detalle del cálculo -->
 
       <div id="yearTabsCard" class="hidden" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 4px rgba(0,0,0,0.05);padding:10px 12px;display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;justify-content:space-between;">
         <div id="yearTabs" class="flex gap-2 overflow-x-auto no-scrollbar"></div>
@@ -4807,55 +4773,24 @@ document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
 renderYearTabs();
-// ── Resumen del cálculo ─────────────────────────────────────────────────────
-(function renderCalcSummary() {
+// ── Detalle del cálculo (tarjeta inline) ────────────────────────────────────
+(function renderCalcSummaryCard() {
   const card = document.getElementById('calcSummaryCard');
-  if (!card) return;
-  const fmt = v => '$' + new Intl.NumberFormat('es-CL').format(Math.round(v));
-  // Valores base
-  const capCLP   = totalCapUTMPostImput * utmLiq;
-  const intCLP   = totalIntPostImput;
-  // Pagos parciales
-  const _parcCLP = (pagosParciales || []).reduce((s,p) => s + p.amount, 0);
-  // LAV
-  const _lavCLP  = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
-  // Subtotal histórico = cap + int (antes de revalorización = suma en CLP histórico)
-  // La diferencia entre totalFinal y (capCLP + intCLP) es la revalorización UTM
-  const subtotalHistorico = capCLP + intCLP;
-  const revalorizacion    = Math.max(0, totalFinal - subtotalHistorico);
-  // Poblar
-  document.getElementById('csCapTotal').textContent  = fmt(capCLP);
-  document.getElementById('csIntTotal').textContent  = fmt(intCLP);
-  document.getElementById('csSubtotal').textContent  = fmt(subtotalHistorico);
-  // Revalorización
-  const revalEl    = document.getElementById('csRevalVal');
-  const revalLabel = document.getElementById('csRevalLabel');
-  if (revalorizacion > 0) {
-    revalEl.textContent    = '+' + fmt(revalorizacion);
-    revalLabel.textContent = `Revalorización UTM (1 UTM = ${fmt(utmLiq).replace('$','$')})`;
-  } else {
-    revalEl.textContent    = '—';
-    revalLabel.textContent = 'Revalorización UTM';
+  const contentEl = document.getElementById('calcSummaryContent');
+  if (!card || !contentEl) return;
+  // Reutilizar buildResumenContent pero apuntando al contenedor inline
+  // Temporalmente redirigir el contenedor del modal
+  const modalContent = document.getElementById('resumenContent');
+  if (!modalContent) return;
+  const prevHTML = modalContent.innerHTML;
+  buildResumenContent();
+  // Mover el contenido generado al contenedor inline (clonar nodos)
+  contentEl.innerHTML = '';
+  while (modalContent.firstChild) {
+    contentEl.appendChild(modalContent.firstChild);
   }
-  // Pagos parciales
-  const parcRow = document.getElementById('csParcialRow');
-  if (_parcCLP > 0) {
-    document.getElementById('csParcialVal').textContent = '−' + fmt(_parcCLP).replace('$','$');
-    parcRow.style.display = 'flex';
-  } else { parcRow.style.display = 'none'; }
-  // LAV
-  const lavRow = document.getElementById('csLavRow');
-  if (_lavCLP > 0) {
-    document.getElementById('csLavVal').textContent = '−' + fmt(_lavCLP).replace('$','$');
-    lavRow.style.display = 'flex';
-  } else { lavRow.style.display = 'none'; }
-  // Total final
-  document.getElementById('csTotalFinal').textContent  = fmt(totalFinal);
-  document.getElementById('csTotalUtm').textContent    = totalDeudaUTM.toFixed(4) + ' UTM';
-  // Obtener mes/año UTM de referencia para la etiqueta
-  const _fLiq = getFechaLiquidacion ? getFechaLiquidacion() : new Date();
-  const _mesNombre = _fLiq.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
-  document.getElementById('csTotalUtmRef').textContent = `1 UTM = ${fmt(utmLiq)} (${_mesNombre.charAt(0).toUpperCase()+_mesNombre.slice(1)})`;
+  // Restaurar el modal (vacío, se regenera cuando se abra)
+  modalContent.innerHTML = '';
   card.classList.remove('hidden');
 })();
 // ────────────────────────────────────────────────────────────────────────────
@@ -4957,13 +4892,13 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
   } catch(e) { /* silent */ }
 }
 }
-// ── Toggle resumen del cálculo ──────────────────────────────────────────────
+// ── Toggle detalle del cálculo (tarjeta inline) ─────────────────────────────
 let _calcSummaryOpen = true;
 function toggleCalcSummary() {
   _calcSummaryOpen = !_calcSummaryOpen;
   const body    = document.getElementById('calcSummaryBody');
   const chevron = document.getElementById('calcSummaryChevron');
-  if (body)    body.style.display    = _calcSummaryOpen ? 'block' : 'none';
+  if (body)    body.style.display      = _calcSummaryOpen ? 'block' : 'none';
   if (chevron) chevron.style.transform = _calcSummaryOpen ? 'rotate(180deg)' : 'rotate(0deg)';
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -6057,7 +5992,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v113-calc-summary</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v114-inline-detail</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
