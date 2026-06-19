@@ -1,4 +1,24 @@
-CAMBIOS v2.0619.0223 → v2.0619.0224
+CAMBIOS v2.0619.0224 → v2.0619.0225
+==================================================================================
+Fecha: 2026-06-19
+
+FIX: Texto truncado ("Desde el últi…", "Pagos parcia…") en las tarjetas
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  En pantallas angostas reales (celular Android, ~360-400px de ancho),
+  el título de las tarjetas se truncaba con "…" porque font-size:9.5px
+  en una sola línea (white-space:nowrap + ellipsis) no alcanzaba para
+  "Desde el último pago" y "Pagos parciales" dentro del ancho disponible
+  en un grid de 4 columnas.
+
+SOLUCIÓN
+  Se permite que el título use 2 líneas (white-space:normal + line-clamp:2
+  en vez de nowrap+ellipsis), se redujo a font-size:9px y se aumentó la
+  altura de la tarjeta de 64px a 74px para acomodar el wrap sin recortar
+  texto. Se ajustó el padding-bottom compensatorio de #app-container de
+  120px a 130px por el incremento de altura de la barra.
+
+
 ==================================================================================
 Fecha: 2026-06-19
 
