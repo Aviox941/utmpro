@@ -1,76 +1,68 @@
-CAMBIOS v112i-welcome-final → v112l-welcome-removed
+CAMBIOS v112m-header-minimal → v112n-hero-total-only
 =====================================================
 Fecha: 2026-06-18
 
-FIX / WELCOME SCREEN ELIMINADA POR COMPLETO — login no respondía
-──────────────────────────────────────────────────────────
-Causa raíz real (no era el bug reportado inicialmente sobre z-index/orden
-de aparición): existían DOS sistemas de welcome screen con el MISMO
-NOMBRE de funciones, definidos en archivos distintos:
-
-  1. Uno en index.html (agregado en el intento de fix v112k anterior).
-  2. Uno preexistente en export.js, marcado como "v38", con su propio
-     HTML esperado (welcomeCasosWrap, welcomeNombreInput, welcomeBtnRapido),
-     su propia lógica de creación de caso (crearCasoDesdeWelcome,
-     abrirCasoJudicialDesdeWelcome) y su propia variable
-     _welcomeScreenVisible.
-
-Como export.js se carga DESPUÉS de index.html, sus definiciones de
-showWelcomeScreen()/hideWelcomeScreen()/_welcomeScreenVisible
-sobrescribían silenciosamente a las de index.html (redeclaración de
-function/var sin error en JS no-modular).
-
-El punto crítico: hideNewCasoModal() en export.js llamaba a
-showWelcomeScreen()/hideWelcomeScreen() SIN protección typeof, dentro
-del flujo de creación/cierre del modal de nuevo caso. Esto podía lanzar
-una excepción no capturada que interrumpía la ejecución del script,
-dejando botones (incluido "Iniciar sesión" y el ícono de mostrar
-contraseña) sin responder a clicks.
-
-DECISIÓN: en lugar de intentar reconciliar ambos sistemas, se eliminó
-la welcome screen COMPLETA Y POR COMPLETO de la aplicación — todo
-rastro, como si nunca hubiera existido.
+UI / HERO TOTAL ADEUDADO — tarjeta única centrada y más grande
+─────────────────────────────────────────────────────────
+Pedido: eliminar la tarjeta de detalle a la derecha del hero,
+dejar solo "Total Adeudado" centrado (CLP arriba, UTM abajo),
+agrandar la tarjeta verticalmente y el texto del monto.
 
 CAMBIOS (index.html):
 
-1. Eliminado el bloque <div id="welcomeScreen">...</div> completo
-   (HTML con las 7 opciones de "¿Qué quieres calcular?").
-2. Eliminadas las funciones showWelcomeScreen(), hideWelcomeScreen(),
-   variable _welcomeScreenVisible (las agregadas en el intento v112k).
-3. sbLoadCasos() → _localReady(): removida toda lógica de welcome.
-   Ahora, si no hay caso local válido, solo se renderiza la lista de
-   casos (vacía); el mensaje "No hay casos guardados. Crea uno con el
-   botón de arriba." ya existente en el sidebar cubre ese estado.
-4. Removido el guard "_welcomeScreenVisible && window._loadFromVisibility"
-   (la variable ya no existe).
-5. Removido el bloque de auto-restauración de caso "si welcome visible
-   y Supabase trajo casos" en la fase de sync background (dependía de
-   _welcomeScreenVisible/hideWelcomeScreen, ya no aplica).
-6. Limpiados comentarios obsoletos que mencionaban "welcome screen".
+1. Eliminada visualmente la "hero-detail-card" (tarjeta blanca
+   derecha con Capital sin interés / Interés acumulado / Pagos
+   parciales). Esos 3 datos ya existen en "Detalle del cálculo"
+   y "Resumen final" más abajo en la pantalla.
+2. Ocultado el bloque heroMetaRow (UTM ref + fecha de liquidación
+   bajo el monto), tal como se pidió.
+3. heroLavRow (Abonos LAV) se mantuvo sin cambios — no se pidió
+   tocarlo y sigue apareciendo solo cuando hay abonos LAV.
 
-CAMBIOS (export.js):
+IMPORTANTE — por qué no se borraron los IDs del DOM:
+El cálculo (más abajo en el script) escribe directamente vía
+document.getElementById('totalCap'/'totalCapUtm'/'totalInt'/
+'totalIntUtm').innerText SIN validar que el elemento exista
+(sin "if (el) ...").  Si esos elementos se eliminaban del HTML,
+esas líneas habrían lanzado TypeError ("Cannot set property
+'innerText' of null") y roto la ejecución del script completo
+para abajo — el mismo tipo de falla que causó el bug de la
+welcome screen en una versión anterior (ver CAMBIOS v112l).
 
-1. Eliminado el sistema completo "PANTALLA DE BIENVENIDA — v38":
-   _welcomeScreenVisible, showWelcomeScreen(), hideWelcomeScreen(),
-   checkWelcomeBtn(), crearCasoDesdeWelcome(), abrirCasoJudicialDesdeWelcome().
-   Ninguna de estas se invocaba desde ningún onclick en index.html
-   (eran exclusivas del HTML de welcome ya eliminado).
-2. switchCaso(): removida la llamada
-   "if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();"
-3. hideNewCasoModal(): removida toda la lógica de welcome screen al
-   final de la función (mostrar welcome si no hay caso activo / ocultar
-   welcome y togglear clase 'app-ready' si el caso se creó). La función
-   ahora solo oculta el modal y desbloquea el body, como antes de que
-   existiera cualquier welcome screen.
+Por eso, en vez de eliminar esos <span>, se dejaron en el DOM
+pero envueltos en un <div style="display:none !important;">.
+El cálculo sigue escribiendo en ellos con normalidad, pero no
+se muestran en pantalla. heroParcialRow/heroParcialClp/Utm se
+trataron igual (tienen guard "if (!parcialRow) return", pero se
+mantuvieron ocultos por consistencia).
 
-VALIDACIÓN: sintaxis verificada en los 3 archivos (index.html bloque
-por bloque, export.js, sw.js) — sin errores. Búsqueda exhaustiva de
-"welcome" (case-insensitive) en todo el proyecto: cero coincidencias
-funcionales, solo queda en el nombre de esta versión.
+CAMBIOS (styles.css):
 
-NO SE TOCÓ: imputarAbonosArt1595, lógica del PASO 1 (pool LAV),
-loginScreen, ni ningún otro flujo de autenticación o cálculo.
+1. .hero-total-card: ahora ocupa todo el ancho (border-radius
+   uniforme 14px, ya no "14px 6px 6px 14px" pensado para ir
+   pegada a otra tarjeta). align-items/text-align cambiados de
+   flex-start/left a center. Padding vertical aumentado (26px
+   arriba / 24px abajo) y min-height: 168px para la altura
+   vertical pedida.
+2. .hero-total-card__amount: tamaño aumentado de
+   clamp(20px,6vw,34px) a clamp(34px,11vw,56px).
+3. .hero-total-card__label y __utm: tamaños de fuente y
+   letter-spacing ligeramente aumentados para acompañar la
+   tarjeta más grande.
+4. .hero-total-card__amount-row: justify-content cambiado de
+   flex-start a center.
+5. Media query mobile (~2845) y tablet ≥768px (~3011): ajustados
+   los paddings/font-size que antes achicaban la tarjeta, para
+   que se mantenga grande también en pantallas chicas.
+6. Reglas .hero-detail-card__title / .hero-detail-row* se
+   dejaron en el CSS (quedan inertes, sin elemento al que
+   aplicarse) — no se tocaron para minimizar el diff.
 
-ARCHIVOS MODIFICADOS: index.html, export.js, sw.js
-SERVICE WORKER: v172i → v172l
+NO SE TOCÓ: ninguna lógica de cálculo (imputarAbonosArt1595,
+PASO 1 pool LAV, etc.), ningún listener/onclick, ni los valores
+que el script escribe en pantalla — solo se ocultaron
+visualmente y se reordenó el layout.
 
+ARCHIVOS MODIFICADOS: index.html, styles.css
+SERVICE WORKER: sin cambios (no hubo cambios de lógica/cache que
+requieran bump de SW).
