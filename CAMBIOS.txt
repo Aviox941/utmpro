@@ -1,3 +1,28 @@
+CAMBIOS v2.0619.0222 → v2.0619.0223
+==================================================================================
+Fecha: 2026-06-19
+
+NUEVO: Sección visual "¿Cómo deseas calcular?" (estilo fintech/Nubank)
+──────────────────────────────────────────────────────────────────────────────────
+QUÉ SE AGREGÓ
+  Bloque puramente decorativo con 4 tarjetas (Desde el último pago, Entre
+  fechas, Con lagunas, Pagos parciales), insertado inmediatamente debajo de
+  la tarjeta "Total Adeudado" y antes de "Detalle del cálculo". Scroll
+  horizontal en móvil, sin scrollbar visible, gap 16px, tarjetas de
+  170×140px con radio 24px y gradientes de color por variante (azul,
+  violeta, verde, rosa).
+
+  Las tarjetas NO tienen acción funcional todavía (sin onClick real): son
+  solo presentación visual a la espera de definir a qué flujo conectar cada
+  una. Se evitó inventar un mapeo arbitrario hacia secciones existentes
+  (LAV, Deuda Histórica, Abonos, Pagos Parciales) para no generar
+  comportamiento inesperado.
+
+  CSS 100% nuevo y aislado (prefijo .calc-mode-*) agregado al final de
+  styles.css. Reutiliza la utilidad .no-scrollbar ya existente. No se
+  modificó ninguna clase, función JS, hook, contexto, lógica de cálculo,
+  IndexedDB ni estado global. Cambio puramente de UI.
+
 CAMBIOS v2.0619.0202 → v2.0619.0222
 ==================================================================================
 Fecha: 2026-06-19
