@@ -1,4 +1,34 @@
-CAMBIOS v2.0619.0222 → v2.0619.0223
+CAMBIOS v2.0619.0223 → v2.0619.0224
+==================================================================================
+Fecha: 2026-06-19
+
+AJUSTE: "¿Cómo deseas calcular?" pasa a barra fija inferior compacta
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  Con tarjetas de 170×140px en fila con scroll horizontal, la 4ª tarjeta
+  ("Pagos parciales") quedaba cortada/oculta fuera del viewport, y al
+  hacer scroll vertical la sección completa se perdía de vista (era parte
+  del flujo normal de contenido).
+
+SOLUCIÓN
+  La sección ahora es position:fixed al fondo de toda la pantalla
+  (bottom:0, z-index:250), por lo que las 4 tarjetas están siempre
+  visibles sin importar el scroll. Tarjetas reducidas a un grid de 4
+  columnas iguales (antes: fila con scroll horizontal), cada una de
+  ~64px de alto con ícono de 24px y título de una sola línea (se quitó
+  el salto de línea y la flecha "›" para que entre todo sin recortes).
+
+  Para que la barra fija no tape el contenido al llegar al final del
+  scroll, se aumentó el padding-bottom de #app-container a 120px
+  (antes pb-20 = 80px). El ancho interno de la barra (.calc-mode-
+  section__inner) se sincronizó con los mismos breakpoints responsivos
+  de #app-container para quedar alineada en tablet/desktop.
+
+  Se eliminó el uso de .no-scrollbar (ya no hay scroll horizontal: es
+  un grid de 4 columnas que siempre entra completo). Sigue sin tener
+  acción funcional (onClick) — solo presentación visual.
+
+
 ==================================================================================
 Fecha: 2026-06-19
 
