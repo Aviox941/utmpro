@@ -787,8 +787,6 @@ if (typeof sb !== 'undefined' && typeof sbCurrentUser !== 'undefined' && sbCurre
   sb.auth.updateUser({ data: { last_caso: id } })
     .catch(e => dbg('SWITCH: user_metadata update error — ' + e.message));
 }
-// Ocultar welcome screen si estaba visible (restauración de caso)
-if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();
 // Limpiar siempre antes de cargar el nuevo caso
 // Evita que datos del caso anterior (arrays, períodos, abonos) persistan en pantalla
 resetAllSilent();
@@ -1113,6 +1111,10 @@ document.getElementById('yearTabsCard').classList.add('hidden');
 document.getElementById('yearTabs').innerHTML = '';
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
+const _calcCard = document.getElementById('calcSummaryCard');
+if (_calcCard) _calcCard.classList.add('hidden');
+const _calcContent = document.getElementById('calcSummaryContent');
+if (_calcContent) _calcContent.innerHTML = '';
 const _hMetaR = document.getElementById('heroMetaRow'); if (_hMetaR) _hMetaR.classList.add('hidden');
 const _hParcR = document.getElementById('heroParcialRow'); if (_hParcR) _hParcR.classList.add('hidden');
 const mesesLabelReset = document.getElementById('yearTabsMesesLabel');
@@ -1157,17 +1159,6 @@ function showNewCasoModal() {
 function hideNewCasoModal() {
   document.getElementById('newCasoModal').classList.replace('flex','hidden');
   unlockBody();
-  // v38: si se cerró el modal judicial sin crear caso, volver a la welcome screen
-  if (!activeCasoId) {
-    showWelcomeScreen();
-    return;
-  }
-  // Caso creado exitosamente: ocultar welcome screen y mostrar app
-  hideWelcomeScreen();
-  const app = document.getElementById('app-container');
-  if (app && !app.classList.contains('app-ready')) {
-    requestAnimationFrame(() => app.classList.add('app-ready'));
-  }
 }
 function crearCaso() {
   const nombre = (document.getElementById('newCasoInput')?.value || '').trim();
@@ -1557,7 +1548,7 @@ function showResumenModal() {
     alert('No hay datos calculados. Ingresa los datos y el cálculo se actualizará automáticamente.');
     return;
   }
-  buildResumenContent();
+  buildResumenContent(); // siempre regenera en #resumenContent
   document.getElementById('resumenModal').classList.replace('hidden','flex');
   lockBody();
 }
@@ -1565,8 +1556,8 @@ function hideResumenModal() {
   document.getElementById('resumenModal').classList.replace('flex','hidden');
   unlockBody();
 }
-function buildResumenContent() {
-  const container = document.getElementById('resumenContent');
+function buildResumenContent(targetContainer, inlineMode) {
+  const container = targetContainer || document.getElementById('resumenContent');
   container.innerHTML = '';
   const utmHoy = getUtmActualVal();
   // UTM del mes de la fecha de liquidación (igual que calculate() y generarPDF())
@@ -1606,8 +1597,8 @@ function buildResumenContent() {
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
-  // ── 0. Datos del Caso (colapsable) ──
-  (function renderCasoBlock() {
+  // ── 0. Datos del Caso (colapsable) — solo en modal, no en tarjeta inline ──
+  if (!inlineMode) (function renderCasoBlock() {
     if (!activeCasoId) return;
     const casos = getCasosIndex();
     const c = casos.find(x => x.id === activeCasoId);
@@ -1678,8 +1669,9 @@ function buildResumenContent() {
     container.appendChild(wrap);
   })();
 
-  // ── Helper: sección con título de color ──
+  // ── Helper: sección con título de color (suprimida en modo inline) ──
   function seccion(titulo, colorHex, emoji) {
+    if (inlineMode) return; // sin franjas de sección en la tarjeta compacta
     const div = document.createElement('div');
     div.innerHTML = `<div class="flex items-center gap-2 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wide" style="background:${colorHex}14;border:1px solid ${colorHex}30">
       <span>${emoji}</span><span style="color:${colorHex}">${titulo}</span>
@@ -1693,16 +1685,17 @@ function buildResumenContent() {
     const COLS = '2.2fr 1.2fr 2fr 1.2fr 1.8fr 2fr 2fr';
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.border = `1px solid ${colorHeader}30`;
-    // Header
+    wrap.style.border = '1px solid #e2e8f0';
+    wrap.style.background = '#ffffff';
+
+    // Header único, neutro (estilo fintech minimalista)
     const head = document.createElement('div');
-    head.className = 'grid text-[9px] font-black uppercase text-white px-3 py-2';
-    head.style.cssText = `background:${colorHeader};grid-template-columns:${COLS};column-gap:6px`;
+    head.className = 'grid px-3 py-2 text-[8px] font-bold uppercase tracking-wide';
+    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#94a3b8;border-bottom:1px solid #f1f5f9`;
     head.innerHTML = '<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>';
     wrap.appendChild(head);
 
     let lastYear = null;
-    let rowIndex = 0;
     datos.forEach((d) => {
       // Capital $ muestra el valor POST-LAV (lo que realmente se adeuda: 0 si cubierto)
       const cap0 = d.cap;
@@ -1712,25 +1705,18 @@ function buildResumenContent() {
       const yearMatch = periodoClean.match(/\d{4}/);
       const rowYear = yearMatch ? parseInt(yearMatch[0]) : null;
 
-      // Separador de año
+      // Separador de año: solo una etiqueta simple, sin repetir cabecera
       if (rowYear && rowYear !== lastYear) {
         lastYear = rowYear;
         const sep = document.createElement('div');
-        sep.style.cssText = `background:${colorHeader}10;border-top:1.5px solid ${colorHeader}40`;
-        sep.innerHTML = `
-          <div class="flex items-center gap-2 px-3 py-1">
-            <span style="font-size:9px;font-weight:900;color:${colorHeader};letter-spacing:0.08em">${rowYear}</span>
-          </div>
-          <div class="grid px-3 pb-1 text-[8px] font-black uppercase" style="grid-template-columns:${COLS};column-gap:6px;color:${colorHeader};opacity:0.7">
-            <span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>
-          </div>`;
+        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #f1f5f9';
+        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:${colorHeader}">${rowYear}</span>`;
         wrap.appendChild(sep);
-        rowIndex = 0;
       }
 
       const row = document.createElement('div');
-      row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-sky-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${rowIndex%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
+      row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-slate-50 active:opacity-70 transition-colors';
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #f1f5f9`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
@@ -1771,22 +1757,15 @@ function buildResumenContent() {
         <span class="text-right font-black" style="color:#0f172a">${fmt(capMostrado+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
       wrap.appendChild(row);
-      rowIndex++;
     });
-    // Sub-header antes del total
-    const subHead = document.createElement('div');
-    subHead.className = 'grid px-3 py-1 text-[8px] font-black uppercase';
-    subHead.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:${colorHeader};opacity:0.7;background:${colorHeader}08;border-top:1px solid ${colorHeader}30`;
-    subHead.innerHTML = `<span>Período</span><span>Cap. UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>`;
-    wrap.appendChild(subHead);
-    // Footer totales
+    // Footer totales — única franja resaltada de toda la tabla
     const totCap = datos.reduce((s,d) => s+d.cap,0);
     const totInt = datos.reduce((s,d) => s+d.inte,0);
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
-    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}18;border-top:2px solid ${colorHeader}50;color:#0f172a`;
+    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}12;border-top:1px solid ${colorHeader}30;color:${colorHeader}`;
     const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
-    foot.innerHTML = `<span>TOTAL</span><span style="color:#7c3aed;font-size:9px;font-weight:900">${totUTM.toFixed(2)}</span><span>${fmt(totCap)}</span><span></span><span></span><span class="text-right">${fmt(totInt)}</span><span class="text-right">${fmt(totCap+totInt)}</span>`;
+    foot.innerHTML = `<span>TOTAL</span><span style="color:${colorHeader}">${totUTM.toFixed(2)}</span><span style="color:#0f172a">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totInt)}</span><span class="text-right" style="color:#0f172a">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
     container.appendChild(wrap);
   }
@@ -1888,6 +1867,11 @@ function buildResumenContent() {
     wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
+    // Label con ícono minimalista de tarjeta de crédito
+    const lavLabel = document.createElement('div');
+    lavLabel.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#059669;background:#ffffff;border-bottom:1px solid rgba(16,185,129,0.2)';
+    lavLabel.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
+    wrapLav.appendChild(lavLabel);
     // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
     // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
     // al final, bajo su propio encabezado. El cálculo (descuento directo +
@@ -1979,34 +1963,52 @@ function buildResumenContent() {
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
   wrapR.style.border = '1px solid #e2e8f0';
+  wrapR.style.background = '#ffffff';
+  // Header tipo fintech: ícono de gráfico de barras en cuadro redondeado + título
+  const headerR = document.createElement('div');
+  headerR.className = 'flex items-center justify-between px-3 py-3';
+  headerR.style.cssText = 'border-bottom:1px solid #f1f5f9';
+  headerR.innerHTML = `
+    <div class="flex items-center gap-2.5">
+      <div style="width:28px;height:28px;border-radius:9px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"></line><line x1="12" y1="20" x2="12" y2="6"></line><line x1="18" y1="20" x2="18" y2="14"></line></svg>
+      </div>
+      <span class="font-black text-[11.5px]" style="color:#0f172a">Resumen final</span>
+    </div>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  wrapR.appendChild(headerR);
   resumenRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
-    row.style.cssText = `background:${r.sep?'#eff6ff':r.italic?'#faf5ff':i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
+    row.style.cssText = `background:${r.sep?'#eff6ff':'#ffffff'};border-top:1px solid #f1f5f9`;
     const valDisplay = r.utmStr
       ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
       : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
     row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor};${r.italic?'font-style:italic':''}">${r.label}</span>${valDisplay}`;
     wrapR.appendChild(row);
   });
-  // Total final destacado
-  const totalRow = document.createElement('div');
-  totalRow.className = 'px-4 py-4 text-center';
-  totalRow.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-top:2px solid #1d4ed8';
-  totalRow.innerHTML = `
+  // Total final destacado — solo en modal
+  if (!inlineMode) {
+    const totalRow = document.createElement('div');
+    totalRow.className = 'px-4 py-4 text-center';
+    totalRow.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-top:2px solid #1d4ed8';
+    totalRow.innerHTML = `
     <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
     <p class="font-black text-white" style="font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
     <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${totalDeudaUTM_h.toFixed(5)} UTM</p>
     <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmLiq)} (${utmLiqMes.m} ${utmLiqMes.y})</p>`;
-  wrapR.appendChild(totalRow);
+    wrapR.appendChild(totalRow);
+  }
   container.appendChild(wrapR);
 
-  // ── 6. Nota pie ──
-  const nota = document.createElement('div');
-  nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
-  nota.style.cssText = 'border:1px solid #e2e8f0;background:#f8fafc;color:#64748b';
-  nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
-  container.appendChild(nota);
+  // ── 6. Nota pie — solo en modal ──
+  if (!inlineMode) {
+    const nota = document.createElement('div');
+    nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
+    nota.style.cssText = 'border:1px solid #e2e8f0;background:#f8fafc;color:#64748b';
+    nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
+    container.appendChild(nota);
+  }
 }
 function closeDownloadMenu() {
   const menu = document.getElementById('downloadMenu');
@@ -2901,105 +2903,6 @@ function ocrConfirmar() {
     dbg('OCR: ' + added + ' abonos LAV importados (incl. subcategoría Otros Abonos)');
   }
   closeOcrLav();
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// PANTALLA DE BIENVENIDA — v38
-// Lógica de show/hide y creación de caso desde la welcome screen.
-// ══════════════════════════════════════════════════════════════════════════════
-
-let _welcomeScreenVisible = false;
-
-function showWelcomeScreen() {
-  _welcomeScreenVisible = true;
-  const ws = document.getElementById('welcomeScreen');
-  if (!ws) return;
-  // Poblar lista de casos existentes
-  const casos = getCasosIndex();
-  const wrap = document.getElementById('welcomeCasosWrap');
-  const list = document.getElementById('welcomeCasosList');
-  list.innerHTML = '';
-  if (casos.length > 0) {
-    wrap.style.display = 'block';
-    casos.slice().reverse().forEach(c => {
-      const btn = document.createElement('button');
-      btn.style.cssText = 'width:100%;display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;border:1px solid rgba(0,0,0,0.07);background:#f8fafc;margin-bottom:6px;cursor:pointer;transition:background 0.13s;text-align:left;box-sizing:border-box;';
-      btn.onmouseover = () => btn.style.background = '#eff6ff';
-      btn.onmouseout  = () => btn.style.background = '#f8fafc';
-      const estadoDot = c.estado === 'suspendido' ? '#f59e0b' : c.estado === 'archivado' ? '#94a3b8' : '#22c55e';
-      btn.innerHTML = `
-        <span style="width:8px;height:8px;min-width:8px;border-radius:50%;background:${estadoDot};display:inline-block;"></span>
-        <span style="flex:1;font-size:12px;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.nombre || 'Sin nombre'}</span>
-        ${c.rolCausa ? `<span style="font-size:9px;font-weight:600;color:#94a3b8;">${c.rolCausa}</span>` : ''}
-        <svg width="14" height="14" fill="none" stroke="#94a3b8" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
-      btn.onclick = () => { hideWelcomeScreen(); switchCaso(c.id); };
-      list.appendChild(btn);
-    });
-  } else {
-    wrap.style.display = 'none';
-  }
-  // Limpiar input y resetear botón
-  const inp = document.getElementById('welcomeNombreInput');
-  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 200); }
-  checkWelcomeBtn();
-  ws.style.display = 'flex';
-}
-
-function hideWelcomeScreen() {
-  _welcomeScreenVisible = false;
-  const ws = document.getElementById('welcomeScreen');
-  if (ws) ws.style.display = 'none';
-  // Asegurar que la app sea visible
-  const app = document.getElementById('app-container');
-  if (app && !app.classList.contains('app-ready')) {
-    requestAnimationFrame(() => app.classList.add('app-ready'));
-  }
-}
-
-function checkWelcomeBtn() {
-  const val = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  const btn = document.getElementById('welcomeBtnRapido');
-  if (!btn) return;
-  const ok = val.length >= 2;
-  btn.disabled = !ok;
-  btn.style.opacity = ok ? '1' : '0.3';
-  btn.style.cursor  = ok ? 'pointer' : 'default';
-  btn.style.pointerEvents = ok ? 'auto' : 'none';
-}
-
-function crearCasoDesdeWelcome() {
-  const nombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  if (nombre.length < 2) return;
-  hideWelcomeScreen();
-  // Crear caso usando la misma lógica que crearCaso() — UUID real para que el DELETE funcione en Supabase
-  const id = crypto.randomUUID ? crypto.randomUUID() : 'caso_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
-  const now = new Date().toISOString();
-  const idx = getCasosIndex();
-  idx.push({
-    id, nombre, created: Date.now(), created_at_local: Date.now(),
-    updated_at_local: Date.now(), saved_at: null,
-    sync_status: 'pending_create', version: 1
-  });
-  saveCasosIndex(idx);
-  if (activeCasoId) saveCurrentCasoNow();
-  activeCasoId = id;
-  resetAllSilent();
-  saveCurrentCasoNow();
-  updateActiveCasoBadge();
-  renderCasosList();
-  if (typeof queueSave === 'function' && sbCurrentUser) setTimeout(() => queueSave(id), 700);
-}
-
-function abrirCasoJudicialDesdeWelcome() {
-  // Pasar el nombre ya escrito al campo del modal judicial si existe
-  const welcomeNombre = (document.getElementById('welcomeNombreInput')?.value || '').trim();
-  // NO ocultar welcome screen aquí — el modal se muestra encima (z-index 6000 > 5500)
-  // La welcome se ocultará solo cuando el caso sea creado exitosamente
-  showNewCasoModal();
-  if (welcomeNombre.length > 0) {
-    const inp = document.getElementById('newCasoInput');
-    if (inp) { inp.value = welcomeNombre; checkNuevoCasoBtn(); }
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

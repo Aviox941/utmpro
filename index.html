@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0617.v107-fusion-otros-abonos-lav">
+ <meta name="app-version" content="v2.0619.0222">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -348,7 +348,7 @@ try {
 <script>
 // Safety: si en 4s sbLoadCasos() no agregó auth-ready (Supabase nunca respondió),
 // mostrar la app de todos modos. El timeout anterior era 800ms — muy corto en Android,
-// causaba flash de welcome screen cuando IDB tardaba más de 800ms en restaurar.
+// causaba flash de pantalla en blanco cuando IDB tardaba más de 800ms en restaurar.
 // Ahora sbLoadCasos() agrega auth-ready cuando tiene certeza; este es solo el último recurso.
 setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 </script>
@@ -1143,12 +1143,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   <div id="sidebarViewConfig" style="display:none;"></div>
 
  </div>
+<!-- ══════════════════════════════════════════════════════════
+     PANTALLA DE INICIO — SELECTOR DE MODO
+     ══════════════════════════════════════════════════════════ -->
+
 <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
  <header>
   <!-- Fila principal de controles -->
   <div class="header-row-main">
 
-    <!-- Botón Casos (dropdown) + badge usuario -->
+    <!-- Botón Casos (dropdown) -->
     <div class="flex items-center gap-2 flex-shrink-0">
 
       <!-- Menú hamburguesa (original) -->
@@ -1156,8 +1160,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
 
+      <!-- Botón Casos: reubicado aquí desde el ticker UTM (mismo id/onclick, solo se movió y achicó) -->
+      <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-1.5" id="casosManagerBtn"
+        style="flex-shrink:0;touch-action:manipulation;padding:6px 10px;font-size:11px;">
+        <svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        Casos
+      </button>
 
-      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+      <!-- activeCasoBadge: oculto (icono usuario + nombre). Se conserva en el DOM porque
+           abrirUserProfile/activeCasoNombreHeader se siguen usando sin guard desde JS. -->
+      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:none !important;">
         <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
         </svg>
@@ -1170,12 +1182,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div id="saveIndicator" class="hidden"><div id="saveTime"></div></div>
       <button onclick="showResumenModal()" class="header-icon-btn" title="Ver resumen detallado">
         <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        <span class="text-[6.5px] font-bold leading-none tracking-widest" style="color:inherit;opacity:0.85">VER</span>
       </button>
       <div style="position:relative;">
         <button id="downloadBtn" onclick="toggleDownloadMenu()" class="header-icon-btn" title="Descargar">
           <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-          <span class="text-[6.5px] font-bold leading-none tracking-widest" style="color:inherit;opacity:0.85">BAJAR</span>
         </button>
       </div>
       <button onclick="showResetConfirm()" class="header-icon-btn header-icon-btn--danger" title="Limpiar">
@@ -1186,9 +1196,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
   </div>
 
-  <!-- Divisor -->
-  <div class="header-divider"></div>
-
   <!-- Barra de carga -->
   <div id="loadingBar" class="flex items-center gap-2">
     <div class="flex-1 bg-white/10 rounded-full h-0.5">
@@ -1197,8 +1204,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <span id="loadingText" class="text-[9px] font-black text-white/40 loading-pulse">Cargando datos UTM...</span>
   </div>
 
-  <!-- Tarjetas UTM -->
-  <div id="utmTicker" class="hidden" style="display:none;flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
+  <!-- Tarjetas UTM: oculto por completo y sin espacio reservado (Casos se movió
+       junto a la hamburguesa). Se conserva en el DOM porque el script escribe en
+       utmActualVal/utmActualMes y togglea utmTicker.classList/style sin validar
+       que existan. La clase ticker-removed (con !important real, no inline) es
+       lo que evita que utmTicker.style.display='flex' (ejecutado desde JS) lo
+       vuelva a mostrar. -->
+  <div id="utmTicker" class="hidden ticker-removed" style="flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
     <div class="utm-card-premium utm-card-premium--secondary" style="flex-shrink:0;flex-basis:160px;min-width:0;display:flex;flex-direction:column;justify-content:center;background:#eff6ff;border-color:#bfdbfe;">
       <span class="utm-card-label" style="color:#3b82f6;">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
@@ -1214,29 +1226,24 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         </div>
       </div>
     </div>
-    <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-2" id="casosManagerBtn"
-      style="flex-shrink:0;touch-action:manipulation;align-self:stretch;">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      Casos
-    </button>
   </div>
 </header>
 <!-- cmfTasasStatus: elemento fantasma para compatibilidad JS (no visible) -->
 <span id="cmfTasasStatus" style="display:none;"></span>
  <main class="px-4 md:px-6 lg:px-8 mt-1 md:mt-2 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
-      <!-- ── Hero: tarjeta total izq + detalle cálculo der ── -->
+      <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta izquierda: Total Adeudado (azul) -->
+        <!-- Tarjeta Total Adeudado (azul) -->
         <div class="hero-total-card">
-          <p class="hero-total-card__label">💰 Total Adeudado</p>
+          <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
             <h2 id="totalGrand" class="hero-total-card__amount">0</h2>
           </div>
           <p id="totalGrandUtm" class="hero-total-card__utm">0.00 UTM</p>
-          <div id="heroMetaRow" class="hero-total-card__meta hidden">
+          <div id="heroMetaRow" class="hero-total-card__meta hidden" style="display:none !important;">
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
           </div>
@@ -1247,45 +1254,97 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           </div>
         </div>
 
-        <!-- Tarjeta derecha: Detalle del cálculo -->
-        <div class="hero-detail-card">
-          <p class="hero-detail-card__title">📊 Detalle del cálculo</p>
-
-          <!-- Capital sin interés -->
-          <div class="hero-detail-row">
-            <span class="hero-detail-row__label">Capital sin interés</span>
-            <div class="hero-detail-row__vals">
-              <span id="totalCap" class="hero-detail-row__clp" style="color:#1d4ed8;">$0</span>
-              <span id="totalCapUtm" class="hero-detail-row__utm">0.0000 UTM</span>
-            </div>
-          </div>
-
-          <!-- Interés acumulado -->
-          <div class="hero-detail-row">
-            <span class="hero-detail-row__label">Interés acumulado</span>
-            <div class="hero-detail-row__vals">
-              <span id="totalInt" class="hero-detail-row__clp" style="color:#7c3aed;">$0</span>
-              <span id="totalIntUtm" class="hero-detail-row__utm">0.0000 UTM</span>
-            </div>
-          </div>
-
-          <!-- Pagos parciales (oculto si no hay) -->
-          <div id="heroParcialRow" class="hero-detail-row hidden">
-            <span class="hero-detail-row__label">Pagos parciales</span>
-            <div class="hero-detail-row__vals">
-              <span id="heroParcialClp" class="hero-detail-row__clp" style="color:#059669;">−$0</span>
-              <span id="heroParcialUtm" class="hero-detail-row__utm"></span>
-            </div>
-          </div>
-
-
+        <!-- IDs conservados ocultos (no se eliminan del DOM: el cálculo les escribe sin guard null-check) -->
+        <div style="display:none !important;" aria-hidden="true">
+          <span id="totalCap"></span>
+          <span id="totalCapUtm"></span>
+          <span id="totalInt"></span>
+          <span id="totalIntUtm"></span>
+          <span id="heroParcialRow" class="hidden">
+            <span id="heroParcialClp"></span>
+            <span id="heroParcialUtm"></span>
+          </span>
         </div>
       </div>
-      <!-- Fila de abonos (condicional) -->
-      <div id="abonoResultRow" class="hidden liq-abono-row" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);">
+      <!-- Fila de abonos: eliminada de la vista. Se conserva en el DOM porque
+           el script hace abonoRow.classList.remove('hidden') y escribe en
+           totalAbonoDisplay sin validar que existan; .hidden de Tailwind no
+           tiene !important, así que solo "abono-row-removed" (con !important
+           real) evita que vuelva a mostrarse. -->
+      <div id="abonoResultRow" class="hidden liq-abono-row abono-row-removed" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);">
         <p class="liq-abono-row__label">Total Abonos</p>
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
       </div>
+      <!-- ══════════════════════════════════════════════════════════
+           Sección "¿Cómo deseas calcular?" — barra FIJA inferior,
+           estilo fintech/Nubank. Bloque 100% nuevo, puramente
+           visual/decorativo (sin lógica de cálculo, sin hooks, sin
+           estado global). Las tarjetas no tienen acción funcional
+           todavía: se conectarán después. position:fixed la saca del
+           flujo normal, por lo que su ubicación en el DOM no afecta
+           el layout circundante; #resultsCard reserva el espacio
+           equivalente vía padding-bottom (ver styles.css).
+           ══════════════════════════════════════════════════════════ -->
+      <section class="calc-mode-section" aria-label="Cómo deseas calcular">
+        <div class="calc-mode-section__inner">
+          <p class="calc-mode-section__title">¿Cómo deseas calcular?</p>
+          <div class="calc-mode-row" role="list">
+
+            <button type="button" class="calc-mode-card calc-mode-card--blue" role="listitem" aria-label="Desde el último pago">
+              <div class="calc-mode-card__icon calc-mode-card__icon--blue">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <span class="calc-mode-card__title">Desde el último pago</span>
+            </button>
+
+            <button type="button" class="calc-mode-card calc-mode-card--purple" role="listitem" aria-label="Entre fechas">
+              <div class="calc-mode-card__icon calc-mode-card__icon--purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <span class="calc-mode-card__title">Entre fechas</span>
+            </button>
+
+            <button type="button" class="calc-mode-card calc-mode-card--green" role="listitem" aria-label="Con lagunas">
+              <div class="calc-mode-card__icon calc-mode-card__icon--green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="5" cy="18" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="18" r="1.3" fill="#fff" stroke="none"/></svg>
+              </div>
+              <span class="calc-mode-card__title">Con lagunas</span>
+            </button>
+
+            <button type="button" class="calc-mode-card calc-mode-card--pink" role="listitem" aria-label="Pagos parciales">
+              <div class="calc-mode-card__icon calc-mode-card__icon--pink">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-1"/><path d="M21 12a1 1 0 00-1-1h-3a2 2 0 000 4h3a1 1 0 001-1z"/></svg>
+              </div>
+              <span class="calc-mode-card__title">Pagos parciales</span>
+            </button>
+
+          </div>
+        </div>
+      </section>
+      <!-- /Sección "¿Cómo deseas calcular?" -->
+
+      <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
+      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
+        <!-- Header colapsable -->
+        <button onclick="toggleCalcSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;cursor:pointer;text-align:left;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div>
+              <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
+              <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
+            </div>
+          </div>
+          <svg id="calcSummaryChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;transform:rotate(180deg);flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <!-- Contenido: reutiliza buildResumenContent() pero sin la sección "Datos del Caso" -->
+        <div id="calcSummaryBody" style="padding:12px 0 4px;max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+          <div id="calcSummaryContent" class="space-y-4 text-[11px] text-[#5a6380]" style="padding:0 0 8px;"></div>
+        </div>
+      </div>
+      <!-- /Detalle del cálculo -->
+
       <div id="yearTabsCard" class="hidden" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 4px rgba(0,0,0,0.05);padding:10px 12px;display:flex;flex-direction:row;align-items:center;gap:10px;width:100%;justify-content:space-between;">
         <div id="yearTabs" class="flex gap-2 overflow-x-auto no-scrollbar"></div>
         <p id="yearTabsMesesLabel" style="font-size:12px;font-weight:700;color:#5a6380;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;"></p>
@@ -1303,7 +1362,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
         </svg>
       </div>
-      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Período actual</p>
+      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Datos de Pensión</p>
     </div>
   </div>
 
@@ -1327,12 +1386,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
     <div id="utmClpInputs" class="space-y-2">
       <div class="grid grid-cols-2 gap-3">
-        <div style="position:relative;">
-          <input type="number" id="utmAmount" placeholder="Equiv. UTM" step="0.01" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
-          <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+        <div class="space-y-1">
+          <label class="input-label">Valor cuota en UTM</label>
+          <div style="position:relative;">
+            <input type="text" id="utmAmount" placeholder="0,000 UTM" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
+            <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+          </div>
         </div>
         <div class="space-y-1">
-          <input type="text" id="clpAmount" placeholder="Monto pesos ($)" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
+          <label class="input-label">Valor cuota en pesos</label>
+          <input type="text" id="clpAmount" placeholder="$ 0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
         </div>
       </div>
       <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
@@ -1371,18 +1434,34 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <input type="hidden" id="minimumPercent" value="">
       <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
     </div>
+    <!-- ── DÍA DE VENCIMIENTO — parte de la orden judicial, junto al monto ── -->
+    <div class="border-t border-white/7 pt-3" style="margin-top:10px;">
+      <div class="flex items-center gap-1" style="margin-bottom:4px;">
+        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
+        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
+      </div>
+      <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
+    </div>
+
+    <!-- ── LÍNEA DE TIEMPO ─────────────────────────────────── -->
     <div class="grid grid-cols-2 gap-3" style="margin-top:10px;">
       <button onclick="openCalendar('start')" id="startBtn" class="input-date">
-        <span class="input-date__sublabel">Inicio mora</span>
+        <span class="input-date__sublabel">Mes que dejó de pagar</span>
         <span id="startLabel" class="input-date__value">Seleccionar</span>
       </button>
       <button onclick="openCalendar('end')" id="endBtn" class="input-date">
-        <span class="input-date__sublabel">Fin mora</span>
+        <span class="input-date__sublabel">Último mes sin pago</span>
         <span id="endLabel" class="input-date__value">Seleccionar</span>
       </button>
     </div>
     <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-3 text-[10px] font-black text-red-400 flex items-center gap-2">
       La fecha "Desde" no puede ser posterior a "Hasta"
+    </div>
+
+    <!-- ── CORTE DEL REPORTE ───────────────────────────────── -->
+    <div class="border-t border-white/7 pt-3" style="margin-top:4px;">
+      <p class="text-[10px] font-black uppercase text-[#93c5fd]" style="margin-bottom:4px;">Calcular hasta</p>
+      <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
     </div>
 
     <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
@@ -1392,33 +1471,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
           onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Registrar período
+          Agregar UTM variable
         </button>
         <button onclick="showPeriodoHelp()" style="position:absolute;right:0;width:16px;height:16px;border-radius:50%;background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.18);font-size:8px;font-weight:900;color:#93c5fd;display:flex;align-items:center;justify-content:center;cursor:pointer;">?</button>
       </div>
       <!-- Lista de períodos registrados -->
       <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-bottom:8px;"></div>
-    </div>
-
-    <!-- Día de Vencimiento y Fecha de Liquidación -->
-    <div class="flex justify-between items-center border-t border-white/7 pt-3" style="margin-top:4px;">
-      <div>
-        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
-        <p class="text-[8px] opacity-60">Día del mes en que vence cada cuota</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
-        <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
-      </div>
-    </div>
-    <div class="flex justify-between items-center border-t border-white/7 pt-3">
-      <div>
-        <p class="text-[10px] font-black uppercase text-[#93c5fd]">Fecha de Liquidación</p>
-        <p class="text-[8px] opacity-60">Dejar vacío = usar fecha de hoy</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
-      </div>
     </div>
 
   </div>
@@ -1458,17 +1516,23 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2">
-      <div class="relative">
-        <input type="text" id="tempLavClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
-          oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
-          class="input-currency w-full">
-        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+      <div class="space-y-1">
+        <label class="input-label">Valor depósito en pesos</label>
+        <div class="relative">
+          <input type="text" id="tempLavClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*"
+            oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
+            class="input-currency w-full">
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+        </div>
       </div>
-      <div class="relative">
-        <input type="text" id="tempLavUtm" placeholder="— UTM" inputmode="decimal"
-          oninput="onLavUtmInput()"
-          class="input-currency w-full">
-        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+      <div class="space-y-1">
+        <label class="input-label">Valor depósito en UTM</label>
+        <div class="relative">
+          <input type="text" id="tempLavUtm" placeholder="0,000" inputmode="decimal"
+            oninput="onLavUtmInput()"
+            class="input-currency w-full">
+          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+        </div>
       </div>
       <input type="hidden" id="tempLavMes" value="">
       <input type="hidden" id="tempLavAnio" value="">
@@ -1538,7 +1602,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div class="dh-section">
         <div style="margin-bottom:10px">
           <label class="input-label input-label--plain">Monto mensual en UTM (cuota)</label>
-          <input type="number" id="historicalDebtUtm" placeholder="0.00" step="0.01" inputmode="decimal"
+          <input type="text" id="historicalDebtUtm" placeholder="0.00" inputmode="decimal"
             oninput="checkHistReady(); tryRegisterHistorical();" class="input-number">
           <div id="histUtmPeriodChip" class="hidden items-center gap-1 mt-1 px-2 py-1 rounded-lg" style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.14);">
             <span style="font-size:9px;font-weight:700;color:#c2410c;" id="histUtmPeriodChipText">—</span>
@@ -1548,13 +1612,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <input type="hidden" id="histStartMes" value="">
           <input type="hidden" id="histStartAnio" value="">
           <button onclick="openCalendar('histStart')" id="histStartPickerBtn" class="input-date">
-            <span class="input-date__sublabel">Inicio de mora</span>
+            <span class="input-date__sublabel">Mes que dejó de pagar</span>
             <span id="histStartLabel" class="input-date__value">Seleccionar</span>
           </button>
           <input type="hidden" id="histEndMes" value="">
           <input type="hidden" id="histEndAnio" value="">
           <button onclick="openCalendar('histEnd')" id="histEndPickerBtn" class="input-date">
-            <span class="input-date__sublabel">Fin de mora <span class="normal-case font-bold opacity-60">(opcional)</span></span>
+            <span class="input-date__sublabel">Último mes sin pago <span class="normal-case font-bold opacity-60">(opcional)</span></span>
             <span id="histEndLabel" class="input-date__value">Mes actual</span>
           </button>
         </div>
@@ -1807,17 +1871,23 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
  <div class="dh-body space-y-3" style="padding:12px 14px">
  <div class="space-y-2">
  <div class="grid grid-cols-2 gap-2">
+ <div class="space-y-1">
+ <label class="input-label">Valor depósito en pesos</label>
  <div class="relative">
- <input type="text" id="tempParcialClp" placeholder="$ monto" inputmode="numeric" pattern="[0-9]*"
+ <input type="text" id="tempParcialClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*"
    oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); syncParcialUtm(); checkBtnParcial()"
    class="input-currency w-full">
  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
  </div>
+ </div>
+ <div class="space-y-1">
+ <label class="input-label">Valor depósito en UTM</label>
  <div class="relative">
- <input type="text" id="tempParcialUtm" placeholder="— UTM" inputmode="decimal"
+ <input type="text" id="tempParcialUtm" placeholder="0,000" inputmode="decimal"
    oninput="syncParcialClpFromUtm(); checkBtnParcial()"
    class="input-currency w-full">
  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+ </div>
  </div>
  </div>
  <input type="hidden" id="tempParcialMes" value="">
@@ -2140,6 +2210,7 @@ let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
+let abonosLav = [];
 // ── Períodos de pensión variables ──────────────────────────
 // Cada entrada: { id, desde:{mes,anio}, hasta:{mes,anio}|null,
 //                utm, porcentaje, sueldo, usaIMM }
@@ -2687,7 +2758,7 @@ function getHistMonthsCount() {
   return Math.max(0, end - start + 1);
 }
 function tryRegisterHistorical() {
-  const utm = parseFloat(document.getElementById('historicalDebtUtm').value) || 0;
+  const utm = parseFloat((document.getElementById('historicalDebtUtm').value || '').replace(',', '.')) || 0;
   const startMes = document.getElementById('histStartMes').value;
   const startAnio = document.getElementById('histStartAnio').value;
   if (utm <= 0 || !startMes || !startAnio) return;
@@ -3732,7 +3803,7 @@ function addPeriodoPension() {
 
   let nuevo;
   // Detectar modo efectivo: si está en modo utm/clp, verificar cuál campo tiene valor
-  const utmVal = parseFloat(document.getElementById('utmAmount').value) || 0;
+  const utmVal = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
   const clpVal = parseInt((document.getElementById('clpAmount').value || '').replace(/\./g, '').replace(/[^0-9]/g, '')) || 0;
   // Modo efectivo: si calculationMode es utm o clp, elegir según qué campo tiene dato
   const modeEffective = (mode === 'utm' || mode === 'clp')
@@ -4014,7 +4085,7 @@ function updateClpHistoricoChip() {
 // chip eliminado del diseño
 }
 function updateFromUtm() {
-const utm = parseFloat(document.getElementById('utmAmount').value) || 0;
+const utm = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 const startItem = startIndex !== -1 ? utmData[startIndex] : null;
 const utmRef = (startItem && startItem.v > 0) ? startItem.v : getUtmActualVal();
 // Si el usuario edita UTM, volver a modo UTM
@@ -4031,7 +4102,7 @@ const utmActual = getUtmActualVal();
 const mode = document.getElementById('calculationMode').value;
 let cuotaMensualCLP = 0, cuotaMensualUTM = 0, modoEsPesos = false;
 if (mode === 'utm') {
-cuotaMensualUTM = parseFloat(document.getElementById('utmAmount').value) || 0;
+cuotaMensualUTM = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 cuotaMensualCLP = cuotaMensualUTM * utmActual;
 } else if (mode === 'clp') {
 cuotaMensualCLP = parseInt(document.getElementById('clpAmount').value.replace(/\./g, '')) || 0;
@@ -4398,7 +4469,10 @@ function imputarAbonosArt1595(detalles, abonos) {
 // y una cuota mensual en UTM, esta función construye lastCalculationData
 // sintéticamente: un mes por cada mes desde el primer depósito hasta hoy.
 // La lógica del pool LAV que sigue en calculate() aplica igual que siempre.
-function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
+function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
+  // cuotaClpFija: cuando el modo es CLP, el monto en pesos es fijo y la UTM équivalente varía mes a mes.
+  // cuotaUtm: cuando el modo es UTM, la cuota en UTM es fija y el CLP equivalente varía mes a mes.
+  const modoEsClpFijo = cuotaClpFija > 0;
   const diaVenc = getDiaVencimiento();
   const sorted  = [...abonosLav].sort((a,b) => a.date.localeCompare(b.date));
   if (!sorted.length) return { capital:0, intereses:0, capitalUTM:0, detalles:[] };
@@ -4415,7 +4489,10 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
   while (y < endY || (y === endY && mi <= endM)) {
     const item = utmData.find(d => d.y === y && d.monthIdx === mi);
     if (!item) { mi++; if (mi > 11) { mi = 0; y++; } idx++; continue; }
-    const capCLP  = cuotaUtm * item.v;
+    // Modo CLP fijo: el monto en pesos es constante, la UTM equivalente varía mes a mes.
+    // Modo UTM fijo: la cuota en UTM es constante, el CLP equivalente varía mes a mes.
+    const cuotaUtmMes = modoEsClpFijo ? (item.v > 0 ? cuotaClpFija / item.v : 0) : cuotaUtm;
+    const capCLP = modoEsClpFijo ? cuotaClpFija : cuotaUtm * item.v;
     const fechaVenc = new Date(y, mi, diaVenc);
     const diasMora  = calcularDiasMora(fechaVenc, hoy);
     const usarTicActual = document.getElementById('ticActual')?.checked || false;
@@ -4426,13 +4503,13 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo) {
     const tasaAnual = (aplicarRecargo && diasMora > 0) ? tasaBase * 1.5 : tasaBase;
     const intCLP    = calcularInteres(capCLP, tasaAnual, diasMora);
     capital    += capCLP;
-    capitalUTM += cuotaUtm;
+    capitalUTM += cuotaUtmMes;
     intereses  += intCLP;
     detalles.push({
       id: 'lm' + idx,
       periodo: `${item.m} ${item.y}`,
       utmVal: item.v,
-      cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtm,
+      cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtmMes,
       inte: intCLP, intOriginal: intCLP,
       tasa: tasaAnual, tasaBase, tasaHist: tasaBase,
       tasaEsAproximada: _ti.esAproximada,
@@ -4472,20 +4549,23 @@ const _utmLiqEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx
 const utmLiq = (_utmLiqEntry && _utmLiqEntry.v > 0) ? _utmLiqEntry.v : utmHoy;
 // Nota: los pagos parciales ya están descontados del capital en calculatePensiones()
 // (capNeto = montoPesosMes - pagoParcialMes), por lo que no se restan de nuevo aquí.
-// ── Modo libre LAV: sin período definido + cuota UTM ingresada ──────────────
+// ── Modo libre LAV: sin período definido + cuota UTM/CLP ingresada ─────────
 const _lavCuotaUtm = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
 // Fallback: si el campo cuota LAV está vacío, usar la cuota del período actual
 // (campo utmAmount). Permite el modo libre LAV cuando el usuario ingresó su cuota
 // en el período actual pero no copió el valor al campo cuota mensual LAV.
-const { cuotaMensualUTM: _cuotaPeriodoActual } = getMonthlyValues();
+const { cuotaMensualUTM: _cuotaPeriodoActual, cuotaMensualCLP: _cuotaClpActual, modoEsPesos: _modoEsPesosActual } = getMonthlyValues();
+// Si el modo es CLP: la cuota en pesos es fija, la UTM varía mes a mes.
+// Si el modo es UTM: la cuota en UTM es fija, el CLP equivalente varía mes a mes.
+const _cuotaClpFijaParaModoLibre = (_lavCuotaUtm === 0 && _modoEsPesosActual && _cuotaClpActual > 0) ? _cuotaClpActual : 0;
 const _cuotaParaModoLibre = _lavCuotaUtm > 0 ? _lavCuotaUtm : _cuotaPeriodoActual;
 const _sinPeriodoCalc = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0;
-const _modoLibreLAV  = _hayLav && _cuotaParaModoLibre > 0 && _sinPeriodoCalc;
+const _modoLibreLAV  = _hayLav && (_cuotaParaModoLibre > 0 || _cuotaClpFijaParaModoLibre > 0) && _sinPeriodoCalc;
 let resPensiones, resHistorical;
 if (_modoLibreLAV) {
-  resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo);
+  resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo, _cuotaClpFijaParaModoLibre);
   resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
-  dbg('CALC: modo libre LAV — cuota=' + _cuotaParaModoLibre + ' UTM (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
+  dbg('CALC: modo libre LAV — ' + (_cuotaClpFijaParaModoLibre > 0 ? 'CLP fijo=$' + _cuotaClpFijaParaModoLibre : 'UTM=' + _cuotaParaModoLibre) + ' (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
 } else {
   resPensiones  = calculatePensiones(aplicarRecargo, hoy);
   resHistorical = histMode === 'consolidada'
@@ -4737,11 +4817,19 @@ document.getElementById('totalAbonoDisplay').innerText = abonoLabel;
 } else {
 abonoRow.classList.add('hidden');
 }
-document.getElementById('yearTabsCard').classList.remove('hidden');
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
 renderYearTabs();
+// ── Detalle del cálculo (tarjeta inline) ────────────────────────────────────
+(function renderCalcSummaryCard() {
+  const card = document.getElementById('calcSummaryCard');
+  const contentEl = document.getElementById('calcSummaryContent');
+  if (!card || !contentEl) return;
+  buildResumenContent(contentEl, true); // inlineMode: sin Datos del Caso, sin caja total, sin nota
+  card.classList.remove('hidden');
+})();
+// ────────────────────────────────────────────────────────────────────────────
 } else {
 // reset totals to zero
 document.getElementById('totalGrand').innerText = '0';
@@ -4753,6 +4841,7 @@ document.getElementById('totalIntUtm').innerText = '0.00 UTM';
 const _hMeta = document.getElementById('heroMetaRow'); if (_hMeta) _hMeta.classList.add('hidden');
 const _hParc = document.getElementById('heroParcialRow'); if (_hParc) _hParc.classList.add('hidden');
 document.getElementById('yearTabsCard').classList.add('hidden');
+document.getElementById('calcSummaryCard').classList.add('hidden');
 document.getElementById('detailsList').classList.add('hidden');
 document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
@@ -4839,9 +4928,25 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
   } catch(e) { /* silent */ }
 }
 }
+// ── Toggle detalle del cálculo (tarjeta inline) ─────────────────────────────
+let _calcSummaryOpen = true;
+function toggleCalcSummary() {
+  _calcSummaryOpen = !_calcSummaryOpen;
+  const body    = document.getElementById('calcSummaryBody');
+  const chevron = document.getElementById('calcSummaryChevron');
+  if (body)    body.style.display      = _calcSummaryOpen ? 'block' : 'none';
+  if (chevron) chevron.style.transform = _calcSummaryOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+// ────────────────────────────────────────────────────────────────────────────
 function renderYearTabs() {
+const cardEl = document.getElementById('yearTabsCard');
 const container = document.getElementById('yearTabs'); container.innerHTML = '';
 const years = [...new Set(lastCalculationData.map(d => d.year))].sort((a,b) => a-b);
+if (years.length === 0) {
+  if (cardEl) cardEl.classList.add('hidden');
+  return;
+}
+if (cardEl) cardEl.classList.remove('hidden');
 years.forEach(y => {
 const btn = document.createElement('button');
 const isActive = activeTabYear === y;
@@ -5744,6 +5849,19 @@ function initCollapsibles() {
   });
 }
 window.onload = async () => {
+// Prellenar fechaLiquidacion con hoy inmediatamente (antes de cualquier await)
+// applySession() lo sobreescribe si hay sesión guardada con otra fecha
+(function() {
+  const fl = document.getElementById('fechaLiquidacion');
+  if (fl && !fl.value) {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    fl.value = `${yyyy}-${mm}-${dd}`;
+    fl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+})();
 await fetchUTM();
 fetchTasasCMF();
 fetchMinimumSalary();
@@ -5916,7 +6034,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0616.v99-parcial-clasificacion</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v115-inline-clean</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6204,7 +6322,6 @@ function showLoginScreen() {
 function hideLoginScreen() {
   document.getElementById('loginScreen').style.display = 'none';
   // NO agregar auth-ready aquí — sbLoadCasos() lo hará una vez que sepa qué mostrar
-  // Así se evita el flash del app-container oscuro antes de la welcome screen
   try { unlockBody(); } catch(e) {}
 }
 
@@ -6789,18 +6906,11 @@ async function sbLoadCasos() {
   //         nuevos, aplicar silenciosamente vía _sbSyncBackground().
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ── FASE 1: Esperar IDB restore antes de leer localStorage ──
-  // Android puede limpiar localStorage; IDB restore lo recupera de forma asíncrona.
-  // Si no esperamos, leemos el índice vacío y mostramos welcome screen incorrectamente.
-  if (window._idbRestorePromise) {
-    try {
-      await Promise.race([
-        window._idbRestorePromise,
-        new Promise(r => setTimeout(r, 800)) // máx 800ms para no bloquear UI
-      ]);
-      dbg('LOAD[IDB] restore completo (o timeout), leyendo localStorage');
-    } catch(e) { dbg('LOAD[IDB] error esperando restore: ' + e.message); }
-  }
+  // ── FASE 1: Restaurar desde localStorage sin esperar a Supabase ──
+  // (El restore de IDB → localStorage corre en paralelo desde el script
+  // temprano del <head>; no bloqueamos sbLoadCasos esperándolo, porque
+  // en arranque en frío puede demorar más de lo esperado y deja la app
+  // en blanco innecesariamente. localStorage normalmente ya está intacto.)
 
   const _localIdx = getCasosIndex();
   const _localLastId = localStorage.getItem('pension_utm_last_caso');
@@ -6814,33 +6924,30 @@ async function sbLoadCasos() {
     document.body.classList.add('auth-ready');
     await _utmReady;
     if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
-      if (!(_welcomeScreenVisible && window._loadFromVisibility)) {
-        dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
-        if (activeCasoId !== _resolvedLastId) {
-          switchCaso(_resolvedLastId);
-        } else {
-          // Re-aplicar sesión si pantalla vacía
-          const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-          if (rawCheck) {
-            try {
-              const sCheck = JSON.parse(rawCheck);
-              const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-                !document.getElementById('clpAmount')?.value &&
-                !document.getElementById('salaryAmount')?.value;
-              if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-                applySession(sCheck);
-              }
-            } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
-          }
-          updateActiveCasoBadge();
-          renderCasosList();
+      dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
+      if (activeCasoId !== _resolvedLastId) {
+        switchCaso(_resolvedLastId);
+      } else {
+        // Re-aplicar sesión si pantalla vacía
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              applySession(sCheck);
+            }
+          } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
         }
-        return;
+        updateActiveCasoBadge();
+        renderCasosList();
       }
+      return;
     }
-    // Sin caso válido local → welcome
+    // Sin caso válido local restaurado.
     renderCasosList();
-    showWelcomeScreen();
   };
 
   // Correr Fase 1 inmediatamente
@@ -6942,20 +7049,6 @@ async function _sbSyncBackground(rows) {
     renderCasosList();
     dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
 
-    // ── Si welcome screen está visible y Supabase trajo casos, restaurar automáticamente ──
-    if (_welcomeScreenVisible && finalIdx.length > 0) {
-      const metaId = sbCurrentUser?.user_metadata?.last_caso || null;
-      const localLastId = localStorage.getItem('pension_utm_last_caso');
-      const targetId = (metaId && finalIdx.find(c => c.id === metaId))
-        ? metaId
-        : (localLastId && finalIdx.find(c => c.id === localLastId))
-          ? localLastId
-          : finalIdx[finalIdx.length - 1].id;
-      dbg('SYNC[BG] welcome visible + casos encontrados → restaurando: ' + targetId.slice(0,8));
-      hideWelcomeScreen();
-      switchCaso(targetId);
-    }
-
     // Si el caso activo fue actualizado desde Supabase, re-aplicar sesión silenciosamente
     if (activeUpdated && activeCasoId) {
       const raw = localStorage.getItem(getCasoKey(activeCasoId));
@@ -6974,6 +7067,23 @@ async function _sbSyncBackground(rows) {
     if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
       localStorage.setItem('pension_utm_last_caso', metaLastId);
       dbg('SYNC[BG] lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
+    }
+
+    // ── AUTO-RESTAURACIÓN SIN WELCOME SCREEN ──────────────────────────────
+    // Antes, cuando no había caso local activo, la welcomeScreen mostraba la
+    // lista de casos de Supabase para que el usuario elija uno a mano.
+    // Esa pantalla fue eliminada; este bloque reemplaza esa elección manual
+    // por una selección automática y silenciosa, usando la misma prioridad
+    // que ya se usaba en FASE 1 (metaLastId > más reciente por saved_at).
+    if (!activeCasoId && finalIdx.length > 0) {
+      const _autoMetaId = sbCurrentUser?.user_metadata?.last_caso || null;
+      const _autoId = (_autoMetaId && finalIdx.find(c => c.id === _autoMetaId))
+        ? _autoMetaId
+        : finalIdx.slice().sort((a, b) =>
+            new Date(b.saved_at || 0).getTime() - new Date(a.saved_at || 0).getTime()
+          )[0].id;
+      dbg('SYNC[BG] AUTO-RESTORE: sin caso activo local — auto-seleccionando ' + _autoId.slice(0,8) + ' (ex-welcome)');
+      switchCaso(_autoId);
     }
   } catch(e) {
     dbg('SYNC[BG] ERROR: ' + e.message);
