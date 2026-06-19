@@ -1,50 +1,45 @@
-CAMBIOS v112n-hero-total-only → v112o-header-solo-casos
-=====================================================
+CAMBIOS v112o-header-solo-casos → v112p-header-fix-ticker-persistente
+========================================================================
 Fecha: 2026-06-18
 
-UI / HEADER — ticker UTM eliminado, badge de usuario eliminado,
-botón "Casos" reubicado junto a la hamburguesa
+FIX: el ticker "Caso activo / UTM Actual" volvía a aparecer
 ─────────────────────────────────────────────────────────
-Pedido: quitar el ticker "Caso activo / UTM Actual" y el icono
-de usuario al lado del menú hamburguesa; mantener solo el botón
-"Casos", reubicado justo donde estaba el icono de usuario.
+Causa raíz: en v112o se ocultó #utmTicker con un style inline
+"display:none !important". Pero más abajo en el script existe:
 
-CAMBIOS (index.html):
+  document.getElementById('utmTicker').classList.remove('hidden');
+  document.getElementById('utmTicker').style.display = 'flex';
 
-1. Botón "Casos" (id="casosManagerBtn", onclick="openCasosManagerModal()"):
-   se MOVIÓ desde el final del ticker UTM hasta el header,
-   inmediatamente a la derecha del botón hamburguesa (donde antes
-   estaba el badge de usuario). Mismo id y mismo onclick — solo
-   cambió de posición en el DOM y se redujo de tamaño (icono
-   14px en vez de 16px, padding 6px 10px, font-size 11px).
+La línea ".style.display = 'flex'" asignada desde JS sobreescribe
+específicamente esa propiedad del atributo style inline — incluso
+si esa propiedad tenía !important — porque ambas viven en el mismo
+atributo style="" del elemento y la asignación posterior reemplaza
+el valor anterior de esa propiedad puntual. Por eso el ticker
+volvía a mostrarse después de cargar los datos UTM.
 
-2. activeCasoBadge (icono de usuario + nombre de caso, que abría
-   abrirUserProfile()): oculto con display:none !important.
+FIX: se creó la clase CSS .ticker-removed con "display: none
+!important" definida en una regla de hoja de estilos (no inline).
+Una regla de clase con !important SÍ tiene prioridad sobre una
+asignación inline sin !important (que es lo que hace
+"el.style.display = 'flex'" desde JS), así que ahora el ticker
+queda oculto de forma permanente sin importar lo que el script
+le asigne. Se agregó la clase a #utmTicker en el HTML.
 
-3. #utmTicker completo (Caso activo + UTM Actual): oculto con
-   display:none !important.
+OTROS CAMBIOS DE ESTE PAQUETE:
 
-IMPORTANTE — por qué no se eliminaron del DOM:
-El script (más abajo) escribe directamente sobre estos elementos
-SIN validar que existan:
-  - document.getElementById('utmActualMes').innerText = ...
-  - document.getElementById('utmActualVal').innerText = ...
-  - document.getElementById('utmTicker').classList.remove('hidden')
-  - document.getElementById('utmTicker').style.display = 'flex'
-  - document.getElementById('activeCasoNombreHeader').innerText = email
-    (en el flujo de actualización del badge de correo)
-Eliminar esos elementos del HTML habría lanzado TypeError
-("Cannot set property ... of null") y roto la ejecución del
-script para abajo — el mismo patrón de falla que causó el bug de
-la welcome screen en una versión anterior (ver CAMBIOS v112l).
+1. Emoji 💰 eliminado del label "Total Adeudado" en la hero card
+   (ahora dice solo "Total Adeudado").
 
-Por eso se dejaron en el DOM pero ocultos visualmente. El script
-sigue corriendo exactamente igual; estos elementos simplemente no
-se muestran en pantalla.
+2. Header compactado: se eliminó el <div class="header-divider">
+   (la línea separadora bajo la fila de botones) y se quitó el
+   espacio/padding que reservaba el contenedor del ticker
+   (.ticker-removed también fuerza height:0, padding:0, margin:0,
+   overflow:hidden). El header ahora solo ocupa el espacio de la
+   fila de hamburguesa + Casos + botones de acción.
 
-NO SE TOCÓ: ninguna lógica de cálculo, ningún otro onclick/handler,
-ni el comportamiento de openSidebar()/openCasosManagerModal()/
-abrirUserProfile() — solo se reordenó/ocultó HTML.
+NO SE TOCÓ: ninguna lógica de cálculo, ningún onclick/handler,
+ni los valores que el script sigue escribiendo en utmActualVal/
+utmActualMes/headerCasoNombre (solo dejaron de ser visibles).
 
-ARCHIVOS MODIFICADOS: index.html
+ARCHIVOS MODIFICADOS: index.html, styles.css
 SERVICE WORKER: sin cambios.

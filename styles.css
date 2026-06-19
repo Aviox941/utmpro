@@ -933,6 +933,19 @@
     z-index: 1;
   }
 
+  /* ── Ticker UTM eliminado de la vista (Casos se movió al header).
+       !important en regla de clase: gana sobre cualquier asignación
+       directa "el.style.display = 'flex'" hecha desde JS, a diferencia
+       de un style inline sin !important. Así el ticker queda oculto
+       para siempre, sin reservar espacio. ───────────────────────── */
+  .ticker-removed {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+
   /* ── Barra de carga ─────────────────────────────────────────── */
   #loadingBar {
     padding: 4px 14px 8px;

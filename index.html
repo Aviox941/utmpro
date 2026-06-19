@@ -1196,9 +1196,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
   </div>
 
-  <!-- Divisor -->
-  <div class="header-divider"></div>
-
   <!-- Barra de carga -->
   <div id="loadingBar" class="flex items-center gap-2">
     <div class="flex-1 bg-white/10 rounded-full h-0.5">
@@ -1207,10 +1204,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <span id="loadingText" class="text-[9px] font-black text-white/40 loading-pulse">Cargando datos UTM...</span>
   </div>
 
-  <!-- Tarjetas UTM: oculto por completo (Casos se movió junto a la hamburguesa).
-       Se conserva en el DOM porque el script escribe en utmActualVal/utmActualMes
-       y togglea utmTicker.classList/style sin validar que existan. -->
-  <div id="utmTicker" class="hidden" style="display:none !important;flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
+  <!-- Tarjetas UTM: oculto por completo y sin espacio reservado (Casos se movió
+       junto a la hamburguesa). Se conserva en el DOM porque el script escribe en
+       utmActualVal/utmActualMes y togglea utmTicker.classList/style sin validar
+       que existan. La clase ticker-removed (con !important real, no inline) es
+       lo que evita que utmTicker.style.display='flex' (ejecutado desde JS) lo
+       vuelva a mostrar. -->
+  <div id="utmTicker" class="hidden ticker-removed" style="flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
     <div class="utm-card-premium utm-card-premium--secondary" style="flex-shrink:0;flex-basis:160px;min-width:0;display:flex;flex-direction:column;justify-content:center;background:#eff6ff;border-color:#bfdbfe;">
       <span class="utm-card-label" style="color:#3b82f6;">Caso activo</span>
       <div class="utm-card-value-row" style="margin-top:2px;">
@@ -1237,7 +1237,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
         <!-- Tarjeta Total Adeudado (azul) -->
         <div class="hero-total-card">
-          <p class="hero-total-card__label">💰 Total Adeudado</p>
+          <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
             <h2 id="totalGrand" class="hero-total-card__amount">0</h2>
