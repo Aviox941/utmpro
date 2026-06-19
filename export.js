@@ -1552,8 +1552,8 @@ function hideResumenModal() {
   document.getElementById('resumenModal').classList.replace('flex','hidden');
   unlockBody();
 }
-function buildResumenContent() {
-  const container = document.getElementById('resumenContent');
+function buildResumenContent(targetContainer, inlineMode) {
+  const container = targetContainer || document.getElementById('resumenContent');
   container.innerHTML = '';
   const utmHoy = getUtmActualVal();
   // UTM del mes de la fecha de liquidación (igual que calculate() y generarPDF())
@@ -1593,8 +1593,8 @@ function buildResumenContent() {
   const intImputado = imputacion ? imputacion.interesesPagados : 0;
   const capImputado = imputacion ? imputacion.capitalPagado : 0;
 
-  // ── 0. Datos del Caso (colapsable) ──
-  (function renderCasoBlock() {
+  // ── 0. Datos del Caso (colapsable) — solo en modal, no en tarjeta inline ──
+  if (!inlineMode) (function renderCasoBlock() {
     if (!activeCasoId) return;
     const casos = getCasosIndex();
     const c = casos.find(x => x.id === activeCasoId);
@@ -1665,8 +1665,9 @@ function buildResumenContent() {
     container.appendChild(wrap);
   })();
 
-  // ── Helper: sección con título de color ──
+  // ── Helper: sección con título de color (suprimida en modo inline) ──
   function seccion(titulo, colorHex, emoji) {
+    if (inlineMode) return; // sin franjas de sección en la tarjeta compacta
     const div = document.createElement('div');
     div.innerHTML = `<div class="flex items-center gap-2 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wide" style="background:${colorHex}14;border:1px solid ${colorHex}30">
       <span>${emoji}</span><span style="color:${colorHex}">${titulo}</span>
@@ -1976,24 +1977,28 @@ function buildResumenContent() {
     row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor};${r.italic?'font-style:italic':''}">${r.label}</span>${valDisplay}`;
     wrapR.appendChild(row);
   });
-  // Total final destacado
-  const totalRow = document.createElement('div');
-  totalRow.className = 'px-4 py-4 text-center';
-  totalRow.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-top:2px solid #1d4ed8';
-  totalRow.innerHTML = `
+  // Total final destacado — solo en modal
+  if (!inlineMode) {
+    const totalRow = document.createElement('div');
+    totalRow.className = 'px-4 py-4 text-center';
+    totalRow.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-top:2px solid #1d4ed8';
+    totalRow.innerHTML = `
     <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
     <p class="font-black text-white" style="font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
     <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${totalDeudaUTM_h.toFixed(5)} UTM</p>
     <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmLiq)} (${utmLiqMes.m} ${utmLiqMes.y})</p>`;
-  wrapR.appendChild(totalRow);
+    wrapR.appendChild(totalRow);
+  }
   container.appendChild(wrapR);
 
-  // ── 6. Nota pie ──
-  const nota = document.createElement('div');
-  nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
-  nota.style.cssText = 'border:1px solid #e2e8f0;background:#f8fafc;color:#64748b';
-  nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
-  container.appendChild(nota);
+  // ── 6. Nota pie — solo en modal ──
+  if (!inlineMode) {
+    const nota = document.createElement('div');
+    nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
+    nota.style.cssText = 'border:1px solid #e2e8f0;background:#f8fafc;color:#64748b';
+    nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
+    container.appendChild(nota);
+  }
 }
 function closeDownloadMenu() {
   const menu = document.getElementById('downloadMenu');

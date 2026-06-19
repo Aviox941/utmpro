@@ -1,27 +1,28 @@
-CAMBIOS v113 → v114-inline-detail
+CAMBIOS v114 → v115-inline-clean
 ==================================================================================
 Fecha: 2026-06-18
 
-FIX: Reemplaza tarjeta de resumen manual (v113) por el contenido real del modal
+FIX: Tarjeta inline "Detalle del cálculo" — modo compacto sin elementos redundantes
 ──────────────────────────────────────────────────────────────────────────────────
-La tarjeta inline "Detalle del cálculo" ahora reutiliza buildResumenContent()
-de export.js — la misma función que genera el modal y el PDF.
+Se refactorizó buildResumenContent(targetContainer, inlineMode) para aceptar:
+  • targetContainer: contenedor DOM destino (por defecto #resumenContent)
+  • inlineMode: boolean — cuando true, omite:
+      - Bloque "Datos del Caso" (colapsable)
+      - Franjas de sección "PERÍODO ACTUAL", "ABONOS LAV — DETALLE", etc.
+      - Caja azul "Total a Pagar — Liquidación Final"
+      - Nota al pie ("Los valores son referenciales...")
 
-Esto significa que la tarjeta muestra exactamente:
-  • Tabla por columnas: Período · UTM · Capital $ · Días · Tasa · Interés · Subtotal
-  • Separadores por año con sub-headers
-  • Sección "Deuda Histórica" si aplica
-  • Abonos Realizados (Art. 1595 CC) si existen
-  • Pagos Parciales por Mes con remanentes
-  • Abonos LAV — Detalle con fechas y UTM equivalente
-  • Resumen Final con caja oscura de total en CLP y UTM
+La tarjeta inline muestra solo:
+  • Tabla de cuotas por columna (Período/UTM/Capital$/Días/Tasa/Interés/Subtotal)
+  • Separadores de año
+  • Abonos LAV detalle
+  • Pagos parciales con remanentes
+  • Resumen final (filas de totales)
 
-La tarjeta es colapsable (chevron ▲/▼, abierta por defecto).
-El modal del botón del header sigue funcionando (regenera buildResumenContent
-en #resumenContent directamente al abrirse).
+El modal del botón del header sigue mostrando todo completo (inlineMode=false).
 
 ARCHIVOS MODIFICADOS
 ─────────────────────
-- index.html  (HTML tarjeta + lógica renderCalcSummaryCard)
-- export.js   (showResumenModal: siempre regenera en #resumenContent)
-- sw.js       (CACHE_NAME: pension-utm-v174)
+- export.js   (buildResumenContent acepta targetContainer e inlineMode)
+- index.html  (llamada con buildResumenContent(contentEl, true))
+- sw.js       (CACHE_NAME: pension-utm-v175)

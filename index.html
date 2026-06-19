@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0618.v114-inline-detail">
+ <meta name="app-version" content="2.0618.v115-inline-clean">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4778,19 +4778,7 @@ renderYearTabs();
   const card = document.getElementById('calcSummaryCard');
   const contentEl = document.getElementById('calcSummaryContent');
   if (!card || !contentEl) return;
-  // Reutilizar buildResumenContent pero apuntando al contenedor inline
-  // Temporalmente redirigir el contenedor del modal
-  const modalContent = document.getElementById('resumenContent');
-  if (!modalContent) return;
-  const prevHTML = modalContent.innerHTML;
-  buildResumenContent();
-  // Mover el contenido generado al contenedor inline (clonar nodos)
-  contentEl.innerHTML = '';
-  while (modalContent.firstChild) {
-    contentEl.appendChild(modalContent.firstChild);
-  }
-  // Restaurar el modal (vacío, se regenera cuando se abra)
-  modalContent.innerHTML = '';
+  buildResumenContent(contentEl, true); // inlineMode: sin Datos del Caso, sin caja total, sin nota
   card.classList.remove('hidden');
 })();
 // ────────────────────────────────────────────────────────────────────────────
@@ -5992,7 +5980,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v114-inline-detail</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v115-inline-clean</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
