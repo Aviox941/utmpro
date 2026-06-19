@@ -1,48 +1,76 @@
-CAMBIOS v112i-welcome-final → v112k-welcome-fix
+CAMBIOS v112i-welcome-final → v112l-welcome-removed
 =====================================================
 Fecha: 2026-06-18
 
-FIX / WELCOME SCREEN — usuarios atrapados sin poder avanzar
+FIX / WELCOME SCREEN ELIMINADA POR COMPLETO — login no respondía
 ──────────────────────────────────────────────────────────
-Bug: showWelcomeScreen() se disparaba en sbLoadCasos() cada vez que no
-había casos en localStorage, SIN verificar si el usuario ya estaba
-autenticado y tenía casos previos en Supabase. Esto atrapaba a usuarios
-existentes con caché limpia, dispositivo nuevo o repo recién clonado en
-la pantalla de bienvenida, ya que los botones del welcome solo ejecutan
-hideWelcomeScreen() y no cargan ni crean ningún caso.
+Causa raíz real (no era el bug reportado inicialmente sobre z-index/orden
+de aparición): existían DOS sistemas de welcome screen con el MISMO
+NOMBRE de funciones, definidos en archivos distintos:
 
-Adicionalmente, mientras welcome estaba visible, _welcomeScreenVisible
-quedaba en true y el guard en sbLoadCasos() podía bloquear la
-restauración del caso activo al volver de background.
+  1. Uno en index.html (agregado en el intento de fix v112k anterior).
+  2. Uno preexistente en export.js, marcado como "v38", con su propio
+     HTML esperado (welcomeCasosWrap, welcomeNombreInput, welcomeBtnRapido),
+     su propia lógica de creación de caso (crearCasoDesdeWelcome,
+     abrirCasoJudicialDesdeWelcome) y su propia variable
+     _welcomeScreenVisible.
+
+Como export.js se carga DESPUÉS de index.html, sus definiciones de
+showWelcomeScreen()/hideWelcomeScreen()/_welcomeScreenVisible
+sobrescribían silenciosamente a las de index.html (redeclaración de
+function/var sin error en JS no-modular).
+
+El punto crítico: hideNewCasoModal() en export.js llamaba a
+showWelcomeScreen()/hideWelcomeScreen() SIN protección typeof, dentro
+del flujo de creación/cierre del modal de nuevo caso. Esto podía lanzar
+una excepción no capturada que interrumpía la ejecución del script,
+dejando botones (incluido "Iniciar sesión" y el ícono de mostrar
+contraseña) sin responder a clicks.
+
+DECISIÓN: en lugar de intentar reconciliar ambos sistemas, se eliminó
+la welcome screen COMPLETA Y POR COMPLETO de la aplicación — todo
+rastro, como si nunca hubiera existido.
 
 CAMBIOS (index.html):
 
-1. Nuevas funciones helper (junto a showWelcomeScreen/hideWelcomeScreen):
-   • _welcomeShownKey(userId) → arma key 'welcome_shown_<userId>'
-   • hasSeenWelcome(userId)   → lee flag en localStorage
-   • markWelcomeSeen(userId)  → escribe flag en localStorage
+1. Eliminado el bloque <div id="welcomeScreen">...</div> completo
+   (HTML con las 7 opciones de "¿Qué quieres calcular?").
+2. Eliminadas las funciones showWelcomeScreen(), hideWelcomeScreen(),
+   variable _welcomeScreenVisible (las agregadas en el intento v112k).
+3. sbLoadCasos() → _localReady(): removida toda lógica de welcome.
+   Ahora, si no hay caso local válido, solo se renderiza la lista de
+   casos (vacía); el mensaje "No hay casos guardados. Crea uno con el
+   botón de arriba." ya existente en el sidebar cubre ese estado.
+4. Removido el guard "_welcomeScreenVisible && window._loadFromVisibility"
+   (la variable ya no existe).
+5. Removido el bloque de auto-restauración de caso "si welcome visible
+   y Supabase trajo casos" en la fase de sync background (dependía de
+   _welcomeScreenVisible/hideWelcomeScreen, ya no aplica).
+6. Limpiados comentarios obsoletos que mencionaban "welcome screen".
 
-2. hideWelcomeScreen():
-   • Ahora marca markWelcomeSeen(sbCurrentUser.id) al cerrarse, además
-     de ocultar el div y resetear _welcomeScreenVisible.
+CAMBIOS (export.js):
 
-3. sbLoadCasos() → _localReady():
-   • ANTES: showWelcomeScreen() se llamaba siempre que no había caso
-     local válido restaurado.
-   • AHORA: solo se llama si además hasSeenWelcome(sbCurrentUser?.id)
-     es false, es decir, la PRIMERA vez que ese usuario hace login en
-     ESE dispositivo/navegador. Logins posteriores (con o sin casos
-     locales) ya no vuelven a mostrar welcome.
+1. Eliminado el sistema completo "PANTALLA DE BIENVENIDA — v38":
+   _welcomeScreenVisible, showWelcomeScreen(), hideWelcomeScreen(),
+   checkWelcomeBtn(), crearCasoDesdeWelcome(), abrirCasoJudicialDesdeWelcome().
+   Ninguna de estas se invocaba desde ningún onclick en index.html
+   (eran exclusivas del HTML de welcome ya eliminado).
+2. switchCaso(): removida la llamada
+   "if (typeof hideWelcomeScreen === 'function') hideWelcomeScreen();"
+3. hideNewCasoModal(): removida toda la lógica de welcome screen al
+   final de la función (mostrar welcome si no hay caso activo / ocultar
+   welcome y togglear clase 'app-ready' si el caso se creó). La función
+   ahora solo oculta el modal y desbloquea el body, como antes de que
+   existiera cualquier welcome screen.
 
-NOTA: los 7 botones del welcomeScreen siguen llamando solo a
-hideWelcomeScreen() (sin crear casos ni abrir modales). Eso queda
-pendiente para una iteración futura donde cada opción dirija a su
-sección correspondiente de la app.
+VALIDACIÓN: sintaxis verificada en los 3 archivos (index.html bloque
+por bloque, export.js, sw.js) — sin errores. Búsqueda exhaustiva de
+"welcome" (case-insensitive) en todo el proyecto: cero coincidencias
+funcionales, solo queda en el nombre de esta versión.
 
-NO SE TOCÓ: imputarAbonosArt1595, lógica del PASO 1 (pool LAV), ni el
-guard _welcomeScreenVisible && window._loadFromVisibility (se deja
-como red de seguridad ante condición de carrera con visibilitychange).
+NO SE TOCÓ: imputarAbonosArt1595, lógica del PASO 1 (pool LAV),
+loginScreen, ni ningún otro flujo de autenticación o cálculo.
 
-ARCHIVOS MODIFICADOS: index.html, sw.js
-SERVICE WORKER: v172i → v172k
+ARCHIVOS MODIFICADOS: index.html, export.js, sw.js
+SERVICE WORKER: v172i → v172l
 

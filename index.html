@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0618.v112k-welcome-fix">
+ <meta name="app-version" content="2.0618.v112l-welcome-removed">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -348,7 +348,7 @@ try {
 <script>
 // Safety: si en 4s sbLoadCasos() no agregó auth-ready (Supabase nunca respondió),
 // mostrar la app de todos modos. El timeout anterior era 800ms — muy corto en Android,
-// causaba flash de welcome screen cuando IDB tardaba más de 800ms en restaurar.
+// causaba flash de pantalla en blanco cuando IDB tardaba más de 800ms en restaurar.
 // Ahora sbLoadCasos() agrega auth-ready cuando tiene certeza; este es solo el último recurso.
 setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 </script>
@@ -1146,71 +1146,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 <!-- ══════════════════════════════════════════════════════════
      PANTALLA DE INICIO — SELECTOR DE MODO
      ══════════════════════════════════════════════════════════ -->
-<div id="welcomeScreen" style="display:none;position:fixed;inset:0;z-index:9998;background:#ffffff;overflow-y:auto;-webkit-overflow-scrolling:touch;">
-  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px 40px;">
-    <!-- Logo mark -->
-    <div style="width:48px;height:48px;background:#2563eb;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
-      <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M12 3L4 6v2c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-3z"/></svg>
-    </div>
-    <!-- Título -->
-    <div style="text-align:center;margin-bottom:8px;">
-      <p style="font-size:13px;color:#6b7280;font-weight:500;letter-spacing:.04em;text-transform:uppercase;margin:0 0 6px;">Pensión UTM</p>
-      <h1 style="font-size:22px;font-weight:700;color:#111827;margin:0 0 6px;line-height:1.2;">¿Qué quieres calcular?</h1>
-      <p style="font-size:14px;color:#9ca3af;margin:0;">Selecciona una opción para comenzar</p>
-    </div>
-    <!-- Opciones -->
-    <div style="width:100%;max-width:340px;margin-top:28px;display:flex;flex-direction:column;gap:10px;">
-      <!-- Desde última cuota pagada -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="1.5" fill="#2563eb" stroke="none"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#111827;">Desde última cuota pagada</div>
-        <div style="font-size:12px;color:#9ca3af;">Calcula desde el último pago registrado</div>
-      </button>
-      <!-- Entre dos fechas -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h8"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#111827;">Entre dos fechas</div>
-        <div style="font-size:12px;color:#9ca3af;">Define un rango de período específico</div>
-      </button>
-      <!-- Períodos con lagunas -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 12h4M10 12h4M17 12h4M3 6h18M3 18h18" stroke-linecap="round"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#111827;">Períodos con lagunas</div>
-        <div style="font-size:12px;color:#9ca3af;">Meses sin pago intercalados</div>
-      </button>
-      <!-- Pagos parciales -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" stroke-linecap="round"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#111827;">Pagos parciales</div>
-        <div style="font-size:12px;color:#9ca3af;">Abonos que no cubren la cuota completa</div>
-      </button>
-      <!-- Actualizar liquidación -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#eff6ff;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#2563eb" stroke-width="1.8" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4" stroke-linecap="round"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#111827;">Actualizar liquidación</div>
-        <div style="font-size:12px;color:#9ca3af;">Agregar nuevos meses a una liquidación existente</div>
-      </button>
-      <!-- Modo avanzado -->
-      <button onclick="hideWelcomeScreen()" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;width:100%;">
-        <div style="width:36px;height:36px;background:#f3f4f6;border-radius:10px;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" fill="none" stroke="#6b7280" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke-linecap="round"/></svg>
-        </div>
-        <div style="font-size:14px;font-weight:600;color:#374151;">Modo avanzado</div>
-        <div style="font-size:12px;color:#9ca3af;">Configuración completa sin asistente</div>
-      </button>
-    </div>
-  </div>
-</div>
 
 <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
  <header>
@@ -6018,7 +5953,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v112k-welcome-fix</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v112l-welcome-removed</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6306,38 +6241,9 @@ function showLoginScreen() {
 function hideLoginScreen() {
   document.getElementById('loginScreen').style.display = 'none';
   // NO agregar auth-ready aquí — sbLoadCasos() lo hará una vez que sepa qué mostrar
-  // Así se evita el flash del app-container oscuro antes de la welcome screen
   try { unlockBody(); } catch(e) {}
 }
 
-// ── Welcome screen (pantalla de inicio) ──
-// Se muestra UNA sola vez: la primera vez que ESTE usuario hace login en
-// ESTE dispositivo/navegador. Se controla con una flag en localStorage
-// namespaced por user.id (no por ausencia de casos).
-var _welcomeScreenVisible = false;
-function _welcomeShownKey(userId) {
-  return 'welcome_shown_' + userId;
-}
-function hasSeenWelcome(userId) {
-  if (!userId) return true; // sin userId no podemos namespacing → no mostrar por seguridad
-  try { return localStorage.getItem(_welcomeShownKey(userId)) === '1'; }
-  catch(e) { return true; }
-}
-function markWelcomeSeen(userId) {
-  if (!userId) return;
-  try { localStorage.setItem(_welcomeShownKey(userId), '1'); } catch(e) {}
-}
-function showWelcomeScreen() {
-  _welcomeScreenVisible = true;
-  var el = document.getElementById("welcomeScreen");
-  if (el) el.style.display = "block";
-}
-function hideWelcomeScreen() {
-  _welcomeScreenVisible = false;
-  if (sbCurrentUser?.id) markWelcomeSeen(sbCurrentUser.id);
-  var el = document.getElementById("welcomeScreen");
-  if (el) el.style.display = "none";
-}
 // ── Cambiar tab login/registro ──
 function sbSwitchTab(tab) {
   sbAuthTab = tab;
@@ -6921,7 +6827,7 @@ async function sbLoadCasos() {
 
   // ── FASE 1: Esperar IDB restore antes de leer localStorage ──
   // Android puede limpiar localStorage; IDB restore lo recupera de forma asíncrona.
-  // Si no esperamos, leemos el índice vacío y mostramos welcome screen incorrectamente.
+  // Si no esperamos, leemos el índice vacío incorrectamente.
   if (window._idbRestorePromise) {
     try {
       await Promise.race([
@@ -6944,38 +6850,30 @@ async function sbLoadCasos() {
     document.body.classList.add('auth-ready');
     await _utmReady;
     if (_resolvedLastId && _localIdx.find(c => c.id === _resolvedLastId)) {
-      if (!(_welcomeScreenVisible && window._loadFromVisibility)) {
-        dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
-        if (activeCasoId !== _resolvedLastId) {
-          switchCaso(_resolvedLastId);
-        } else {
-          // Re-aplicar sesión si pantalla vacía
-          const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
-          if (rawCheck) {
-            try {
-              const sCheck = JSON.parse(rawCheck);
-              const pantallaVacia = !document.getElementById('utmAmount')?.value &&
-                !document.getElementById('clpAmount')?.value &&
-                !document.getElementById('salaryAmount')?.value;
-              if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
-                applySession(sCheck);
-              }
-            } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
-          }
-          updateActiveCasoBadge();
-          renderCasosList();
+      dbg('LOAD[L2] restaurando caso local: ' + _resolvedLastId.slice(0,8));
+      if (activeCasoId !== _resolvedLastId) {
+        switchCaso(_resolvedLastId);
+      } else {
+        // Re-aplicar sesión si pantalla vacía
+        const rawCheck = localStorage.getItem(getCasoKey(activeCasoId));
+        if (rawCheck) {
+          try {
+            const sCheck = JSON.parse(rawCheck);
+            const pantallaVacia = !document.getElementById('utmAmount')?.value &&
+              !document.getElementById('clpAmount')?.value &&
+              !document.getElementById('salaryAmount')?.value;
+            if (pantallaVacia && (sCheck.utmAmount || sCheck.clpAmount || sCheck.salaryAmount)) {
+              applySession(sCheck);
+            }
+          } catch(e) { dbg('LOAD[L2] error re-sesión: ' + e.message); }
         }
-        return;
+        updateActiveCasoBadge();
+        renderCasosList();
       }
+      return;
     }
     // Sin caso válido local restaurado.
     renderCasosList();
-    // Welcome solo la primera vez que ESTE usuario hace login en ESTE
-    // dispositivo/navegador — no cada vez que no hay casos locales
-    // (evita atrapar a usuarios existentes con caché limpia/repo nuevo).
-    if (!hasSeenWelcome(sbCurrentUser?.id)) {
-      showWelcomeScreen();
-    }
   };
 
   // Correr Fase 1 inmediatamente
@@ -7076,20 +6974,6 @@ async function _sbSyncBackground(rows) {
     localStorage.setItem(CASOS_INDEX_KEY, JSON.stringify(finalIdx));
     renderCasosList();
     dbg('SYNC[BG] índice actualizado con ' + finalIdx.length + ' casos');
-
-    // ── Si welcome screen está visible y Supabase trajo casos, restaurar automáticamente ──
-    if (_welcomeScreenVisible && finalIdx.length > 0) {
-      const metaId = sbCurrentUser?.user_metadata?.last_caso || null;
-      const localLastId = localStorage.getItem('pension_utm_last_caso');
-      const targetId = (metaId && finalIdx.find(c => c.id === metaId))
-        ? metaId
-        : (localLastId && finalIdx.find(c => c.id === localLastId))
-          ? localLastId
-          : finalIdx[finalIdx.length - 1].id;
-      dbg('SYNC[BG] welcome visible + casos encontrados → restaurando: ' + targetId.slice(0,8));
-      hideWelcomeScreen();
-      switchCaso(targetId);
-    }
 
     // Si el caso activo fue actualizado desde Supabase, re-aplicar sesión silenciosamente
     if (activeUpdated && activeCasoId) {
