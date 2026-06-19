@@ -1681,16 +1681,17 @@ function buildResumenContent(targetContainer, inlineMode) {
     const COLS = '2.2fr 1.2fr 2fr 1.2fr 1.8fr 2fr 2fr';
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.border = `1px solid ${colorHeader}30`;
-    // Header
+    wrap.style.border = '1px solid #e2e8f0';
+    wrap.style.background = '#ffffff';
+
+    // Header único, neutro (estilo fintech minimalista)
     const head = document.createElement('div');
-    head.className = 'grid text-[9px] font-black uppercase text-white px-3 py-2';
-    head.style.cssText = `background:${colorHeader};grid-template-columns:${COLS};column-gap:6px`;
+    head.className = 'grid px-3 py-2 text-[8px] font-bold uppercase tracking-wide';
+    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#94a3b8;border-bottom:1px solid #f1f5f9`;
     head.innerHTML = '<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>';
     wrap.appendChild(head);
 
     let lastYear = null;
-    let rowIndex = 0;
     datos.forEach((d) => {
       // Capital $ muestra el valor POST-LAV (lo que realmente se adeuda: 0 si cubierto)
       const cap0 = d.cap;
@@ -1700,25 +1701,18 @@ function buildResumenContent(targetContainer, inlineMode) {
       const yearMatch = periodoClean.match(/\d{4}/);
       const rowYear = yearMatch ? parseInt(yearMatch[0]) : null;
 
-      // Separador de año
+      // Separador de año: solo una etiqueta simple, sin repetir cabecera
       if (rowYear && rowYear !== lastYear) {
         lastYear = rowYear;
         const sep = document.createElement('div');
-        sep.style.cssText = `background:${colorHeader}10;border-top:1.5px solid ${colorHeader}40`;
-        sep.innerHTML = `
-          <div class="flex items-center gap-2 px-3 py-1">
-            <span style="font-size:9px;font-weight:900;color:${colorHeader};letter-spacing:0.08em">${rowYear}</span>
-          </div>
-          <div class="grid px-3 pb-1 text-[8px] font-black uppercase" style="grid-template-columns:${COLS};column-gap:6px;color:${colorHeader};opacity:0.7">
-            <span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>
-          </div>`;
+        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #f1f5f9';
+        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:${colorHeader}">${rowYear}</span>`;
         wrap.appendChild(sep);
-        rowIndex = 0;
       }
 
       const row = document.createElement('div');
-      row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-sky-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${rowIndex%2===0?'#ffffff':'#f8fafc'};border-top:1px solid #e2e8f0`;
+      row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-slate-50 active:opacity-70 transition-colors';
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #f1f5f9`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
@@ -1759,22 +1753,15 @@ function buildResumenContent(targetContainer, inlineMode) {
         <span class="text-right font-black" style="color:#0f172a">${fmt(capMostrado+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
       wrap.appendChild(row);
-      rowIndex++;
     });
-    // Sub-header antes del total
-    const subHead = document.createElement('div');
-    subHead.className = 'grid px-3 py-1 text-[8px] font-black uppercase';
-    subHead.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:${colorHeader};opacity:0.7;background:${colorHeader}08;border-top:1px solid ${colorHeader}30`;
-    subHead.innerHTML = `<span>Período</span><span>Cap. UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>`;
-    wrap.appendChild(subHead);
-    // Footer totales
+    // Footer totales — única franja resaltada de toda la tabla
     const totCap = datos.reduce((s,d) => s+d.cap,0);
     const totInt = datos.reduce((s,d) => s+d.inte,0);
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
-    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}18;border-top:2px solid ${colorHeader}50;color:#0f172a`;
+    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}12;border-top:1px solid ${colorHeader}30;color:${colorHeader}`;
     const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
-    foot.innerHTML = `<span>TOTAL</span><span style="color:#7c3aed;font-size:9px;font-weight:900">${totUTM.toFixed(2)}</span><span>${fmt(totCap)}</span><span></span><span></span><span class="text-right">${fmt(totInt)}</span><span class="text-right">${fmt(totCap+totInt)}</span>`;
+    foot.innerHTML = `<span>TOTAL</span><span style="color:${colorHeader}">${totUTM.toFixed(2)}</span><span style="color:#0f172a">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totInt)}</span><span class="text-right" style="color:#0f172a">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
     container.appendChild(wrap);
   }
@@ -1876,6 +1863,11 @@ function buildResumenContent(targetContainer, inlineMode) {
     wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
+    // Label con ícono minimalista de tarjeta de crédito
+    const lavLabel = document.createElement('div');
+    lavLabel.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#059669;background:#ffffff;border-bottom:1px solid rgba(16,185,129,0.2)';
+    lavLabel.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
+    wrapLav.appendChild(lavLabel);
     // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
     // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
     // al final, bajo su propio encabezado. El cálculo (descuento directo +
@@ -1967,10 +1959,24 @@ function buildResumenContent(targetContainer, inlineMode) {
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
   wrapR.style.border = '1px solid #e2e8f0';
+  wrapR.style.background = '#ffffff';
+  // Header tipo fintech: ícono de gráfico de barras en cuadro redondeado + título
+  const headerR = document.createElement('div');
+  headerR.className = 'flex items-center justify-between px-3 py-3';
+  headerR.style.cssText = 'border-bottom:1px solid #f1f5f9';
+  headerR.innerHTML = `
+    <div class="flex items-center gap-2.5">
+      <div style="width:28px;height:28px;border-radius:9px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"></line><line x1="12" y1="20" x2="12" y2="6"></line><line x1="18" y1="20" x2="18" y2="14"></line></svg>
+      </div>
+      <span class="font-black text-[11.5px]" style="color:#0f172a">Resumen final</span>
+    </div>
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+  wrapR.appendChild(headerR);
   resumenRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
-    row.style.cssText = `background:${r.sep?'#eff6ff':r.italic?'#faf5ff':i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
+    row.style.cssText = `background:${r.sep?'#eff6ff':'#ffffff'};border-top:1px solid #f1f5f9`;
     const valDisplay = r.utmStr
       ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
       : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
