@@ -946,6 +946,19 @@
     overflow: hidden !important;
   }
 
+  /* ── Barra "Total Abonos" eliminada de la vista.
+       !important gana sobre "abonoRow.classList.remove('hidden')"
+       (la clase Tailwind .hidden no lleva !important, así que con
+       solo quitarla el script la volvería a mostrar). ───────────── */
+  .abono-row-removed {
+    display: none !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+
   /* ── Barra de carga ─────────────────────────────────────────── */
   #loadingBar {
     padding: 4px 14px 8px;

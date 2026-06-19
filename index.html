@@ -1266,8 +1266,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           </span>
         </div>
       </div>
-      <!-- Fila de abonos (condicional) -->
-      <div id="abonoResultRow" class="hidden liq-abono-row" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);">
+      <!-- Fila de abonos: eliminada de la vista. Se conserva en el DOM porque
+           el script hace abonoRow.classList.remove('hidden') y escribe en
+           totalAbonoDisplay sin validar que existan; .hidden de Tailwind no
+           tiene !important, así que solo "abono-row-removed" (con !important
+           real) evita que vuelva a mostrarse. -->
+      <div id="abonoResultRow" class="hidden liq-abono-row abono-row-removed" style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.07);">
         <p class="liq-abono-row__label">Total Abonos</p>
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
       </div>

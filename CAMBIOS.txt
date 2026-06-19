@@ -1,45 +1,36 @@
-CAMBIOS v112o-header-solo-casos → v112p-header-fix-ticker-persistente
-========================================================================
+CAMBIOS v112p-header-fix-ticker-persistente → v112q-eliminar-barra-total-abonos
+==================================================================================
 Fecha: 2026-06-18
 
-FIX: el ticker "Caso activo / UTM Actual" volvía a aparecer
+UI: eliminada la barra "Total Abonos" debajo del hero
 ─────────────────────────────────────────────────────────
-Causa raíz: en v112o se ocultó #utmTicker con un style inline
-"display:none !important". Pero más abajo en el script existe:
+Se trata del elemento id="abonoResultRow" (clase CSS .liq-abono-row),
+la franja blanca delgada que aparece justo debajo de la tarjeta azul
+"Total Adeudado" mostrando algo como "Total Abonos  −$148.566 LAV
+(2.14489 UTM)".
 
-  document.getElementById('utmTicker').classList.remove('hidden');
-  document.getElementById('utmTicker').style.display = 'flex';
+Mismo patrón de riesgo ya visto con el ticker UTM (ver CAMBIOS
+v112p): el script hace
 
-La línea ".style.display = 'flex'" asignada desde JS sobreescribe
-específicamente esa propiedad del atributo style inline — incluso
-si esa propiedad tenía !important — porque ambas viven en el mismo
-atributo style="" del elemento y la asignación posterior reemplaza
-el valor anterior de esa propiedad puntual. Por eso el ticker
-volvía a mostrarse después de cargar los datos UTM.
+  abonoRow.classList.remove('hidden');
+  document.getElementById('totalAbonoDisplay').innerText = abonoLabel;
 
-FIX: se creó la clase CSS .ticker-removed con "display: none
-!important" definida en una regla de hoja de estilos (no inline).
-Una regla de clase con !important SÍ tiene prioridad sobre una
-asignación inline sin !important (que es lo que hace
-"el.style.display = 'flex'" desde JS), así que ahora el ticker
-queda oculto de forma permanente sin importar lo que el script
-le asigne. Se agregó la clase a #utmTicker en el HTML.
+sin validar que los elementos existan. Además, la clase ".hidden"
+es de Tailwind y NO lleva !important, así que con solo dejarla
+puesta en el HTML, el "classList.remove('hidden')" del script la
+habría vuelto a mostrar igual que pasó con el ticker.
 
-OTROS CAMBIOS DE ESTE PAQUETE:
+FIX: se agregó la clase ".abono-row-removed" (display:none
+!important + height/padding/margin en 0 !important) al elemento
+abonoResultRow en el HTML, y se definió esa clase en styles.css.
+Por tener !important en una regla de hoja de estilos, esta clase
+vence cualquier "classList.remove('hidden')" o asignación de texto
+que el script siga haciendo sobre estos elementos — quedan ocultos
+de forma permanente y sin reservar espacio.
 
-1. Emoji 💰 eliminado del label "Total Adeudado" en la hero card
-   (ahora dice solo "Total Adeudado").
-
-2. Header compactado: se eliminó el <div class="header-divider">
-   (la línea separadora bajo la fila de botones) y se quitó el
-   espacio/padding que reservaba el contenedor del ticker
-   (.ticker-removed también fuerza height:0, padding:0, margin:0,
-   overflow:hidden). El header ahora solo ocupa el espacio de la
-   fila de hamburguesa + Casos + botones de acción.
-
-NO SE TOCÓ: ninguna lógica de cálculo, ningún onclick/handler,
-ni los valores que el script sigue escribiendo en utmActualVal/
-utmActualMes/headerCasoNombre (solo dejaron de ser visibles).
+NO SE TOCÓ: ninguna lógica de cálculo ni la función que arma el
+label de abonos (abonoLabel) — sigue ejecutándose igual, solo que
+ya no es visible.
 
 ARCHIVOS MODIFICADOS: index.html, styles.css
 SERVICE WORKER: sin cambios.
