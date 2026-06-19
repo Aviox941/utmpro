@@ -1,53 +1,46 @@
-CAMBIOS v2.0619.0147 → v2.0619.0202
+CAMBIOS v2.0619.0202 → v2.0619.0222
 ==================================================================================
 Fecha: 2026-06-19
 
-FIX REAL: ReferenceError "abonosLav is not defined" rompía la restauración
+FIX: Eliminado wait de IDB que demoraba/abortaba la restauración en frío
 ──────────────────────────────────────────────────────────────────────────────────
-DIAGNÓSTICO (confirmado con el panel de debug del usuario):
-  El parche anterior (auto-restore en _sbSyncBackground tras quitar la
-  welcomeScreen) era correcto pero NO era la causa del problema real.
+PROBLEMA
+  Tras corregir el ReferenceError de abonosLav, la restauración funcionaba
+  bien al iniciar sesión, pero seguía fallando al cerrar la app por completo
+  (deslizar fuera de "recientes" en Android, matando el proceso) y volver
+  a abrirla — tanto en PWA como en pestaña de navegador normal.
 
-  El log mostró:
-    LOAD[L1] local-first: 2 casos, lastId=b5d853f2
-    ❌ JS ERROR: Uncaught ReferenceError: abonosLav is not defined | :4482
-    UTM[1] fetchUTM() iniciado...
-
-  `abonosLav` se usa en decenas de lugares (index.html y export.js) pero
-  NUNCA estuvo declarada con `let`/`var` junto a sus arrays hermanos
-  (abonos, pagosParciales, historicalDebts, periodosPension — todas sí
-  declaradas en la cabecera del script). Al no ser una variable global
-  declarada, la primera LECTURA de `abonosLav` que ocurre antes de su
-  primera ASIGNACIÓN (dentro de resetAllSilent()/applySession() durante
-  switchCaso()) lanza ReferenceError y corta en seco la ejecución de la
-  función que estaba restaurando el caso — dejando todos los campos de
-  UI vacíos aunque el caso sí se haya leído correctamente desde
-  localStorage/Supabase.
-
-  Esto explica el síntoma exacto reportado: "queda logueado pero la
-  pantalla aparece vacía (sin caso)". No era un problema de Supabase ni
-  de la welcomeScreen — era una variable global faltante que rompía
-  applySession() a mitad de camino.
+  La causa: sbLoadCasos() (FASE 1) hacía
+    await Promise.race([window._idbRestorePromise, timeout 800ms])
+  ANTES de leer localStorage. Este wait se agregó para proteger contra el
+  caso de Android limpiando localStorage, pero en arranque en frío real
+  (proceso recién matado) el restore de IndexedDB puede demorar más de lo
+  esperado, y bloquear ahí FASE 1 retrasaba — o en combinación con otros
+  timeouts de la cadena de arranque, terminaba dejando la pantalla en
+  blanco sin restaurar el caso.
 
 SOLUCIÓN
-  Se agregó `let abonosLav = [];` junto a las demás declaraciones de
-  estado global (abonos, pagosParciales, historicalDebts,
-  periodosPension), eliminando la condición de carrera.
+  Se eliminó el wait explícito. El restore de IDB → localStorage sigue
+  ejecutándose igual, pero corre en paralelo desde el script temprano del
+  <head> (independiente de sbLoadCasos) sin bloquear la UI. FASE 1 vuelve
+  a leer localStorage directamente y de inmediato, igual que en la versión
+  de referencia comprobada (línea base previa a esta serie de cambios).
 
-  Se mantiene también el fix anterior (auto-restore post-sync sin
-  welcomeScreen) en _sbSyncBackground(), que sigue siendo correcto y
-  necesario para el caso de "sin caso local, primer dispositivo".
+  El respaldo en IndexedDB de pension_utm_auth, pension_utm_last_caso,
+  pension_utm_casos_index_v1 y pension_utm_caso_v1_* sigue intacto y activo
+  (vía el monkey-patch de localStorage.setItem/removeItem y el storage
+  adapter _sbStorage) — solo se quitó el bloqueo síncrono en sbLoadCasos.
 
 ARCHIVOS MODIFICADOS
 ─────────────────────
-- index.html  (declaración global de abonosLav; app-version)
-- sw.js       (CACHE_NAME: pension-utm-v177)
+- index.html  (sbLoadCasos FASE 1 — quitado await idbRestorePromise; app-version)
+- sw.js       (CACHE_NAME: pension-utm-v178)
 - CAMBIOS.txt
 
 ==================================================================================
 HISTORIAL RECIENTE
 ==================================================================================
+v2.0619.0222 : FIX — quitado wait de IDB que retrasaba/rompía restauración en frío
 v2.0619.0202 : FIX REAL — abonosLav sin declarar rompía restauración de sesión
 v2.0619.0147 : Auto-restore de caso post-sync Supabase tras quitar welcomeScreen
-v116-inline-clean : Tarjeta inline "Detalle del cálculo" — modo compacto
 ==================================================================================

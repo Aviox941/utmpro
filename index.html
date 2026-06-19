@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0202">
+ <meta name="app-version" content="v2.0619.0222">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -6858,18 +6858,11 @@ async function sbLoadCasos() {
   //         nuevos, aplicar silenciosamente vía _sbSyncBackground().
   // ══════════════════════════════════════════════════════════════════════════
 
-  // ── FASE 1: Esperar IDB restore antes de leer localStorage ──
-  // Android puede limpiar localStorage; IDB restore lo recupera de forma asíncrona.
-  // Si no esperamos, leemos el índice vacío incorrectamente.
-  if (window._idbRestorePromise) {
-    try {
-      await Promise.race([
-        window._idbRestorePromise,
-        new Promise(r => setTimeout(r, 800)) // máx 800ms para no bloquear UI
-      ]);
-      dbg('LOAD[IDB] restore completo (o timeout), leyendo localStorage');
-    } catch(e) { dbg('LOAD[IDB] error esperando restore: ' + e.message); }
-  }
+  // ── FASE 1: Restaurar desde localStorage sin esperar a Supabase ──
+  // (El restore de IDB → localStorage corre en paralelo desde el script
+  // temprano del <head>; no bloqueamos sbLoadCasos esperándolo, porque
+  // en arranque en frío puede demorar más de lo esperado y deja la app
+  // en blanco innecesariamente. localStorage normalmente ya está intacto.)
 
   const _localIdx = getCasosIndex();
   const _localLastId = localStorage.getItem('pension_utm_last_caso');
