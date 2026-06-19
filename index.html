@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0147">
+ <meta name="app-version" content="v2.0619.0202">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2162,6 +2162,7 @@ let _isRestoringSession = false;
 let historicalDebts = [];
 let abonos = [];
 let pagosParciales = [];
+let abonosLav = [];
 // ── Períodos de pensión variables ──────────────────────────
 // Cada entrada: { id, desde:{mes,anio}, hasta:{mes,anio}|null,
 //                utm, porcentaje, sueldo, usaIMM }
