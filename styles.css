@@ -3478,6 +3478,11 @@
   transition: border-color 0.14s, background 0.14s;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  /* Reset button styles */
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .dup-radio input[type="radio"] {
   position: absolute;
@@ -3687,21 +3692,52 @@
 }
 
 /* ── Responsive: tablet y desktop (centrado) ────────────────────── */
-@media (min-width: 768px) {
-  .dup-overlay {
-    /* En tablet/desktop el overlay se centra como el app-container */
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%) translateY(100%);
+@media (min-width: 600px) {
+  .dup-overlay__header,
+  .dup-overlay__footer {
+    /* Centrar header y footer igual que el body */
+  }
+
+  .dup-overlay__header-inner,
+  .dup-overlay__body-inner,
+  .dup-overlay__footer-inner {
+    max-width: 520px;
+    margin: 0 auto;
     width: 100%;
-    max-width: 768px;
   }
-  @keyframes dup-slide-up {
-    from { transform: translateX(-50%) translateY(100%); }
-    to   { transform: translateX(-50%) translateY(0);    }
+
+  .dup-overlay__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  @keyframes dup-slide-down {
-    from { transform: translateX(-50%) translateY(0);    }
-    to   { transform: translateX(-50%) translateY(100%); }
+
+  .dup-overlay__body > * {
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .dup-overlay__header {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .dup-overlay__header > * {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dup-overlay__footer {
+    display: flex;
+    justify-content: center;
+  }
+
+  .dup-overlay__footer > * {
+    width: 100%;
+    max-width: 520px;
   }
 }

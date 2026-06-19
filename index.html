@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0225">
+ <meta name="app-version" content="v2.0619.0226">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7809,16 +7809,14 @@ function _ayudaAbrirTema(t) {
           <span class="dup-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
         </div>
         <div class="dup-radio-group" role="radiogroup">
-          <label class="dup-radio dup-radio--active" id="dupRadioLabelUTM">
-            <input type="radio" name="dupUnidad" value="utm" checked onchange="dupOnUnidadChange(this)">
+          <button type="button" class="dup-radio dup-radio--active" id="dupRadioLabelUTM" onclick="dupSelectUnidad('utm')" aria-pressed="true">
             <span class="dup-radio__indicator"></span>
             <span class="dup-radio__text">UTM</span>
-          </label>
-          <label class="dup-radio" id="dupRadioLabelCLP">
-            <input type="radio" name="dupUnidad" value="clp" onchange="dupOnUnidadChange(this)">
+          </button>
+          <button type="button" class="dup-radio" id="dupRadioLabelCLP" onclick="dupSelectUnidad('clp')" aria-pressed="false">
             <span class="dup-radio__indicator"></span>
             <span class="dup-radio__text">CLP</span>
-          </label>
+          </button>
         </div>
       </div>
 
@@ -7919,14 +7917,22 @@ function closeDupOverlay() {
   }, { once: true });
 }
 
-function dupOnUnidadChange(radio) {
-  const isUTM = radio.value === 'utm';
+// Estado de unidad seleccionada (evita depender de input[type=radio] nativo)
+var _dupUnidad = 'utm';
+
+function dupSelectUnidad(val) {
+  _dupUnidad = val;
+  const isUTM = val === 'utm';
   document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
   document.getElementById('dupMontoCuota').placeholder = isUTM ? '0.00' : '0';
   document.getElementById('dupMontoCuota').step = isUTM ? '0.01' : '1';
-  // Actualizar estilo de los radio labels
-  document.getElementById('dupRadioLabelUTM').classList.toggle('dup-radio--active', isUTM);
-  document.getElementById('dupRadioLabelCLP').classList.toggle('dup-radio--active', !isUTM);
+  document.getElementById('dupMontoCuota').value = '';
+  var btnUTM = document.getElementById('dupRadioLabelUTM');
+  var btnCLP = document.getElementById('dupRadioLabelCLP');
+  btnUTM.classList.toggle('dup-radio--active', isUTM);
+  btnCLP.classList.toggle('dup-radio--active', !isUTM);
+  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
+  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
 }
 
 function dupTriggerDatePicker() {
@@ -7944,7 +7950,7 @@ function dupOnFechaChange(input) {
 }
 
 function dupCalcularDeuda() {
-  const unidad = document.querySelector('input[name="dupUnidad"]:checked')?.value;
+  const unidad = _dupUnidad;
   const monto  = parseFloat(document.getElementById('dupMontoCuota').value);
   const fecha  = document.getElementById('dupFechaInput').value;
 

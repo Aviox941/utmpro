@@ -1,4 +1,38 @@
-CAMBIOS v2.0619.0224 → v2.0619.0225
+CAMBIOS v2.0619.0225 → v2.0619.0226
+==================================================================================
+Fecha: 2026-06-19
+
+FIX: Radio UTM/CLP congelado + centrado en tablet
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMAS
+  1. Al seleccionar CLP en el overlay "Desde el último pago", el radio se
+     congelaba y no permitía volver a seleccionar UTM.
+  2. En tablet el contenido del overlay se veía muy estirado/descentrado,
+     sin respetar el ancho máximo de la referencia visual.
+
+SOLUCIONES
+  1. BUG RADIO: Se reemplazaron los <label>+<input type="radio"> por
+     <button type="button"> con onclick="dupSelectUnidad('utm'/'clp')".
+     Los inputs radio ocultos (opacity:0, pointer-events:none) causaban
+     comportamiento inconsistente en Android al hacer click repetido sobre
+     el mismo label. La nueva implementación usa variable de estado JS
+     (_dupUnidad) en lugar de depender del estado nativo del input,
+     eliminando por completo la causa del congelamiento.
+
+  2. CENTRADO TABLET: Se reemplazó el bloque @media (min-width:768px) que
+     intentaba centrar el overlay completo (con translateX) por un enfoque
+     de max-width en el contenido interior: el overlay sigue siendo inset:0
+     pero el body usa display:flex + align-items:center con max-width:520px
+     sobre los elementos hijos. Header y footer también respetan el límite.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (radio group → buttons; dupSelectUnidad(); _dupUnidad state; v0226)
+- styles.css  (dup-radio como button; @media centrado por contenido)
+- sw.js       (CACHE_NAME: pension-utm-v182)
+- CAMBIOS.txt
+
+
 ==================================================================================
 Fecha: 2026-06-19
 
