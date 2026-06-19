@@ -2,21 +2,37 @@ CAMBIOS v2.0619.0224 → v2.0619.0225
 ==================================================================================
 Fecha: 2026-06-19
 
-FIX: Texto truncado ("Desde el últi…", "Pagos parcia…") en las tarjetas
+NUEVO: Pantalla fullscreen "Desde el último pago"
 ──────────────────────────────────────────────────────────────────────────────────
-PROBLEMA
-  En pantallas angostas reales (celular Android, ~360-400px de ancho),
-  el título de las tarjetas se truncaba con "…" porque font-size:9.5px
-  en una sola línea (white-space:nowrap + ellipsis) no alcanzaba para
-  "Desde el último pago" y "Pagos parciales" dentro del ancho disponible
-  en un grid de 4 columnas.
+QUÉ SE AGREGÓ
+  Al tocar la tarjeta azul "Desde el último pago" de la barra fija inferior,
+  se abre un overlay fullscreen (position:fixed; inset:0; z-index:600) que
+  cubre toda la pantalla con animación slide-up estilo navegación nativa iOS/
+  Android. No es un modal emergente: ocupa la pantalla completa y tiene su
+  propio header con botón ← volver que lo cierra con slide-down.
 
-SOLUCIÓN
-  Se permite que el título use 2 líneas (white-space:normal + line-clamp:2
-  en vez de nowrap+ellipsis), se redujo a font-size:9px y se aumentó la
-  altura de la tarjeta de 64px a 74px para acomodar el wrap sin recortar
-  texto. Se ajustó el padding-bottom compensatorio de #app-container de
-  120px a 130px por el incremento de altura de la barra.
+  Contenido del overlay:
+  • Hero card: ícono de calendario en fondo lavanda + título + subtítulo
+  • Paso 1: radio group UTM / CLP con indicador animado y borde morado activo
+  • Paso 2: input de monto con prefijo UTM/$, fuente 22px, sin flechas nativas
+  • Paso 3: date picker nativo encubierto con display formateado "DD / MM / YYYY"
+            + hint "Calcularemos desde el día siguiente a esta fecha"
+  • Footer fijo: botón CTA morado "Calcular deuda actual" con safe-area-inset
+
+  El overlay vive fuera del #app-container (justo antes de </body>).
+  CSS completamente nuevo y aislado (prefijo .dup-*) al final de styles.css.
+  JS en bloque <script> al final de index.html: openDupOverlay(),
+  closeDupOverlay(), dupOnUnidadChange(), dupTriggerDatePicker(),
+  dupOnFechaChange(), dupCalcularDeuda() (con TODO para conectar al motor).
+  La tarjeta azul .calc-mode-card--blue recibe addEventListener click en
+  DOMContentLoaded implícito mediante IIFE al final del script.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (overlay #dupOverlay + <script> DUP + app-version v2.0619.0225)
+- styles.css  (bloque .dup-* al final)
+- sw.js       (CACHE_NAME: pension-utm-v181)
+- CAMBIOS.txt
 
 
 ==================================================================================

@@ -3202,9 +3202,9 @@
 
 .calc-mode-card {
   width: 100%;
-  height: 74px;
+  height: 64px;
   border-radius: 16px;
-  padding: 8px 5px;
+  padding: 8px 6px;
   border: none;
   box-shadow: none;
   display: flex;
@@ -3240,19 +3240,15 @@
 }
 
 .calc-mode-card__title {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 800;
   color: #1e293b;
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.01em;
-  white-space: normal;
-  overflow: visible;
-  word-break: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 100%;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 /* La flecha se elimina en el formato compacto de barra fija (sin espacio) */
@@ -3275,7 +3271,437 @@
    (último elemento antes del fondo) no quede tapado por la barra
    fija. Se suma al padding-bottom existente de #app-container
    (pb-20 = 80px) un extra para la altura real de la barra
-   (título + tarjetas + paddings + safe-area ≈ 110-130px). */
+   (título + tarjetas + paddings + safe-area ≈ 100-120px). */
 #app-container {
-  padding-bottom: 130px !important;
+  padding-bottom: 120px !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   FULLSCREEN OVERLAY: Desde el último pago (DUP)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Contenedor fullscreen */
+.dup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: var(--color-bg-app, #f5f6f8);
+  display: none;
+  flex-direction: column;
+  /* Slide-up al abrir */
+  transform: translateY(100%);
+}
+
+@keyframes dup-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+
+@keyframes dup-slide-down {
+  from { transform: translateY(0);    }
+  to   { transform: translateY(100%); }
+}
+
+.dup-overlay--open {
+  animation: dup-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.dup-overlay--closing {
+  animation: dup-slide-down 0.26s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+}
+
+/* ── Header del overlay ─────────────────────────────────────────── */
+.dup-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--color-bg-app, #f5f6f8);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  flex-shrink: 0;
+  min-height: 50px;
+}
+
+.dup-overlay__back {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #5a6380;
+  flex-shrink: 0;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.dup-overlay__back:active {
+  background: rgba(37,99,235,0.09);
+  transform: scale(0.92);
+}
+.dup-overlay__back svg {
+  width: 20px;
+  height: 20px;
+}
+
+.dup-overlay__header-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1d2e;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+/* ── Cuerpo desplazable ─────────────────────────────────────────── */
+.dup-overlay__body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 14px 0;
+}
+
+/* ── Hero card ──────────────────────────────────────────────────── */
+.dup-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 20px;
+}
+
+.dup-hero__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(91, 79, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dup-hero__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.dup-hero__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dup-hero__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1d2e;
+  letter-spacing: -0.02em;
+  margin: 0 0 5px 0;
+  line-height: 1.2;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-hero__subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: #5a6380;
+  line-height: 1.45;
+  margin: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+/* ── Formulario de pasos ────────────────────────────────────────── */
+.dup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.dup-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dup-step__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.dup-step__badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #5b4fff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  line-height: 1;
+}
+
+.dup-step__label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1a1d2e;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  line-height: 1.3;
+}
+
+/* ── Radio group UTM / CLP ──────────────────────────────────────── */
+.dup-radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dup-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.dup-radio input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Radio activo */
+.dup-radio--active {
+  border-color: #5b4fff;
+  background: rgba(91, 79, 255, 0.04);
+}
+
+.dup-radio__indicator {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #c0c8d8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.14s;
+  position: relative;
+}
+.dup-radio__indicator::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5b4fff;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.14s, transform 0.14s;
+}
+.dup-radio--active .dup-radio__indicator {
+  border-color: #5b4fff;
+}
+.dup-radio--active .dup-radio__indicator::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.dup-radio__text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a6380;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  transition: color 0.14s;
+}
+.dup-radio--active .dup-radio__text {
+  color: #5b4fff;
+}
+
+/* ── Input de monto ─────────────────────────────────────────────── */
+.dup-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 56px;
+  gap: 10px;
+  transition: border-color 0.14s;
+}
+.dup-input-wrap:focus-within {
+  border-color: #5b4fff;
+  box-shadow: 0 0 0 3px rgba(91,79,255,0.08);
+}
+
+.dup-input__prefix {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8e97b0;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1d2e;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  letter-spacing: -0.02em;
+  outline: none;
+  padding: 0;
+  min-width: 0;
+}
+.dup-input::placeholder {
+  color: #c0c8d8;
+  font-weight: 500;
+}
+/* Ocultar flechas en número inputs */
+.dup-input::-webkit-inner-spin-button,
+.dup-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.dup-input[type=number] { -moz-appearance: textfield; }
+
+/* ── Date picker ────────────────────────────────────────────────── */
+.dup-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 56px;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.14s;
+}
+.dup-date-wrap:active {
+  border-color: #5b4fff;
+}
+
+.dup-date__native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+.dup-date__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #8e97b0;
+}
+
+.dup-date__display {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: #c0c8d8;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}
+.dup-date__display--filled {
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.dup-date__chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Hint text ──────────────────────────────────────────────────── */
+.dup-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #8e97b0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  margin: 0;
+  padding: 0 2px;
+  font-weight: 400;
+}
+.dup-hint svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* ── Footer con CTA fijo ────────────────────────────────────────── */
+.dup-overlay__footer {
+  flex-shrink: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-bg-app, #f5f6f8);
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.dup-cta-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 16px;
+  border: none;
+  background: #5b4fff;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.14s, transform 0.1s, box-shadow 0.14s;
+  box-shadow: 0 4px 16px rgba(91,79,255,0.32);
+  -webkit-tap-highlight-color: transparent;
+}
+.dup-cta-btn:hover {
+  background: #4c40f0;
+}
+.dup-cta-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(91,79,255,0.22);
+}
+
+/* ── Responsive: tablet y desktop (centrado) ────────────────────── */
+@media (min-width: 768px) {
+  .dup-overlay {
+    /* En tablet/desktop el overlay se centra como el app-container */
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(100%);
+    width: 100%;
+    max-width: 768px;
+  }
+  @keyframes dup-slide-up {
+    from { transform: translateX(-50%) translateY(100%); }
+    to   { transform: translateX(-50%) translateY(0);    }
+  }
+  @keyframes dup-slide-down {
+    from { transform: translateX(-50%) translateY(0);    }
+    to   { transform: translateX(-50%) translateY(100%); }
+  }
 }
