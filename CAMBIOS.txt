@@ -1,28 +1,47 @@
-CAMBIOS v114 → v116-inline-clean
+CAMBIOS v116-inline-clean → v2.0619.0147
 ==================================================================================
-Fecha: 2026-06-18
+Fecha: 2026-06-19
 
-FIX: Tarjeta inline "Detalle del cálculo" — modo compacto sin elementos redundantes
+FIX: Restauración de sesión/caso tras eliminar welcomeScreen
 ──────────────────────────────────────────────────────────────────────────────────
-Se refactorizó buildResumenContent(targetContainer, inlineMode) para aceptar:
-  • targetContainer: contenedor DOM destino (por defecto #resumenContent)
-  • inlineMode: boolean — cuando true, omite:
-      - Bloque "Datos del Caso" (colapsable)
-      - Franjas de sección "PERÍODO ACTUAL", "ABONOS LAV — DETALLE", etc.
-      - Caja azul "Total a Pagar — Liquidación Final"
-      - Nota al pie ("Los valores son referenciales...")
+PROBLEMA
+  Al eliminar la welcomeScreen del JS (index.html), se perdió sin querer la
+  única ruta que existía para restaurar un caso cuando NO había ningún caso
+  activo en localStorage (dispositivo nuevo, caché limpiado por Android,
+  reinstalación, etc.). La welcomeScreen no era solo una pantalla de
+  bienvenida: era el lugar donde se pintaba la lista de casos ya
+  sincronizados desde Supabase para que el usuario tocara uno y así
+  restaurar su sesión.
 
-La tarjeta inline muestra solo:
-  • Tabla de cuotas por columna (Período/UTM/Capital$/Días/Tasa/Interés/Subtotal)
-  • Separadores de año
-  • Abonos LAV detalle
-  • Pagos parciales con remanentes
-  • Resumen final (filas de totales)
+  Sin esa pantalla, _sbSyncBackground() seguía bajando los casos del
+  servidor y armando el índice local correctamente, pero si activeCasoId
+  estaba vacío, nadie llamaba a switchCaso(): el usuario veía la app vacía
+  sin ninguna forma de recuperar su caso en mobile (donde el sidebar no es
+  visible).
 
-El modal del botón del header sigue mostrando todo completo (inlineMode=false).
+SOLUCIÓN — Auto-restauración silenciosa (sin reintroducir la welcomeScreen)
+  Se agregó al final de _sbSyncBackground() un bloque que, únicamente
+  cuando no hay ningún caso activo local tras el sync, selecciona
+  automáticamente el caso correcto con la misma prioridad que ya usaba
+  FASE 1 de sbLoadCasos():
+    1. user_metadata.last_caso si existe en el índice sincronizado.
+    2. En su defecto, el caso con saved_at más reciente.
+  y llama a switchCaso(id) directamente — exactamente lo que el usuario
+  hacía a mano en la welcomeScreen, pero automático y sin UI intermedia.
+
+  No se modificó nada de la lógica de sbLoadCasos() (FASE 1 local-first),
+  ni de fetch/snapshot de Supabase, ni de los timeouts existentes.
 
 ARCHIVOS MODIFICADOS
 ─────────────────────
-- export.js   (buildResumenContent acepta targetContainer e inlineMode)
-- index.html  (llamada con buildResumenContent(contentEl, true))
-- sw.js       (CACHE_NAME: pension-utm-v175)
+- index.html  (app-version; _sbSyncBackground() — bloque de auto-restore)
+- sw.js       (CACHE_NAME: pension-utm-v176)
+- CAMBIOS.txt
+
+==================================================================================
+HISTORIAL RECIENTE
+==================================================================================
+v2.0619.0147 : FIX — auto-restore de caso post-sync Supabase tras quitar welcomeScreen
+v116-inline-clean : Tarjeta inline "Detalle del cálculo" — modo compacto
+v73 (línea base previa) : Inicio instantáneo — local-first + sync Supabase background
+==================================================================================

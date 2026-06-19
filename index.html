@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="2.0618.v115-inline-clean">
+ <meta name="app-version" content="v2.0619.0147">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7025,6 +7025,23 @@ async function _sbSyncBackground(rows) {
     if (metaLastId && metaLastId !== localLastId && finalIdx.find(c => c.id === metaLastId)) {
       localStorage.setItem('pension_utm_last_caso', metaLastId);
       dbg('SYNC[BG] lastId sincronizado desde user_metadata: ' + metaLastId.slice(0,6));
+    }
+
+    // ── AUTO-RESTAURACIÓN SIN WELCOME SCREEN ──────────────────────────────
+    // Antes, cuando no había caso local activo, la welcomeScreen mostraba la
+    // lista de casos de Supabase para que el usuario elija uno a mano.
+    // Esa pantalla fue eliminada; este bloque reemplaza esa elección manual
+    // por una selección automática y silenciosa, usando la misma prioridad
+    // que ya se usaba en FASE 1 (metaLastId > más reciente por saved_at).
+    if (!activeCasoId && finalIdx.length > 0) {
+      const _autoMetaId = sbCurrentUser?.user_metadata?.last_caso || null;
+      const _autoId = (_autoMetaId && finalIdx.find(c => c.id === _autoMetaId))
+        ? _autoMetaId
+        : finalIdx.slice().sort((a, b) =>
+            new Date(b.saved_at || 0).getTime() - new Date(a.saved_at || 0).getTime()
+          )[0].id;
+      dbg('SYNC[BG] AUTO-RESTORE: sin caso activo local — auto-seleccionando ' + _autoId.slice(0,8) + ' (ex-welcome)');
+      switchCaso(_autoId);
     }
   } catch(e) {
     dbg('SYNC[BG] ERROR: ' + e.message);
