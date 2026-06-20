@@ -1,6 +1,30 @@
 ==================================================================================
 Fecha: 2026-06-20
 
+FIX: Selector UTM no aceptaba "." como separador decimal (guardaba sin decimales)
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  Al elegir UTM en el selector de quotaScreen, el teclado numérico de Android
+  (inputmode="decimal") muestra el punto "." como tecla de separador decimal,
+  no la coma. La función qsFormatAmountInput() solo aceptaba ',' en su regex
+  de saneo (/[^\d,]/g) y eliminaba cualquier '.' tecleado, por lo que
+  "2.33" quedaba guardado como "233" (sin parte decimal).
+
+SOLUCIÓN
+  qsFormatAmountInput() ahora sanea aceptando tanto '.' como ',' y normaliza
+  cualquier punto ingresado a coma antes de aplicar el límite de un solo
+  separador y máximo 2 decimales. El resto del flujo (confirmQuotaScreen,
+  qsToggleUnidad) ya esperaba formato con coma, así que no requirió cambios.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (qsFormatAmountInput: regex /[^\d.,]/g + replace('.', ','))
+- sw.js        (CACHE_NAME: pension-utm-v191)
+- CAMBIOS.txt
+
+==================================================================================
+Fecha: 2026-06-20
+
 FIX: Botones "Comenzar" y "Continuar" alineados a misma altura + selector CLP/UTM funcional
 ──────────────────────────────────────────────────────────────────────────────────
 PROBLEMA 1 — Altura de botones distinta

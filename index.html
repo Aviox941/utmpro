@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0234">
+ <meta name="app-version" content="v2.0619.0235">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -6034,7 +6034,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0619.0234</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0619.0235</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8295,8 +8295,9 @@ function qsToggleUnidad() {
 
 function qsFormatAmountInput(input) {
   if (_qsUnidad === 'utm') {
-    // Formato decimal: dígitos + una coma opcional + hasta 2 decimales
-    var raw = input.value.replace(/[^\d,]/g, '');
+    // Formato decimal: acepta '.' o ',' como separador (el teclado numérico
+    // de Android muestra punto, pero mostramos/guardamos con coma).
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
     var partes = raw.split(',');
     if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
     var p2 = raw.split(',');
