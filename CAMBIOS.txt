@@ -1,3 +1,52 @@
+CAMBIOS v2.0619.0229 → v2.0619.0230
+==================================================================================
+Fecha: 2026-06-20
+
+FIX CRÍTICO: Service Worker servía pantalla antigua en deploys fuera de /utmpro/
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  En el deploy de Vercel (raíz "/", sin subpath) seguía apareciendo una
+  pantalla "CASO NUEVO" antigua, ya eliminada hace tiempo del código fuente.
+  No era una versión distinta del proyecto: el HTML real servido al navegador
+  estaba desincronizado del repo/ZIP actual.
+
+CAUSA RAÍZ
+  sw.js tenía hardcodeado:
+      const BASE = '/utmpro/';
+  y el fetch handler usaba:
+      if (!url.pathname.startsWith(BASE) && url.origin === self.location.origin) return;
+  En Vercel el sitio se sirve desde la raíz ("/"), así que NINGÚN pathname
+  empezaba con "/utmpro/". Esa condición se cumplía siempre y el handler
+  hacía return antes de llegar a event.respondWith(...): el Service Worker
+  dejaba de interceptar absolutamente todas las requests del propio sitio.
+  Sin esa intercepción, el SW nunca aplicaba su estrategia network-first ni
+  refrescaba el caché — el navegador quedó sirviendo un index.html viejo
+  cacheado de un registro anterior del SW (o del HTTP cache nativo), de ahí
+  la pantalla "CASO NUEVO" que ya no existe en el código fuente.
+
+SOLUCIÓN
+  BASE ya no se hardcodea: se calcula dinámicamente desde el scope real de
+  registro del Service Worker:
+      const BASE = new URL(self.registration.scope).pathname;
+  - En GitHub Pages (scope "https://aviox941.github.io/utmpro/") → BASE
+    sigue siendo "/utmpro/", comportamiento idéntico al anterior.
+  - En Vercel u otro deploy en raíz (scope ".../") → BASE pasa a ser "/",
+    por lo que el SW vuelve a interceptar y aplicar network-first sobre
+    todo el sitio, igual que estaba pensado.
+  El fallback offline (caches.match(BASE + 'index.html')) usa el mismo
+  valor dinámico, por lo que sigue siendo coherente en ambos entornos.
+
+ARCHIVOS MODIFICADOS
+  • sw.js       → BASE calculado vía self.registration.scope en vez de
+                  string hardcodeado '/utmpro/'. CACHE_NAME → 'pension-utm-v186'.
+  • index.html  → app-version → v2.0619.0230 (sin otros cambios).
+
+SIN CAMBIOS EN LÓGICA DE LOGIN, CÁLCULO NI QUOTA SCREEN
+  Este fix es exclusivamente del Service Worker (estrategia de caché /
+  scope). No se tocó ningún otro archivo ni lógica de la app.
+
+==================================================================================
+
 CAMBIOS v2.0619.0228 → v2.0619.0229
 ==================================================================================
 Fecha: 2026-06-19
