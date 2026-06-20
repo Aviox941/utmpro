@@ -1,3 +1,66 @@
+CAMBIOS v2.0619.0227 → v2.0619.0228
+==================================================================================
+Fecha: 2026-06-19
+
+NUEVO: Quota Screen overlay (pantalla "¿Cuál es tu cuota mensual de pensión?")
+──────────────────────────────────────────────────────────────────────────────────
+QUÉ SE AGREGÓ
+  Pantalla overlay fullscreen (#quotaScreen, position:fixed; inset:0;
+  z-index:99998) que se muestra inmediatamente después de cerrar el
+  Welcome Screen (encadenada desde closeWelcomeScreen()), siguiendo el
+  diseño de referencia entregado por el usuario. Aparece siempre que se
+  muestra el welcomeScreen (misma sesión, sin key nueva en storage).
+
+  Elementos implementados (clases con prefijo .qs-* para no colisionar
+  con ningún CSS existente):
+  • Header con botón "volver", barra de progreso (5 segmentos, 2 activos)
+    y etiqueta "Paso 1 de 2"
+  • Ícono calendario + moneda (SVG inline, mismo estilo visual que el
+    Welcome Screen)
+  • Título "¿Cuál es tu cuota mensual de pensión?" y subtítulo explicativo
+  • Input card con selector "$ CLP" (visual, no funcional) + campo de
+    monto con formato de miles en vivo (reutiliza formatPlain())
+  • Security card informativa ("Tus datos están seguros")
+  • Footer con botón "Continuar" y link "Ahora no, lo haré después"
+
+  Animación de entrada/salida fade idéntica en estructura a la del
+  Welcome Screen (@keyframes qs-fade-in / qs-fade-out), pero con su
+  propio namespace para no compartir clases.
+
+CONEXIÓN CON EL FORMULARIO PRINCIPAL (variable global existente)
+  Al presionar "Continuar", el monto ingresado se escribe directamente
+  en el campo real #clpAmount y se invoca updateFromClp() + saveSession() —
+  exactamente el mismo camino que ya usa el campo de "Valor cuota en
+  pesos" del formulario. Esto:
+    - Activa automáticamente el modo de cálculo "clp"
+    - Sincroniza el equivalente en UTM (#utmAmount)
+    - Deja el valor disponible para getMonthlyValues() en toda la app
+      (incluye los cálculos de "Calcular desde el último pago", LAV
+      modo libre, etc.)
+  El valor queda totalmente editable después: no se fija ni se bloquea,
+  el usuario puede cambiarlo en cualquier momento desde el formulario
+  normal.
+
+  El link "Ahora no, lo haré después" y el botón "volver" solo cierran
+  el overlay (closeQuotaScreen()) sin tocar ningún campo ni variable.
+
+ARCHIVOS MODIFICADOS
+  • index.html  → nuevo bloque #quotaScreen + funciones JS
+                  (qsFormatAmountInput, openQuotaScreen, closeQuotaScreen,
+                  confirmQuotaScreen); closeWelcomeScreen() ahora encadena
+                  la apertura de quotaScreen tras su animación de cierre.
+  • styles.css  → nuevo bloque "QUOTA SCREEN (qs-*)" agregado al final
+                  del archivo, sin modificar ninguna regla existente.
+  • sw.js       → CACHE_NAME incrementado a 'pension-utm-v184' para
+                  forzar actualización de cache en PWA.
+
+SIN CAMBIOS EN LÓGICA DE CÁLCULO
+  No se modificó calculate(), getMonthlyValues(), ni ningún onclick/
+  handler existente más allá de encadenar la apertura del nuevo overlay
+  al final de closeWelcomeScreen().
+
+==================================================================================
+
 CAMBIOS v2.0619.0226 → v2.0619.0227
 ==================================================================================
 Fecha: 2026-06-19

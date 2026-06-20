@@ -8101,6 +8101,109 @@ function dupCalcularDeuda() {
 </div>
 <!-- /WELCOME SCREEN OVERLAY -->
 
+<!-- QUOTA SCREEN OVERLAY (cuota mensual de referencia) -->
+<div id="quotaScreen" class="qs-screen" style="display:none;">
+  <div class="qs-inner">
+
+    <!-- Header: back + progress + step label -->
+    <div class="qs-header">
+      <button class="qs-back" aria-label="Volver" onclick="closeQuotaScreen()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <div class="qs-progress">
+        <div class="qs-progress-seg active"></div>
+        <div class="qs-progress-seg active"></div>
+        <div class="qs-progress-seg"></div>
+        <div class="qs-progress-seg"></div>
+        <div class="qs-progress-seg"></div>
+      </div>
+
+      <span class="qs-step-label">Paso 1 de 2</span>
+    </div>
+
+    <!-- Body -->
+    <div class="qs-body">
+
+      <!-- Ícono calendario + moneda -->
+      <div class="qs-icon-wrap">
+        <svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="36" height="32" rx="6" fill="none" stroke="#5b4ff7" stroke-width="2.8"/>
+          <line x1="4" y1="18" x2="40" y2="18" stroke="#5b4ff7" stroke-width="2.8"/>
+          <line x1="13" y1="4" x2="13" y2="12" stroke="#5b4ff7" stroke-width="2.8" stroke-linecap="round"/>
+          <line x1="31" y1="4" x2="31" y2="12" stroke="#5b4ff7" stroke-width="2.8" stroke-linecap="round"/>
+          <rect x="10" y="23" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <rect x="19" y="23" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <rect x="10" y="31" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <circle cx="38" cy="40" r="11" fill="#edeaff" stroke="#5b4ff7" stroke-width="2.8"/>
+          <text x="38" y="44.5" text-anchor="middle" font-size="13" font-weight="800" fill="#5b4ff7" font-family="-apple-system,sans-serif">$</text>
+        </svg>
+      </div>
+
+      <!-- Título -->
+      <h2 class="qs-title">¿Cuál es tu cuota<br>mensual de pensión?</h2>
+
+      <!-- Subtítulo -->
+      <p class="qs-subtitle">Este monto se utilizará como referencia para tus cálculos. Puedes cambiarlo después si lo necesitas.</p>
+
+      <!-- Input card -->
+      <div class="qs-input-card">
+        <div class="qs-input-card-header">
+          <span class="qs-input-label">Monto de la cuota mensual</span>
+        </div>
+        <div class="qs-input-row">
+          <span class="qs-currency-select">
+            <span>$ CLP</span>
+          </span>
+          <input
+            id="qsAmountInput"
+            class="qs-amount-input"
+            type="text"
+            inputmode="numeric"
+            placeholder="0"
+            oninput="qsFormatAmountInput(this)"
+          />
+        </div>
+      </div>
+
+      <!-- Security card -->
+      <div class="qs-security-card">
+        <div class="qs-security-icon">
+          <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="19" cy="19" r="19" fill="#ddd6fe" opacity="0.5"/>
+            <path d="M19 6L8 10.5V18C8 24.075 12.8 29.745 19 31.5C25.2 29.745 30 24.075 30 18V10.5L19 6Z" fill="#5b4ff7" opacity="0.15" stroke="#5b4ff7" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="19" cy="18" r="3.5" fill="none" stroke="#5b4ff7" stroke-width="1.8"/>
+            <line x1="19" y1="21.5" x2="19" y2="25" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="19" y1="16" x2="19" y2="20" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="17" y1="18" x2="21" y2="18" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="qs-security-text">
+          <div class="qs-security-title">Tus datos están seguros</div>
+          <div class="qs-security-sub">No almacenamos información financiera, solo utilizamos este monto para tus cálculos.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="qs-footer">
+      <button class="qs-btn-continue" onclick="confirmQuotaScreen()">
+        Continuar
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+      <button class="qs-link-later" onclick="closeQuotaScreen()">Ahora no, lo haré después</button>
+    </div>
+
+  </div>
+</div>
+<!-- /QUOTA SCREEN OVERLAY -->
+
 <script>
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 (function() {
@@ -8125,7 +8228,42 @@ function closeWelcomeScreen() {
   ws.addEventListener('animationend', function() {
     ws.style.display = 'none';
     sessionStorage.setItem('ws_done', '1');
+    openQuotaScreen();
   }, { once: true });
+}
+
+// ── Quota Screen (cuota mensual de referencia) ──────────────────────────────
+function qsFormatAmountInput(input) {
+  var raw = input.value.replace(/\D/g, '');
+  input.value = raw === '' ? '' : formatPlain(raw);
+}
+
+function openQuotaScreen() {
+  var qs = document.getElementById('quotaScreen');
+  if (!qs) return;
+  qs.style.display = 'flex';
+  qs.classList.remove('qs-screen--out');
+}
+
+function closeQuotaScreen() {
+  var qs = document.getElementById('quotaScreen');
+  if (!qs) return;
+  qs.classList.add('qs-screen--out');
+  qs.addEventListener('animationend', function() {
+    qs.style.display = 'none';
+  }, { once: true });
+}
+
+function confirmQuotaScreen() {
+  var raw = (document.getElementById('qsAmountInput').value || '').replace(/\./g, '');
+  var monto = parseInt(raw) || 0;
+  if (monto > 0) {
+    var clpInput = document.getElementById('clpAmount');
+    clpInput.value = formatPlain(monto);
+    updateFromClp();
+    saveSession();
+  }
+  closeQuotaScreen();
 }
 </script>
 </body>
