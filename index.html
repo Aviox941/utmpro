@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0227">
+ <meta name="app-version" content="v2.0619.0229">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7381,6 +7381,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
     const profileEmailEl = document.getElementById('userProfileEmailDetail');
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
+    // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
+    if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
+      var ws = document.getElementById('welcomeScreen');
+      if (ws) ws.style.display = 'flex';
+    }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
       // En TOKEN_REFRESHED u otros eventos repetidos, evitar recargar innecesariamente.
@@ -8206,19 +8211,12 @@ function dupCalcularDeuda() {
 
 <script>
 // ── Welcome Screen ────────────────────────────────────────────────────────────
+// La welcome screen NO se muestra al cargar la página.
+// Se muestra solo tras un login manual exitoso (event === 'SIGNED_IN' en onAuthStateChange).
+// closeWelcomeScreen() marca ws_done en sessionStorage para no repetirla.
 (function() {
-  // Mostrar solo la primera vez (sin localStorage para compatibilidad PWA)
   var ws = document.getElementById('welcomeScreen');
-  if (!ws) return;
-
-  // Si ya pasó el onboarding en esta sesión, ocultar inmediatamente
-  if (sessionStorage.getItem('ws_done')) {
-    ws.style.display = 'none';
-    return;
-  }
-
-  // Asegurar visible
-  ws.style.display = 'flex';
+  if (ws) ws.style.display = 'none';
 })();
 
 function closeWelcomeScreen() {

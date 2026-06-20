@@ -1,4 +1,4 @@
-CAMBIOS v2.0619.0227 → v2.0619.0228
+CAMBIOS v2.0619.0228 → v2.0619.0229
 ==================================================================================
 Fecha: 2026-06-19
 
@@ -8,8 +8,17 @@ QUÉ SE AGREGÓ
   Pantalla overlay fullscreen (#quotaScreen, position:fixed; inset:0;
   z-index:99998) que se muestra inmediatamente después de cerrar el
   Welcome Screen (encadenada desde closeWelcomeScreen()), siguiendo el
-  diseño de referencia entregado por el usuario. Aparece siempre que se
-  muestra el welcomeScreen (misma sesión, sin key nueva en storage).
+  diseño de referencia entregado por el usuario.
+
+  NOTA IMPORTANTE: esta versión re-aplica el feature de Quota Screen sobre
+  la base correcta de v2.0619.0228, la cual ya incluye el fix de
+  "Welcome Screen aparece después del login, no antes" (SIGNED_IN /
+  INITIAL_SESSION en onAuthStateChange). Una entrega previa del ZIP base
+  (sin ese fix) había recibido el Quota Screen por error; esta versión
+  corrige eso construyendo sobre la base correcta. El disparador de la
+  welcome screen (y por tanto del quota screen, que se abre justo después)
+  sigue siendo exclusivamente el evento SIGNED_IN de onAuthStateChange —
+  no se modificó esa lógica de login.
 
   Elementos implementados (clases con prefijo .qs-* para no colisionar
   con ningún CSS existente):
@@ -49,17 +58,47 @@ ARCHIVOS MODIFICADOS
                   (qsFormatAmountInput, openQuotaScreen, closeQuotaScreen,
                   confirmQuotaScreen); closeWelcomeScreen() ahora encadena
                   la apertura de quotaScreen tras su animación de cierre.
+                  app-version → v2.0619.0229.
   • styles.css  → nuevo bloque "QUOTA SCREEN (qs-*)" agregado al final
                   del archivo, sin modificar ninguna regla existente.
-  • sw.js       → CACHE_NAME incrementado a 'pension-utm-v184' para
+  • sw.js       → CACHE_NAME incrementado a 'pension-utm-v185' para
                   forzar actualización de cache en PWA.
 
-SIN CAMBIOS EN LÓGICA DE CÁLCULO
-  No se modificó calculate(), getMonthlyValues(), ni ningún onclick/
-  handler existente más allá de encadenar la apertura del nuevo overlay
-  al final de closeWelcomeScreen().
+SIN CAMBIOS EN LÓGICA DE LOGIN NI DE CÁLCULO
+  No se modificó onAuthStateChange, hideLoginScreen/showLoginScreen, ni
+  calculate()/getMonthlyValues(), ni ningún onclick/handler existente
+  más allá de encadenar la apertura del nuevo overlay al final de
+  closeWelcomeScreen().
 
 ==================================================================================
+
+CAMBIOS v2.0619.0227 → v2.0619.0228
+==================================================================================
+Fecha: 2026-06-19
+
+FIX: Welcome Screen aparece después del login, no antes
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  La welcome screen se inicializaba con un IIFE al cargar la página, antes
+  de que onAuthStateChange confirmara la sesión. Esto hacía que apareciera
+  por encima del login screen en vez de mostrarse tras autenticarse.
+
+SOLUCIÓN
+  1. El IIFE inicial ahora siempre oculta la welcome screen (display:none).
+     Ya no la muestra al cargar — eso lo delega a onAuthStateChange.
+  2. En onAuthStateChange, cuando event === 'SIGNED_IN' (login manual exitoso)
+     y sessionStorage 'ws_done' no está marcado, se hace display:flex sobre
+     el #welcomeScreen (ya el loginScreen está oculto gracias a hideLoginScreen).
+  3. En INITIAL_SESSION (sesión ya existente, usuario regresa a la app) NO
+     se muestra la welcome screen — el usuario ya está logueado, va directo al app.
+  sessionStorage 'ws_done' sigue controlando que no aparezca dos veces
+  en la misma sesión del navegador.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (IIFE ws + bloque SIGNED_IN en onAuthStateChange; app-version v2.0619.0228)
+- sw.js       (CACHE_NAME: pension-utm-v184)
+- CAMBIOS.txt
 
 CAMBIOS v2.0619.0226 → v2.0619.0227
 ==================================================================================
