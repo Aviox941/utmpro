@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0230">
+ <meta name="app-version" content="v2.0620.0250">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7829,19 +7829,18 @@ function _ayudaAbrirTema(t) {
       <div class="dup-step">
         <div class="dup-step__header">
           <span class="dup-step__badge">2</span>
-          <span class="dup-step__label">Monto de la cuota mensual</span>
+          <span class="dup-step__label">Monto de la última cuota pagada</span>
         </div>
         <div class="dup-input-wrap">
           <span class="dup-input__prefix" id="dupPrefixLabel">UTM</span>
           <input
-            type="number"
+            type="text"
             id="dupMontoCuota"
             class="dup-input"
-            placeholder="0.00"
-            step="0.01"
-            min="0"
+            placeholder="0,00"
             inputmode="decimal"
-            aria-label="Monto de la cuota mensual"
+            aria-label="Monto de la última cuota pagada"
+            oninput="dupFormatMontoInput(this)"
           >
         </div>
       </div>
@@ -7943,8 +7942,7 @@ function dupSelectUnidad(val) {
   _dupUnidad = val;
   const isUTM = val === 'utm';
   document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
-  document.getElementById('dupMontoCuota').placeholder = isUTM ? '0.00' : '0';
-  document.getElementById('dupMontoCuota').step = isUTM ? '0.01' : '1';
+  document.getElementById('dupMontoCuota').placeholder = isUTM ? '0,00' : '0';
   document.getElementById('dupMontoCuota').value = '';
   var btnUTM = document.getElementById('dupRadioLabelUTM');
   var btnCLP = document.getElementById('dupRadioLabelCLP');
@@ -7952,6 +7950,38 @@ function dupSelectUnidad(val) {
   btnCLP.classList.toggle('dup-radio--active', !isUTM);
   btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
   btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+}
+
+// Saneo del input de monto, mismo patrón ya validado en qsFormatAmountInput()
+// (Paso 1 / quotaScreen): en UTM se admite '.' o ',' como separador decimal
+// (el teclado numérico de Android muestra punto) y se normaliza siempre a
+// coma, con máximo 2 decimales. En CLP se descarta todo lo no-numérico y se
+// formatea con separador de miles vía formatPlain(), igual que clpAmount/
+// qsAmountInput. Reemplaza el type="number" nativo anterior, que no permite
+// separador de miles (148.566 quedaba guardado como 148566) y no acepta
+// coma como decimal en ningún locale.
+function dupFormatMontoInput(input) {
+  if (_dupUnidad === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+// Convierte el valor visible (con coma decimal en UTM, o con puntos de
+// miles en CLP) al número real que espera la lógica de cálculo.
+function dupGetMontoValue() {
+  var raw = (document.getElementById('dupMontoCuota').value || '').trim();
+  if (_dupUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
 }
 
 function dupTriggerDatePicker() {
@@ -7970,7 +8000,7 @@ function dupOnFechaChange(input) {
 
 function dupCalcularDeuda() {
   const unidad = _dupUnidad;
-  const monto  = parseFloat(document.getElementById('dupMontoCuota').value);
+  const monto  = dupGetMontoValue();
   const fecha  = document.getElementById('dupFechaInput').value;
 
   if (!monto || monto <= 0) {
@@ -8605,16 +8635,19 @@ function csOpenDesdeUltimoPago() {
 // Precarga en dupOverlay la cuota mensual ya capturada en quotaScreen, para
 // que el usuario no tenga que volver a ingresarla. Usa la unidad (UTM/CLP)
 // y el monto guardados por openCalcTypeScreen() en _csUtmActual/_csClpActual.
+// El formato escrito debe coincidir con el que produce dupFormatMontoInput()
+// (coma decimal en UTM, separador de miles vía formatPlain() en CLP), ya
+// que el input es type="text" con saneo propio, no type="number".
 function csPrefillDesdeUltimoPago() {
-  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder 0.00)
+  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder)
   var unidad = _csUnidadActual || 'utm';
   dupSelectUnidad(unidad);
   var input = document.getElementById('dupMontoCuota');
   if (!input) return;
   if (unidad === 'utm') {
-    input.value = _csUtmActual.toFixed(2);
+    input.value = _csUtmActual.toFixed(2).replace('.', ',');
   } else {
-    input.value = Math.round(_csClpActual);
+    input.value = formatPlain(Math.round(_csClpActual));
   }
 }
 

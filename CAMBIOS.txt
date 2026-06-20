@@ -1,8 +1,77 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-FIX: Flash residual (más corto) en transición calcTypeScreen → dupOverlay
+CAMBIO: Texto de la casilla 2 en dupOverlay — "cuota mensual" → "última cuota pagada"
 ──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  En #dupOverlay ("Desde el último pago"), la casilla número 2 decía
+  "Monto de la cuota mensual" — el mismo texto que usa quotaScreen (Paso 1
+  del onboarding general). El usuario pidió diferenciarlo: en este overlay
+  específico, el monto que se ingresa corresponde a la última cuota
+  efectivamente pagada, no a la cuota mensual de referencia genérica.
+
+SOLUCIÓN
+  Cambiado únicamente dentro de #dupOverlay:
+  - .dup-step__label (texto visible sobre el input, casilla "2")
+  - aria-label del input #dupMontoCuota
+  Ambos de "Monto de la cuota mensual" a "Monto de la última cuota pagada".
+  quotaScreen (qs-input-label, Paso 1) no se tocó — el usuario confirmó
+  explícitamente que el cambio era solo para este overlay.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (dup-step__label y aria-label del Paso 2 en dupOverlay)
+- sw.js        (CACHE_NAME: pension-utm-v198)
+- CAMBIOS.txt
+
+==================================================================================
+
+PROBLEMA
+  #dupMontoCuota era type="number" nativo con step="0.01". Dos limitaciones
+  propias de ese tipo de input causaban los bugs reportados:
+  1. CLP: no admite separador de miles — al escribir "148.566" el navegador
+     lo guardaba como "148566" (sin punto), porque para type="number" el
+     punto solo puede ser el separador decimal, nunca de miles.
+  2. UTM: el separador decimal de type="number" es siempre punto en HTML,
+     sin importar el locale del navegador — tecleando coma ("2,33") el
+     campo la rechazaba, y aunque se tecleara con punto, nunca se mostraba
+     normalizada a coma (inconsistente con el resto de la app, que en
+     campos UTM siempre usa coma — ver utmAmount, historicalDebtUtm,
+     qsAmountInput).
+
+  Este input nunca tuvo el mismo tratamiento que qsAmountInput
+  (quotaScreen, Paso 1), que sí soluciona ambos casos vía
+  qsFormatAmountInput() desde la v108-v109.
+
+SOLUCIÓN
+  Se cambió #dupMontoCuota de type="number" a type="text" con
+  inputmode="decimal" (mismo patrón que qsAmountInput), y se agregó:
+  - dupFormatMontoInput(input): saneo en vivo vía oninput. En UTM acepta
+    '.' o ',' como separador (el teclado numérico de Android muestra
+    punto) y normaliza siempre a coma, máx. 2 decimales. En CLP descarta
+    todo lo no-numérico y formatea con separador de miles vía
+    formatPlain() — exactamente la misma lógica que qsFormatAmountInput().
+  - dupGetMontoValue(): convierte el valor visible (con coma decimal UTM
+    o puntos de miles CLP) al número real, usada en dupCalcularDeuda() en
+    vez del parseFloat() directo anterior (que ya no podría leer "2,33"
+    ni "148.566" correctamente tras el cambio de formato).
+  - csPrefillDesdeUltimoPago() ajustada para escribir en el mismo formato
+    (coma decimal en UTM, formatPlain en CLP) que ahora produce
+    dupFormatMontoInput(), manteniendo consistente la precarga del monto
+    agregada en la entrega anterior.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (#dupMontoCuota: type="number"→"text", placeholder con
+                 coma, oninput=dupFormatMontoInput; dupSelectUnidad: sin
+                 referencias a step; nuevas dupFormatMontoInput()/
+                 dupGetMontoValue(); dupCalcularDeuda() usa
+                 dupGetMontoValue(); csPrefillDesdeUltimoPago() ajustada)
+- sw.js        (CACHE_NAME: pension-utm-v197)
+- CAMBIOS.txt
+
+==================================================================================
+
 CONTEXTO
   El fix anterior (separar la animación de opacity del fondo de .cs-screen)
   eliminó el bug de "fondo se vuelve transparente durante 280ms", pero el
