@@ -3284,7 +3284,10 @@
 .dup-overlay {
   position: fixed;
   inset: 0;
-  z-index: 600;
+  z-index: 100000; /* por encima de welcomeScreen/quotaScreen/calcTypeScreen
+                       (99999/99998/99999): evita que quede tapado y se
+                       vea el fondo de la app durante una transición
+                       encadenada desde calcTypeScreen → dupOverlay */
   background: var(--color-bg-app, #f5f6f8);
   display: none;
   flex-direction: column;

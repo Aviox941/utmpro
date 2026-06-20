@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0130">
+ <meta name="app-version" content="v2.0620.0200">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8518,11 +8518,23 @@ function confirmQuotaScreen() {
 }
 
 // ── Calc Type Screen (Paso 2 de 2: ¿qué deseas calcular?) ──────────────────
+// ── Calc Type Screen (Paso 2 de 2: ¿qué deseas calcular?) ──────────────────
+// Guardan el último monto confirmado en quotaScreen (UTM y su equivalente
+// CLP), junto con la unidad activa en ese momento. Se usan para precargar
+// el campo de monto en dupOverlay cuando el usuario entra a "Desde el
+// último pago" desde esta pantalla, en vez de obligarlo a reingresarlo.
+var _csUtmActual = 0;
+var _csClpActual = 0;
+var _csUnidadActual = 'utm';
+
 function openCalcTypeScreen(utmVal, clpVal) {
   var cs = document.getElementById('calcTypeScreen');
   if (!cs) return;
 
   if (utmVal > 0) {
+    _csUtmActual = utmVal;
+    _csClpActual = clpVal;
+    _csUnidadActual = _qsUnidad; // unidad que el usuario tenía activa en quotaScreen
     var mainEl = document.getElementById('csQuotaMain');
     var secEl = document.getElementById('csQuotaSecondary');
     if (mainEl) mainEl.textContent = utmVal.toFixed(2).replace('.', ',') + ' UTM';
@@ -8549,20 +8561,39 @@ function closeCalcTypeScreen() {
 // Tarjeta "Desde el último pago" dentro de calcTypeScreen: dispara el mismo
 // overlay (dupOverlay) que ya usa la tarjeta equivalente del dock principal
 // (.calc-mode-card--blue → openDupOverlay(), ver bloque "FULLSCREEN OVERLAY:
-// Desde el último pago"). Primero se cierra calcTypeScreen con su fade-out
-// normal y, recién al terminar la animación, se abre dupOverlay — mismo
-// criterio que eligió el usuario para esta transición específica (a
-// diferencia del encadenado welcome→quota→calcType, que no deja frame vacío
-// porque ahí la pantalla siguiente ya estaba dibujada debajo).
+// Desde el último pago"). Se cierra calcTypeScreen con su fade-out normal y,
+// recién cuando termina la animación y queda con display:none, se abre
+// dupOverlay — un solo listener de animationend (antes había dos: uno acá y
+// otro duplicado dentro de closeCalcTypeScreen, lo que generaba una carrera
+// de eventos). dupOverlay ya tiene z-index por encima de todo el sistema de
+// onboarding, así que aunque algún frame se solape no se ve el fondo de la
+// app detrás.
 function csOpenDesdeUltimoPago() {
-  closeCalcTypeScreen();
   var cs = document.getElementById('calcTypeScreen');
-  if (cs) {
-    cs.addEventListener('animationend', function() {
-      openDupOverlay();
-    }, { once: true });
-  } else {
+  if (!cs) { openDupOverlay(); return; }
+
+  cs.classList.add('cs-screen--out');
+  cs.addEventListener('animationend', function() {
+    cs.style.display = 'none';
+    qsUnlockBodyScroll();
     openDupOverlay();
+    csPrefillDesdeUltimoPago();
+  }, { once: true });
+}
+
+// Precarga en dupOverlay la cuota mensual ya capturada en quotaScreen, para
+// que el usuario no tenga que volver a ingresarla. Usa la unidad (UTM/CLP)
+// y el monto guardados por openCalcTypeScreen() en _csUtmActual/_csClpActual.
+function csPrefillDesdeUltimoPago() {
+  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder 0.00)
+  var unidad = _csUnidadActual || 'utm';
+  dupSelectUnidad(unidad);
+  var input = document.getElementById('dupMontoCuota');
+  if (!input) return;
+  if (unidad === 'utm') {
+    input.value = _csUtmActual.toFixed(2);
+  } else {
+    input.value = Math.round(_csClpActual);
   }
 }
 

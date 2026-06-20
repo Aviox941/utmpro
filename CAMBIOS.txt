@@ -1,8 +1,68 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Tarjeta "Desde el último pago" de calcTypeScreen conectada a dupOverlay
+FIX: Flash de interfaz de fondo al pasar de calcTypeScreen a dupOverlay + monto en 0
 ──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA 1 — Se veía la interfaz de cálculo de fondo durante la transición
+  Al tocar la tarjeta "Desde el último pago" en calcTypeScreen, durante la
+  animación de cierre (~280ms) se veía mezclada/asomada toda la interfaz de
+  resultados de la app (detalle de cálculo, dock, etc.) detrás del overlay
+  semitransparente. Causa raíz: .dup-overlay tenía z-index:600 (heredado de
+  cuando solo se abría desde el dock principal, donde no compite con ningún
+  otro overlay fullscreen), mientras que welcomeScreen/quotaScreen/
+  calcTypeScreen usan z-index 99998-99999. Al abrir dupOverlay mientras
+  calcTypeScreen aún estaba desvaneciéndose (display:flex con opacity
+  animando a 0), dupOverlay quedaba renderizado POR DEBAJO de calcTypeScreen
+  en el stacking context, así que durante esos frames solo se veía
+  calcTypeScreen haciéndose transparente sobre el fondo de la app — nunca
+  llegaba a tapar nada porque estaba más abajo en el z-index.
+
+  Adicionalmente, csOpenDesdeUltimoPago() registraba un segundo listener de
+  animationend sobre #calcTypeScreen además del que ya registra
+  closeCalcTypeScreen() (llamada internamente), generando una carrera de
+  eventos sin orden garantizado entre "ocultar calcTypeScreen" y "abrir
+  dupOverlay".
+
+PROBLEMA 2 — Campo "Monto de la cuota mensual" en 0.00
+  openDupOverlay() (función original, compartida con el dock) nunca recibió
+  ni seteó un monto: solo hace display:flex + animación de entrada. Viniendo
+  del dock esto es correcto (el usuario aún no ingresó nada), pero viniendo
+  de calcTypeScreen el monto YA se había confirmado en quotaScreen — sin
+  embargo openCalcTypeScreen() solo escribía ese valor como texto plano en
+  el chip visual (#csQuotaMain/#csQuotaSecondary), sin guardarlo en ninguna
+  variable recuperable.
+
+SOLUCIÓN
+  - .dup-overlay: z-index subido de 600 a 100000 (por encima de todo el
+    sistema de onboarding), para que SIEMPRE quede visualmente por encima
+    sin importar qué otra pantalla siga cerrándose detrás.
+  - csOpenDesdeUltimoPago() reescrita: un solo listener de animationend
+    (se removió la llamada a closeCalcTypeScreen() + el listener duplicado).
+    Ese único callback aplica display:none + qsUnlockBodyScroll() y RECIÉN
+    DESPUÉS llama openDupOverlay(), garantizando orden secuencial.
+  - Nuevas variables de módulo _csUtmActual/_csClpActual/_csUnidadActual,
+    pobladas en openCalcTypeScreen() con el monto y unidad reales (no solo
+    el texto formateado) que el usuario confirmó en quotaScreen.
+  - Nueva función csPrefillDesdeUltimoPago(), llamada justo después de
+    openDupOverlay(): selecciona la unidad correcta vía dupSelectUnidad()
+    (que internamente limpia el input) y RECIÉN DESPUÉS escribe el valor en
+    #dupMontoCuota — respetando el formato con punto decimal que espera el
+    input type="number" (toFixed(2) ya produce punto). Si no hay monto
+    previo (_csUtmActual === 0, ej. entrando directo desde el dock sin pasar
+    por el onboarding), no se toca el campo y se deja el placeholder 0.00
+    de siempre.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (openCalcTypeScreen: guarda monto/unidad reales;
+                 csOpenDesdeUltimoPago: un solo listener, orden secuencial;
+                 nueva csPrefillDesdeUltimoPago())
+- styles.css   (.dup-overlay: z-index 600 → 100000)
+- sw.js        (CACHE_NAME: pension-utm-v194)
+- CAMBIOS.txt
+
+==================================================================================
+
 CONTEXTO
   En la entrega anterior (calcTypeScreen, Paso 2 de 2) las 4 tarjetas de
   opción quedaron puramente visuales por decisión explícita. El usuario
