@@ -1,3 +1,61 @@
+CAMBIOS v2.0619.0230 → v2.0619.0231
+==================================================================================
+Fecha: 2026-06-20
+
+FIX CRÍTICO: ID duplicado "welcomeScreen" — pantalla antigua reaparecía
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA REAL (no era caché)
+  Volvía a aparecer la pantalla antigua "⚡ CASO NUEVO" con input "Nombre o
+  carátula del caso...", botón "Crear →" y botón balanza ⚖️ — una pantalla
+  que ya había sido eliminada del flujo de la app hace tiempo.
+
+CAUSA RAÍZ
+  Existían DOS elementos con id="welcomeScreen" cargados simultáneamente
+  en el DOM:
+    1. El welcomeScreen ACTUAL (overlay nuevo, clases .ws-*), definido al
+       final de index.html.
+    2. Un welcomeScreen VIEJO Y HUÉRFANO que seguía completo dentro de
+       modals.html — con su propio markup "Caso nuevo", input
+       #welcomeNombreInput, botones #welcomeBtnRapido / #welcomeBtnJudicial,
+       y onclick/oninput apuntando a funciones que YA NO EXISTEN en ningún
+       archivo del proyecto (crearCasoDesdeWelcome, abrirCasoJudicialDesdeWelcome,
+       checkWelcomeBtn) — código muerto de una versión anterior que nunca
+       se limpió al introducir la pantalla de bienvenida actual.
+
+  index.html carga modals.html de forma asíncrona vía fetch() y vuelca su
+  HTML completo dentro de <div id="modals-container"></div>, ubicado MUY
+  arriba en el documento (línea ~1556) — antes del welcomeScreen nuevo
+  (línea ~7988). Una vez que esa inyección async completaba, el
+  welcomeScreen viejo terminaba apareciendo ANTES en el orden del DOM.
+  document.getElementById('welcomeScreen') siempre devuelve el primer
+  elemento con ese id en orden de documento, así que CUALQUIER referencia
+  a #welcomeScreen en el código (incluida la lógica nueva en
+  onAuthStateChange / closeWelcomeScreen()) terminaba operando sobre el
+  modal viejo en vez de sobre el overlay actual — explicando por qué la
+  pantalla "correcta" nunca se mostraba y la antigua sí.
+
+SOLUCIÓN
+  Se eliminó por completo el bloque welcomeScreen viejo de modals.html
+  (markup completo: card "Caso nuevo", input, botones, lista de casos
+  existentes welcomeCasosWrap/welcomeCasosList) junto con sus referencias
+  a funciones inexistentes. No se tocó ningún otro modal de modals.html
+  (ayudaModal, casosManagerModal, casoSnapshotModal quedan intactos).
+  Ahora solo existe UN elemento con id="welcomeScreen" en todo el proyecto
+  (el overlay actual definido en index.html), eliminando la ambigüedad.
+
+ARCHIVOS MODIFICADOS
+  • modals.html → eliminado bloque #welcomeScreen viejo/huérfano
+                  (código muerto desde una versión anterior).
+  • index.html  → app-version → v2.0619.0231 (sin otros cambios).
+  • sw.js       → CACHE_NAME → 'pension-utm-v187'.
+
+SIN CAMBIOS EN LÓGICA DE LOGIN, CÁLCULO NI QUOTA SCREEN
+  No se modificó onAuthStateChange, closeWelcomeScreen(), el Quota Screen,
+  ni ningún otro modal o función. Este fix es exclusivamente la
+  eliminación de markup duplicado/huérfano.
+
+==================================================================================
+
 CAMBIOS v2.0619.0229 → v2.0619.0230
 ==================================================================================
 Fecha: 2026-06-20
