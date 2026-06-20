@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0233">
+ <meta name="app-version" content="v2.0619.0234">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -6034,11 +6034,11 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v115-inline-clean</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0619.0234</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
-     if (v) document.getElementById('appVersionLabel').textContent = 'v' + v.content;
+     if (v) document.getElementById('appVersionLabel').textContent = v.content;
    })();
   </script>
   </div>
@@ -7986,6 +7986,7 @@ function dupCalcularDeuda() {
      Se cierra al tocar "Comenzar" → fade-out + display:none
      ══════════════════════════════════════════════════════════════════ -->
 <div id="welcomeScreen" class="ws-screen">
+  <div class="ws-inner">
   <div class="ws-content">
 
     <!-- Logo -->
@@ -8076,6 +8077,11 @@ function dupCalcularDeuda() {
 
     </div><!-- /ws-features -->
 
+  </div><!-- /ws-content -->
+
+  <!-- Footer sticky (alineado con quota screen) -->
+  <div class="ws-footer">
+
     <!-- Nota de pie -->
     <div class="ws-footer-note">
       <svg viewBox="0 0 20 20" fill="none">
@@ -8102,7 +8108,9 @@ function dupCalcularDeuda() {
       <span class="ws-dot"></span>
     </div>
 
-  </div>
+  </div><!-- /ws-footer -->
+
+  </div><!-- /ws-inner -->
 </div>
 <!-- /WELCOME SCREEN OVERLAY -->
 
@@ -8159,14 +8167,17 @@ function dupCalcularDeuda() {
           <span class="qs-input-label">Monto de la cuota mensual</span>
         </div>
         <div class="qs-input-row">
-          <span class="qs-currency-select">
-            <span>$ CLP</span>
-          </span>
+          <button type="button" id="qsCurrencySelect" class="qs-currency-select" onclick="qsToggleUnidad()">
+            <span id="qsCurrencyLabel">$ CLP</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="qs-currency-chevron">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
           <input
             id="qsAmountInput"
             class="qs-amount-input"
             type="text"
-            inputmode="numeric"
+            inputmode="decimal"
             placeholder="0"
             oninput="qsFormatAmountInput(this)"
           />
@@ -8257,9 +8268,44 @@ function closeWelcomeScreen() {
 }
 
 // ── Quota Screen (cuota mensual de referencia) ──────────────────────────────
+var _qsUnidad = 'clp'; // 'clp' | 'utm'
+
+function qsToggleUnidad() {
+  var input = document.getElementById('qsAmountInput');
+  var label = document.getElementById('qsCurrencyLabel');
+  var utmHoy = getUtmActualVal();
+  var raw = (input.value || '').trim();
+
+  if (_qsUnidad === 'clp') {
+    // Pasar de CLP → UTM: convertir el valor visible
+    var clpVal = parseInt(raw.replace(/\./g, '')) || 0;
+    _qsUnidad = 'utm';
+    label.textContent = 'UTM';
+    input.setAttribute('inputmode', 'decimal');
+    input.value = clpVal > 0 ? (clpVal / utmHoy).toFixed(2).replace('.', ',') : '';
+  } else {
+    // Pasar de UTM → CLP: convertir el valor visible
+    var utmVal = parseFloat(raw.replace(',', '.')) || 0;
+    _qsUnidad = 'clp';
+    label.textContent = '$ CLP';
+    input.setAttribute('inputmode', 'numeric');
+    input.value = utmVal > 0 ? formatPlain(utmVal * utmHoy) : '';
+  }
+}
+
 function qsFormatAmountInput(input) {
-  var raw = input.value.replace(/\D/g, '');
-  input.value = raw === '' ? '' : formatPlain(raw);
+  if (_qsUnidad === 'utm') {
+    // Formato decimal: dígitos + una coma opcional + hasta 2 decimales
+    var raw = input.value.replace(/[^\d,]/g, '');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
 }
 
 function openQuotaScreen() {
@@ -8283,16 +8329,26 @@ function closeQuotaScreen() {
 }
 
 function confirmQuotaScreen() {
-  var raw = (document.getElementById('qsAmountInput').value || '').replace(/\./g, '');
-  var monto = parseInt(raw) || 0;
-  if (monto > 0) {
-    var clpInput = document.getElementById('clpAmount');
-    clpInput.value = formatPlain(monto);
-    updateFromClp();
-    saveSession();
+  var raw = (document.getElementById('qsAmountInput').value || '').trim();
+  if (_qsUnidad === 'utm') {
+    var utm = parseFloat(raw.replace(',', '.')) || 0;
+    if (utm > 0) {
+      document.getElementById('utmAmount').value = utm.toFixed(2).replace('.', ',');
+      updateFromUtm();
+      saveSession();
+    }
+  } else {
+    var monto = parseInt(raw.replace(/\./g, '')) || 0;
+    if (monto > 0) {
+      var clpInput = document.getElementById('clpAmount');
+      clpInput.value = formatPlain(monto);
+      updateFromClp();
+      saveSession();
+    }
   }
   closeQuotaScreen();
 }
+
 </script>
 </body>
 </html>

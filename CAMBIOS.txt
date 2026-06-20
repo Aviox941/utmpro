@@ -1,3 +1,52 @@
+==================================================================================
+Fecha: 2026-06-20
+
+FIX: Botones "Comenzar" y "Continuar" alineados a misma altura + selector CLP/UTM funcional
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA 1 — Altura de botones distinta
+  En welcomeScreen el botón "Comenzar" fluía con el contenido (no sticky),
+  por lo que su posición vertical variaba según cuánto contenido hubiera
+  arriba. En quotaScreen el botón "Continuar" sí era sticky bottom, fijo
+  siempre al fondo del viewport. Por eso no coincidían pese a ser pantallas
+  back-to-back del mismo flujo de onboarding.
+
+PROBLEMA 2 — Selector CLP/UTM decorativo
+  El <span class="qs-currency-select"> en quotaScreen era puramente visual,
+  sin onclick ni lógica: siempre mostraba "$ CLP" y el input solo aceptaba
+  formato de pesos chilenos, sin posibilidad real de ingresar el monto en UTM.
+
+SOLUCIÓN
+  welcomeScreen se reestructuró igual que quotaScreen: ws-screen > ws-inner
+  (min-height:100dvh, flex-column) > ws-content (scrollable, flex:1) +
+  ws-footer (sticky bottom, fondo translúcido con blur, mismo padding/gap
+  que qs-footer). La nota de pie, el botón Comenzar y los dots de
+  paginación se movieron de ws-content a ws-footer. Ambos botones quedan
+  ahora exactamente a la misma distancia del borde inferior del viewport,
+  sin importar el contenido de cada pantalla.
+
+  El selector de moneda se convirtió en un <button id="qsCurrencySelect">
+  con ícono de chevron y onclick="qsToggleUnidad()". Esta función alterna
+  entre CLP y UTM, reformateando en vivo el valor visible del input
+  (convirtiendo con getUtmActualVal()) y cambiando su inputmode. Se separó
+  qsFormatAmountInput() en dos ramas según la unidad activa: CLP usa
+  formato entero con separador de miles (formatPlain), UTM usa formato
+  decimal con coma (máx. 2 decimales), igual que el campo utmAmount del
+  resto de la app. confirmQuotaScreen() ahora respeta la unidad activa:
+  si es UTM, escribe directo en #utmAmount y llama updateFromUtm(); si es
+  CLP, escribe en #clpAmount y llama updateFromClp() — sin tocar la unidad
+  contraria innecesariamente.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (estructura welcomeScreen: ws-inner/ws-footer; botón
+                 qsCurrencySelect; qsToggleUnidad(); qsFormatAmountInput()
+                 y confirmQuotaScreen() con soporte CLP/UTM)
+- styles.css   (.ws-inner nuevo, .ws-content scrollable, .ws-footer sticky,
+                 .qs-currency-select como botón con cursor/font-family
+                 heredados, .qs-currency-chevron)
+- sw.js        (CACHE_NAME: pension-utm-v190)
+- CAMBIOS.txt
+
 CAMBIOS v2.0619.0232 → v2.0619.0233
 ==================================================================================
 Fecha: 2026-06-20

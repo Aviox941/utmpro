@@ -3773,14 +3773,43 @@
   animation: ws-fade-out 0.28s ease-in forwards;
 }
 
-/* ── Contenido centrado ─────────────────────────────────────────── */
-.ws-content {
+/* ── Wrapper interno (alinea altura con quota screen) ──────────────── */
+.ws-inner {
   width: 100%;
   max-width: 420px;
-  padding: 52px 24px 36px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Contenido centrado (scrollable, footer sticky aparte) ─────────── */
+.ws-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  padding: 52px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+/* ── Footer sticky (nota + botón Comenzar + dots) ──────────────────── */
+.ws-footer {
+  position: sticky;
+  bottom: 0;
+  background: rgba(245, 246, 251, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 -8px 16px -8px rgba(0,0,0,0.04);
 }
 
 /* ── Logo ───────────────────────────────────────────────────────── */
@@ -3911,7 +3940,7 @@
   font-size: 13px;
   color: #667085;
   text-align: center;
-  margin: 24px 0 20px;
+  margin: 0;
   line-height: 1.4;
 }
 .ws-footer-note svg {
@@ -3942,7 +3971,6 @@
     0 12px 28px rgba(91,79,247,0.28);
   transition: transform 0.12s, box-shadow 0.12s;
   -webkit-tap-highlight-color: transparent;
-  margin-bottom: 24px;
 }
 .ws-start-btn svg {
   width: 20px;
@@ -4160,16 +4188,29 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 14px 14px;
+  padding: 14px 12px 14px 14px;
   background: #f2f4f7;
   border: none;
   border-right: 1.5px solid #e4e7ec;
   flex-shrink: 0;
+  font-family: inherit;
   font-size: 15px;
   font-weight: 600;
   color: #344054;
   min-width: 96px;
   border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+.qs-currency-select:active {
+  background: #e9ecf1;
+}
+.qs-currency-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #98a2b3;
 }
 
 .qs-amount-input {
