@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0231">
+ <meta name="app-version" content="v2.0619.0232">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7384,7 +7384,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
     if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
       var ws = document.getElementById('welcomeScreen');
-      if (ws) ws.style.display = 'flex';
+      if (ws) { ws.style.display = 'flex'; qsLockBodyScroll(); }
     }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
@@ -8210,6 +8210,29 @@ function dupCalcularDeuda() {
 <!-- /QUOTA SCREEN OVERLAY -->
 
 <script>
+// ── Bloqueo de scroll del body mientras hay un overlay fullscreen abierto ───
+// Evita el efecto "rubber-band": al hacer scroll dentro del overlay (welcome
+// o quota), sin esto el body de la app quedaba visible/desplazado detrás.
+// Usa position:fixed sobre el body fijando el scrollY actual, técnica que
+// evita el salto visual típico de overflow:hidden solo en iOS/Android.
+var _qsScrollY = 0;
+function qsLockBodyScroll() {
+  _qsScrollY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = (-_qsScrollY) + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+function qsUnlockBodyScroll() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, _qsScrollY);
+}
+
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 // La welcome screen NO se muestra al cargar la página.
 // Se muestra solo tras un login manual exitoso (event === 'SIGNED_IN' en onAuthStateChange).
@@ -8241,6 +8264,9 @@ function openQuotaScreen() {
   if (!qs) return;
   qs.style.display = 'flex';
   qs.classList.remove('qs-screen--out');
+  // El welcomeScreen ya bloqueó el scroll; quota screen continúa el bloqueo,
+  // así que no se reinicia _qsScrollY aquí — solo se confirma el lock activo.
+  qsLockBodyScroll();
 }
 
 function closeQuotaScreen() {
@@ -8249,6 +8275,7 @@ function closeQuotaScreen() {
   qs.classList.add('qs-screen--out');
   qs.addEventListener('animationend', function() {
     qs.style.display = 'none';
+    qsUnlockBodyScroll();
   }, { once: true });
 }
 

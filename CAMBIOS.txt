@@ -1,3 +1,52 @@
+CAMBIOS v2.0619.0231 → v2.0619.0232
+==================================================================================
+Fecha: 2026-06-20
+
+FIX: Scroll del welcome/quota screen se filtraba a la app de fondo
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA
+  Al hacer scroll dentro del Welcome Screen o del Quota Screen, el scroll
+  se "filtraba" hacia el body de la app detrás (efecto rubber-band típico
+  de overlays fullscreen sin bloqueo de scroll): se llegaba a ver la
+  interfaz de la calculadora (dock fijo, tarjetas, etc.) detrás del overlay
+  durante el gesto, en vez de quedar completamente bloqueada.
+
+CAUSA
+  Ambos overlays (.ws-screen / .qs-screen) usan position:fixed + scroll
+  interno propio, pero el <body> de la página real no tenía ningún
+  bloqueo de scroll mientras el overlay estaba abierto — seguía siendo
+  scrolleable de forma independiente, lo que en navegadores móviles
+  produce el efecto visual de "dos capas moviéndose a la vez".
+
+SOLUCIÓN
+  Se agregaron dos helpers, qsLockBodyScroll() / qsUnlockBodyScroll(), que
+  fijan el body en position:fixed (anclado al scrollY actual) mientras
+  cualquiera de los dos overlays está visible, y lo restauran exactamente
+  en la misma posición al cerrar el último de ellos. Es la técnica estándar
+  para bloquear scroll de fondo sin saltos visuales en iOS/Android.
+
+  Puntos de conexión:
+  • Al mostrarse el welcomeScreen (SIGNED_IN en onAuthStateChange) → lock.
+  • Al abrirse el quotaScreen (justo después del welcome) → confirma el lock.
+  • Al cerrarse el quotaScreen (Continuar / "Ahora no" / volver) → unlock,
+    restaurando el scroll del body a su posición original.
+
+  El overlay welcomeScreen no hace unlock por sí mismo porque siempre
+  encadena la apertura de quotaScreen; el unlock ocurre en el único punto
+  donde finalmente no queda ningún overlay fullscreen abierto.
+
+ARCHIVOS MODIFICADOS
+  • index.html  → nuevas funciones qsLockBodyScroll()/qsUnlockBodyScroll();
+                  conectadas en el bloque SIGNED_IN, openQuotaScreen() y
+                  closeQuotaScreen(). app-version → v2.0619.0232.
+  • sw.js       → CACHE_NAME → 'pension-utm-v188'.
+
+SIN CAMBIOS EN LÓGICA DE LOGIN, CÁLCULO NI MARKUP DE LOS OVERLAYS
+  No se modificó el HTML ni el CSS de welcomeScreen/quotaScreen, ni
+  onAuthStateChange más allá de la línea que ya disparaba el display:flex.
+
+==================================================================================
+
 CAMBIOS v2.0619.0230 → v2.0619.0231
 ==================================================================================
 Fecha: 2026-06-20
