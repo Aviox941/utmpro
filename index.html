@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0215">
+ <meta name="app-version" content="v2.0620.0230">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7901,17 +7901,31 @@ function _ayudaAbrirTema(t) {
 <script>
 // ── Fullscreen overlay: Desde el último pago ─────────────────────────────────
 
-function openDupOverlay() {
+function openDupOverlay(skipSlideIn) {
   const el = document.getElementById('dupOverlay');
   el.style.display = 'flex';
-  // Forzar reflow para que la animación se dispare
-  el.getBoundingClientRect();
-  el.classList.add('dup-overlay--open');
+  if (skipSlideIn) {
+    // Transición encadenada (ej. desde calcTypeScreen): el overlay debe
+    // quedar cubriendo la pantalla DESDE EL PRIMER FRAME, sin el slide-up
+    // de 320ms que normalmente lo trae desde abajo (translateY(100%) → 0).
+    // Si se usara el slide-up acá, durante esos ~320ms el overlay todavía
+    // está parcialmente fuera del viewport y se alcanza a ver el contenido
+    // real de la app por debajo (el "flash" reportado, ahora más corto
+    // porque ya no es el bug de opacity del fix anterior, sino esta
+    // ventana de slide-in). Se fuerza directamente el estado final de la
+    // animación sin clase animada de por medio.
+    el.style.transform = 'translateY(0)';
+  } else {
+    // Forzar reflow para que la animación se dispare
+    el.getBoundingClientRect();
+    el.classList.add('dup-overlay--open');
+  }
   document.body.style.overflow = 'hidden';
 }
 
 function closeDupOverlay() {
   const el = document.getElementById('dupOverlay');
+  el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('dup-overlay--open');
   el.classList.add('dup-overlay--closing');
   el.addEventListener('animationend', function handler() {
@@ -7976,7 +7990,12 @@ function dupCalcularDeuda() {
 // Conectar la tarjeta "Desde el último pago" al overlay
 (function() {
   const card = document.querySelector('.calc-mode-card--blue');
-  if (card) card.addEventListener('click', openDupOverlay);
+  // No pasar openDupOverlay directo como handler: addEventListener invoca
+  // el callback con el objeto Event como primer argumento, que sería
+  // truthy y activaría por error el modo skipSlideIn (pensado solo para
+  // la transición encadenada desde calcTypeScreen). El dock debe conservar
+  // siempre el slide-up normal.
+  if (card) card.addEventListener('click', function() { openDupOverlay(); });
 })();
 </script>
 
@@ -8564,20 +8583,21 @@ function closeCalcTypeScreen() {
 // (.calc-mode-card--blue → openDupOverlay(), ver bloque "FULLSCREEN OVERLAY:
 // Desde el último pago"). Se cierra calcTypeScreen con su fade-out normal y,
 // recién cuando termina la animación y queda con display:none, se abre
-// dupOverlay — un solo listener de animationend, escuchado sobre .cs-inner
-// (el elemento que realmente anima; .cs-screen es solo el fondo opaco fijo
-// y ya no tiene animación propia — ver nota en styles.css sobre por qué se
-// separaron ambas capas).
+// dupOverlay CON skipSlideIn=true: en esta transición encadenada no debe
+// usarse el slide-up normal (translateY(100%) → 0 en 320ms), porque durante
+// esos ms el overlay aún está parcialmente fuera del viewport y se alcanza
+// a ver el contenido real de la app por debajo (el "flash" reportado).
+// Con skipSlideIn, dupOverlay cubre la pantalla desde el primer frame.
 function csOpenDesdeUltimoPago() {
   var cs = document.getElementById('calcTypeScreen');
-  if (!cs) { openDupOverlay(); return; }
+  if (!cs) { openDupOverlay(true); return; }
   var inner = cs.querySelector('.cs-inner');
 
   cs.classList.add('cs-screen--out');
   (inner || cs).addEventListener('animationend', function() {
     cs.style.display = 'none';
     qsUnlockBodyScroll();
-    openDupOverlay();
+    openDupOverlay(true);
     csPrefillDesdeUltimoPago();
   }, { once: true });
 }

@@ -2,7 +2,7 @@
 // Repo: Aviox941/utmpro → https://aviox941.github.io/utmpro/
 // También soporta deploys en raíz (Vercel, etc.) vía scope dinámico.
 // Build: 2026-06-20T05:30:00Z
-const CACHE_NAME = 'pension-utm-v195';
+const CACHE_NAME = 'pension-utm-v196';
 // BASE se calcula desde el scope real de registro del SW, no hardcodeado.
 // En GitHub Pages el scope es '/utmpro/'; en Vercel (raíz) es '/'.
 const BASE = new URL(self.registration.scope).pathname;

@@ -1,8 +1,63 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-FIX REAL: Flash de interfaz de fondo en calcTypeScreen — causa raíz era otra
+FIX: Flash residual (más corto) en transición calcTypeScreen → dupOverlay
 ──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El fix anterior (separar la animación de opacity del fondo de .cs-screen)
+  eliminó el bug de "fondo se vuelve transparente durante 280ms", pero el
+  usuario reportó que el flash seguía ocurriendo, solo que más breve. Esto
+  apuntaba a una causa distinta y más sutil.
+
+CAUSA RAÍZ
+  dupOverlay usa un slide-up al abrirse: parte en transform:translateY(100%)
+  (completamente fuera del viewport, hacia abajo) y la animación
+  dup-slide-up lo trae a translateY(0) en 320ms. openDupOverlay() le pone
+  display:flex de inmediato, pero el transform sigue en 100% hasta que la
+  animación avanza — es decir, aunque "técnicamente" ya está en el DOM como
+  flex, sigue siendo invisible/fuera de pantalla durante el arranque del
+  slide-up. En el flujo normal del dock esto es el efecto deseado (sube
+  desde abajo sobre la app ya visible). Pero en la transición ENCADENADA
+  desde calcTypeScreen, calcTypeScreen desaparece (display:none) en el
+  mismo instante en que dupOverlay recién está empezando a subir desde
+  fuera del viewport — durante esa ventana corta (los primeros ms del
+  slide-up) no hay nada opaco cubriendo la pantalla, y se alcanza a ver el
+  contenido real de la app por debajo. Eso era el flash "más rápido": ya no
+  280ms de transparencia progresiva, sino el arranque del slide-up.
+
+SOLUCIÓN
+  openDupOverlay() ahora acepta un parámetro skipSlideIn. Cuando es true,
+  en vez de animar desde translateY(100%), fuerza directamente
+  transform:translateY(0) por estilo inline — el overlay cubre la pantalla
+  desde el primer frame, sin ventana de transparencia. csOpenDesdeUltimoPago()
+  llama openDupOverlay(true) en ambos puntos donde lo abre (con y sin
+  #calcTypeScreen presente). El comportamiento del dock NO cambia: sigue
+  usando el slide-up normal vía openDupOverlay() sin argumento.
+
+  De paso se corrigió un bug que este cambio habría introducido: el dock
+  conectaba la tarjeta con card.addEventListener('click', openDupOverlay)
+  directo — addEventListener invoca el callback con el objeto Event como
+  primer argumento, que es truthy y habría activado skipSlideIn por error
+  en el dock también. Se envolvió en una función anónima que llama
+  openDupOverlay() sin argumentos.
+
+  closeDupOverlay() se ajustó para limpiar el transform inline al cerrar
+  (el translateY(0) que pudo haber quedado de una apertura con
+  skipSlideIn), evitando que compita con la animación normal de cierre
+  (dup-slide-down).
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (openDupOverlay: nuevo parámetro skipSlideIn;
+                 closeDupOverlay: limpia transform inline;
+                 csOpenDesdeUltimoPago: openDupOverlay(true) en ambas
+                 llamadas; conexión del dock envuelta para no heredar el
+                 Event como skipSlideIn)
+- sw.js        (CACHE_NAME: pension-utm-v196)
+- CAMBIOS.txt
+
+==================================================================================
+
 DIAGNÓSTICO ANTERIOR INCOMPLETO
   El fix previo (subir z-index de .dup-overlay a 100000) era necesario pero
   insuficiente: no atacaba la causa real, por lo que el flash persistió.
