@@ -1,4 +1,43 @@
-CAMBIOS v2.0619.0225 → v2.0619.0226
+CAMBIOS v2.0619.0226 → v2.0619.0227
+==================================================================================
+Fecha: 2026-06-19
+
+NUEVO: Welcome Screen overlay (onboarding)
+──────────────────────────────────────────────────────────────────────────────────
+QUÉ SE AGREGÓ
+  Pantalla de bienvenida fullscreen (position:fixed; inset:0; z-index:99999)
+  fiel al diseño de referencia. Se muestra al abrir la app por primera vez
+  en la sesión (sessionStorage 'ws_done'). Al tocar "Comenzar" se cierra
+  con animación fade-out y no vuelve a aparecer hasta nueva sesión.
+
+  Elementos implementados:
+  • Fondo: gradiente lavanda (linear-gradient 165deg #edeaff → #f5f6fb)
+  • Logo: SVG inline con documento+símbolo$+persona (ícono bicolor navy/verde),
+    fondo blanco con sombra suave, border-radius 28px
+  • Título: "Bienvenido a" en #1a1d40, "Pension" en #5b4ff7 (morado),
+    "App" en #22c55e (verde) — font-weight 800, 38px
+  • Subtítulo: 17px #667085
+  • Features card: fondo blanco, border-radius 24px, 4 filas con separadores
+    - Ícono SVG propio para cada feature (no emojis):
+      🟣 Cálculos precisos (barras, fondo #f0ecff)
+      🟢 Resultados en segundos (calendario con check, fondo #e8faf0)
+      🟠 100% transparente (barras de stats, fondo #fff8ec)
+      🔵 Seguro y privado (escudo con candado, fondo #eef3ff)
+  • Nota de pie: ícono escudo morado + texto "Basado en normativa vigente..."
+  • Botón "Comenzar →": gradiente morado, 60px alto, sombra accent, SVG flecha
+  • Dots de paginación: dot activo ancho (22px) morado, inactivos grises
+
+  CSS completamente aislado (prefijo .ws-*) al final de styles.css.
+  JS inline al final de index.html: closeWelcomeScreen() con animación.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (#welcomeScreen + <script> ws + app-version v2.0619.0227)
+- styles.css  (bloque .ws-* al final)
+- sw.js       (CACHE_NAME: pension-utm-v183)
+- CAMBIOS.txt
+
+
 ==================================================================================
 Fecha: 2026-06-19
 

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0226">
+ <meta name="app-version" content="v2.0619.0227">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7973,6 +7973,160 @@ function dupCalcularDeuda() {
   const card = document.querySelector('.calc-mode-card--blue');
   if (card) card.addEventListener('click', openDupOverlay);
 })();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     WELCOME SCREEN OVERLAY
+     position:fixed inset:0 z-index:99999
+     Se cierra al tocar "Comenzar" → fade-out + display:none
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="welcomeScreen" class="ws-screen">
+  <div class="ws-content">
+
+    <!-- Logo -->
+    <div class="ws-logo">
+      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="ws-logo__svg">
+        <!-- Documento -->
+        <rect x="10" y="8" width="46" height="58" rx="8" stroke="#1a1d40" stroke-width="4.5" fill="none"/>
+        <line x1="22" y1="24" x2="44" y2="24" stroke="#1a1d40" stroke-width="4" stroke-linecap="round"/>
+        <!-- Símbolo $ -->
+        <text x="22" y="46" font-family="DM Sans, system-ui" font-weight="800" font-size="18" fill="#1a1d40">$</text>
+        <!-- Persona (verde) -->
+        <circle cx="60" cy="48" r="11" stroke="#22c55e" stroke-width="4" fill="none"/>
+        <path d="M44 70 C44 62 52 57 60 57 C68 57 76 62 76 70" stroke="#22c55e" stroke-width="4" stroke-linecap="round" fill="none"/>
+      </svg>
+    </div>
+
+    <!-- Título -->
+    <h1 class="ws-title">
+      Bienvenido a<br>
+      <span class="ws-title__pension">Pension</span><span class="ws-title__app">App</span>
+    </h1>
+
+    <!-- Subtítulo -->
+    <p class="ws-subtitle">
+      Calcula deudas alimenticias<br>de forma simple y rápida
+    </p>
+
+    <!-- Features card -->
+    <div class="ws-features">
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--purple">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="5" y="5" width="26" height="26" rx="5" stroke="#6c5ce7" stroke-width="2.8"/>
+            <rect x="10" y="14" width="6" height="12" rx="1.5" fill="#6c5ce7"/>
+            <rect x="20" y="10" width="6" height="16" rx="1.5" fill="#6c5ce7"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Cálculos precisos</h3>
+          <p>Utilizamos valores oficiales y actualizados.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--green">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="7" width="28" height="24" rx="5" stroke="#16a34a" stroke-width="2.8"/>
+            <line x1="4" y1="15" x2="32" y2="15" stroke="#16a34a" stroke-width="2.8"/>
+            <line x1="13" y1="4" x2="13" y2="10" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round"/>
+            <line x1="23" y1="4" x2="23" y2="10" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M12 22 L16 26 L24 19" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Resultados en segundos</h3>
+          <p>Obtén el detalle de tu deuda al instante.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--orange">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="18" width="7" height="14" rx="2" fill="#f59e0b"/>
+            <rect x="14.5" y="12" width="7" height="20" rx="2" fill="#f59e0b"/>
+            <rect x="25" y="6" width="7" height="26" rx="2" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>100% transparente</h3>
+          <p>Cada cálculo muestra cómo se obtiene el resultado.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--blue">
+          <svg viewBox="0 0 36 36" fill="none">
+            <path d="M18 3 L30 8 L30 18 C30 25 24 31 18 33 C12 31 6 25 6 18 L6 8 Z" stroke="#2563eb" stroke-width="2.8" fill="none" stroke-linejoin="round"/>
+            <circle cx="18" cy="18" r="4" stroke="#2563eb" stroke-width="2.5"/>
+            <line x1="18" y1="14" x2="18" y2="11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Seguro y privado</h3>
+          <p>Tus datos están siempre protegidos.</p>
+        </div>
+      </div>
+
+    </div><!-- /ws-features -->
+
+    <!-- Nota de pie -->
+    <div class="ws-footer-note">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 2 L17 5 L17 11 C17 15 13.5 18.5 10 19.5 C6.5 18.5 3 15 3 11 L3 5 Z" stroke="#6c5ce7" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+        <line x1="10" y1="8" x2="10" y2="13" stroke="#6c5ce7" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="10" cy="6.5" r="0.9" fill="#6c5ce7"/>
+      </svg>
+      Basado en normativa vigente y valores oficiales.
+    </div>
+
+    <!-- Botón Comenzar -->
+    <button id="wsStartBtn" class="ws-start-btn" onclick="closeWelcomeScreen()">
+      Comenzar
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="13 6 19 12 13 18"/>
+      </svg>
+    </button>
+
+    <!-- Dots de paginación -->
+    <div class="ws-dots">
+      <span class="ws-dot ws-dot--active"></span>
+      <span class="ws-dot"></span>
+      <span class="ws-dot"></span>
+    </div>
+
+  </div>
+</div>
+<!-- /WELCOME SCREEN OVERLAY -->
+
+<script>
+// ── Welcome Screen ────────────────────────────────────────────────────────────
+(function() {
+  // Mostrar solo la primera vez (sin localStorage para compatibilidad PWA)
+  var ws = document.getElementById('welcomeScreen');
+  if (!ws) return;
+
+  // Si ya pasó el onboarding en esta sesión, ocultar inmediatamente
+  if (sessionStorage.getItem('ws_done')) {
+    ws.style.display = 'none';
+    return;
+  }
+
+  // Asegurar visible
+  ws.style.display = 'flex';
+})();
+
+function closeWelcomeScreen() {
+  var ws = document.getElementById('welcomeScreen');
+  if (!ws) return;
+  ws.classList.add('ws-screen--out');
+  ws.addEventListener('animationend', function() {
+    ws.style.display = 'none';
+    sessionStorage.setItem('ws_done', '1');
+  }, { once: true });
+}
 </script>
 </body>
 </html>

@@ -3741,3 +3741,245 @@
     max-width: 520px;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   WELCOME SCREEN (ws-*)
+   ══════════════════════════════════════════════════════════════════ */
+
+@keyframes ws-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ws-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
+}
+
+.ws-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Fondo: degradado lavanda igual a la imagen */
+  background: linear-gradient(165deg, #edeaff 0%, #f0f0fb 35%, #f5f6fb 100%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  animation: ws-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.ws-screen--out {
+  animation: ws-fade-out 0.28s ease-in forwards;
+}
+
+/* ── Contenido centrado ─────────────────────────────────────────── */
+.ws-content {
+  width: 100%;
+  max-width: 420px;
+  padding: 52px 24px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Logo ───────────────────────────────────────────────────────── */
+.ws-logo {
+  width: 108px;
+  height: 108px;
+  border-radius: 28px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.04),
+    0 12px 32px rgba(0,0,0,0.08);
+  margin-bottom: 30px;
+  flex-shrink: 0;
+}
+
+.ws-logo__svg {
+  width: 68px;
+  height: 68px;
+}
+
+/* ── Título ─────────────────────────────────────────────────────── */
+.ws-title {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.12;
+  text-align: center;
+  color: #1a1d40;
+  letter-spacing: -0.03em;
+  margin: 0 0 16px 0;
+}
+
+.ws-title__pension {
+  color: #5b4ff7;
+}
+
+.ws-title__app {
+  color: #22c55e;
+}
+
+/* ── Subtítulo ──────────────────────────────────────────────────── */
+.ws-subtitle {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: #667085;
+  text-align: center;
+  line-height: 1.5;
+  margin: 0 0 30px 0;
+}
+
+/* ── Features card ──────────────────────────────────────────────── */
+.ws-features {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 22px 20px;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.04),
+    0 8px 32px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ws-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.ws-feature:first-child { padding-top: 4px; }
+.ws-feature:last-child  { padding-bottom: 4px; border-bottom: none; }
+
+/* Íconos de features */
+.ws-feature__icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ws-feature__icon svg {
+  width: 32px;
+  height: 32px;
+}
+.ws-feature__icon--purple { background: #f0ecff; }
+.ws-feature__icon--green  { background: #e8faf0; }
+.ws-feature__icon--orange { background: #fff8ec; }
+.ws-feature__icon--blue   { background: #eef3ff; }
+
+/* Texto de features */
+.ws-feature__text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+}
+.ws-feature__text h3 {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #101828;
+  margin: 0 0 3px 0;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.ws-feature__text p {
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: #667085;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* ── Nota de pie ────────────────────────────────────────────────── */
+.ws-footer-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 13px;
+  color: #667085;
+  text-align: center;
+  margin: 24px 0 20px;
+  line-height: 1.4;
+}
+.ws-footer-note svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ── Botón Comenzar ─────────────────────────────────────────────── */
+.ws-start-btn {
+  width: 100%;
+  height: 60px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6a5af9 0%, #4d46f0 100%);
+  color: #ffffff;
+  font-family: "DM Sans", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow:
+    0 4px 12px rgba(91,79,247,0.20),
+    0 12px 28px rgba(91,79,247,0.28);
+  transition: transform 0.12s, box-shadow 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  margin-bottom: 24px;
+}
+.ws-start-btn svg {
+  width: 20px;
+  height: 20px;
+}
+.ws-start-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 4px 12px rgba(91,79,247,0.18);
+}
+
+/* ── Dots de paginación ─────────────────────────────────────────── */
+.ws-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d0cfe8;
+  transition: background 0.2s, width 0.2s;
+}
+.ws-dot--active {
+  width: 22px;
+  border-radius: 4px;
+  background: #5b4ff7;
+}
+
+/* ── Responsive: pantallas pequeñas ────────────────────────────── */
+@media (max-height: 700px) {
+  .ws-content { padding-top: 32px; }
+  .ws-logo { width: 86px; height: 86px; margin-bottom: 20px; }
+  .ws-title { font-size: 30px; }
+  .ws-subtitle { font-size: 15px; margin-bottom: 20px; }
+  .ws-feature__icon { width: 48px; height: 48px; }
+  .ws-feature__icon svg { width: 26px; height: 26px; }
+}
