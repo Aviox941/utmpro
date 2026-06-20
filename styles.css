@@ -4326,3 +4326,317 @@
   .qs-title { font-size: 23px; }
   .qs-amount-input { font-size: 26px; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   CALC TYPE SCREEN (cs-*) — Paso 2 de 2: "¿Qué deseas calcular?"
+   Reutiliza el mismo sistema visual de qs-* (header, progreso, fade
+   in/out, footer) para mantener consistencia entre ambas pantallas del
+   onboarding. Prefijo propio "cs-" para no colisionar con qs-*.
+   ════════════════════════════════════════════════════════════════════════ */
+
+@keyframes cs-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cs-fade-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-10px); }
+}
+
+.cs-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 99999; /* por encima de quotaScreen mientras coexisten un frame */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #ffffff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  animation: cs-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cs-screen--out {
+  animation: cs-fade-out 0.28s ease-in forwards;
+}
+
+.cs-inner {
+  width: 100%;
+  max-width: 430px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* ── Header (idéntico patrón a .qs-header) ── */
+.cs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 56px 20px 20px;
+}
+
+.cs-back {
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #1a1d40;
+  padding: 0;
+}
+
+.cs-back svg {
+  width: 22px;
+  height: 22px;
+}
+
+.cs-progress {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cs-progress-seg {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  background: #e4e7ec;
+}
+
+.cs-progress-seg.active {
+  background: #5b4ff7;
+}
+
+.cs-step-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5b4ff7;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Body ── */
+.cs-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Ícono calculadora ── */
+.cs-icon-wrap {
+  width: 88px;
+  height: 88px;
+  background: #edeaff;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px auto 22px;
+  flex-shrink: 0;
+}
+
+/* ── Título / subtítulo ── */
+.cs-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1a1d40;
+  text-align: center;
+  line-height: 1.25;
+  margin-bottom: 10px;
+  letter-spacing: -0.3px;
+}
+
+.cs-subtitle {
+  font-size: 15px;
+  color: #667085;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  max-width: 320px;
+}
+
+/* ── Chip de cuota actual ── */
+.cs-quota-card {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #eef0f5;
+  border-radius: 20px;
+  padding: 18px 18px 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 20px rgba(16, 24, 40, 0.05);
+}
+
+.cs-quota-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #667085;
+  margin-bottom: 8px;
+}
+
+.cs-quota-values {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cs-quota-main {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1a1d40;
+  letter-spacing: -0.3px;
+}
+
+.cs-quota-secondary {
+  font-size: 14px;
+  font-weight: 600;
+  color: #5b4ff7;
+  padding-bottom: 3px;
+}
+
+.cs-quota-change-btn {
+  width: 100%;
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  background: #f3f4f8;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.cs-quota-change-btn:active {
+  background: #e9ecf1;
+}
+
+/* ── Tarjetas de opción de cálculo ── */
+.cs-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1.5px solid #eef0f5;
+  margin-bottom: 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cs-option:active {
+  transform: scale(0.98);
+}
+
+.cs-option-icon {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-option-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cs-option-content h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.cs-option-content p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #667085;
+}
+
+.cs-option-arrow {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: #98a2b3;
+}
+.cs-option-arrow svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Variantes de color por tipo de cálculo */
+.cs-option--purple { border-color: #ebe4ff; }
+.cs-option--purple .cs-option-icon { background: #f4f0ff; color: #6c4eff; }
+
+.cs-option--green { border-color: #dff6e6; }
+.cs-option--green .cs-option-icon { background: #ecfbf2; color: #18a957; }
+
+.cs-option--orange { border-color: #fdebd3; }
+.cs-option--orange .cs-option-icon { background: #fff7ea; color: #e08a1f; }
+
+.cs-option--blue { border-color: #dbeafe; }
+.cs-option--blue .cs-option-icon { background: #eff6ff; color: #2f6fed; }
+
+/* ── Trust card ── */
+.cs-trust-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+  padding: 18px;
+  background: #f5f1ff;
+  border-radius: 18px;
+}
+
+.cs-trust-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b4ff7;
+}
+
+.cs-trust-text strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.cs-trust-text p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #667085;
+}
+
+@media (max-width: 380px) {
+  .cs-title { font-size: 23px; }
+  .cs-option-content h3 { font-size: 15px; }
+}
+

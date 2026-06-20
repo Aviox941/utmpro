@@ -1,8 +1,56 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-FIX: Selector UTM no aceptaba "." como separador decimal (guardaba sin decimales)
+NUEVO: Overlay "Paso 2 de 2" — selector de tipo de cálculo (calcTypeScreen)
 ──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  Se integró un nuevo overlay de onboarding que aparece inmediatamente después
+  de quotaScreen (Paso 1: cuota mensual de pensión), siguiendo el mismo patrón
+  de transición que ya existía entre welcomeScreen → quotaScreen: la pantalla
+  siguiente se muestra DEBAJO (z-index mayor, en este caso) ANTES de iniciar
+  el fade-out de la anterior, evitando cualquier frame con la app de fondo
+  visible. El diseño fue construido a partir de una imagen de referencia
+  (mockup "¿Qué deseas calcular?") y de un snippet HTML/CSS de base provisto
+  por el usuario, adaptado al sistema visual real de la app (paleta, tipografía,
+  iconografía SVG lineal en vez de emojis, mismo header/progreso/animaciones
+  que .qs-*) para que ambas pantallas del flujo sean indistinguibles en estilo.
+
+QUÉ INCLUYE
+  - #calcTypeScreen (clases cs-*): header con back-button, barra de progreso
+    de 3 segmentos (2 activos) y label "Paso 2 de 2"; ícono de calculadora;
+    título "¿Qué deseas calcular?" y subtítulo.
+  - Chip "Cuota actual": muestra el monto recién ingresado en quotaScreen
+    (UTM y su equivalente en CLP aproximado), con botón "Cambiar" que por
+    ahora vuelve a quotaScreen (closeCalcTypeScreen). Los valores se
+    completan dinámicamente en openCalcTypeScreen() a partir de lo
+    confirmado en confirmQuotaScreen().
+  - 4 tarjetas de opción (Desde el último pago / Entre fechas / Con lagunas /
+    Pagos parciales), cada una con icono SVG de color semántico propio
+    (morado/verde/naranja/azul) replicando los acentos de la imagen de
+    referencia. Por decisión explícita del usuario, las tarjetas y el botón
+    "Cambiar" son SOLO VISUALES en esta entrega — sin onclick de cálculo,
+    para conectarse en una futura sesión.
+  - Trust card inferior ("Cálculos 100% transparentes").
+
+CAMBIOS DE FLUJO
+  confirmQuotaScreen() ya no cierra el onboarding al confirmar: ahora calcula
+  utmFinal/clpFinal según la unidad activa, llama openCalcTypeScreen(utm, clp)
+  y luego closeQuotaScreen() — mismo orden que closeWelcomeScreen() usa con
+  openQuotaScreen(). closeQuotaScreen() se ajustó para NO desbloquear el
+  scroll del body si calcTypeScreen quedó abierto encima (mismo bloqueo de
+  scroll se mantiene continuo entre las 3 pantallas del onboarding).
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (nuevo bloque #calcTypeScreen + funciones openCalcTypeScreen,
+                 closeCalcTypeScreen; confirmQuotaScreen y closeQuotaScreen
+                 ajustadas)
+- styles.css   (nuevo bloque cs-* completo, reutilizando convenciones de qs-*)
+- sw.js        (CACHE_NAME: pension-utm-v192)
+- CAMBIOS.txt
+
+==================================================================================
+
 PROBLEMA
   Al elegir UTM en el selector de quotaScreen, el teclado numérico de Android
   (inputmode="decimal") muestra el punto "." como tecla de separador decimal,
