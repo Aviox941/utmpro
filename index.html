@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0232">
+ <meta name="app-version" content="v2.0619.0233">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8245,11 +8245,14 @@ function qsUnlockBodyScroll() {
 function closeWelcomeScreen() {
   var ws = document.getElementById('welcomeScreen');
   if (!ws) return;
+  // Se muestra quotaScreen DEBAJO (z-index menor) ANTES de iniciar el fade-out
+  // del welcomeScreen, para que nunca exista un frame sin overlay opaco
+  // cubriendo la pantalla (evita el "flash" donde se asoma la app de fondo).
+  openQuotaScreen();
   ws.classList.add('ws-screen--out');
   ws.addEventListener('animationend', function() {
     ws.style.display = 'none';
     sessionStorage.setItem('ws_done', '1');
-    openQuotaScreen();
   }, { once: true });
 }
 

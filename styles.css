@@ -4018,10 +4018,11 @@
   width: 100%;
   max-width: 430px;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 0 0 32px;
+  padding: 0;
 }
 
 /* ── Header ── */
@@ -4080,7 +4081,10 @@
 /* ── Body ── */
 .qs-body {
   flex: 1;
-  padding: 8px 24px 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4227,11 +4231,16 @@
 
 /* ── Footer ── */
 .qs-footer {
-  padding: 28px 24px 0;
+  position: sticky;
+  bottom: 0;
+  background: #ffffff;
+  padding: 16px 24px calc(16px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
+  flex-shrink: 0;
+  box-shadow: 0 -8px 16px -8px rgba(0,0,0,0.04);
 }
 
 .qs-btn-continue {

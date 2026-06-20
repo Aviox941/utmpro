@@ -1,3 +1,68 @@
+CAMBIOS v2.0619.0232 → v2.0619.0233
+==================================================================================
+Fecha: 2026-06-20
+
+FIX: Botón "Continuar" recortado + flash de fondo entre welcome y quota screen
+──────────────────────────────────────────────────────────────────────────────────
+PROBLEMA 1 — Footer del Quota Screen cortado/inalcanzable
+  El botón "Continuar" del Quota Screen quedaba parcialmente fuera de la
+  pantalla visible y no se podía hacer scroll para alcanzarlo completo.
+
+CAUSA
+  .qs-inner usaba min-height:100vh con .qs-body en flex:1, dentro de un
+  contenedor de exactamente 100vh sin overflow propio. En navegadores
+  móviles, 100vh no coincide con el viewport VISUAL real cuando la barra
+  de direcciones está presente (Chrome la muestra/oculta dinámicamente):
+  el layout completo medía más alto que el área visible, pero al ser
+  exactamente 100vh tampoco generaba scroll — el footer quedaba "atrapado"
+  fuera de vista sin forma de alcanzarlo.
+
+SOLUCIÓN 1
+  • .qs-inner: min-height pasa a 100dvh (dynamic viewport height, se ajusta
+    en tiempo real al área visible real) con fallback a 100vh para
+    navegadores sin soporte.
+  • .qs-footer: ahora es position:sticky; bottom:0 con fondo blanco propio
+    y padding-bottom que respeta env(safe-area-inset-bottom) — el botón
+    "Continuar" queda SIEMPRE visible, sin depender de scroll, igual que
+    un footer de app nativa.
+  • .qs-body: overflow-y:auto propio + flex:1; min-height:0 — si el
+    contenido del body es más alto de lo normal, scrollea internamente
+    bajo el footer sticky, en vez de empujarlo fuera de la pantalla.
+
+PROBLEMA 2 — Flash de la app de fondo entre welcomeScreen → quotaScreen
+  Durante la transición (fade-out del welcome, fade-in del quota) se
+  alcanzaba a ver brevemente la interfaz de la calculadora detrás.
+
+CAUSA
+  closeWelcomeScreen() ocultaba primero welcomeScreen (display:none) y
+  solo DESPUÉS llamaba a openQuotaScreen() (display:flex). Aunque ambas
+  líneas son síncronas, el cambio de display de un elemento opaco a otro
+  puede generar un frame intermedio sin ningún overlay pintado — ahí se
+  asoma la app de fondo durante una fracción de segundo.
+
+SOLUCIÓN 2
+  Se invirtió el orden: ahora openQuotaScreen() se llama PRIMERO (quota
+  queda pintado y visible, pero oculto bajo welcomeScreen gracias a que
+  welcomeScreen tiene z-index mayor: 99999 vs 99998) y solo entonces se
+  inicia el fade-out de welcomeScreen. El usuario ve a welcomeScreen
+  desvanecerse revelando quotaScreen ya listo debajo — nunca hay un frame
+  sin overlay opaco cubriendo la pantalla.
+
+ARCHIVOS MODIFICADOS
+  • styles.css  → .qs-inner (100dvh), .qs-body (overflow-y:auto, flex:1,
+                  min-height:0), .qs-footer (sticky bottom + safe-area).
+  • index.html  → closeWelcomeScreen() reordenado: openQuotaScreen() ahora
+                  se llama antes de iniciar el fade-out del welcomeScreen.
+                  app-version → v2.0619.0233.
+  • sw.js       → CACHE_NAME → 'pension-utm-v189'.
+
+SIN CAMBIOS EN LÓGICA DE LOGIN, CÁLCULO NI MARKUP HTML DE LOS OVERLAYS
+  No se modificó ningún archivo de markup (solo CSS) ni la lógica de
+  onAuthStateChange, confirmQuotaScreen(), ni los helpers de bloqueo de
+  scroll introducidos en la versión anterior.
+
+==================================================================================
+
 CAMBIOS v2.0619.0231 → v2.0619.0232
 ==================================================================================
 Fecha: 2026-06-20
