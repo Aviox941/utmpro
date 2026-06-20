@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0100">
+ <meta name="app-version" content="v2.0620.0130">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8273,7 +8273,7 @@ function dupCalcularDeuda() {
       </div>
 
       <!-- Opciones de cálculo -->
-      <div class="cs-option cs-option--purple">
+      <div class="cs-option cs-option--purple" role="button" tabindex="0" onclick="csOpenDesdeUltimoPago()">
         <div class="cs-option-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="3"/>
@@ -8544,6 +8544,26 @@ function closeCalcTypeScreen() {
     cs.style.display = 'none';
     qsUnlockBodyScroll();
   }, { once: true });
+}
+
+// Tarjeta "Desde el último pago" dentro de calcTypeScreen: dispara el mismo
+// overlay (dupOverlay) que ya usa la tarjeta equivalente del dock principal
+// (.calc-mode-card--blue → openDupOverlay(), ver bloque "FULLSCREEN OVERLAY:
+// Desde el último pago"). Primero se cierra calcTypeScreen con su fade-out
+// normal y, recién al terminar la animación, se abre dupOverlay — mismo
+// criterio que eligió el usuario para esta transición específica (a
+// diferencia del encadenado welcome→quota→calcType, que no deja frame vacío
+// porque ahí la pantalla siguiente ya estaba dibujada debajo).
+function csOpenDesdeUltimoPago() {
+  closeCalcTypeScreen();
+  var cs = document.getElementById('calcTypeScreen');
+  if (cs) {
+    cs.addEventListener('animationend', function() {
+      openDupOverlay();
+    }, { once: true });
+  } else {
+    openDupOverlay();
+  }
 }
 
 </script>

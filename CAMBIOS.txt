@@ -1,8 +1,42 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Overlay "Paso 2 de 2" — selector de tipo de cálculo (calcTypeScreen)
+NUEVO: Tarjeta "Desde el último pago" de calcTypeScreen conectada a dupOverlay
 ──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  En la entrega anterior (calcTypeScreen, Paso 2 de 2) las 4 tarjetas de
+  opción quedaron puramente visuales por decisión explícita. El usuario
+  pidió ahora conectar específicamente la tarjeta "Desde el último pago"
+  como disparador del mismo overlay (#dupOverlay) que ya usa la tarjeta
+  equivalente del dock principal (.calc-mode-card--blue → openDupOverlay()),
+  en vez de construir una pantalla de cálculo nueva.
+
+SOLUCIÓN
+  Se agregó onclick="csOpenDesdeUltimoPago()" a .cs-option--purple. Esta
+  nueva función cierra calcTypeScreen con su fade-out normal (closeCalcType
+  Screen) y, recién al terminar esa animación (animationend), llama a
+  openDupOverlay() — la misma función que ya usa el dock. closeDupOverlay()
+  no se modificó: al cerrar dupOverlay con la X, el usuario vuelve
+  directamente a la app principal, igual que ocurre hoy desde el dock
+  (decisión explícita del usuario, sin volver a calcTypeScreen).
+
+  No fue necesario tocar el sistema de bloqueo de scroll: calcTypeScreen usa
+  qsLockBodyScroll()/qsUnlockBodyScroll() (position:fixed sobre <body>) y
+  dupOverlay usa su propio mecanismo aislado (body.style.overflow). Ambos
+  se desactivan/activan de forma independiente sin pisarse, ya que
+  qsUnlockBodyScroll() corre antes de que openDupOverlay() module overflow.
+
+  Las otras 3 tarjetas (Entre fechas, Con lagunas, Pagos parciales) y el
+  botón "Cambiar" del chip de cuota se mantienen sin conectar, sin cambios.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html   (cs-option--purple: onclick; nueva función csOpenDesdeUltimoPago())
+- sw.js        (CACHE_NAME: pension-utm-v193)
+- CAMBIOS.txt
+
+==================================================================================
+
 CONTEXTO
   Se integró un nuevo overlay de onboarding que aparece inmediatamente después
   de quotaScreen (Paso 1: cuota mensual de pensión), siguiendo el mismo patrón
