@@ -4337,11 +4337,11 @@
    onboarding. Prefijo propio "cs-" para no colisionar con qs-*.
    ════════════════════════════════════════════════════════════════════════ */
 
-@keyframes cs-fade-in {
+@keyframes cs-inner-fade-in {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes cs-fade-out {
+@keyframes cs-inner-fade-out {
   from { opacity: 1; transform: translateY(0); }
   to   { opacity: 0; transform: translateY(-10px); }
 }
@@ -4352,17 +4352,19 @@
   z-index: 99999; /* por encima de quotaScreen mientras coexisten un frame */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: #ffffff;
+  background: #ffffff; /* SIEMPRE opaco — no se anima, ver nota abajo */
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  animation: cs-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.cs-screen--out {
-  animation: cs-fade-out 0.28s ease-in forwards;
-}
-
+/* La animación se aplica a .cs-inner (el contenido), NO a .cs-screen (el
+   fondo). Si se anima opacity sobre .cs-screen, el background:#ffffff
+   también se vuelve transparente durante la transición y deja ver el
+   contenido real de la app detrás (bug reportado: "flash de la interfaz
+   de fondo" al cerrar esta pantalla hacia dupOverlay). Separando ambas
+   capas, el fondo blanco permanece 100% opaco en todo momento y solo el
+   contenido interno se desvanece/desliza. */
 .cs-inner {
   width: 100%;
   max-width: 430px;
@@ -4372,6 +4374,11 @@
   display: flex;
   flex-direction: column;
   padding: 0;
+  animation: cs-inner-fade-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.cs-screen--out .cs-inner {
+  animation: cs-inner-fade-out 0.28s ease-in forwards;
 }
 
 /* ── Header (idéntico patrón a .qs-header) ── */

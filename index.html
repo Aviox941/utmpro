@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0200">
+ <meta name="app-version" content="v2.0620.0215">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8551,8 +8551,9 @@ function openCalcTypeScreen(utmVal, clpVal) {
 function closeCalcTypeScreen() {
   var cs = document.getElementById('calcTypeScreen');
   if (!cs) return;
+  var inner = cs.querySelector('.cs-inner');
   cs.classList.add('cs-screen--out');
-  cs.addEventListener('animationend', function() {
+  (inner || cs).addEventListener('animationend', function() {
     cs.style.display = 'none';
     qsUnlockBodyScroll();
   }, { once: true });
@@ -8563,17 +8564,17 @@ function closeCalcTypeScreen() {
 // (.calc-mode-card--blue → openDupOverlay(), ver bloque "FULLSCREEN OVERLAY:
 // Desde el último pago"). Se cierra calcTypeScreen con su fade-out normal y,
 // recién cuando termina la animación y queda con display:none, se abre
-// dupOverlay — un solo listener de animationend (antes había dos: uno acá y
-// otro duplicado dentro de closeCalcTypeScreen, lo que generaba una carrera
-// de eventos). dupOverlay ya tiene z-index por encima de todo el sistema de
-// onboarding, así que aunque algún frame se solape no se ve el fondo de la
-// app detrás.
+// dupOverlay — un solo listener de animationend, escuchado sobre .cs-inner
+// (el elemento que realmente anima; .cs-screen es solo el fondo opaco fijo
+// y ya no tiene animación propia — ver nota en styles.css sobre por qué se
+// separaron ambas capas).
 function csOpenDesdeUltimoPago() {
   var cs = document.getElementById('calcTypeScreen');
   if (!cs) { openDupOverlay(); return; }
+  var inner = cs.querySelector('.cs-inner');
 
   cs.classList.add('cs-screen--out');
-  cs.addEventListener('animationend', function() {
+  (inner || cs).addEventListener('animationend', function() {
     cs.style.display = 'none';
     qsUnlockBodyScroll();
     openDupOverlay();

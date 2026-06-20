@@ -1,8 +1,59 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-FIX: Flash de interfaz de fondo al pasar de calcTypeScreen a dupOverlay + monto en 0
+FIX REAL: Flash de interfaz de fondo en calcTypeScreen — causa raíz era otra
 ──────────────────────────────────────────────────────────────────────────────────
+DIAGNÓSTICO ANTERIOR INCOMPLETO
+  El fix previo (subir z-index de .dup-overlay a 100000) era necesario pero
+  insuficiente: no atacaba la causa real, por lo que el flash persistió.
+
+CAUSA RAÍZ REAL
+  .cs-screen es position:fixed; inset:0 con background:#ffffff, y la
+  animación cs-fade-out (usada al cerrar la pantalla) animaba la opacity
+  de ESE MISMO elemento — el que contiene tanto el fondo blanco como el
+  contenido. Animar opacity sobre un elemento anima TODO lo que pinta ese
+  elemento, incluido su propio background. Resultado: durante los 280ms
+  de cs-fade-out, el background:#ffffff se iba haciendo progresivamente
+  transparente, dejando ver perfectamente el contenido real de la app
+  (detalle de cálculo, dock, etc.) que está debajo en el stacking —
+  mezclado visualmente con calcTypeScreen desvaneciéndose encima. Esto es
+  exactamente lo que se ve en la captura: el modal "¿Qué deseas calcular?"
+  semitransparente flotando sobre la tabla de períodos.
+
+  Este mismo patrón (animar opacity sobre el contenedor que también es el
+  fondo opaco) existe igual en .qs-screen y .ws-screen, pero ahí nunca se
+  notó porque lo que queda detrás al cerrarlas es otro overlay blanco del
+  mismo flujo, no datos reales de la app. calcTypeScreen es la primera
+  pantalla de este sistema que se cierra revelando directamente contenido
+  con información real, por eso el bug —que ya existía estructuralmente—
+  recién se hizo visible acá. No se tocó qs-screen/ws-screen: no fue parte
+  de lo reportado y el protocolo del proyecto exige cambios quirúrgicos.
+
+SOLUCIÓN
+  Se separaron las dos capas: .cs-screen (fondo) ya NO tiene animación
+  propia — su background:#ffffff permanece 100% opaco en todo momento.
+  La animación (cs-inner-fade-in / cs-inner-fade-out) se movió a .cs-inner
+  (el contenido real, max-width:430px centrado), que es semánticamente lo
+  que debe desvanecerse/deslizarse, no el fondo que lo contiene.
+
+  Como consecuencia, los listeners de animationend en closeCalcTypeScreen()
+  y csOpenDesdeUltimoPago() ya no pueden escuchar sobre #calcTypeScreen
+  (.cs-screen, que dejó de animar) — se corrigieron para escuchar sobre
+  cs.querySelector('.cs-inner'), el elemento que ahora sí dispara el
+  evento.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- styles.css   (cs-fade-in/out renombradas a cs-inner-fade-in/out y
+                 movidas de .cs-screen a .cs-inner; .cs-screen sin
+                 animación, fondo siempre opaco)
+- index.html   (closeCalcTypeScreen, csOpenDesdeUltimoPago: animationend
+                 escuchado sobre .cs-inner en vez de .cs-screen)
+- sw.js        (CACHE_NAME: pension-utm-v195)
+- CAMBIOS.txt
+
+==================================================================================
+
 PROBLEMA 1 — Se veía la interfaz de cálculo de fondo durante la transición
   Al tocar la tarjeta "Desde el último pago" en calcTypeScreen, durante la
   animación de cierre (~280ms) se veía mezclada/asomada toda la interfaz de
