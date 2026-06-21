@@ -8326,7 +8326,7 @@ function dupCalcularDeuda() {
         </div>
         <div class="qs-input-row">
           <button type="button" id="qsCurrencySelect" class="qs-currency-select" onclick="qsToggleUnidad()">
-            <span id="qsCurrencyLabel">$ CLP</span>
+            <span id="qsCurrencyLabel">UTM</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="qs-currency-chevron">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
@@ -8420,15 +8420,9 @@ function dupCalcularDeuda() {
       <!-- Subtítulo -->
       <p class="cs-subtitle">Elige el tipo de cálculo que necesitas realizar.</p>
 
-      <!-- Chip / card de cuota actual -->
-      <div class="cs-quota-card">
-        <div class="cs-quota-header">Cuota actual</div>
-        <div class="cs-quota-values">
-          <div class="cs-quota-main" id="csQuotaMain">2,33 UTM</div>
-          <div class="cs-quota-secondary" id="csQuotaSecondary">≈ $166.609</div>
-        </div>
-        <button type="button" class="cs-quota-change-btn" onclick="closeCalcTypeScreen()">Cambiar</button>
-      </div>
+      <!-- Chip / card de cuota actual: eliminada de la vista a pedido del
+           usuario. El JS de openCalcTypeScreen() conserva sus null-checks
+           (if (mainEl) / if (secEl)) por lo que no requiere cambios. -->
 
       <!-- Opciones de cálculo -->
       <div class="cs-option cs-option--purple" role="button" tabindex="0" onclick="csOpenDesdeUltimoPago()">
@@ -8576,7 +8570,7 @@ function closeWelcomeScreen() {
 }
 
 // ── Quota Screen (cuota mensual de referencia) ──────────────────────────────
-var _qsUnidad = 'clp'; // 'clp' | 'utm'
+var _qsUnidad = 'utm'; // 'clp' | 'utm'
 
 function qsToggleUnidad() {
   var input = document.getElementById('qsAmountInput');
