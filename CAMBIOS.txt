@@ -1,8 +1,198 @@
+================================================================================
+INSTRUCCIONES DE VERSIONADO
+================================================================================
+- Este archivo se SOBRESCRIBE en cada entrega.
+- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
+- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
+- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
+- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
+- Nunca eliminar ninguna instrucción de este documento
+
+================================================================================
+VERSIÓN ACTUAL
+================================================================================
+Fecha         : 2026-06-21
+App version   : v2.0621.0600
+SW cache      : pension-utm-v208
+Archivos mod  : index.html, export.js, CAMBIOS.txt
+
+
+==================================================================================
+Fecha: 2026-06-21
+
+FIX: Abonos LAV se duplicaban al recalcular desde "Desde el último pago"
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  dupCalcularDeuda() (overlay "Desde el último pago") llama internamente a
+  addAbonoLav(), que hace abonosLav.push(...). Si el usuario abría el
+  overlay y calculaba más de una vez (por ejemplo para corregir un dato),
+  cada corrida agregaba un NUEVO abono LAV al arreglo sin limpiar el
+  anterior, así que la tarjeta azul terminaba sumando dos o más montos
+  LAV en vez de reemplazar el cálculo.
+
+QUÉ SE CAMBIÓ
+  1. export.js: se agregó resetAllExceptPensionData(), una variante de
+     resetAllSilent() que limpia TODO el estado de cálculo (abonos,
+     abonosLav, pagosParciales, historicalDebts, periodosPension,
+     consolidadaData, lastCalculationData, lastImputacion, resultados en
+     pantalla) pero NO toca los inputs de la tarjeta "Datos de Pensión"
+     (utmAmount, clpAmount, salaryAmount, salaryPercent, minimumPercent,
+     diaVencimiento) ni fuerza calculationMode/IMM a su valor por defecto.
+  2. index.html: dupCalcularDeuda() ahora llama a
+     resetAllExceptPensionData() como paso 0, antes de registrar el nuevo
+     abono LAV. Así cada cálculo desde "Desde el último pago" parte
+     siempre de cero (sin abonos/parciales/históricos previos) sin perder
+     la configuración de la pensión ya cargada.
+
+NO TOCAR (se mantuvo intacto)
+  - resetAllSilent() / resetAll() (botón de papelera, reset total real):
+    sin cambios, sigue limpiando también Datos de Pensión como antes.
+──────────────────────────────────────────────────────────────────────────────────
+
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Conectado el overlay "Desde el último pago" (DUP) al motor real de
-Depósitos LAV — ya no es un placeholder
+FIX: Ondas del hero reemplazadas por SVG real (sin distorsión de stroke)
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El enfoque anterior dibujaba las ondas como background-image (data URI)
+  en .hero-total-card::before. Aunque con background-size:100% 100% se
+  estiraba al tamaño exacto de la tarjeta, el STROKE de los paths también
+  se estiraba de forma no uniforme (más grueso o delgado según el alto vs
+  ancho real del card en cada breakpoint), dando un resultado inconsistente.
+  El usuario aportó un snippet con SVG inline + vector-effect:non-scaling-
+  stroke, que resuelve esto de raíz.
+
+QUÉ SE CAMBIÓ
+  1. index.html: se agregó <svg class="hero-total-card__waves"> como
+     primer hijo de .hero-total-card (antes del label), con los 4 paths
+     exactos provistos por el usuario (viewBox 0 0 1000 300,
+     preserveAspectRatio="none").
+  2. styles.css:
+     - Se eliminó .hero-total-card::before (background-image data URI).
+     - Se agregó .hero-total-card__waves (position:absolute; inset:0;
+       z-index:1) y .hero-total-card__waves path (stroke:
+       rgba(255,255,255,0.15); stroke-width:2; vector-effect:
+       non-scaling-stroke) — el vector-effect es la clave: el grosor del
+       trazo se mantiene constante sin importar cómo se estire el SVG.
+     - Se agregó isolation:isolate a .hero-total-card para un stacking
+       context limpio entre ondas/puntos/contenido.
+  3. El patrón de puntos (::after) se mantuvo igual, sin cambios.
+
+NO TOCAR (se mantuvo intacto)
+  - Gradiente de fondo, label/monto/UTM, metadatos, lógica de cálculo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  welcomeScreen → quotaScreen → calcTypeScreen solo se abren cuando ocurre
+  un evento SIGNED_IN real (login manual). Esto hacía imposible verificar
+  visualmente cambios en esas pantallas (ej. UTM por defecto, tarjeta
+  "Cuota actual" eliminada) sin cerrar sesión y volver a entrar.
+
+QUÉ SE AGREGÓ
+  1. Botón "Probar Welcome Screen" en sidebar → Desarrollo, debajo de
+     "Consola de debug".
+  2. function devTestWelcomeFlow() (index.html, junto a closeWelcomeScreen):
+     limpia sessionStorage('ws_done') y muestra #welcomeScreen directamente,
+     sin pasar por onAuthStateChange. Desde ahí el flujo sigue exactamente
+     igual que en producción: el botón de welcomeScreen sigue llamando a
+     closeWelcomeScreen() → openQuotaScreen() → calcTypeScreen, por lo que
+     prueba el camino real, no una versión paralela.
+  3. No toca sesión, casos guardados ni datos del usuario — es solo un
+     atajo visual para QA.
+
+NO TOCAR (se mantuvo intacto)
+  - El gate real de producción (event === 'SIGNED_IN') sigue igual; este
+    botón es un acceso adicional, no un reemplazo del flujo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El ajuste anterior distribuyó las 3 curvas en toda la altura de la
+  tarjeta (arriba/medio/abajo), pero eso hizo que algunas líneas cruzaran
+  el bloque de texto y se viera peor que antes. Se pidió lo opuesto:
+  líneas mucho más juntas entre sí, ubicadas por debajo del texto.
+
+QUÉ SE CAMBIÓ (.hero-total-card::before en styles.css)
+  Los 3 paths del SVG ahora están agrupados en la franja inferior del
+  viewBox (y≈230, 250, 270 sobre una altura de 300), a solo 20px de
+  diferencia entre ellos, en vez de estar repartidos en y≈60/160/250.
+  Mismo grosor (stroke-width 3) y opacidades (0.20/0.15/0.11) que antes;
+  solo cambió la posición vertical.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  Se pidió quitar la tarjeta que mostraba "Cuota actual / 2,33 UTM / ≈
+  $166.609 / Cambiar" dentro de calcTypeScreen.
+
+QUÉ SE CAMBIÓ
+  - Se eliminó el bloque <div class="cs-quota-card">...</div> del HTML
+    (index.html, dentro de #calcTypeScreen).
+  - openCalcTypeScreen() ya escribía sobre csQuotaMain/csQuotaSecondary con
+    null-checks (if (mainEl) / if (secEl)), así que no fue necesario tocar
+    el JS: simplemente deja de encontrar esos elementos y no hace nada.
+
+NO TOCAR (se mantuvo intacto)
+  - Las 4 opciones de cálculo (Desde el último pago, Entre fechas, Con
+    lagunas, Pagos parciales) y su lógica.
+  - _csUtmActual / _csClpActual / _csUnidadActual siguen actualizándose
+    igual, por si se usan en otro punto del flujo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  La pantalla quotaScreen (Paso 1 de 2 del onboarding) abría siempre con el
+  selector en "$ CLP". Se pidió que el valor por defecto sea UTM.
+
+QUÉ SE CAMBIÓ
+  1. var _qsUnidad = 'clp' -> 'utm' (index.html).
+  2. <span id="qsCurrencyLabel"> ahora arranca en "UTM" en vez de "$ CLP".
+  3. El input ya tenía inputmode="decimal", que es el correcto para UTM, así
+     que no requirió cambios adicionales.
+  4. El botón de la pastilla de moneda (qsToggleUnidad) sigue funcionando
+     igual: el usuario puede tocarlo para cambiar a CLP si lo prefiere.
+
+NO TOCAR (se mantuvo intacto)
+  - Lógica de conversión CLP↔UTM (qsToggleUnidad, confirmQuotaScreen).
+  - El resto del flujo de onboarding (Paso 2 de 2, calcTypeScreen).
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  Se pidió que la tarjeta azul del total adeudado tuviera un look más
+  moderno, replicando un diseño de referencia: gradiente azul más profundo,
+  líneas onduladas de fondo y un patrón de puntos decorativo en la esquina
+  superior derecha. Solo se tocó la estética visual; no se modificó texto,
+  estructura de datos ni lógica de cálculo.
+
+QUÉ SE CAMBIÓ (solo CSS, .hero-total-card en styles.css)
+  1. Fondo: gradiente linear-gradient(135deg, #0f2a7a 0%, #1155d6 45%,
+     #002fd6 100%) (antes #1e3a5f -> #1e40af).
+  2. border-radius 14px -> 24px y sombra más marcada
+     (0 12px 30px rgba(15,42,122,0.35)).
+  3. ::before — capa de ondas (3 paths SVG en blanco con distinta opacidad)
+     como background-image inline en data URI, cubriendo toda la tarjeta.
+  4. ::after — patrón de puntos (radial-gradient circular blanco) ubicado
+     en la esquina superior derecha, 130x90px, tamaño de grilla 12px.
+  5. Ambas capas decorativas con z-index:0 y pointer-events:none para no
+     interferir con el contenido (label/monto/UTM), que mantiene z-index:1.
+
+NO TOCAR (se mantuvo intacto)
+  - Texto "Total Adeudado", monto, UTM, metadatos (fecha liq., abonos LAV).
+  - Breakpoints mobile de .hero-total-card (solo padding/min-height, sin
+    cambios de fondo).
+  - Toda la lógica de cálculo y formateo de montos.
+
+──────────────────────────────────────────────────────────────────────────────────
+
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   El overlay #dupOverlay (tarjeta azul del dock "¿Cómo deseas calcular?")
@@ -997,6 +1187,14 @@ ARCHIVOS MODIFICADOS
 ==================================================================================
 HISTORIAL RECIENTE
 ==================================================================================
+v2.0621.0500 : FIX UI — tarjeta "Total Adeudado": la fila "Abonos LAV" (3 líneas
+                apretadas en 7.5px, con divisor) se rediseñó como píldora única
+                redondeada (icono check + label + monto + UTM), estilo fintech
+                consistente con el resto de la card. Bonus: en "Detalle del
+                cálculo", los chips verdes (✓ Cubierto LAV, LAV: ... Rem:, etc.)
+                estaban anidados dentro de un <span class="truncate"> y se
+                cortaban a media palabra; se sacaron del span truncado y ahora
+                envuelven en su propia línea sin recortarse.
 v2.0619.0222 : FIX — quitado wait de IDB que retrasaba/rompía restauración en frío
 v2.0619.0202 : FIX REAL — abonosLav sin declarar rompía restauración de sesión
 v2.0619.0147 : Auto-restore de caso post-sync Supabase tras quitar welcomeScreen

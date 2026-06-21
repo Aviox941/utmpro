@@ -1064,6 +1064,80 @@ if (typeof queueSave === 'function' && sbCurrentUser && activeCasoId && !_delete
   dbg('applySession: ⚠️ _hasData=true pero estado vacío — race condition, queueSave bloqueado');
 }
 }
+// ── Reset "suave": limpia TODO el cálculo (abonos, LAV, pagos parciales,
+// deuda histórica, consolidada, resultados) pero NO toca la tarjeta
+// "Datos de Pensión" (cuota UTM/CLP, % sueldo, IMM, día de vencimiento).
+// Se usa antes de recalcular desde "Desde el último pago" para que cada
+// cálculo nuevo parta de cero y no se acumulen abonos LAV de corridas
+// anteriores (causaba que el monto LAV se sumara dos veces).
+const _PENSION_CARD_INPUT_IDS = new Set([
+  'utmAmount', 'clpAmount', 'salaryAmount', 'salaryPercent',
+  'minimumPercent', 'minimumSalaryDisplay', 'diaVencimiento'
+]);
+function resetAllExceptPensionData() {
+  document.querySelectorAll('input').forEach(i => {
+    if (_PENSION_CARD_INPUT_IDS.has(i.id)) return; // preservar Datos de Pensión
+    if (!i.readOnly && i.type !== 'checkbox') i.value = '';
+  });
+  // calculationMode y toggleIMM se mantienen tal como están (no se fuerzan a 'utm')
+  startIndex = -1; endIndex = -1; calcStartIndex = -1; calcEndIndex = -1;
+  abonos = []; pagosParciales = []; abonosLav = []; historicalDebts = []; periodosPension = [];
+  consolidadaData = null;
+  lastCalculationData = [];
+  lastImputacion = null;
+  histMode = 'recalculable';
+  setHistMode('recalculable');
+  renderAbonosList(); renderPagosParciales(); renderHistoricalList(); renderPeriodosPension();
+  if (typeof renderAbonosLav === 'function') renderAbonosLav();
+  updateLabels();
+  const lblA = document.getElementById('tempAbonoLabel');
+  if (lblA) { lblA.innerText = 'Mes / Año'; lblA.classList.add('text-slate-400'); lblA.classList.remove('text-white'); }
+  const lblPa = document.getElementById('tempParcialLabel');
+  if (lblPa) { lblPa.innerText = 'Mes / Año'; lblPa.classList.add('text-slate-400'); lblPa.classList.remove('text-white'); }
+  // Limpiar deuda histórica completamente
+  const hSM = document.getElementById('histStartMes'); if (hSM) hSM.value = '';
+  const hSA = document.getElementById('histStartAnio'); if (hSA) hSA.value = '';
+  const hEM = document.getElementById('histEndMes'); if (hEM) hEM.value = '';
+  const hEA = document.getElementById('histEndAnio'); if (hEA) hEA.value = '';
+  const lblHS = document.getElementById('histStartLabel');
+  if (lblHS) { lblHS.innerText = 'Mes / Año'; lblHS.className = 'input-date__value'; }
+  const lblHE = document.getElementById('histEndLabel');
+  if (lblHE) { lblHE.innerText = 'Mes actual'; lblHE.className = 'input-date__value'; }
+  if (document.getElementById('historicalDebtUtm')) document.getElementById('historicalDebtUtm').value = '';
+  // Limpiar campos del modo consolidada
+  const cMonto = document.getElementById('consolidadaMontoCLP'); if (cMonto) cMonto.value = '';
+  const cFM = document.getElementById('consolidadaFechaMes'); if (cFM) cFM.value = '';
+  const cFA = document.getElementById('consolidadaFechaAnio'); if (cFA) cFA.value = '';
+  const cFL = document.getElementById('consolidadaFechaLabel'); if (cFL) { cFL.innerText = 'Seleccionar'; cFL.className = 'input-date__value'; }
+  const cPrev = document.getElementById('consolidadaPreview'); if (cPrev) cPrev.classList.add('hidden');
+  const cAI = document.getElementById('consolidadaAplicaIntereses'); if (cAI) cAI.checked = true;
+  const cUM = document.getElementById('consolidadaUsaMaxima'); if (cUM) cUM.checked = false;
+  const dS = document.getElementById('debtSummary'); if (dS) dS.classList.add('hidden');
+  // reset totals a cero (se vuelven a llenar al recalcular)
+  document.getElementById('totalGrand').innerText = '0';
+  document.getElementById('totalGrandUtm').innerText = '0.00 UTM';
+  document.getElementById('totalCap').innerText = '$0';
+  document.getElementById('totalCapUtm').innerText = '0.00 UTM';
+  document.getElementById('totalInt').innerText = '$0';
+  document.getElementById('totalIntUtm').innerText = '0.00 UTM';
+  document.getElementById('yearTabsCard').classList.add('hidden');
+  document.getElementById('yearTabs').innerHTML = '';
+  document.getElementById('detailsList').classList.add('hidden');
+  document.getElementById('detailsList').innerHTML = '';
+  const _calcCard = document.getElementById('calcSummaryCard');
+  if (_calcCard) _calcCard.classList.add('hidden');
+  const _calcContent = document.getElementById('calcSummaryContent');
+  if (_calcContent) _calcContent.innerHTML = '';
+  const _hMetaR = document.getElementById('heroMetaRow'); if (_hMetaR) _hMetaR.classList.add('hidden');
+  const _hParcR = document.getElementById('heroParcialRow'); if (_hParcR) _hParcR.classList.add('hidden');
+  const mesesLabelReset = document.getElementById('yearTabsMesesLabel');
+  if (mesesLabelReset) mesesLabelReset.innerHTML = '0 meses';
+  activeTabYear = null;
+  document.getElementById('abonoResultRow').classList.add('hidden');
+  // NOTA: a diferencia de resetAllSilent(), NO se tocan recargoLey/ticActual
+  // ni diaVencimiento — son parte de la configuración de la pensión.
+  document.getElementById('saveIndicator').classList.add('hidden');
+}
 function resetAllSilent() {
 document.querySelectorAll('input').forEach(i => { if (!i.readOnly && i.type !== 'checkbox') i.value = ''; });
 document.getElementById('calculationMode').value = 'utm';
@@ -1724,13 +1798,13 @@ function buildResumenContent(targetContainer, inlineMode) {
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
       // Sub-chip LAV interés (excedente Art. 1595)
       const lavIntChip = (d.lavIntAplicadoCLP || 0) > 0
-        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">‡ Int. cubierto LAV: ${fmt(d.lavIntAplicadoCLP)}</div>`
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">‡ Int. cubierto LAV: ${fmt(d.lavIntAplicadoCLP)}</div>`
         : '';
       // Sub-chip de remanente para cuotas con pago parcial manual
       const _capRemDisplay = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
       const _capRemUTM = (d.utmVal && d.utmVal > 0) ? (_capRemDisplay / d.utmVal).toFixed(4) : '—';
       const remChip = d.hayParcialConRemanente && d.capOriginal > 0
-        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px">↳ Rem: ${fmt(_capRemDisplay)} <span style="opacity:0.75">(${_capRemUTM} UTM)</span> de ${fmt(d.capOriginal)}</div>`
+        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">↳ Rem: ${fmt(_capRemDisplay)} <span style="opacity:0.75">(${_capRemUTM} UTM)</span> de ${fmt(d.capOriginal)}</div>`
         : '';
       // Sub-chip de excedente de pago parcial arrastrado al total
       const _excCLP = (d.excedenteParcialAplicado || 0) > 0
@@ -1738,17 +1812,20 @@ function buildResumenContent(targetContainer, inlineMode) {
       const _excUTM = (d.excedenteParcialAplicado || 0) > 0 && d.utmVal > 0
         ? d.excedenteParcialAplicado.toFixed(4) : '—';
       const excedenteChip = _excCLP > 0
-        ? `<div style="font-size:7.5px;color:#16a34a;font-weight:700;margin-top:1px">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
+        ? `<div style="font-size:7.5px;color:#16a34a;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
         : '';
       // Sub-chip LAV: cubierto completo o parcial
       const _cubiertaLavChip = (d.esLav && d.cap <= 0.01)
-        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">✓ Cubierto LAV (-${fmt(d.lavAplicadoCLP + (d.lavIntAplicadoCLP||0))} / -${((d.lavAplicadoUTM||0)+(d.lavIntAplicadoUTM||0)).toFixed(4)} UTM)</div>`
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">✓ Cubierto LAV (-${fmt(d.lavAplicadoCLP + (d.lavIntAplicadoCLP||0))} / -${((d.lavAplicadoUTM||0)+(d.lavIntAplicadoUTM||0)).toFixed(4)} UTM)</div>`
         : '';
       const _lavParcialChip = (d.esLav && (d.lavAplicadoCLP || 0) > 0 && d.cap > 0.01)
-        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px">LAV: -${fmt(d.lavAplicadoCLP)} <span style="opacity:0.75">(-${(d.lavAplicadoUTM||0).toFixed(4)} UTM)</span> · Rem: ${fmt(d.cap)} (${(d.utmVal>0?d.cap/d.utmVal:0).toFixed(4)} UTM)</div>`
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">LAV: -${fmt(d.lavAplicadoCLP)} <span style="opacity:0.75">(-${(d.lavAplicadoUTM||0).toFixed(4)} UTM)</span> · Rem: ${fmt(d.cap)} (${(d.utmVal>0?d.cap/d.utmVal:0).toFixed(4)} UTM)</div>`
         : '';
       row.innerHTML = `
-        <span class="truncate" style="color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}</span>
+        <div style="min-width:0">
+          <span class="truncate" style="display:block;color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}</span>
+          ${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}
+        </div>
         <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
         <span style="color:#334155">${fmt(capMostrado)}</span>
         <span style="color:#64748b">${d.mora}</span>
