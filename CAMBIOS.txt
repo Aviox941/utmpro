@@ -1,7 +1,87 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-CAMBIO: Texto de la casilla 2 en dupOverlay — "cuota mensual" → "última cuota pagada"
+NUEVO: Conectado el overlay "Desde el último pago" (DUP) al motor real de
+Depósitos LAV — ya no es un placeholder
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El overlay #dupOverlay (tarjeta azul del dock "¿Cómo deseas calcular?")
+  tenía toda su UI construida (toggle UTM/CLP, monto, fecha) pero el botón
+  "Calcular deuda actual" solo hacía console.log() — un TODO pendiente desde
+  que se creó el overlay (ver entrada 2026-06-19 "Pantalla fullscreen
+  'Desde el último pago'"). El picker de fecha además usaba un
+  <input type="date"> nativo, distinto del calendario custom que usa el
+  resto de la app.
+
+QUÉ SE CONECTÓ
+  1. Picker de fecha: se eliminó el <input type="date"> nativo de
+     #dupOverlay. El campo "Fecha del último pago" ahora abre el MISMO
+     calendario custom (#calendarModal) que usa la tarjeta "Depósitos LAV",
+     vía openCalendar('dup') — nuevo modo agregado a ese calendario
+     compartido (openCalendar, changeYear, renderCalendar, renderDaySelector,
+     updateCalendarActionBtn, calendarAction, backToMonths). Navegación de
+     año libre por todos los años con datos UTM (igual criterio que LAV sin
+     período), con meses futuros bloqueados (el último pago no puede ser una
+     fecha futura). Al elegir el día, el modo 'dup' SOLO guarda la fecha en
+     hidden inputs (#dupDia/#dupMes/#dupAnio) y actualiza el texto visible
+     — a diferencia del modo 'lav', no dispara ningún alta de abono desde
+     el picker mismo.
+
+     Nota técnica: #calendarModal vive con z-index 100, muy por debajo de
+     #dupOverlay (z-index 100000). Se agregó un ajuste de z-index inline
+     en openCalendar(): se eleva a 100001 solo cuando se abre en modo 'dup'
+     (y se restaura a su valor base al cerrar el calendario), para que no
+     quede tapado por el overlay.
+
+  2. Botón "Calcular deuda actual" (dupCalcularDeuda()): en vez de solo
+     loguear a consola, ahora:
+       a. Copia mes/año/día capturados al mismo picker hacia los hidden
+          inputs reales de la tarjeta LAV (#tempLavMes/#tempLavAnio/
+          #tempLavDia).
+       b. Según la unidad elegida en el paso 1 (UTM o CLP), escribe el
+          monto en #tempLavUtm o #tempLavClp y dispara el handler
+          correspondiente (onLavUtmInput() / onLavClpInput()) — el mismo
+          código que ya convierte UTM↔CLP usando la UTM del mes
+          seleccionado cuando el usuario tipea manualmente en LAV. No se
+          duplicó lógica de conversión.
+       c. Llama a addAbonoLav() — el mismo flujo que usaría el usuario al
+          presionar "+ Agregar abono LAV" manualmente: registra el abono
+          con su imputación de período y valorización UTM correctas,
+          re-renderiza la lista, recalcula el total adeudado y guarda
+          sesión.
+       d. Resetea los campos del DUP (monto, fecha) y cierra el overlay
+          con closeDupOverlay(), devolviendo a la pantalla principal con
+          el cálculo ya reflejado en "Total Adeudado".
+     Las validaciones existentes (monto > 0, fecha seleccionada) se
+     mantienen igual, mostrando alert() antes de intentar el traspaso.
+
+  3. Limpieza: se eliminaron dupTriggerDatePicker() y dupOnFechaChange()
+     (ya no aplican sin el input nativo). Se agregó dupSetFechaDisplay()
+     como helper de presentación, usado tanto al elegir día en el picker
+     como al resetear el formulario tras un cálculo exitoso.
+
+VALIDACIÓN
+  Se construyó un arnés de pruebas con jsdom que carga index.html completo
+  (todos los <script> en un solo lexical scope compartido, igual que un
+  navegador real) con stubs de red/Supabase/IndexedDB, y se ejecutaron 47
+  aserciones cubriendo: modo CLP, modo UTM, navegación de años límite,
+  bloqueo de meses futuros, que el picker no agregue el abono prematura-
+  mente, que "Calcular deuda actual" sí lo agregue con la imputación y
+  valorización UTM correctas, y que todos los campos (DUP y LAV) queden
+  reseteados tras el flujo. 47/47 PASS.
+
+ARCHIVOS MODIFICADOS
+─────────────────────
+- index.html  (HTML del paso 3 de dupOverlay; calendarMode 'dup' en
+               openCalendar/changeYear/renderCalendar/renderDaySelector/
+               updateCalendarActionBtn/calendarAction/backToMonths/
+               closeCalendar; dupCalcularDeuda() reescrita; eliminadas
+               dupTriggerDatePicker()/dupOnFechaChange(); app-version)
+- sw.js       (CACHE_NAME: pension-utm-v199)
+- CAMBIOS.txt
+
+==================================================================================
+
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   En #dupOverlay ("Desde el último pago"), la casilla número 2 decía

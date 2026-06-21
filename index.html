@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0250">
+ <meta name="app-version" content="v2.0620.0310">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5152,6 +5152,14 @@ btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-bla
 btn.style.background = '';
 btn.style.boxShadow = '';
 }
+} else if (calendarMode === 'dup') {
+// El picker del DUP es solo selector de fecha (sin monto propio que validar
+// aquí): el botón siempre cierra: la confirmación real ocurre en el botón
+// "Calcular deuda actual" del overlay, no en este modal.
+btn.textContent = 'Cerrar';
+btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+btn.style.background = '';
+btn.style.boxShadow = '';
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const mesId = calendarMode === 'histStart' ? 'histStartMes' : 'histEndMes';
 const anioId = calendarMode === 'histStart' ? 'histStartAnio' : 'histEndAnio';
@@ -5229,6 +5237,11 @@ const anio = document.getElementById('tempLavAnio').value;
 const amount = parseInt((document.getElementById('tempLavClp').value || '').replace(/\./g, '')) || 0;
 if (mes && anio && amount > 0) { addAbonoLav(); }
 closeCalendar();
+} else if (calendarMode === 'dup') {
+// El DUP solo usa este modal para elegir la fecha; nunca agrega un abono
+// desde aquí (eso ocurre en dupCalcularDeuda() al presionar el CTA del
+// overlay). Este botón, en la vista de meses, simplemente cierra.
+closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const modoActual = calendarMode;
 tryRegisterHistorical();
@@ -5266,6 +5279,14 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
+// El calendario custom vive con z-index 100 (por debajo del overlay DUP,
+// que es z-index 100000). Cuando se abre en modo 'dup' (desde dentro del
+// overlay "Desde el último pago"), se sube su z-index por encima del
+// overlay para que no quede tapado; en cualquier otro modo se restaura
+// el z-index original (no se modifica la clase Tailwind base, solo este
+// inline override aislado).
+const calModalEl = document.getElementById('calendarModal');
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5326,6 +5347,16 @@ if (anioLav) {
   document.getElementById('tempLavAnio').value = '';
   selectedYear = CURRENT_YEAR;
 }
+} else if (m === 'dup') {
+// Mismo picker de calendario que LAV, pero para el overlay "Desde el último
+// pago": sin período asociado, navegación libre por todos los años con
+// datos UTM (idéntico criterio a LAV cuando no hay período definido).
+const anioDup = document.getElementById('dupAnio').value;
+if (anioDup) {
+  selectedYear = parseInt(anioDup);
+} else {
+  selectedYear = CURRENT_YEAR;
+}
 } else if (m === 'abono') {
 // Igual que LAV: si ya hay año guardado, arrancar en ese año; si no, limpiar.
 const anioAbono = document.getElementById('tempAbonoAnio').value;
@@ -5349,7 +5380,12 @@ document.getElementById('calendarDays').classList.add('hidden');
 document.getElementById('calendarMonths').classList.remove('hidden');
 document.getElementById('calendarYearNav').classList.remove('hidden');
 }
-function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
+function closeCalendar() {
+  const calModalEl = document.getElementById('calendarModal');
+  calModalEl.classList.replace('flex', 'hidden');
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup')
+  unlockBody();
+}
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
 // Para modo abono, limitar la navegación al rango del período
@@ -5390,6 +5426,13 @@ if (startIndex >= 0 && endIndex >= 0) {
   if (next < minYearLav || next > CURR_YEAR) return;
 }
 selectedYear = next;
+} else if (calendarMode === 'dup') {
+// DUP: siempre navegación libre por todos los años con datos UTM, sin
+// período asociado (el último pago puede ser de cualquier mes pasado).
+const nextDup = selectedYear + v;
+const minYearDup = utmData.length > 0 ? utmData[0].y : 2010;
+if (nextDup < minYearDup || nextDup > CURR_YEAR) return;
+selectedYear = nextDup;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
 const minYearHist = utmData.length > 0 ? utmData[0].y : 2010;
@@ -5428,6 +5471,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
       maxY = utmData[Math.max(startIndex,endIndex)].y;
     }
     // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
+  } else if (calendarMode === 'dup') {
+    // DUP: siempre libre, sin período (minY/maxY ya son los defaults arriba)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -5453,7 +5498,9 @@ const btn = document.createElement('button');
 // cuota a cuota, independiente del período actual).
 const outOfRange = calendarMode === 'lav'
   ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
-  : calendarMode === 'parcial'
+  : calendarMode === 'dup'
+    ? (idx === -1)
+    : calendarMode === 'parcial'
     ? (_periodoDefinido
         ? (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx)
         : idx === -1)
@@ -5463,7 +5510,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
@@ -5505,6 +5552,10 @@ isActive = document.getElementById('tempParcialMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('tempLavMes').value === mesVal
 && document.getElementById('tempLavAnio').value === String(selectedYear);
+} else if (calendarMode === 'dup') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('dupMes').value === mesVal
+&& document.getElementById('dupAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -5577,6 +5628,12 @@ document.getElementById('tempLavAnio').value = String(selectedYear);
 onLavPeriodoChanged();
 renderDaySelector(selectedYear, i);
 return;
+} else if (calendarMode === 'dup') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('dupMes').value = mesVal;
+document.getElementById('dupAnio').value = String(selectedYear);
+renderDaySelector(selectedYear, i);
+return;
 } else if (calendarMode === 'histStart') {
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
@@ -5638,7 +5695,8 @@ function renderDaySelector(anio, mesIdx) {
   grid.innerHTML = '';
   const isLav = calendarMode === 'lav';
   const isAbono = calendarMode === 'abono';
-  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : 'tempParcialDia');
+  const isDup = calendarMode === 'dup';
+  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : (isDup ? 'dupDia' : 'tempParcialDia'));
   const diaSeleccionado = parseInt(document.getElementById(diaIdRef).value) || 0;
   for (let d = 1; d <= diasEnMes; d++) {
     const btn = document.createElement('button');
@@ -5675,6 +5733,15 @@ function renderDaySelector(anio, mesIdx) {
         updateCalendarActionBtn();
         closeCalendar();
         addAbono();
+      } else if (isDup) {
+        const mesVal = document.getElementById('dupMes').value;
+        const anioVal = document.getElementById('dupAnio').value;
+        document.getElementById('dupDia').value = String(d);
+        dupSetFechaDisplay(d, parseInt(mesVal), anioVal);
+        closeCalendar();
+        // No se agrega ningún abono aquí: el DUP solo guarda la fecha.
+        // El traspaso real a Depósitos LAV ocurre al presionar
+        // "Calcular deuda actual" → dupCalcularDeuda().
       } else {
         const mesVal = document.getElementById('tempParcialMes').value;
         const anioVal = document.getElementById('tempParcialAnio').value;
@@ -5712,6 +5779,10 @@ function backToMonths() {
     document.getElementById('tempAbonoMes').value = '';
     document.getElementById('tempAbonoAnio').value = '';
     document.getElementById('tempAbonoDia').value = '';
+  } else if (calendarMode === 'dup') {
+    document.getElementById('dupMes').value = '';
+    document.getElementById('dupAnio').value = '';
+    document.getElementById('dupDia').value = '';
   } else {
     document.getElementById('tempParcialMes').value = '';
     document.getElementById('tempParcialAnio').value = '';
@@ -7851,20 +7922,17 @@ function _ayudaAbrirTema(t) {
           <span class="dup-step__badge">3</span>
           <span class="dup-step__label">¿Cuál fue la fecha del último pago?</span>
         </div>
-        <div class="dup-date-wrap" onclick="dupTriggerDatePicker()">
+        <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV (openCalendar('dup')) -->
+        <input type="hidden" id="dupDia" value="">
+        <input type="hidden" id="dupMes" value="">
+        <input type="hidden" id="dupAnio" value="">
+        <div class="dup-date-wrap" onclick="openCalendar('dup')">
           <svg class="dup-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <input
-            type="date"
-            id="dupFechaInput"
-            class="dup-date__native"
-            onchange="dupOnFechaChange(this)"
-            aria-label="Fecha del último pago"
-          >
           <span id="dupFechaDisplay" class="dup-date__display">Seleccionar fecha</span>
           <svg class="dup-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -7984,37 +8052,78 @@ function dupGetMontoValue() {
   return parseInt(raw.replace(/\./g, '')) || 0;
 }
 
-function dupTriggerDatePicker() {
-  const inp = document.getElementById('dupFechaInput');
-  if (inp.showPicker) { try { inp.showPicker(); } catch(e) { inp.focus(); } }
-  else { inp.focus(); }
-}
-
-function dupOnFechaChange(input) {
+// La fecha del DUP ya no usa <input type="date"> nativo: usa el mismo
+// calendario custom (#calendarModal) que Depósitos LAV, vía openCalendar('dup').
+// Ver bloque calendarMode === 'dup' en openCalendar/changeYear/renderCalendar/
+// renderDaySelector/updateCalendarActionBtn/calendarAction más abajo en este
+// mismo archivo (sección "Depósitos LAV (manual)" / calendario custom).
+function dupSetFechaDisplay(d, mIdx, anio) {
   const display = document.getElementById('dupFechaDisplay');
-  if (!input.value) { display.textContent = 'Seleccionar fecha'; return; }
-  const [y, m, d] = input.value.split('-');
-  display.textContent = `${d} / ${m} / ${y}`;
+  if (!display) return;
+  if (!d || !mIdx || !anio) { display.textContent = 'Seleccionar fecha'; display.classList.remove('dup-date__display--filled'); return; }
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  display.textContent = `${d} / ${mNamesShort[mIdx - 1]} / ${anio}`;
   display.classList.add('dup-date__display--filled');
 }
 
+// Vuelca lo capturado en el DUP (unidad, monto, fecha) hacia los campos reales
+// de la tarjeta "Depósitos LAV" y dispara el mismo flujo de addAbonoLav() que
+// usaría el usuario manualmente. Así no se duplica lógica de conversión
+// UTM↔CLP ni de imputación: se reutiliza 100% el motor ya existente de LAV.
 function dupCalcularDeuda() {
-  const unidad = _dupUnidad;
+  const unidad = _dupUnidad; // 'utm' | 'clp'
   const monto  = dupGetMontoValue();
-  const fecha  = document.getElementById('dupFechaInput').value;
+  const dia  = document.getElementById('dupDia').value;
+  const mes  = document.getElementById('dupMes').value;
+  const anio = document.getElementById('dupAnio').value;
 
   if (!monto || monto <= 0) {
     alert('Ingresa un monto de cuota válido.');
     return;
   }
-  if (!fecha) {
+  if (!dia || !mes || !anio) {
     alert('Selecciona la fecha del último pago.');
     return;
   }
 
-  // TODO: conectar con el motor de cálculo existente
-  console.log('[DUP] Calcular:', { unidad, monto, fecha });
-  // Placeholder — aquí se llamará a la función de cálculo principal
+  // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
+  document.getElementById('tempLavMes').value  = mes;
+  document.getElementById('tempLavAnio').value = anio;
+  document.getElementById('tempLavDia').value  = dia;
+
+  // 2) Monto → campo correspondiente según la unidad elegida en el paso 1.
+  //    Se limpia el otro campo y se dispara su handler (onLavUtmInput /
+  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado
+  //    — misma lógica que usa el usuario al tipear manualmente en LAV.
+  const elUtm = document.getElementById('tempLavUtm');
+  const elClp = document.getElementById('tempLavClp');
+  if (unidad === 'utm') {
+    elUtm.value = String(monto).replace('.', ',');
+    elClp.value = '';
+    onLavUtmInput();
+  } else {
+    elClp.value = new Intl.NumberFormat('es-CL').format(monto);
+    elUtm.value = '';
+    onLavClpInput();
+  }
+
+  checkBtnLav();
+
+  // 3) Registrar el abono LAV con el mismo flujo manual (limpia los campos,
+  //    re-renderiza la lista, recalcula y guarda sesión).
+  addAbonoLav();
+
+  // 4) Resetear el formulario del DUP para que la próxima vez que se abra
+  //    no queden datos de un cálculo anterior.
+  document.getElementById('dupMontoCuota').value = '';
+  document.getElementById('dupDia').value  = '';
+  document.getElementById('dupMes').value  = '';
+  document.getElementById('dupAnio').value = '';
+  dupSetFechaDisplay(null, null, null);
+
+  // 5) Cerrar el overlay y devolver a la pantalla principal con el cálculo
+  //    ya reflejado en "Total Adeudado".
+  closeDupOverlay();
 }
 
 // Conectar la tarjeta "Desde el último pago" al overlay
