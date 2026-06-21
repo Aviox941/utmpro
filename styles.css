@@ -1100,35 +1100,6 @@
     isolation: isolate;
     min-height: 168px;
   }
-  /* Ondas decorativas (waves): SVG real, ver markup en index.html */
-  .hero-total-card__waves {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-    pointer-events: none;
-  }
-  .hero-total-card__waves path {
-    fill: none;
-    stroke: rgba(255,255,255,0.15);
-    stroke-width: 2;
-    vector-effect: non-scaling-stroke;
-  }
-  /* Patrón de puntos decorativo (dots) */
-  .hero-total-card::after {
-    content: "";
-    position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 130px;
-    height: 90px;
-    z-index: 0;
-    pointer-events: none;
-    background-image: radial-gradient(circle, rgba(255,255,255,0.35) 1px, transparent 1.5px);
-    background-size: 12px 12px;
-    opacity: 0.55;
-  }
   .hero-total-card__label {
     font-size: 9px;
     font-weight: 900;
@@ -1194,6 +1165,52 @@
     line-height: 1.6;
     white-space: normal;
     word-break: break-word;
+  }
+  /* ── Píldora "Abonos LAV": fila única, limpia, estilo fintech ── */
+  .hero-total-card__lav-pill {
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    row-gap: 2px;
+    column-gap: 6px;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    padding: 7px 16px;
+    position: relative;
+    z-index: 1;
+    max-width: 100%;
+  }
+  .hero-total-card__lav-pill.hidden { display: none; }
+  .hero-total-card__lav-label {
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #93c5fd;
+    white-space: nowrap;
+  }
+  .hero-total-card__lav-sep {
+    color: rgba(255,255,255,0.35);
+    font-size: 11px;
+  }
+  .hero-total-card__lav-amt {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+  }
+  .hero-total-card__lav-utm {
+    font-size: 10px;
+    font-weight: 600;
+    color: #9fc6f5;
+    white-space: nowrap;
+  }
+  @media (max-width: 380px) {
+    .hero-total-card__lav-pill { padding: 6px 12px; }
+    .hero-total-card__lav-amt, .hero-total-card__lav-utm { font-size: 9.5px; }
   }
 
   /* ── Tarjeta derecha: Detalle del cálculo ───────────────────── */

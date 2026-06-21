@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0620.0310">
+ <meta name="app-version" content="v2.0621.0600">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1243,12 +1243,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <div class="hero-total-card">
           <!-- Ondas decorativas: SVG real con vector-effect:non-scaling-stroke,
                evita la distorsión que tenía el background-image data URI anterior -->
-          <svg class="hero-total-card__waves" viewBox="0 0 1000 300" preserveAspectRatio="none">
-            <path d="M-50 55 C200 15 350 95 550 55 S850 15 1050 55"/>
-            <path d="M-50 120 C180 90 350 150 550 120 S850 90 1050 120"/>
-            <path d="M-50 185 C180 155 350 215 550 185 S850 155 1050 185"/>
-            <path d="M-50 250 C180 220 350 280 550 250 S850 220 1050 250"/>
-          </svg>
           <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
@@ -1259,10 +1253,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
           </div>
-          <div id="heroLavRow" class="hero-total-card__meta hidden" style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">
-            <p class="hero-total-card__meta-line" style="font-weight:800;opacity:0.85;">Abonos LAV</p>
-            <p id="heroLavClp" class="hero-total-card__meta-line"></p>
-            <p id="heroLavUtm" class="hero-total-card__meta-line" style="font-weight:800;color:rgba(255,255,255,0.95);"></p>
+          <div id="heroLavRow" class="hero-total-card__lav-pill hidden">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:#bfe0ff;"><path d="M20 6L9 17l-5-5"/></svg>
+            <span class="hero-total-card__lav-label">Abonos LAV</span>
+            <span class="hero-total-card__lav-sep">·</span>
+            <span id="heroLavClp" class="hero-total-card__lav-amt"></span>
+            <span id="heroLavUtm" class="hero-total-card__lav-utm"></span>
           </div>
         </div>
 
@@ -6117,7 +6113,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0619.0235</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0600</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8097,6 +8093,14 @@ function dupCalcularDeuda() {
     alert('Selecciona la fecha del último pago.');
     return;
   }
+
+  // 0) Limpiar TODO el cálculo previo (abonos, LAV, pagos parciales, deuda
+  //    histórica, consolidada, resultados) ANTES de registrar el nuevo
+  //    abono — evita que recalcular desde "Desde el último pago" más de
+  //    una vez acumule abonos LAV de corridas anteriores y duplique el
+  //    monto. La tarjeta "Datos de Pensión" (cuota UTM/CLP, % sueldo, IMM,
+  //    día de vencimiento) se preserva intacta.
+  if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
 
   // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
   document.getElementById('tempLavMes').value  = mes;

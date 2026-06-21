@@ -1,3 +1,55 @@
+================================================================================
+INSTRUCCIONES DE VERSIONADO
+================================================================================
+- Este archivo se SOBRESCRIBE en cada entrega.
+- Archivos a actualizar: index.html (meta + label), sw.js (CACHE_NAME), CAMBIOS.txt
+- En cada correccion se debe entregar en un zip con los archivos corregidos y actualizados.
+- El zip siempre debe tener el archivo CAMBIOS.txt con la descripción de la ultima corrección.
+- El nombre de zip siempre debe coincidir con el nombre de version de index.html.
+- En cada corrección se debe indicar claramente cuál(es) archivo(s) fueron modificados.
+- Nunca eliminar ninguna instrucción de este documento
+
+================================================================================
+VERSIÓN ACTUAL
+================================================================================
+Fecha         : 2026-06-21
+App version   : v2.0621.0600
+SW cache      : pension-utm-v208
+Archivos mod  : index.html, export.js, CAMBIOS.txt
+
+
+==================================================================================
+Fecha: 2026-06-21
+
+FIX: Abonos LAV se duplicaban al recalcular desde "Desde el último pago"
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  dupCalcularDeuda() (overlay "Desde el último pago") llama internamente a
+  addAbonoLav(), que hace abonosLav.push(...). Si el usuario abría el
+  overlay y calculaba más de una vez (por ejemplo para corregir un dato),
+  cada corrida agregaba un NUEVO abono LAV al arreglo sin limpiar el
+  anterior, así que la tarjeta azul terminaba sumando dos o más montos
+  LAV en vez de reemplazar el cálculo.
+
+QUÉ SE CAMBIÓ
+  1. export.js: se agregó resetAllExceptPensionData(), una variante de
+     resetAllSilent() que limpia TODO el estado de cálculo (abonos,
+     abonosLav, pagosParciales, historicalDebts, periodosPension,
+     consolidadaData, lastCalculationData, lastImputacion, resultados en
+     pantalla) pero NO toca los inputs de la tarjeta "Datos de Pensión"
+     (utmAmount, clpAmount, salaryAmount, salaryPercent, minimumPercent,
+     diaVencimiento) ni fuerza calculationMode/IMM a su valor por defecto.
+  2. index.html: dupCalcularDeuda() ahora llama a
+     resetAllExceptPensionData() como paso 0, antes de registrar el nuevo
+     abono LAV. Así cada cálculo desde "Desde el último pago" parte
+     siempre de cero (sin abonos/parciales/históricos previos) sin perder
+     la configuración de la pensión ya cargada.
+
+NO TOCAR (se mantuvo intacto)
+  - resetAllSilent() / resetAll() (botón de papelera, reset total real):
+    sin cambios, sigue limpiando también Datos de Pensión como antes.
+──────────────────────────────────────────────────────────────────────────────────
+
 ==================================================================================
 Fecha: 2026-06-20
 
@@ -1135,6 +1187,14 @@ ARCHIVOS MODIFICADOS
 ==================================================================================
 HISTORIAL RECIENTE
 ==================================================================================
+v2.0621.0500 : FIX UI — tarjeta "Total Adeudado": la fila "Abonos LAV" (3 líneas
+                apretadas en 7.5px, con divisor) se rediseñó como píldora única
+                redondeada (icono check + label + monto + UTM), estilo fintech
+                consistente con el resto de la card. Bonus: en "Detalle del
+                cálculo", los chips verdes (✓ Cubierto LAV, LAV: ... Rem:, etc.)
+                estaban anidados dentro de un <span class="truncate"> y se
+                cortaban a media palabra; se sacaron del span truncado y ahora
+                envuelven en su propia línea sin recortarse.
 v2.0619.0222 : FIX — quitado wait de IDB que retrasaba/rompía restauración en frío
 v2.0619.0202 : FIX REAL — abonosLav sin declarar rompía restauración de sesión
 v2.0619.0147 : Auto-restore de caso post-sync Supabase tras quitar welcomeScreen
