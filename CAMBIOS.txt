@@ -31,8 +31,6 @@ NO TOCAR (se mantuvo intacto)
 
 ──────────────────────────────────────────────────────────────────────────────────
 
-NUEVO: Conectado el overlay "Desde el último pago" (DUP) al motor real de
-Depósitos LAV — ya no es un placeholder
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   El overlay #dupOverlay (tarjeta azul del dock "¿Cómo deseas calcular?")
