@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0637">
+ <meta name="app-version" content="v2.0621.0700">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1253,6 +1253,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
           </div>
+          <div id="heroLavRow" class="hero-total-card__lav-pill hidden">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:#bfe0ff;"><path d="M20 6L9 17l-5-5"/></svg>
+            <span class="hero-total-card__lav-label">Abonos LAV</span>
+            <span class="hero-total-card__lav-sep">·</span>
+            <span id="heroLavClp" class="hero-total-card__lav-amt"></span>
+            <span id="heroLavUtm" class="hero-total-card__lav-utm"></span>
+          </div>
         </div>
 
         <!-- IDs conservados ocultos (no se eliminan del DOM: el cálculo les escribe sin guard null-check) -->
@@ -1264,14 +1271,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <span id="heroParcialRow" class="hidden">
             <span id="heroParcialClp"></span>
             <span id="heroParcialUtm"></span>
-          </span>
-          <!-- Burbuja "Abonos LAV": eliminada de la vista a pedido del usuario.
-               Se conserva oculta en el DOM porque renderLavSummary() hace
-               heroRow.classList.remove('hidden') y escribe en heroLavClp /
-               heroLavUtm sin validar que existan. -->
-          <span id="heroLavRow" class="hidden">
-            <span id="heroLavClp"></span>
-            <span id="heroLavUtm"></span>
           </span>
         </div>
       </div>
@@ -3389,7 +3388,7 @@ function renderLavSummary() {
       return s + (inte > 0 ? inte : 0);
     }, 0);
     heroClp.textContent = `${format(totalClp)} abonado${interesRemanente > 0 ? ` · +${format(Math.round(interesRemanente))} int. remanente` : ''}`;
-    heroRow.classList.add('hidden'); // burbuja LAV no se muestra en el hero
+    heroRow.classList.remove('hidden');
     heroUtm.textContent = `${totalUtm.toFixed(4)} UTM abonadas`;
   }
 }
@@ -5052,32 +5051,32 @@ if (!d) return;
 const utmHoy = getUtmActualVal();
 document.getElementById('modalPeriodo').innerText = d.periodo;
 const capOriginalModal = d.capOriginal || d.capOriginalBruto || d.cap;
-const intOriginalModal = d.esLav ? d.inte : (d.intOriginal ?? d.inte);
+const intOriginalModal = d.intOriginal ?? d.inte;
 const hayAbono = (d.intImputado > 0 || d.capImputado > 0);
 document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
-<div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-500 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
 ${(()=>{ const _pm=(pagosParciales||[]).filter(p=>p.periodoLabel===d.periodo).reduce((s,p)=>s+p.amount,0); if(_pm<=0) return ''; const _rem=d.capParcialRemanente??d.cap; return `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(_pm)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(_rem)}</span><span class='text-[9px] font-bold'>${(_rem/d.utmVal).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-violet-500 text-[10px]'><span>Interés calculado sobre remanente</span><span class='font-bold'>${format(d.inte)}</span></div>`; })()}
-${d.esLav && d.lavAplicadoCLP > 0 ? `<div class='flex justify-between border-b pb-2 text-emerald-700'><span class='font-black'>(-) Abono LAV aplicado</span><div class='text-right'><span class='font-bold block'>-${format(d.lavAplicadoCLP)}</span><span class='text-[9px] font-bold'>-${(d.lavAplicadoUTM).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-emerald-600'><span>Capital pendiente post-LAV</span><div class='text-right'><span class='font-bold block'>${format(d.cap)}</span><span class='text-[9px] font-bold'>${(d.cap/d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
+${d.esLav && d.lavAplicadoCLP > 0 ? `<div class='flex justify-between border-b pb-2 text-emerald-400'><span class='font-black'>(-) Abono LAV aplicado</span><div class='text-right'><span class='font-bold block'>-${format(d.lavAplicadoCLP)}</span><span class='text-[9px] font-bold'>-${(d.lavAplicadoUTM).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-emerald-300'><span>Capital pendiente post-LAV</span><div class='text-right'><span class='font-bold block'>${format(d.cap)}</span><span class='text-[9px] font-bold'>${(d.cap/d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
 ${d.isConsolidada ? `
-<div class="flex justify-between border-b pb-2 text-slate-600"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
-<div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 ` : `
-<div class="flex justify-between border-b pb-2 text-slate-600"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual</span></div>
-<div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual${d.tasaBase && d.tasa > d.tasaBase ? ' <span style=\"color:#f59e0b;font-size:9px\">(+50% Ley 14.908)</span>' : ''}</span></div>
+<div class="flex justify-between border-b pb-2 text-slate-500"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual${d.tasaBase && d.tasa > d.tasaBase ? ' <span style=\"color:#f59e0b;font-size:9px\">(+50% Ley 14.908)</span>' : ''}</span></div>
 `}
 <div class="flex justify-between border-b pb-2"><span>Días de Mora</span><span class="font-bold">${d.mora} días</span></div>
-<div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#6d28d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#9b79d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
 ${hayAbono ? `
-<div class="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-2 my-2 space-y-1">
-  <p class="text-[9px] font-black text-[#1d4ed8] uppercase">⚖️ Abono imputado (Art. 1595 CC)</p>
-  ${d.intImputado > 0 ? `<div class="flex justify-between text-[#1e40af]"><span class="text-[10px]">(-) A intereses</span><span class="font-bold text-[10px]">-${format(d.intImputado)}</span></div>` : ''}
-  ${d.capImputado > 0 ? `<div class="flex justify-between text-[#1e40af]"><span class="text-[10px]">(-) A capital</span><span class="font-bold text-[10px]">-${format(d.capImputado)}</span></div>` : ''}
+<div class="bg-[#3b82f6]/08 border border-white/7 rounded-xl p-2 my-2 space-y-1">
+  <p class="text-[9px] font-black text-[#93c5fd] uppercase">⚖️ Abono imputado (Art. 1595 CC)</p>
+  ${d.intImputado > 0 ? `<div class="flex justify-between text-[#bfdbfe]"><span class="text-[10px]">(-) A intereses</span><span class="font-bold text-[10px]">-${format(d.intImputado)}</span></div>` : ''}
+  ${d.capImputado > 0 ? `<div class="flex justify-between text-[#bfdbfe]"><span class="text-[10px]">(-) A capital</span><span class="font-bold text-[10px]">-${format(d.capImputado)}</span></div>` : ''}
 </div>
-<div class="flex justify-between border-b pb-2 text-sky-700"><span>Interés pendiente</span><div class="text-right"><span class="font-bold block">${format(d.inte)}</span><span class="text-[9px] font-bold">${(d.inte / utmHoy).toFixed(4)} UTM</span></div></div>
-<div class="flex justify-between border-b pb-2 text-sky-700"><span>Capital pendiente</span><div class="text-right"><span class="font-bold block">${format(d.cap)}</span><span class="text-[9px] font-bold">${(d.cap / d.utmVal).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2 text-sky-200"><span>Interés pendiente</span><div class="text-right"><span class="font-bold block">${format(d.inte)}</span><span class="text-[9px] font-bold">${(d.inte / utmHoy).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2 text-sky-200"><span>Capital pendiente</span><div class="text-right"><span class="font-bold block">${format(d.cap)}</span><span class="text-[9px] font-bold">${(d.cap / d.utmVal).toFixed(4)} UTM</span></div></div>
 ` : ''}
-<div class="flex justify-between pt-2 text-lg font-black"><span>Subtotal</span><div class="text-right"><span>${format(d.sub)}</span><p class="text-[10px] text-[#5b21b6]">${(d.sub / utmHoy).toFixed(4)} UTM</p></div></div>
+<div class="flex justify-between pt-2 text-lg font-black"><span>Subtotal</span><div class="text-right"><span>${format(d.sub)}</span><p class="text-[10px] text-[#6a4da8]">${(d.sub / utmHoy).toFixed(4)} UTM</p></div></div>
 `;
 document.getElementById('detailModal').classList.replace('hidden', 'flex'); lockBody();
 }
@@ -6114,7 +6113,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0637</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0600</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8004,15 +8003,7 @@ function closeDupOverlay() {
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('dup-overlay--open');
   el.classList.add('dup-overlay--closing');
-  // Fallback: si animationend no dispara (animación interrumpida o no soportada),
-  // ocultar el overlay igualmente después de 400ms para evitar que quede residual.
-  const _fallbackTimer = setTimeout(() => {
-    el.style.display = 'none';
-    el.classList.remove('dup-overlay--closing');
-    document.body.style.overflow = '';
-  }, 400);
   el.addEventListener('animationend', function handler() {
-    clearTimeout(_fallbackTimer);
     el.style.display = 'none';
     el.classList.remove('dup-overlay--closing');
     document.body.style.overflow = '';
@@ -8118,23 +8109,14 @@ function dupCalcularDeuda() {
 
   // 2) Monto → campo correspondiente según la unidad elegida en el paso 1.
   //    Se limpia el otro campo y se dispara su handler (onLavUtmInput /
-  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado.
-  //    Fallback: si _lavGetUtmVal() devuelve null (UTM del mes no cargada),
-  //    se calcula CLP con getUtmActualVal() para que addAbonoLav() no retorne
-  //    silenciosamente por tempLavClp vacío.
+  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado
+  //    — misma lógica que usa el usuario al tipear manualmente en LAV.
   const elUtm = document.getElementById('tempLavUtm');
   const elClp = document.getElementById('tempLavClp');
   if (unidad === 'utm') {
     elUtm.value = String(monto).replace('.', ',');
     elClp.value = '';
     onLavUtmInput();
-    // Fallback: si onLavUtmInput no pudo convertir (UTM del mes no disponible)
-    if (!elClp.value) {
-      const _utmFallback = (typeof getUtmActualVal === 'function') ? getUtmActualVal() : 0;
-      if (_utmFallback > 0) {
-        elClp.value = new Intl.NumberFormat('es-CL').format(Math.round(monto * _utmFallback));
-      }
-    }
   } else {
     elClp.value = new Intl.NumberFormat('es-CL').format(monto);
     elUtm.value = '';
@@ -8173,6 +8155,273 @@ function dupCalcularDeuda() {
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
+     FULLSCREEN OVERLAY: Entre fechas
+     position:fixed inset:0 — cubre toda la pantalla como una página.
+     Mismo patrón estructural que dupOverlay (clases bef-*, prefijo propio
+     para no chocar con dup-*). Se abre con animación slide-up, se cierra
+     con slide-down. Por ahora solo conectado a la tarjeta del dock
+     (.calc-mode-card--purple); sin lógica de cálculo todavía.
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="befOverlay" class="bef-overlay" aria-label="Entre fechas" role="dialog" aria-modal="true" style="display:none;">
+
+  <!-- Header propio (espeja el header de la app) -->
+  <div class="bef-overlay__header">
+    <button class="bef-overlay__back" onclick="closeBefOverlay()" aria-label="Volver">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <span class="bef-overlay__header-title">Entre fechas</span>
+    <!-- Espacio para alinear — simétrico al botón volver -->
+    <div style="width:34px;"></div>
+  </div>
+
+  <!-- Contenido desplazable -->
+  <div class="bef-overlay__body">
+
+    <!-- Hero card -->
+    <div class="bef-hero">
+      <div class="bef-hero__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="bef-hero__text">
+        <h2 class="bef-hero__title">Entre fechas</h2>
+        <p class="bef-hero__subtitle">Calcularemos tu deuda entre el período de inicio y fin que indiques.</p>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="bef-form">
+
+      <!-- Paso 1: Unidad -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">1</span>
+          <span class="bef-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
+        </div>
+        <div class="bef-radio-group" role="radiogroup">
+          <button type="button" class="bef-radio bef-radio--active" id="befRadioLabelUTM" onclick="befSelectUnidad('utm')" aria-pressed="true">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">UTM</span>
+          </button>
+          <button type="button" class="bef-radio" id="befRadioLabelCLP" onclick="befSelectUnidad('clp')" aria-pressed="false">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">CLP</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 2: Monto -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">2</span>
+          <span class="bef-step__label">Monto de la cuota mensual</span>
+        </div>
+        <div class="bef-input-wrap">
+          <span class="bef-input__prefix" id="befPrefixLabel">UTM</span>
+          <input
+            type="text"
+            id="befMontoCuota"
+            class="bef-input"
+            placeholder="0,00"
+            inputmode="decimal"
+            aria-label="Monto de la cuota mensual"
+            oninput="befFormatMontoInput(this)"
+          >
+        </div>
+      </div>
+
+      <!-- Paso 3: Fecha de inicio -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">3</span>
+          <span class="bef-step__label">Fecha de inicio del período</span>
+        </div>
+        <div class="bef-date-wrap">
+          <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <input type="date" id="befFechaInicio" class="bef-date__native" aria-label="Fecha de inicio del período">
+          <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Paso 4: Fecha de fin -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">4</span>
+          <span class="bef-step__label">Fecha de fin del período</span>
+        </div>
+        <div class="bef-date-wrap">
+          <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <input type="date" id="befFechaFin" class="bef-date__native" aria-label="Fecha de fin del período">
+          <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+      </div>
+
+      <p class="bef-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#a0aab8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Calcularemos desde el día de inicio hasta el día de fin, ambos incluidos.
+      </p>
+
+    </div><!-- /bef-form -->
+
+    <!-- Espaciado final para que el CTA no tape contenido -->
+    <div style="height: 100px;"></div>
+  </div><!-- /bef-overlay__body -->
+
+  <!-- CTA fijo en el fondo -->
+  <div class="bef-overlay__footer">
+    <button type="button" class="bef-cta-btn" onclick="befCalcularDeuda()">
+      Calcular deuda actual
+    </button>
+  </div>
+
+</div>
+<!-- /FULLSCREEN OVERLAY: Entre fechas -->
+
+<script>
+// ── Fullscreen overlay: Entre fechas ──────────────────────────────────────
+
+function openBefOverlay(skipSlideIn) {
+  const el = document.getElementById('befOverlay');
+  el.style.display = 'flex';
+  if (skipSlideIn) {
+    el.style.transform = 'translateY(0)';
+  } else {
+    // Forzar reflow para que la animación se dispare
+    el.getBoundingClientRect();
+    el.classList.add('bef-overlay--open');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBefOverlay() {
+  const el = document.getElementById('befOverlay');
+  el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
+  el.classList.remove('bef-overlay--open');
+  el.classList.add('bef-overlay--closing');
+  el.addEventListener('animationend', function handler() {
+    el.style.display = 'none';
+    el.classList.remove('bef-overlay--closing');
+    document.body.style.overflow = '';
+    el.removeEventListener('animationend', handler);
+  }, { once: true });
+}
+
+// Estado de unidad seleccionada (evita depender de input[type=radio] nativo)
+var _befUnidad = 'utm';
+
+function befSelectUnidad(val) {
+  _befUnidad = val;
+  const isUTM = val === 'utm';
+  document.getElementById('befPrefixLabel').textContent = isUTM ? 'UTM' : '$';
+  document.getElementById('befMontoCuota').placeholder = isUTM ? '0,00' : '0';
+  document.getElementById('befMontoCuota').value = '';
+  var btnUTM = document.getElementById('befRadioLabelUTM');
+  var btnCLP = document.getElementById('befRadioLabelCLP');
+  btnUTM.classList.toggle('bef-radio--active', isUTM);
+  btnCLP.classList.toggle('bef-radio--active', !isUTM);
+  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
+  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+}
+
+// Saneo del input de monto — mismo patrón que dupFormatMontoInput()/
+// qsFormatAmountInput(): en UTM se admite '.' o ',' como separador decimal
+// y se normaliza siempre a coma, con máximo 2 decimales. En CLP se descarta
+// todo lo no-numérico y se formatea con separador de miles vía formatPlain().
+function befFormatMontoInput(input) {
+  if (_befUnidad === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+// Convierte el valor visible (con coma decimal en UTM, o con puntos de
+// miles en CLP) al número real que espera la lógica de cálculo.
+function befGetMontoValue() {
+  var raw = (document.getElementById('befMontoCuota').value || '').trim();
+  if (_befUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
+}
+
+// Placeholder de cálculo: por ahora este overlay solo está conectado a la
+// tarjeta del dock (ver más abajo). La lógica de cálculo "entre fechas"
+// se implementará en una entrega posterior, igual que ocurrió con
+// dupCalcularDeuda() en su momento.
+function befCalcularDeuda() {
+  const unidad = _befUnidad; // 'utm' | 'clp'
+  const monto  = befGetMontoValue();
+  const inicio = document.getElementById('befFechaInicio').value;
+  const fin    = document.getElementById('befFechaFin').value;
+
+  if (!monto || monto <= 0) {
+    alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!inicio) {
+    alert('Selecciona la fecha de inicio del período.');
+    return;
+  }
+  if (!fin) {
+    alert('Selecciona la fecha de fin del período.');
+    return;
+  }
+  if (new Date(fin) < new Date(inicio)) {
+    alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+    return;
+  }
+
+  // TODO: conectar con el motor de cálculo correspondiente a "Entre fechas"
+  // cuando esa lógica esté definida. Por ahora solo cierra el overlay.
+  closeBefOverlay();
+}
+
+// Conectar la tarjeta "Entre fechas" al overlay
+(function() {
+  const card = document.querySelector('.calc-mode-card--purple');
+  // No pasar openBefOverlay directo como handler: addEventListener invoca
+  // el callback con el objeto Event como primer argumento, que sería
+  // truthy y activaría por error el modo skipSlideIn.
+  if (card) card.addEventListener('click', function() { openBefOverlay(); });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
      WELCOME SCREEN OVERLAY
      position:fixed inset:0 z-index:99999
      Se cierra al tocar "Comenzar" → fade-out + display:none
@@ -8180,6 +8429,20 @@ function dupCalcularDeuda() {
 <div id="welcomeScreen" class="ws-screen">
   <div class="ws-inner">
   <div class="ws-content">
+
+    <!-- Logo -->
+    <div class="ws-logo">
+      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="ws-logo__svg">
+        <!-- Documento -->
+        <rect x="10" y="8" width="46" height="58" rx="8" stroke="#1a1d40" stroke-width="4.5" fill="none"/>
+        <line x1="22" y1="24" x2="44" y2="24" stroke="#1a1d40" stroke-width="4" stroke-linecap="round"/>
+        <!-- Símbolo $ -->
+        <text x="22" y="46" font-family="DM Sans, system-ui" font-weight="800" font-size="18" fill="#1a1d40">$</text>
+        <!-- Persona (verde) -->
+        <circle cx="60" cy="48" r="11" stroke="#22c55e" stroke-width="4" fill="none"/>
+        <path d="M44 70 C44 62 52 57 60 57 C68 57 76 62 76 70" stroke="#22c55e" stroke-width="4" stroke-linecap="round" fill="none"/>
+      </svg>
+    </div>
 
     <!-- Título -->
     <h1 class="ws-title">
@@ -8279,6 +8542,12 @@ function dupCalcularDeuda() {
       </svg>
     </button>
 
+    <!-- Dots de paginación -->
+    <div class="ws-dots">
+      <span class="ws-dot ws-dot--active"></span>
+      <span class="ws-dot"></span>
+      <span class="ws-dot"></span>
+    </div>
 
   </div><!-- /ws-footer -->
 
