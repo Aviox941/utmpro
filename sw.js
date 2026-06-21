@@ -1,8 +1,11 @@
 // ── Pensión UTM Pro — Service Worker ────────────────────────────────────────
 // Repo: Aviox941/utmpro → https://aviox941.github.io/utmpro/
-// Build: 2026-06-19T00:00:00Z
-const CACHE_NAME = 'pension-utm-v181';
-const BASE = '/utmpro/';
+// También soporta deploys en raíz (Vercel, etc.) vía scope dinámico.
+// Build: 2026-06-20T05:30:00Z
+const CACHE_NAME = 'pension-utm-v199';
+// BASE se calcula desde el scope real de registro del SW, no hardcodeado.
+// En GitHub Pages el scope es '/utmpro/'; en Vercel (raíz) es '/'.
+const BASE = new URL(self.registration.scope).pathname;
 
 // Dominios que van directo a red (nunca cachear)
 const NETWORK_ONLY = [

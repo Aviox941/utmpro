@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0619.0222">
+ <meta name="app-version" content="v2.0620.0310">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5152,6 +5152,14 @@ btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-bla
 btn.style.background = '';
 btn.style.boxShadow = '';
 }
+} else if (calendarMode === 'dup') {
+// El picker del DUP es solo selector de fecha (sin monto propio que validar
+// aquí): el botón siempre cierra: la confirmación real ocurre en el botón
+// "Calcular deuda actual" del overlay, no en este modal.
+btn.textContent = 'Cerrar';
+btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+btn.style.background = '';
+btn.style.boxShadow = '';
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const mesId = calendarMode === 'histStart' ? 'histStartMes' : 'histEndMes';
 const anioId = calendarMode === 'histStart' ? 'histStartAnio' : 'histEndAnio';
@@ -5229,6 +5237,11 @@ const anio = document.getElementById('tempLavAnio').value;
 const amount = parseInt((document.getElementById('tempLavClp').value || '').replace(/\./g, '')) || 0;
 if (mes && anio && amount > 0) { addAbonoLav(); }
 closeCalendar();
+} else if (calendarMode === 'dup') {
+// El DUP solo usa este modal para elegir la fecha; nunca agrega un abono
+// desde aquí (eso ocurre en dupCalcularDeuda() al presionar el CTA del
+// overlay). Este botón, en la vista de meses, simplemente cierra.
+closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const modoActual = calendarMode;
 tryRegisterHistorical();
@@ -5266,6 +5279,14 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
+// El calendario custom vive con z-index 100 (por debajo del overlay DUP,
+// que es z-index 100000). Cuando se abre en modo 'dup' (desde dentro del
+// overlay "Desde el último pago"), se sube su z-index por encima del
+// overlay para que no quede tapado; en cualquier otro modo se restaura
+// el z-index original (no se modifica la clase Tailwind base, solo este
+// inline override aislado).
+const calModalEl = document.getElementById('calendarModal');
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5326,6 +5347,16 @@ if (anioLav) {
   document.getElementById('tempLavAnio').value = '';
   selectedYear = CURRENT_YEAR;
 }
+} else if (m === 'dup') {
+// Mismo picker de calendario que LAV, pero para el overlay "Desde el último
+// pago": sin período asociado, navegación libre por todos los años con
+// datos UTM (idéntico criterio a LAV cuando no hay período definido).
+const anioDup = document.getElementById('dupAnio').value;
+if (anioDup) {
+  selectedYear = parseInt(anioDup);
+} else {
+  selectedYear = CURRENT_YEAR;
+}
 } else if (m === 'abono') {
 // Igual que LAV: si ya hay año guardado, arrancar en ese año; si no, limpiar.
 const anioAbono = document.getElementById('tempAbonoAnio').value;
@@ -5349,7 +5380,12 @@ document.getElementById('calendarDays').classList.add('hidden');
 document.getElementById('calendarMonths').classList.remove('hidden');
 document.getElementById('calendarYearNav').classList.remove('hidden');
 }
-function closeCalendar() { document.getElementById('calendarModal').classList.replace('flex', 'hidden'); unlockBody(); }
+function closeCalendar() {
+  const calModalEl = document.getElementById('calendarModal');
+  calModalEl.classList.replace('flex', 'hidden');
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup')
+  unlockBody();
+}
 function changeYear(v) {
 const now = new Date(); const CURR_YEAR = now.getFullYear();
 // Para modo abono, limitar la navegación al rango del período
@@ -5390,6 +5426,13 @@ if (startIndex >= 0 && endIndex >= 0) {
   if (next < minYearLav || next > CURR_YEAR) return;
 }
 selectedYear = next;
+} else if (calendarMode === 'dup') {
+// DUP: siempre navegación libre por todos los años con datos UTM, sin
+// período asociado (el último pago puede ser de cualquier mes pasado).
+const nextDup = selectedYear + v;
+const minYearDup = utmData.length > 0 ? utmData[0].y : 2010;
+if (nextDup < minYearDup || nextDup > CURR_YEAR) return;
+selectedYear = nextDup;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
 const minYearHist = utmData.length > 0 ? utmData[0].y : 2010;
@@ -5428,6 +5471,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
       maxY = utmData[Math.max(startIndex,endIndex)].y;
     }
     // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
+  } else if (calendarMode === 'dup') {
+    // DUP: siempre libre, sin período (minY/maxY ya son los defaults arriba)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -5453,7 +5498,9 @@ const btn = document.createElement('button');
 // cuota a cuota, independiente del período actual).
 const outOfRange = calendarMode === 'lav'
   ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
-  : calendarMode === 'parcial'
+  : calendarMode === 'dup'
+    ? (idx === -1)
+    : calendarMode === 'parcial'
     ? (_periodoDefinido
         ? (idx === -1 || idx < rangeStartIdx || idx > rangeEndIdx)
         : idx === -1)
@@ -5463,7 +5510,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
@@ -5505,6 +5552,10 @@ isActive = document.getElementById('tempParcialMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('tempLavMes').value === mesVal
 && document.getElementById('tempLavAnio').value === String(selectedYear);
+} else if (calendarMode === 'dup') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('dupMes').value === mesVal
+&& document.getElementById('dupAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -5577,6 +5628,12 @@ document.getElementById('tempLavAnio').value = String(selectedYear);
 onLavPeriodoChanged();
 renderDaySelector(selectedYear, i);
 return;
+} else if (calendarMode === 'dup') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('dupMes').value = mesVal;
+document.getElementById('dupAnio').value = String(selectedYear);
+renderDaySelector(selectedYear, i);
+return;
 } else if (calendarMode === 'histStart') {
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
@@ -5638,7 +5695,8 @@ function renderDaySelector(anio, mesIdx) {
   grid.innerHTML = '';
   const isLav = calendarMode === 'lav';
   const isAbono = calendarMode === 'abono';
-  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : 'tempParcialDia');
+  const isDup = calendarMode === 'dup';
+  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : (isDup ? 'dupDia' : 'tempParcialDia'));
   const diaSeleccionado = parseInt(document.getElementById(diaIdRef).value) || 0;
   for (let d = 1; d <= diasEnMes; d++) {
     const btn = document.createElement('button');
@@ -5675,6 +5733,15 @@ function renderDaySelector(anio, mesIdx) {
         updateCalendarActionBtn();
         closeCalendar();
         addAbono();
+      } else if (isDup) {
+        const mesVal = document.getElementById('dupMes').value;
+        const anioVal = document.getElementById('dupAnio').value;
+        document.getElementById('dupDia').value = String(d);
+        dupSetFechaDisplay(d, parseInt(mesVal), anioVal);
+        closeCalendar();
+        // No se agrega ningún abono aquí: el DUP solo guarda la fecha.
+        // El traspaso real a Depósitos LAV ocurre al presionar
+        // "Calcular deuda actual" → dupCalcularDeuda().
       } else {
         const mesVal = document.getElementById('tempParcialMes').value;
         const anioVal = document.getElementById('tempParcialAnio').value;
@@ -5712,6 +5779,10 @@ function backToMonths() {
     document.getElementById('tempAbonoMes').value = '';
     document.getElementById('tempAbonoAnio').value = '';
     document.getElementById('tempAbonoDia').value = '';
+  } else if (calendarMode === 'dup') {
+    document.getElementById('dupMes').value = '';
+    document.getElementById('dupAnio').value = '';
+    document.getElementById('dupDia').value = '';
   } else {
     document.getElementById('tempParcialMes').value = '';
     document.getElementById('tempParcialAnio').value = '';
@@ -6034,11 +6105,11 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0618.v115-inline-clean</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0619.0235</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
-     if (v) document.getElementById('appVersionLabel').textContent = 'v' + v.content;
+     if (v) document.getElementById('appVersionLabel').textContent = v.content;
    })();
   </script>
   </div>
@@ -7381,6 +7452,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
     const profileEmailEl = document.getElementById('userProfileEmailDetail');
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
+    // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
+    if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
+      var ws = document.getElementById('welcomeScreen');
+      if (ws) { ws.style.display = 'flex'; qsLockBodyScroll(); }
+    }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
       // En TOKEN_REFRESHED u otros eventos repetidos, evitar recargar innecesariamente.
@@ -7759,6 +7835,931 @@ function _ayudaAbrirTema(t) {
       console.warn('[modals] Error cargando modals.html:', err);
     });
 })();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     FULLSCREEN OVERLAY: Desde el último pago
+     position:fixed inset:0 — cubre toda la pantalla como una página.
+     Se abre con animación slide-up, se cierra con slide-down.
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="dupOverlay" class="dup-overlay" aria-label="Desde el último pago" role="dialog" aria-modal="true" style="display:none;">
+
+  <!-- Header propio (espeja el header de la app) -->
+  <div class="dup-overlay__header">
+    <button class="dup-overlay__back" onclick="closeDupOverlay()" aria-label="Volver">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <span class="dup-overlay__header-title">Desde el último pago</span>
+    <!-- Espacio para alinear — simétrico al botón volver -->
+    <div style="width:34px;"></div>
+  </div>
+
+  <!-- Contenido desplazable -->
+  <div class="dup-overlay__body">
+
+    <!-- Hero card -->
+    <div class="dup-hero">
+      <div class="dup-hero__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#5b4fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="dup-hero__text">
+        <h2 class="dup-hero__title">Desde el último pago</h2>
+        <p class="dup-hero__subtitle">Calcularemos tu deuda desde el último pago registrado hasta la fecha actual.</p>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="dup-form">
+
+      <!-- Paso 1: Unidad -->
+      <div class="dup-step">
+        <div class="dup-step__header">
+          <span class="dup-step__badge">1</span>
+          <span class="dup-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
+        </div>
+        <div class="dup-radio-group" role="radiogroup">
+          <button type="button" class="dup-radio dup-radio--active" id="dupRadioLabelUTM" onclick="dupSelectUnidad('utm')" aria-pressed="true">
+            <span class="dup-radio__indicator"></span>
+            <span class="dup-radio__text">UTM</span>
+          </button>
+          <button type="button" class="dup-radio" id="dupRadioLabelCLP" onclick="dupSelectUnidad('clp')" aria-pressed="false">
+            <span class="dup-radio__indicator"></span>
+            <span class="dup-radio__text">CLP</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 2: Monto -->
+      <div class="dup-step">
+        <div class="dup-step__header">
+          <span class="dup-step__badge">2</span>
+          <span class="dup-step__label">Monto de la última cuota pagada</span>
+        </div>
+        <div class="dup-input-wrap">
+          <span class="dup-input__prefix" id="dupPrefixLabel">UTM</span>
+          <input
+            type="text"
+            id="dupMontoCuota"
+            class="dup-input"
+            placeholder="0,00"
+            inputmode="decimal"
+            aria-label="Monto de la última cuota pagada"
+            oninput="dupFormatMontoInput(this)"
+          >
+        </div>
+      </div>
+
+      <!-- Paso 3: Fecha último pago -->
+      <div class="dup-step">
+        <div class="dup-step__header">
+          <span class="dup-step__badge">3</span>
+          <span class="dup-step__label">¿Cuál fue la fecha del último pago?</span>
+        </div>
+        <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV (openCalendar('dup')) -->
+        <input type="hidden" id="dupDia" value="">
+        <input type="hidden" id="dupMes" value="">
+        <input type="hidden" id="dupAnio" value="">
+        <div class="dup-date-wrap" onclick="openCalendar('dup')">
+          <svg class="dup-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span id="dupFechaDisplay" class="dup-date__display">Seleccionar fecha</span>
+          <svg class="dup-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <p class="dup-hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a0aab8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Calcularemos desde el día siguiente a esta fecha.
+        </p>
+      </div>
+
+    </div><!-- /dup-form -->
+
+    <!-- Espaciado final para que el CTA no tape contenido -->
+    <div style="height: 100px;"></div>
+  </div><!-- /dup-overlay__body -->
+
+  <!-- CTA fijo en el fondo -->
+  <div class="dup-overlay__footer">
+    <button type="button" class="dup-cta-btn" onclick="dupCalcularDeuda()">
+      Calcular deuda actual
+    </button>
+  </div>
+
+</div>
+<!-- /FULLSCREEN OVERLAY: Desde el último pago -->
+
+<script>
+// ── Fullscreen overlay: Desde el último pago ─────────────────────────────────
+
+function openDupOverlay(skipSlideIn) {
+  const el = document.getElementById('dupOverlay');
+  el.style.display = 'flex';
+  if (skipSlideIn) {
+    // Transición encadenada (ej. desde calcTypeScreen): el overlay debe
+    // quedar cubriendo la pantalla DESDE EL PRIMER FRAME, sin el slide-up
+    // de 320ms que normalmente lo trae desde abajo (translateY(100%) → 0).
+    // Si se usara el slide-up acá, durante esos ~320ms el overlay todavía
+    // está parcialmente fuera del viewport y se alcanza a ver el contenido
+    // real de la app por debajo (el "flash" reportado, ahora más corto
+    // porque ya no es el bug de opacity del fix anterior, sino esta
+    // ventana de slide-in). Se fuerza directamente el estado final de la
+    // animación sin clase animada de por medio.
+    el.style.transform = 'translateY(0)';
+  } else {
+    // Forzar reflow para que la animación se dispare
+    el.getBoundingClientRect();
+    el.classList.add('dup-overlay--open');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDupOverlay() {
+  const el = document.getElementById('dupOverlay');
+  el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
+  el.classList.remove('dup-overlay--open');
+  el.classList.add('dup-overlay--closing');
+  el.addEventListener('animationend', function handler() {
+    el.style.display = 'none';
+    el.classList.remove('dup-overlay--closing');
+    document.body.style.overflow = '';
+    el.removeEventListener('animationend', handler);
+  }, { once: true });
+}
+
+// Estado de unidad seleccionada (evita depender de input[type=radio] nativo)
+var _dupUnidad = 'utm';
+
+function dupSelectUnidad(val) {
+  _dupUnidad = val;
+  const isUTM = val === 'utm';
+  document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
+  document.getElementById('dupMontoCuota').placeholder = isUTM ? '0,00' : '0';
+  document.getElementById('dupMontoCuota').value = '';
+  var btnUTM = document.getElementById('dupRadioLabelUTM');
+  var btnCLP = document.getElementById('dupRadioLabelCLP');
+  btnUTM.classList.toggle('dup-radio--active', isUTM);
+  btnCLP.classList.toggle('dup-radio--active', !isUTM);
+  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
+  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+}
+
+// Saneo del input de monto, mismo patrón ya validado en qsFormatAmountInput()
+// (Paso 1 / quotaScreen): en UTM se admite '.' o ',' como separador decimal
+// (el teclado numérico de Android muestra punto) y se normaliza siempre a
+// coma, con máximo 2 decimales. En CLP se descarta todo lo no-numérico y se
+// formatea con separador de miles vía formatPlain(), igual que clpAmount/
+// qsAmountInput. Reemplaza el type="number" nativo anterior, que no permite
+// separador de miles (148.566 quedaba guardado como 148566) y no acepta
+// coma como decimal en ningún locale.
+function dupFormatMontoInput(input) {
+  if (_dupUnidad === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+// Convierte el valor visible (con coma decimal en UTM, o con puntos de
+// miles en CLP) al número real que espera la lógica de cálculo.
+function dupGetMontoValue() {
+  var raw = (document.getElementById('dupMontoCuota').value || '').trim();
+  if (_dupUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
+}
+
+// La fecha del DUP ya no usa <input type="date"> nativo: usa el mismo
+// calendario custom (#calendarModal) que Depósitos LAV, vía openCalendar('dup').
+// Ver bloque calendarMode === 'dup' en openCalendar/changeYear/renderCalendar/
+// renderDaySelector/updateCalendarActionBtn/calendarAction más abajo en este
+// mismo archivo (sección "Depósitos LAV (manual)" / calendario custom).
+function dupSetFechaDisplay(d, mIdx, anio) {
+  const display = document.getElementById('dupFechaDisplay');
+  if (!display) return;
+  if (!d || !mIdx || !anio) { display.textContent = 'Seleccionar fecha'; display.classList.remove('dup-date__display--filled'); return; }
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  display.textContent = `${d} / ${mNamesShort[mIdx - 1]} / ${anio}`;
+  display.classList.add('dup-date__display--filled');
+}
+
+// Vuelca lo capturado en el DUP (unidad, monto, fecha) hacia los campos reales
+// de la tarjeta "Depósitos LAV" y dispara el mismo flujo de addAbonoLav() que
+// usaría el usuario manualmente. Así no se duplica lógica de conversión
+// UTM↔CLP ni de imputación: se reutiliza 100% el motor ya existente de LAV.
+function dupCalcularDeuda() {
+  const unidad = _dupUnidad; // 'utm' | 'clp'
+  const monto  = dupGetMontoValue();
+  const dia  = document.getElementById('dupDia').value;
+  const mes  = document.getElementById('dupMes').value;
+  const anio = document.getElementById('dupAnio').value;
+
+  if (!monto || monto <= 0) {
+    alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!dia || !mes || !anio) {
+    alert('Selecciona la fecha del último pago.');
+    return;
+  }
+
+  // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
+  document.getElementById('tempLavMes').value  = mes;
+  document.getElementById('tempLavAnio').value = anio;
+  document.getElementById('tempLavDia').value  = dia;
+
+  // 2) Monto → campo correspondiente según la unidad elegida en el paso 1.
+  //    Se limpia el otro campo y se dispara su handler (onLavUtmInput /
+  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado
+  //    — misma lógica que usa el usuario al tipear manualmente en LAV.
+  const elUtm = document.getElementById('tempLavUtm');
+  const elClp = document.getElementById('tempLavClp');
+  if (unidad === 'utm') {
+    elUtm.value = String(monto).replace('.', ',');
+    elClp.value = '';
+    onLavUtmInput();
+  } else {
+    elClp.value = new Intl.NumberFormat('es-CL').format(monto);
+    elUtm.value = '';
+    onLavClpInput();
+  }
+
+  checkBtnLav();
+
+  // 3) Registrar el abono LAV con el mismo flujo manual (limpia los campos,
+  //    re-renderiza la lista, recalcula y guarda sesión).
+  addAbonoLav();
+
+  // 4) Resetear el formulario del DUP para que la próxima vez que se abra
+  //    no queden datos de un cálculo anterior.
+  document.getElementById('dupMontoCuota').value = '';
+  document.getElementById('dupDia').value  = '';
+  document.getElementById('dupMes').value  = '';
+  document.getElementById('dupAnio').value = '';
+  dupSetFechaDisplay(null, null, null);
+
+  // 5) Cerrar el overlay y devolver a la pantalla principal con el cálculo
+  //    ya reflejado en "Total Adeudado".
+  closeDupOverlay();
+}
+
+// Conectar la tarjeta "Desde el último pago" al overlay
+(function() {
+  const card = document.querySelector('.calc-mode-card--blue');
+  // No pasar openDupOverlay directo como handler: addEventListener invoca
+  // el callback con el objeto Event como primer argumento, que sería
+  // truthy y activaría por error el modo skipSlideIn (pensado solo para
+  // la transición encadenada desde calcTypeScreen). El dock debe conservar
+  // siempre el slide-up normal.
+  if (card) card.addEventListener('click', function() { openDupOverlay(); });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     WELCOME SCREEN OVERLAY
+     position:fixed inset:0 z-index:99999
+     Se cierra al tocar "Comenzar" → fade-out + display:none
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="welcomeScreen" class="ws-screen">
+  <div class="ws-inner">
+  <div class="ws-content">
+
+    <!-- Logo -->
+    <div class="ws-logo">
+      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="ws-logo__svg">
+        <!-- Documento -->
+        <rect x="10" y="8" width="46" height="58" rx="8" stroke="#1a1d40" stroke-width="4.5" fill="none"/>
+        <line x1="22" y1="24" x2="44" y2="24" stroke="#1a1d40" stroke-width="4" stroke-linecap="round"/>
+        <!-- Símbolo $ -->
+        <text x="22" y="46" font-family="DM Sans, system-ui" font-weight="800" font-size="18" fill="#1a1d40">$</text>
+        <!-- Persona (verde) -->
+        <circle cx="60" cy="48" r="11" stroke="#22c55e" stroke-width="4" fill="none"/>
+        <path d="M44 70 C44 62 52 57 60 57 C68 57 76 62 76 70" stroke="#22c55e" stroke-width="4" stroke-linecap="round" fill="none"/>
+      </svg>
+    </div>
+
+    <!-- Título -->
+    <h1 class="ws-title">
+      Bienvenido a<br>
+      <span class="ws-title__pension">Pension</span><span class="ws-title__app">App</span>
+    </h1>
+
+    <!-- Subtítulo -->
+    <p class="ws-subtitle">
+      Calcula deudas alimenticias<br>de forma simple y rápida
+    </p>
+
+    <!-- Features card -->
+    <div class="ws-features">
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--purple">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="5" y="5" width="26" height="26" rx="5" stroke="#6c5ce7" stroke-width="2.8"/>
+            <rect x="10" y="14" width="6" height="12" rx="1.5" fill="#6c5ce7"/>
+            <rect x="20" y="10" width="6" height="16" rx="1.5" fill="#6c5ce7"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Cálculos precisos</h3>
+          <p>Utilizamos valores oficiales y actualizados.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--green">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="7" width="28" height="24" rx="5" stroke="#16a34a" stroke-width="2.8"/>
+            <line x1="4" y1="15" x2="32" y2="15" stroke="#16a34a" stroke-width="2.8"/>
+            <line x1="13" y1="4" x2="13" y2="10" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round"/>
+            <line x1="23" y1="4" x2="23" y2="10" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round"/>
+            <path d="M12 22 L16 26 L24 19" stroke="#16a34a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Resultados en segundos</h3>
+          <p>Obtén el detalle de tu deuda al instante.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--orange">
+          <svg viewBox="0 0 36 36" fill="none">
+            <rect x="4" y="18" width="7" height="14" rx="2" fill="#f59e0b"/>
+            <rect x="14.5" y="12" width="7" height="20" rx="2" fill="#f59e0b"/>
+            <rect x="25" y="6" width="7" height="26" rx="2" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>100% transparente</h3>
+          <p>Cada cálculo muestra cómo se obtiene el resultado.</p>
+        </div>
+      </div>
+
+      <div class="ws-feature">
+        <div class="ws-feature__icon ws-feature__icon--blue">
+          <svg viewBox="0 0 36 36" fill="none">
+            <path d="M18 3 L30 8 L30 18 C30 25 24 31 18 33 C12 31 6 25 6 18 L6 8 Z" stroke="#2563eb" stroke-width="2.8" fill="none" stroke-linejoin="round"/>
+            <circle cx="18" cy="18" r="4" stroke="#2563eb" stroke-width="2.5"/>
+            <line x1="18" y1="14" x2="18" y2="11" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="ws-feature__text">
+          <h3>Seguro y privado</h3>
+          <p>Tus datos están siempre protegidos.</p>
+        </div>
+      </div>
+
+    </div><!-- /ws-features -->
+
+  </div><!-- /ws-content -->
+
+  <!-- Footer sticky (alineado con quota screen) -->
+  <div class="ws-footer">
+
+    <!-- Nota de pie -->
+    <div class="ws-footer-note">
+      <svg viewBox="0 0 20 20" fill="none">
+        <path d="M10 2 L17 5 L17 11 C17 15 13.5 18.5 10 19.5 C6.5 18.5 3 15 3 11 L3 5 Z" stroke="#6c5ce7" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+        <line x1="10" y1="8" x2="10" y2="13" stroke="#6c5ce7" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="10" cy="6.5" r="0.9" fill="#6c5ce7"/>
+      </svg>
+      Basado en normativa vigente y valores oficiales.
+    </div>
+
+    <!-- Botón Comenzar -->
+    <button id="wsStartBtn" class="ws-start-btn" onclick="closeWelcomeScreen()">
+      Comenzar
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="13 6 19 12 13 18"/>
+      </svg>
+    </button>
+
+    <!-- Dots de paginación -->
+    <div class="ws-dots">
+      <span class="ws-dot ws-dot--active"></span>
+      <span class="ws-dot"></span>
+      <span class="ws-dot"></span>
+    </div>
+
+  </div><!-- /ws-footer -->
+
+  </div><!-- /ws-inner -->
+</div>
+<!-- /WELCOME SCREEN OVERLAY -->
+
+<!-- QUOTA SCREEN OVERLAY (cuota mensual de referencia) -->
+<div id="quotaScreen" class="qs-screen" style="display:none;">
+  <div class="qs-inner">
+
+    <!-- Header: back + progress + step label -->
+    <div class="qs-header">
+      <button class="qs-back" aria-label="Volver" onclick="closeQuotaScreen()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <div class="qs-progress">
+        <div class="qs-progress-seg active"></div>
+        <div class="qs-progress-seg active"></div>
+        <div class="qs-progress-seg"></div>
+        <div class="qs-progress-seg"></div>
+        <div class="qs-progress-seg"></div>
+      </div>
+
+      <span class="qs-step-label">Paso 1 de 2</span>
+    </div>
+
+    <!-- Body -->
+    <div class="qs-body">
+
+      <!-- Ícono calendario + moneda -->
+      <div class="qs-icon-wrap">
+        <svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="36" height="32" rx="6" fill="none" stroke="#5b4ff7" stroke-width="2.8"/>
+          <line x1="4" y1="18" x2="40" y2="18" stroke="#5b4ff7" stroke-width="2.8"/>
+          <line x1="13" y1="4" x2="13" y2="12" stroke="#5b4ff7" stroke-width="2.8" stroke-linecap="round"/>
+          <line x1="31" y1="4" x2="31" y2="12" stroke="#5b4ff7" stroke-width="2.8" stroke-linecap="round"/>
+          <rect x="10" y="23" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <rect x="19" y="23" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <rect x="10" y="31" width="5" height="5" rx="1.5" fill="#5b4ff7" opacity="0.4"/>
+          <circle cx="38" cy="40" r="11" fill="#edeaff" stroke="#5b4ff7" stroke-width="2.8"/>
+          <text x="38" y="44.5" text-anchor="middle" font-size="13" font-weight="800" fill="#5b4ff7" font-family="-apple-system,sans-serif">$</text>
+        </svg>
+      </div>
+
+      <!-- Título -->
+      <h2 class="qs-title">¿Cuál es tu cuota<br>mensual de pensión?</h2>
+
+      <!-- Subtítulo -->
+      <p class="qs-subtitle">Este monto se utilizará como referencia para tus cálculos. Puedes cambiarlo después si lo necesitas.</p>
+
+      <!-- Input card -->
+      <div class="qs-input-card">
+        <div class="qs-input-card-header">
+          <span class="qs-input-label">Monto de la cuota mensual</span>
+        </div>
+        <div class="qs-input-row">
+          <button type="button" id="qsCurrencySelect" class="qs-currency-select" onclick="qsToggleUnidad()">
+            <span id="qsCurrencyLabel">$ CLP</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="qs-currency-chevron">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <input
+            id="qsAmountInput"
+            class="qs-amount-input"
+            type="text"
+            inputmode="decimal"
+            placeholder="0"
+            oninput="qsFormatAmountInput(this)"
+          />
+        </div>
+      </div>
+
+      <!-- Security card -->
+      <div class="qs-security-card">
+        <div class="qs-security-icon">
+          <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="19" cy="19" r="19" fill="#ddd6fe" opacity="0.5"/>
+            <path d="M19 6L8 10.5V18C8 24.075 12.8 29.745 19 31.5C25.2 29.745 30 24.075 30 18V10.5L19 6Z" fill="#5b4ff7" opacity="0.15" stroke="#5b4ff7" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="19" cy="18" r="3.5" fill="none" stroke="#5b4ff7" stroke-width="1.8"/>
+            <line x1="19" y1="21.5" x2="19" y2="25" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="19" y1="16" x2="19" y2="20" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+            <line x1="17" y1="18" x2="21" y2="18" stroke="#5b4ff7" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="qs-security-text">
+          <div class="qs-security-title">Tus datos están seguros</div>
+          <div class="qs-security-sub">No almacenamos información financiera, solo utilizamos este monto para tus cálculos.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="qs-footer">
+      <button class="qs-btn-continue" onclick="confirmQuotaScreen()">
+        Continuar
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/>
+          <polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+      <button class="qs-link-later" onclick="closeQuotaScreen()">Ahora no, lo haré después</button>
+    </div>
+
+  </div>
+</div>
+<!-- /QUOTA SCREEN OVERLAY -->
+
+<!-- CALC TYPE SCREEN OVERLAY (Paso 2 de 2: selección de tipo de cálculo) -->
+<div id="calcTypeScreen" class="cs-screen" style="display:none;">
+  <div class="cs-inner">
+
+    <!-- Header: back + progress + step label -->
+    <div class="cs-header">
+      <button class="cs-back" aria-label="Volver" onclick="closeCalcTypeScreen()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+
+      <div class="cs-progress">
+        <div class="cs-progress-seg active"></div>
+        <div class="cs-progress-seg active"></div>
+        <div class="cs-progress-seg"></div>
+      </div>
+
+      <span class="cs-step-label">Paso 2 de 2</span>
+    </div>
+
+    <!-- Body -->
+    <div class="cs-body">
+
+      <!-- Ícono calculadora -->
+      <div class="cs-icon-wrap">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="2" width="16" height="20" rx="3" stroke="#5b4ff7" stroke-width="2"/>
+          <path d="M8 7H16" stroke="#5b4ff7" stroke-width="2" stroke-linecap="round"/>
+          <rect x="7.25" y="11.25" width="3.5" height="3.5" rx="1" fill="#5b4ff7"/>
+          <rect x="13.25" y="11.25" width="3.5" height="3.5" rx="1" fill="#5b4ff7"/>
+          <rect x="7.25" y="16.25" width="3.5" height="3.5" rx="1" fill="#5b4ff7"/>
+          <rect x="13.25" y="16.25" width="3.5" height="3.5" rx="1" fill="#5b4ff7"/>
+        </svg>
+      </div>
+
+      <!-- Título -->
+      <h2 class="cs-title">¿Qué deseas calcular?</h2>
+
+      <!-- Subtítulo -->
+      <p class="cs-subtitle">Elige el tipo de cálculo que necesitas realizar.</p>
+
+      <!-- Chip / card de cuota actual -->
+      <div class="cs-quota-card">
+        <div class="cs-quota-header">Cuota actual</div>
+        <div class="cs-quota-values">
+          <div class="cs-quota-main" id="csQuotaMain">2,33 UTM</div>
+          <div class="cs-quota-secondary" id="csQuotaSecondary">≈ $166.609</div>
+        </div>
+        <button type="button" class="cs-quota-change-btn" onclick="closeCalcTypeScreen()">Cambiar</button>
+      </div>
+
+      <!-- Opciones de cálculo -->
+      <div class="cs-option cs-option--purple" role="button" tabindex="0" onclick="csOpenDesdeUltimoPago()">
+        <div class="cs-option-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="3"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="M8 14l2.5 2.5L16 11" />
+          </svg>
+        </div>
+        <div class="cs-option-content">
+          <h3>Desde el último pago</h3>
+          <p>Calcula la deuda actual considerando todos los períodos desde tu último pago hasta hoy.</p>
+        </div>
+        <div class="cs-option-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <div class="cs-option cs-option--green">
+        <div class="cs-option-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="3"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <line x1="7" y1="14" x2="9" y2="14"/>
+            <line x1="11" y1="14" x2="13" y2="14"/>
+            <line x1="15" y1="14" x2="17" y2="14"/>
+            <line x1="7" y1="17.5" x2="9" y2="17.5"/>
+            <line x1="11" y1="17.5" x2="13" y2="17.5"/>
+          </svg>
+        </div>
+        <div class="cs-option-content">
+          <h3>Entre fechas</h3>
+          <p>Calcula la deuda para un rango específico de fechas.</p>
+        </div>
+        <div class="cs-option-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <div class="cs-option cs-option--orange">
+        <div class="cs-option-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3">
+            <rect x="3" y="4" width="18" height="18" rx="3"/>
+            <line x1="16" y1="2" x2="16" y2="6" stroke-dasharray="0"/>
+            <line x1="8" y1="2" x2="8" y2="6" stroke-dasharray="0"/>
+            <line x1="3" y1="10" x2="21" y2="10" stroke-dasharray="0"/>
+          </svg>
+        </div>
+        <div class="cs-option-content">
+          <h3>Con lagunas</h3>
+          <p>Calcula períodos no consecutivos o con interrupciones.</p>
+        </div>
+        <div class="cs-option-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <div class="cs-option cs-option--blue">
+        <div class="cs-option-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="2.5"/>
+            <line x1="2" y1="10" x2="22" y2="10"/>
+            <line x1="6" y1="15" x2="10" y2="15"/>
+          </svg>
+        </div>
+        <div class="cs-option-content">
+          <h3>Pagos parciales</h3>
+          <p>Calcula considerando abonos o pagos parciales realizados.</p>
+        </div>
+        <div class="cs-option-arrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <!-- Trust card -->
+      <div class="cs-trust-card">
+        <div class="cs-trust-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L4 5v6c0 5.2 3.4 9.7 8 11 4.6-1.3 8-5.8 8-11V5l-8-3z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="cs-trust-text">
+          <strong>Cálculos 100% transparentes</strong>
+          <p>Basados en normativa vigente y valores oficiales.</p>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+<!-- /CALC TYPE SCREEN OVERLAY -->
+
+<script>
+// ── Bloqueo de scroll del body mientras hay un overlay fullscreen abierto ───
+// Evita el efecto "rubber-band": al hacer scroll dentro del overlay (welcome
+// o quota), sin esto el body de la app quedaba visible/desplazado detrás.
+// Usa position:fixed sobre el body fijando el scrollY actual, técnica que
+// evita el salto visual típico de overflow:hidden solo en iOS/Android.
+var _qsScrollY = 0;
+function qsLockBodyScroll() {
+  _qsScrollY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = (-_qsScrollY) + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+function qsUnlockBodyScroll() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, _qsScrollY);
+}
+
+// ── Welcome Screen ────────────────────────────────────────────────────────────
+// La welcome screen NO se muestra al cargar la página.
+// Se muestra solo tras un login manual exitoso (event === 'SIGNED_IN' en onAuthStateChange).
+// closeWelcomeScreen() marca ws_done en sessionStorage para no repetirla.
+(function() {
+  var ws = document.getElementById('welcomeScreen');
+  if (ws) ws.style.display = 'none';
+})();
+
+function closeWelcomeScreen() {
+  var ws = document.getElementById('welcomeScreen');
+  if (!ws) return;
+  // Se muestra quotaScreen DEBAJO (z-index menor) ANTES de iniciar el fade-out
+  // del welcomeScreen, para que nunca exista un frame sin overlay opaco
+  // cubriendo la pantalla (evita el "flash" donde se asoma la app de fondo).
+  openQuotaScreen();
+  ws.classList.add('ws-screen--out');
+  ws.addEventListener('animationend', function() {
+    ws.style.display = 'none';
+    sessionStorage.setItem('ws_done', '1');
+  }, { once: true });
+}
+
+// ── Quota Screen (cuota mensual de referencia) ──────────────────────────────
+var _qsUnidad = 'clp'; // 'clp' | 'utm'
+
+function qsToggleUnidad() {
+  var input = document.getElementById('qsAmountInput');
+  var label = document.getElementById('qsCurrencyLabel');
+  var utmHoy = getUtmActualVal();
+  var raw = (input.value || '').trim();
+
+  if (_qsUnidad === 'clp') {
+    // Pasar de CLP → UTM: convertir el valor visible
+    var clpVal = parseInt(raw.replace(/\./g, '')) || 0;
+    _qsUnidad = 'utm';
+    label.textContent = 'UTM';
+    input.setAttribute('inputmode', 'decimal');
+    input.value = clpVal > 0 ? (clpVal / utmHoy).toFixed(2).replace('.', ',') : '';
+  } else {
+    // Pasar de UTM → CLP: convertir el valor visible
+    var utmVal = parseFloat(raw.replace(',', '.')) || 0;
+    _qsUnidad = 'clp';
+    label.textContent = '$ CLP';
+    input.setAttribute('inputmode', 'numeric');
+    input.value = utmVal > 0 ? formatPlain(utmVal * utmHoy) : '';
+  }
+}
+
+function qsFormatAmountInput(input) {
+  if (_qsUnidad === 'utm') {
+    // Formato decimal: acepta '.' o ',' como separador (el teclado numérico
+    // de Android muestra punto, pero mostramos/guardamos con coma).
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+function openQuotaScreen() {
+  var qs = document.getElementById('quotaScreen');
+  if (!qs) return;
+  qs.style.display = 'flex';
+  qs.classList.remove('qs-screen--out');
+  // El welcomeScreen ya bloqueó el scroll; quota screen continúa el bloqueo,
+  // así que no se reinicia _qsScrollY aquí — solo se confirma el lock activo.
+  qsLockBodyScroll();
+}
+
+function closeQuotaScreen() {
+  var qs = document.getElementById('quotaScreen');
+  if (!qs) return;
+  qs.classList.add('qs-screen--out');
+  qs.addEventListener('animationend', function() {
+    qs.style.display = 'none';
+    // Si calcTypeScreen quedó abierto encima (flujo "Continuar"), el scroll
+    // del body debe seguir bloqueado — solo se desbloquea cuando no queda
+    // ningún overlay del flujo de onboarding visible.
+    var cs = document.getElementById('calcTypeScreen');
+    var csAbierto = cs && cs.style.display !== 'none';
+    if (!csAbierto) qsUnlockBodyScroll();
+  }, { once: true });
+}
+
+function confirmQuotaScreen() {
+  var raw = (document.getElementById('qsAmountInput').value || '').trim();
+  var utmHoy = getUtmActualVal();
+  var utmFinal = 0, clpFinal = 0;
+
+  if (_qsUnidad === 'utm') {
+    var utm = parseFloat(raw.replace(',', '.')) || 0;
+    if (utm > 0) {
+      document.getElementById('utmAmount').value = utm.toFixed(2).replace('.', ',');
+      updateFromUtm();
+      saveSession();
+      utmFinal = utm;
+      clpFinal = utm * utmHoy;
+    }
+  } else {
+    var monto = parseInt(raw.replace(/\./g, '')) || 0;
+    if (monto > 0) {
+      var clpInput = document.getElementById('clpAmount');
+      clpInput.value = formatPlain(monto);
+      updateFromClp();
+      saveSession();
+      clpFinal = monto;
+      utmFinal = monto / utmHoy;
+    }
+  }
+
+  // Igual que closeWelcomeScreen() → openQuotaScreen(): la siguiente pantalla
+  // se muestra DEBAJO (z-index menor) antes del fade-out de quotaScreen, para
+  // que nunca exista un frame sin overlay opaco cubriendo la pantalla.
+  openCalcTypeScreen(utmFinal, clpFinal);
+  closeQuotaScreen();
+}
+
+// ── Calc Type Screen (Paso 2 de 2: ¿qué deseas calcular?) ──────────────────
+// ── Calc Type Screen (Paso 2 de 2: ¿qué deseas calcular?) ──────────────────
+// Guardan el último monto confirmado en quotaScreen (UTM y su equivalente
+// CLP), junto con la unidad activa en ese momento. Se usan para precargar
+// el campo de monto en dupOverlay cuando el usuario entra a "Desde el
+// último pago" desde esta pantalla, en vez de obligarlo a reingresarlo.
+var _csUtmActual = 0;
+var _csClpActual = 0;
+var _csUnidadActual = 'utm';
+
+function openCalcTypeScreen(utmVal, clpVal) {
+  var cs = document.getElementById('calcTypeScreen');
+  if (!cs) return;
+
+  if (utmVal > 0) {
+    _csUtmActual = utmVal;
+    _csClpActual = clpVal;
+    _csUnidadActual = _qsUnidad; // unidad que el usuario tenía activa en quotaScreen
+    var mainEl = document.getElementById('csQuotaMain');
+    var secEl = document.getElementById('csQuotaSecondary');
+    if (mainEl) mainEl.textContent = utmVal.toFixed(2).replace('.', ',') + ' UTM';
+    if (secEl) secEl.textContent = '≈ $' + formatPlain(Math.round(clpVal));
+  }
+
+  cs.style.display = 'flex';
+  cs.classList.remove('cs-screen--out');
+  // quotaScreen ya bloqueó el scroll; esta pantalla continúa el bloqueo,
+  // así que no se reinicia _qsScrollY aquí — solo se confirma el lock activo.
+  qsLockBodyScroll();
+}
+
+function closeCalcTypeScreen() {
+  var cs = document.getElementById('calcTypeScreen');
+  if (!cs) return;
+  var inner = cs.querySelector('.cs-inner');
+  cs.classList.add('cs-screen--out');
+  (inner || cs).addEventListener('animationend', function() {
+    cs.style.display = 'none';
+    qsUnlockBodyScroll();
+  }, { once: true });
+}
+
+// Tarjeta "Desde el último pago" dentro de calcTypeScreen: dispara el mismo
+// overlay (dupOverlay) que ya usa la tarjeta equivalente del dock principal
+// (.calc-mode-card--blue → openDupOverlay(), ver bloque "FULLSCREEN OVERLAY:
+// Desde el último pago"). Se cierra calcTypeScreen con su fade-out normal y,
+// recién cuando termina la animación y queda con display:none, se abre
+// dupOverlay CON skipSlideIn=true: en esta transición encadenada no debe
+// usarse el slide-up normal (translateY(100%) → 0 en 320ms), porque durante
+// esos ms el overlay aún está parcialmente fuera del viewport y se alcanza
+// a ver el contenido real de la app por debajo (el "flash" reportado).
+// Con skipSlideIn, dupOverlay cubre la pantalla desde el primer frame.
+function csOpenDesdeUltimoPago() {
+  var cs = document.getElementById('calcTypeScreen');
+  if (!cs) { openDupOverlay(true); return; }
+  var inner = cs.querySelector('.cs-inner');
+
+  cs.classList.add('cs-screen--out');
+  (inner || cs).addEventListener('animationend', function() {
+    cs.style.display = 'none';
+    qsUnlockBodyScroll();
+    openDupOverlay(true);
+    csPrefillDesdeUltimoPago();
+  }, { once: true });
+}
+
+// Precarga en dupOverlay la cuota mensual ya capturada en quotaScreen, para
+// que el usuario no tenga que volver a ingresarla. Usa la unidad (UTM/CLP)
+// y el monto guardados por openCalcTypeScreen() en _csUtmActual/_csClpActual.
+// El formato escrito debe coincidir con el que produce dupFormatMontoInput()
+// (coma decimal en UTM, separador de miles vía formatPlain() en CLP), ya
+// que el input es type="text" con saneo propio, no type="number".
+function csPrefillDesdeUltimoPago() {
+  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder)
+  var unidad = _csUnidadActual || 'utm';
+  dupSelectUnidad(unidad);
+  var input = document.getElementById('dupMontoCuota');
+  if (!input) return;
+  if (unidad === 'utm') {
+    input.value = _csUtmActual.toFixed(2).replace('.', ',');
+  } else {
+    input.value = formatPlain(Math.round(_csClpActual));
+  }
+}
+
 </script>
 </body>
 </html>
