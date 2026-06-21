@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0600">
+ <meta name="app-version" content="v2.0621.0631">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1253,13 +1253,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
           </div>
-          <div id="heroLavRow" class="hero-total-card__lav-pill hidden">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:#bfe0ff;"><path d="M20 6L9 17l-5-5"/></svg>
-            <span class="hero-total-card__lav-label">Abonos LAV</span>
-            <span class="hero-total-card__lav-sep">·</span>
-            <span id="heroLavClp" class="hero-total-card__lav-amt"></span>
-            <span id="heroLavUtm" class="hero-total-card__lav-utm"></span>
-          </div>
         </div>
 
         <!-- IDs conservados ocultos (no se eliminan del DOM: el cálculo les escribe sin guard null-check) -->
@@ -1271,6 +1264,14 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <span id="heroParcialRow" class="hidden">
             <span id="heroParcialClp"></span>
             <span id="heroParcialUtm"></span>
+          </span>
+          <!-- Burbuja "Abonos LAV": eliminada de la vista a pedido del usuario.
+               Se conserva oculta en el DOM porque renderLavSummary() hace
+               heroRow.classList.remove('hidden') y escribe en heroLavClp /
+               heroLavUtm sin validar que existan. -->
+          <span id="heroLavRow" class="hidden">
+            <span id="heroLavClp"></span>
+            <span id="heroLavUtm"></span>
           </span>
         </div>
       </div>
@@ -6113,7 +6114,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0600</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0631</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
