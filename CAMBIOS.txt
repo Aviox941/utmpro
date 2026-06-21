@@ -1,8 +1,79 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Eliminado el recuadro "Cuota actual" de la pantalla "¿Qué deseas
-calcular?" (Paso 2 de 2)
+FIX: Ondas del hero reemplazadas por SVG real (sin distorsión de stroke)
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El enfoque anterior dibujaba las ondas como background-image (data URI)
+  en .hero-total-card::before. Aunque con background-size:100% 100% se
+  estiraba al tamaño exacto de la tarjeta, el STROKE de los paths también
+  se estiraba de forma no uniforme (más grueso o delgado según el alto vs
+  ancho real del card en cada breakpoint), dando un resultado inconsistente.
+  El usuario aportó un snippet con SVG inline + vector-effect:non-scaling-
+  stroke, que resuelve esto de raíz.
+
+QUÉ SE CAMBIÓ
+  1. index.html: se agregó <svg class="hero-total-card__waves"> como
+     primer hijo de .hero-total-card (antes del label), con los 4 paths
+     exactos provistos por el usuario (viewBox 0 0 1000 300,
+     preserveAspectRatio="none").
+  2. styles.css:
+     - Se eliminó .hero-total-card::before (background-image data URI).
+     - Se agregó .hero-total-card__waves (position:absolute; inset:0;
+       z-index:1) y .hero-total-card__waves path (stroke:
+       rgba(255,255,255,0.15); stroke-width:2; vector-effect:
+       non-scaling-stroke) — el vector-effect es la clave: el grosor del
+       trazo se mantiene constante sin importar cómo se estire el SVG.
+     - Se agregó isolation:isolate a .hero-total-card para un stacking
+       context limpio entre ondas/puntos/contenido.
+  3. El patrón de puntos (::after) se mantuvo igual, sin cambios.
+
+NO TOCAR (se mantuvo intacto)
+  - Gradiente de fondo, label/monto/UTM, metadatos, lógica de cálculo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  welcomeScreen → quotaScreen → calcTypeScreen solo se abren cuando ocurre
+  un evento SIGNED_IN real (login manual). Esto hacía imposible verificar
+  visualmente cambios en esas pantallas (ej. UTM por defecto, tarjeta
+  "Cuota actual" eliminada) sin cerrar sesión y volver a entrar.
+
+QUÉ SE AGREGÓ
+  1. Botón "Probar Welcome Screen" en sidebar → Desarrollo, debajo de
+     "Consola de debug".
+  2. function devTestWelcomeFlow() (index.html, junto a closeWelcomeScreen):
+     limpia sessionStorage('ws_done') y muestra #welcomeScreen directamente,
+     sin pasar por onAuthStateChange. Desde ahí el flujo sigue exactamente
+     igual que en producción: el botón de welcomeScreen sigue llamando a
+     closeWelcomeScreen() → openQuotaScreen() → calcTypeScreen, por lo que
+     prueba el camino real, no una versión paralela.
+  3. No toca sesión, casos guardados ni datos del usuario — es solo un
+     atajo visual para QA.
+
+NO TOCAR (se mantuvo intacto)
+  - El gate real de producción (event === 'SIGNED_IN') sigue igual; este
+    botón es un acceso adicional, no un reemplazo del flujo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  El ajuste anterior distribuyó las 3 curvas en toda la altura de la
+  tarjeta (arriba/medio/abajo), pero eso hizo que algunas líneas cruzaran
+  el bloque de texto y se viera peor que antes. Se pidió lo opuesto:
+  líneas mucho más juntas entre sí, ubicadas por debajo del texto.
+
+QUÉ SE CAMBIÓ (.hero-total-card::before en styles.css)
+  Los 3 paths del SVG ahora están agrupados en la franja inferior del
+  viewBox (y≈230, 250, 270 sobre una altura de 300), a solo 20px de
+  diferencia entre ellos, en vez de estar repartidos en y≈60/160/250.
+  Mismo grosor (stroke-width 3) y opacidades (0.20/0.15/0.11) que antes;
+  solo cambió la posición vertical.
+
+──────────────────────────────────────────────────────────────────────────────────
+
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   Se pidió quitar la tarjeta que mostraba "Cuota actual / 2,33 UTM / ≈

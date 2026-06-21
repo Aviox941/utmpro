@@ -1083,6 +1083,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
             <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
             Consola de debug
           </button>
+          <button onclick="closeSidebar(); devTestWelcomeFlow();" class="sidebar-cfg-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Probar Welcome Screen
+          </button>
         </div>
       </div>
 
@@ -1237,6 +1241,14 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
         <!-- Tarjeta Total Adeudado (azul) -->
         <div class="hero-total-card">
+          <!-- Ondas decorativas: SVG real con vector-effect:non-scaling-stroke,
+               evita la distorsión que tenía el background-image data URI anterior -->
+          <svg class="hero-total-card__waves" viewBox="0 0 1000 300" preserveAspectRatio="none">
+            <path d="M-50 55 C200 15 350 95 550 55 S850 15 1050 55"/>
+            <path d="M-50 120 C180 90 350 150 550 120 S850 90 1050 120"/>
+            <path d="M-50 185 C180 155 350 215 550 185 S850 155 1050 185"/>
+            <path d="M-50 250 C180 220 350 280 550 250 S850 220 1050 250"/>
+          </svg>
           <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
@@ -8567,6 +8579,19 @@ function closeWelcomeScreen() {
     ws.style.display = 'none';
     sessionStorage.setItem('ws_done', '1');
   }, { once: true });
+}
+
+// ── Acceso de desarrollo: probar welcomeScreen sin login real ───────────────
+// Botón "Probar Welcome Screen" en sidebar → Desarrollo. Abre el mismo overlay
+// que se muestra tras un SIGNED_IN real, sin depender del evento de auth.
+// Solo para pruebas visuales; no toca sesión, casos ni datos guardados.
+function devTestWelcomeFlow() {
+  sessionStorage.removeItem('ws_done');
+  var ws = document.getElementById('welcomeScreen');
+  if (!ws) { dbg('DEV: welcomeScreen no encontrado en el DOM'); return; }
+  ws.classList.remove('ws-screen--out');
+  ws.style.display = 'flex';
+  qsLockBodyScroll();
 }
 
 // ── Quota Screen (cuota mensual de referencia) ──────────────────────────────

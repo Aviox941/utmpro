@@ -1097,18 +1097,23 @@
     text-align: center;
     position: relative;
     overflow: hidden;
+    isolation: isolate;
     min-height: 168px;
   }
-  /* Ondas decorativas (waves) */
-  .hero-total-card::before {
-    content: "";
+  /* Ondas decorativas (waves): SVG real, ver markup en index.html */
+  .hero-total-card__waves {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
     pointer-events: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='300' viewBox='0 0 800 300' fill='none' preserveAspectRatio='none'><path d='M-50 60C150 -10 350 130 600 60S850 -10 900 60' stroke='white' stroke-opacity='0.20' stroke-width='3' fill='none'/><path d='M-50 160C200 230 400 90 600 160S850 230 900 160' stroke='white' stroke-opacity='0.15' stroke-width='3' fill='none'/><path d='M-50 250C220 320 420 170 620 250S850 320 900 250' stroke='white' stroke-opacity='0.11' stroke-width='3' fill='none'/></svg>");
-    background-size: 100% 100%;
-    background-repeat: no-repeat;
+  }
+  .hero-total-card__waves path {
+    fill: none;
+    stroke: rgba(255,255,255,0.15);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
   }
   /* Patrón de puntos decorativo (dots) */
   .hero-total-card::after {
