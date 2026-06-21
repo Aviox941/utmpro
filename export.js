@@ -1797,7 +1797,9 @@ function buildResumenContent(targetContainer, inlineMode) {
       const lavTag = '';
       const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
       // Sub-chip LAV interés (excedente Art. 1595)
-      const lavIntChip = '';
+      const lavIntChip = (d.lavIntAplicadoCLP || 0) > 0
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">‡ Int. cubierto LAV: ${fmt(d.lavIntAplicadoCLP)}</div>`
+        : '';
       // Sub-chip de remanente para cuotas con pago parcial manual
       const _capRemDisplay = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
       const _capRemUTM = (d.utmVal && d.utmVal > 0) ? (_capRemDisplay / d.utmVal).toFixed(4) : '—';
@@ -1811,6 +1813,13 @@ function buildResumenContent(targetContainer, inlineMode) {
         ? d.excedenteParcialAplicado.toFixed(4) : '—';
       const excedenteChip = _excCLP > 0
         ? `<div style="font-size:7.5px;color:#16a34a;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
+        : '';
+      // Sub-chip LAV: cubierto completo o parcial
+      const _cubiertaLavChip = (d.esLav && d.cap <= 0.01)
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">✓ Cubierto LAV (-${fmt(d.lavAplicadoCLP + (d.lavIntAplicadoCLP||0))} / -${((d.lavAplicadoUTM||0)+(d.lavIntAplicadoUTM||0)).toFixed(4)} UTM)</div>`
+        : '';
+      const _lavParcialChip = (d.esLav && (d.lavAplicadoCLP || 0) > 0 && d.cap > 0.01)
+        ? `<div style="font-size:7.5px;color:#059669;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">LAV: -${fmt(d.lavAplicadoCLP)} <span style="opacity:0.75">(-${(d.lavAplicadoUTM||0).toFixed(4)} UTM)</span> · Rem: ${fmt(d.cap)} (${(d.utmVal>0?d.cap/d.utmVal:0).toFixed(4)} UTM)</div>`
         : '';
       // Sub-chip LAV: eliminado (no mostrar texto verde en celdas)
       const _cubiertaLavChip = '';
