@@ -1,8 +1,36 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Conectado el overlay "Desde el último pago" (DUP) al motor real de
-Depósitos LAV — ya no es un placeholder
+NUEVO: Rediseño visual de la tarjeta hero "Total Adeudado" (gradiente, ondas
+y patrón de puntos)
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  Se pidió que la tarjeta azul del total adeudado tuviera un look más
+  moderno, replicando un diseño de referencia: gradiente azul más profundo,
+  líneas onduladas de fondo y un patrón de puntos decorativo en la esquina
+  superior derecha. Solo se tocó la estética visual; no se modificó texto,
+  estructura de datos ni lógica de cálculo.
+
+QUÉ SE CAMBIÓ (solo CSS, .hero-total-card en styles.css)
+  1. Fondo: gradiente linear-gradient(135deg, #0f2a7a 0%, #1155d6 45%,
+     #002fd6 100%) (antes #1e3a5f -> #1e40af).
+  2. border-radius 14px -> 24px y sombra más marcada
+     (0 12px 30px rgba(15,42,122,0.35)).
+  3. ::before — capa de ondas (3 paths SVG en blanco con distinta opacidad)
+     como background-image inline en data URI, cubriendo toda la tarjeta.
+  4. ::after — patrón de puntos (radial-gradient circular blanco) ubicado
+     en la esquina superior derecha, 130x90px, tamaño de grilla 12px.
+  5. Ambas capas decorativas con z-index:0 y pointer-events:none para no
+     interferir con el contenido (label/monto/UTM), que mantiene z-index:1.
+
+NO TOCAR (se mantuvo intacto)
+  - Texto "Total Adeudado", monto, UTM, metadatos (fecha liq., abonos LAV).
+  - Breakpoints mobile de .hero-total-card (solo padding/min-height, sin
+    cambios de fondo).
+  - Toda la lógica de cálculo y formateo de montos.
+
+──────────────────────────────────────────────────────────────────────────────────
+
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   El overlay #dupOverlay (tarjeta azul del dock "¿Cómo deseas calcular?")
