@@ -3840,10 +3840,11 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   width: 100%;
-  padding: 52px 24px 24px;
+  padding: 32px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 
 /* ── Footer sticky (nota + botón Comenzar + dots) ──────────────────── */
@@ -3860,27 +3861,6 @@
   gap: 14px;
   flex-shrink: 0;
   box-shadow: 0 -8px 16px -8px rgba(0,0,0,0.04);
-}
-
-/* ── Logo ───────────────────────────────────────────────────────── */
-.ws-logo {
-  width: 108px;
-  height: 108px;
-  border-radius: 28px;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow:
-    0 4px 6px rgba(0,0,0,0.04),
-    0 12px 32px rgba(0,0,0,0.08);
-  margin-bottom: 30px;
-  flex-shrink: 0;
-}
-
-.ws-logo__svg {
-  width: 68px;
-  height: 68px;
 }
 
 /* ── Título ─────────────────────────────────────────────────────── */
@@ -4031,33 +4011,11 @@
   box-shadow: 0 4px 12px rgba(91,79,247,0.18);
 }
 
-/* ── Dots de paginación ─────────────────────────────────────────── */
-.ws-dots {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-}
-
-.ws-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #d0cfe8;
-  transition: background 0.2s, width 0.2s;
-}
-.ws-dot--active {
-  width: 22px;
-  border-radius: 4px;
-  background: #5b4ff7;
-}
-
 /* ── Responsive: pantallas pequeñas ────────────────────────────── */
 @media (max-height: 700px) {
-  .ws-content { padding-top: 32px; }
-  .ws-logo { width: 86px; height: 86px; margin-bottom: 20px; }
+  .ws-content { padding-top: 20px; }
   .ws-title { font-size: 30px; }
-  .ws-subtitle { font-size: 15px; margin-bottom: 20px; }
+  .ws-subtitle { font-size: 15px; margin-bottom: 16px; }
   .ws-feature__icon { width: 48px; height: 48px; }
   .ws-feature__icon svg { width: 26px; height: 26px; }
 }

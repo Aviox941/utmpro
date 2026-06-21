@@ -1,8 +1,17 @@
-v2.0621.0631
-Archivos modificados: export.js, index.html, sw.js
+v2.0621.0637
+Archivos modificados: index.html, sw.js
 
-- Eliminados todos los sub-chips y marcadores LAV de la columna "Período"
-  en la tabla de detalle del cálculo (lavTag ‡, lavIntChip, _cubiertaLavChip,
-  _lavParcialChip). El texto verde que aparecía bajo el período (ej:
-  "LAV: -$148.566 (-2.1449 UTM) · Rem: $12.822") generaba espacio extra
-  en las celdas de la tabla resumen. La lógica de cálculo LAV no fue modificada.
+Fix — Contraste de textos en modal de detalle mensual (index.html):
+  Todos los colores del modal estaban pensados para fondo oscuro pero el modal
+  usa fondo blanco, resultando en texto poco legible. Colores corregidos:
+  - UTM subtextos: slate-400 → slate-500
+  - LAV aplicado: emerald-400 → emerald-700
+  - Capital post-LAV: emerald-300 → emerald-600
+  - TIC / Tasa promedio: slate-500 → slate-600
+  - Tasa aplicada: #6a4da8 → #5b21b6
+  - Interés generado: #9b79d9 → #6d28d9
+  - Art.1595 título: #93c5fd → #1d4ed8
+  - A intereses / A capital: #bfdbfe → #1e40af
+  - Interés/Capital pendiente: sky-200 → sky-700
+  - Subtotal UTM: #6a4da8 → #5b21b6
+  - Fondo caja Art.1595: transparente → #eff6ff con borde #bfdbfe

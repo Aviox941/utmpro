@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0600">
+ <meta name="app-version" content="v2.0621.0637">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1252,13 +1252,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <div id="heroMetaRow" class="hero-total-card__meta hidden" style="display:none !important;">
             <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
             <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
-          </div>
-          <div id="heroLavRow" class="hero-total-card__lav-pill hidden">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:#bfe0ff;"><path d="M20 6L9 17l-5-5"/></svg>
-            <span class="hero-total-card__lav-label">Abonos LAV</span>
-            <span class="hero-total-card__lav-sep">·</span>
-            <span id="heroLavClp" class="hero-total-card__lav-amt"></span>
-            <span id="heroLavUtm" class="hero-total-card__lav-utm"></span>
           </div>
         </div>
 
@@ -3396,7 +3389,7 @@ function renderLavSummary() {
       return s + (inte > 0 ? inte : 0);
     }, 0);
     heroClp.textContent = `${format(totalClp)} abonado${interesRemanente > 0 ? ` · +${format(Math.round(interesRemanente))} int. remanente` : ''}`;
-    heroRow.classList.remove('hidden');
+    heroRow.classList.add('hidden'); // burbuja LAV no se muestra en el hero
     heroUtm.textContent = `${totalUtm.toFixed(4)} UTM abonadas`;
   }
 }
@@ -5059,32 +5052,32 @@ if (!d) return;
 const utmHoy = getUtmActualVal();
 document.getElementById('modalPeriodo').innerText = d.periodo;
 const capOriginalModal = d.capOriginal || d.capOriginalBruto || d.cap;
-const intOriginalModal = d.intOriginal ?? d.inte;
+const intOriginalModal = d.esLav ? d.inte : (d.intOriginal ?? d.inte);
 const hayAbono = (d.intImputado > 0 || d.capImputado > 0);
 document.getElementById('modalContent').innerHTML = `
 <div class="flex justify-between border-b pb-2"><span>Valor UTM del período</span><span class="font-bold">${format(d.utmVal)}</span></div>
-<div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-400 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2"><span>${d.isConsolidada ? 'Monto al corte' : 'Pensión mensual'}</span><div class="text-right"><span class="font-bold block">${format(capOriginalModal)}</span><span class="text-[9px] text-slate-500 font-bold">${(capOriginalModal / d.utmVal).toFixed(4)} UTM</span></div></div>
 ${(()=>{ const _pm=(pagosParciales||[]).filter(p=>p.periodoLabel===d.periodo).reduce((s,p)=>s+p.amount,0); if(_pm<=0) return ''; const _rem=d.capParcialRemanente??d.cap; return `<div class='flex justify-between border-b pb-2 text-violet-600'><span>(-) Pago parcial registrado</span><span class='font-bold'>-${format(_pm)}</span></div><div class='flex justify-between border-b pb-2 text-violet-800'><span class='font-black'>Capital remanente</span><div class='text-right'><span class='font-bold block'>${format(_rem)}</span><span class='text-[9px] font-bold'>${(_rem/d.utmVal).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-violet-500 text-[10px]'><span>Interés calculado sobre remanente</span><span class='font-bold'>${format(d.inte)}</span></div>`; })()}
-${d.esLav && d.lavAplicadoCLP > 0 ? `<div class='flex justify-between border-b pb-2 text-emerald-400'><span class='font-black'>(-) Abono LAV aplicado</span><div class='text-right'><span class='font-bold block'>-${format(d.lavAplicadoCLP)}</span><span class='text-[9px] font-bold'>-${(d.lavAplicadoUTM).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-emerald-300'><span>Capital pendiente post-LAV</span><div class='text-right'><span class='font-bold block'>${format(d.cap)}</span><span class='text-[9px] font-bold'>${(d.cap/d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
+${d.esLav && d.lavAplicadoCLP > 0 ? `<div class='flex justify-between border-b pb-2 text-emerald-700'><span class='font-black'>(-) Abono LAV aplicado</span><div class='text-right'><span class='font-bold block'>-${format(d.lavAplicadoCLP)}</span><span class='text-[9px] font-bold'>-${(d.lavAplicadoUTM).toFixed(4)} UTM</span></div></div><div class='flex justify-between border-b pb-2 text-emerald-600'><span>Capital pendiente post-LAV</span><div class='text-right'><span class='font-bold block'>${format(d.cap)}</span><span class='text-[9px] font-bold'>${(d.cap/d.utmVal).toFixed(4)} UTM</span></div></div>` : ''}
 ${d.isConsolidada ? `
-<div class="flex justify-between border-b pb-2 text-slate-500"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
-<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-slate-600"><span>Tasa promedio ponderada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada (Corriente) <span style="color:#94a3b8;font-size:9px">· histórica anual</span></span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual</span></div>
 ` : `
-<div class="flex justify-between border-b pb-2 text-slate-500"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual</span></div>
-<div class="flex justify-between border-b pb-2 text-[#6a4da8]"><span>Tasa aplicada${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual${d.tasaBase && d.tasa > d.tasaBase ? ' <span style=\"color:#f59e0b;font-size:9px\">(+50% Ley 14.908)</span>' : ''}</span></div>
+<div class="flex justify-between border-b pb-2 text-slate-600"><span>TIC del período${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(mes actual)</span>' : ''}</span><span class="font-bold">${((d.tasaHist ?? d.tasa) * 100).toFixed(2)}% anual</span></div>
+<div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><span class="font-bold">${(d.tasa * 100).toFixed(2)}% anual${d.tasaBase && d.tasa > d.tasaBase ? ' <span style=\"color:#f59e0b;font-size:9px\">(+50% Ley 14.908)</span>' : ''}</span></div>
 `}
 <div class="flex justify-between border-b pb-2"><span>Días de Mora</span><span class="font-bold">${d.mora} días</span></div>
-<div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#9b79d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#6d28d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
 ${hayAbono ? `
-<div class="bg-[#3b82f6]/08 border border-white/7 rounded-xl p-2 my-2 space-y-1">
-  <p class="text-[9px] font-black text-[#93c5fd] uppercase">⚖️ Abono imputado (Art. 1595 CC)</p>
-  ${d.intImputado > 0 ? `<div class="flex justify-between text-[#bfdbfe]"><span class="text-[10px]">(-) A intereses</span><span class="font-bold text-[10px]">-${format(d.intImputado)}</span></div>` : ''}
-  ${d.capImputado > 0 ? `<div class="flex justify-between text-[#bfdbfe]"><span class="text-[10px]">(-) A capital</span><span class="font-bold text-[10px]">-${format(d.capImputado)}</span></div>` : ''}
+<div class="bg-[#eff6ff] border border-[#bfdbfe] rounded-xl p-2 my-2 space-y-1">
+  <p class="text-[9px] font-black text-[#1d4ed8] uppercase">⚖️ Abono imputado (Art. 1595 CC)</p>
+  ${d.intImputado > 0 ? `<div class="flex justify-between text-[#1e40af]"><span class="text-[10px]">(-) A intereses</span><span class="font-bold text-[10px]">-${format(d.intImputado)}</span></div>` : ''}
+  ${d.capImputado > 0 ? `<div class="flex justify-between text-[#1e40af]"><span class="text-[10px]">(-) A capital</span><span class="font-bold text-[10px]">-${format(d.capImputado)}</span></div>` : ''}
 </div>
-<div class="flex justify-between border-b pb-2 text-sky-200"><span>Interés pendiente</span><div class="text-right"><span class="font-bold block">${format(d.inte)}</span><span class="text-[9px] font-bold">${(d.inte / utmHoy).toFixed(4)} UTM</span></div></div>
-<div class="flex justify-between border-b pb-2 text-sky-200"><span>Capital pendiente</span><div class="text-right"><span class="font-bold block">${format(d.cap)}</span><span class="text-[9px] font-bold">${(d.cap / d.utmVal).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2 text-sky-700"><span>Interés pendiente</span><div class="text-right"><span class="font-bold block">${format(d.inte)}</span><span class="text-[9px] font-bold">${(d.inte / utmHoy).toFixed(4)} UTM</span></div></div>
+<div class="flex justify-between border-b pb-2 text-sky-700"><span>Capital pendiente</span><div class="text-right"><span class="font-bold block">${format(d.cap)}</span><span class="text-[9px] font-bold">${(d.cap / d.utmVal).toFixed(4)} UTM</span></div></div>
 ` : ''}
-<div class="flex justify-between pt-2 text-lg font-black"><span>Subtotal</span><div class="text-right"><span>${format(d.sub)}</span><p class="text-[10px] text-[#6a4da8]">${(d.sub / utmHoy).toFixed(4)} UTM</p></div></div>
+<div class="flex justify-between pt-2 text-lg font-black"><span>Subtotal</span><div class="text-right"><span>${format(d.sub)}</span><p class="text-[10px] text-[#5b21b6]">${(d.sub / utmHoy).toFixed(4)} UTM</p></div></div>
 `;
 document.getElementById('detailModal').classList.replace('hidden', 'flex'); lockBody();
 }
@@ -6121,7 +6114,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0600</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0621.0637</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8011,7 +8004,15 @@ function closeDupOverlay() {
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('dup-overlay--open');
   el.classList.add('dup-overlay--closing');
+  // Fallback: si animationend no dispara (animación interrumpida o no soportada),
+  // ocultar el overlay igualmente después de 400ms para evitar que quede residual.
+  const _fallbackTimer = setTimeout(() => {
+    el.style.display = 'none';
+    el.classList.remove('dup-overlay--closing');
+    document.body.style.overflow = '';
+  }, 400);
   el.addEventListener('animationend', function handler() {
+    clearTimeout(_fallbackTimer);
     el.style.display = 'none';
     el.classList.remove('dup-overlay--closing');
     document.body.style.overflow = '';
@@ -8117,14 +8118,23 @@ function dupCalcularDeuda() {
 
   // 2) Monto → campo correspondiente según la unidad elegida en el paso 1.
   //    Se limpia el otro campo y se dispara su handler (onLavUtmInput /
-  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado
-  //    — misma lógica que usa el usuario al tipear manualmente en LAV.
+  //    onLavClpInput), que ya sabe convertir con la UTM del mes seleccionado.
+  //    Fallback: si _lavGetUtmVal() devuelve null (UTM del mes no cargada),
+  //    se calcula CLP con getUtmActualVal() para que addAbonoLav() no retorne
+  //    silenciosamente por tempLavClp vacío.
   const elUtm = document.getElementById('tempLavUtm');
   const elClp = document.getElementById('tempLavClp');
   if (unidad === 'utm') {
     elUtm.value = String(monto).replace('.', ',');
     elClp.value = '';
     onLavUtmInput();
+    // Fallback: si onLavUtmInput no pudo convertir (UTM del mes no disponible)
+    if (!elClp.value) {
+      const _utmFallback = (typeof getUtmActualVal === 'function') ? getUtmActualVal() : 0;
+      if (_utmFallback > 0) {
+        elClp.value = new Intl.NumberFormat('es-CL').format(Math.round(monto * _utmFallback));
+      }
+    }
   } else {
     elClp.value = new Intl.NumberFormat('es-CL').format(monto);
     elUtm.value = '';
@@ -8170,20 +8180,6 @@ function dupCalcularDeuda() {
 <div id="welcomeScreen" class="ws-screen">
   <div class="ws-inner">
   <div class="ws-content">
-
-    <!-- Logo -->
-    <div class="ws-logo">
-      <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" class="ws-logo__svg">
-        <!-- Documento -->
-        <rect x="10" y="8" width="46" height="58" rx="8" stroke="#1a1d40" stroke-width="4.5" fill="none"/>
-        <line x1="22" y1="24" x2="44" y2="24" stroke="#1a1d40" stroke-width="4" stroke-linecap="round"/>
-        <!-- Símbolo $ -->
-        <text x="22" y="46" font-family="DM Sans, system-ui" font-weight="800" font-size="18" fill="#1a1d40">$</text>
-        <!-- Persona (verde) -->
-        <circle cx="60" cy="48" r="11" stroke="#22c55e" stroke-width="4" fill="none"/>
-        <path d="M44 70 C44 62 52 57 60 57 C68 57 76 62 76 70" stroke="#22c55e" stroke-width="4" stroke-linecap="round" fill="none"/>
-      </svg>
-    </div>
 
     <!-- Título -->
     <h1 class="ws-title">
@@ -8283,12 +8279,6 @@ function dupCalcularDeuda() {
       </svg>
     </button>
 
-    <!-- Dots de paginación -->
-    <div class="ws-dots">
-      <span class="ws-dot ws-dot--active"></span>
-      <span class="ws-dot"></span>
-      <span class="ws-dot"></span>
-    </div>
 
   </div><!-- /ws-footer -->
 
