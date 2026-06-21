@@ -1106,9 +1106,9 @@
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='400' viewBox='0 0 1200 400' fill='none'><path d='M-100 280C150 220 350 340 600 280S1050 200 1300 280' stroke='white' stroke-opacity='0.16' stroke-width='2'/><path d='M-100 320C200 380 400 260 650 320S1100 380 1300 320' stroke='white' stroke-opacity='0.12' stroke-width='2'/><path d='M-100 360C250 200 450 420 750 360S1150 240 1400 360' stroke='white' stroke-opacity='0.09' stroke-width='2'/></svg>");
-    background-size: cover;
-    background-position: center;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='300' viewBox='0 0 800 300' fill='none' preserveAspectRatio='none'><path d='M-50 60C150 -10 350 130 600 60S850 -10 900 60' stroke='white' stroke-opacity='0.20' stroke-width='3' fill='none'/><path d='M-50 160C200 230 400 90 600 160S850 230 900 160' stroke='white' stroke-opacity='0.15' stroke-width='3' fill='none'/><path d='M-50 250C220 320 420 170 620 250S850 320 900 250' stroke='white' stroke-opacity='0.11' stroke-width='3' fill='none'/></svg>");
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
   }
   /* Patrón de puntos decorativo (dots) */
   .hero-total-card::after {

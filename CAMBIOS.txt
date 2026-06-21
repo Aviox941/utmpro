@@ -1,8 +1,47 @@
 ==================================================================================
 Fecha: 2026-06-20
 
-NUEVO: Rediseño visual de la tarjeta hero "Total Adeudado" (gradiente, ondas
-y patrón de puntos)
+NUEVO: Eliminado el recuadro "Cuota actual" de la pantalla "¿Qué deseas
+calcular?" (Paso 2 de 2)
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  Se pidió quitar la tarjeta que mostraba "Cuota actual / 2,33 UTM / ≈
+  $166.609 / Cambiar" dentro de calcTypeScreen.
+
+QUÉ SE CAMBIÓ
+  - Se eliminó el bloque <div class="cs-quota-card">...</div> del HTML
+    (index.html, dentro de #calcTypeScreen).
+  - openCalcTypeScreen() ya escribía sobre csQuotaMain/csQuotaSecondary con
+    null-checks (if (mainEl) / if (secEl)), así que no fue necesario tocar
+    el JS: simplemente deja de encontrar esos elementos y no hace nada.
+
+NO TOCAR (se mantuvo intacto)
+  - Las 4 opciones de cálculo (Desde el último pago, Entre fechas, Con
+    lagunas, Pagos parciales) y su lógica.
+  - _csUtmActual / _csClpActual / _csUnidadActual siguen actualizándose
+    igual, por si se usan en otro punto del flujo.
+
+──────────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────────
+CONTEXTO
+  La pantalla quotaScreen (Paso 1 de 2 del onboarding) abría siempre con el
+  selector en "$ CLP". Se pidió que el valor por defecto sea UTM.
+
+QUÉ SE CAMBIÓ
+  1. var _qsUnidad = 'clp' -> 'utm' (index.html).
+  2. <span id="qsCurrencyLabel"> ahora arranca en "UTM" en vez de "$ CLP".
+  3. El input ya tenía inputmode="decimal", que es el correcto para UTM, así
+     que no requirió cambios adicionales.
+  4. El botón de la pastilla de moneda (qsToggleUnidad) sigue funcionando
+     igual: el usuario puede tocarlo para cambiar a CLP si lo prefiere.
+
+NO TOCAR (se mantuvo intacto)
+  - Lógica de conversión CLP↔UTM (qsToggleUnidad, confirmQuotaScreen).
+  - El resto del flujo de onboarding (Paso 2 de 2, calcTypeScreen).
+
+──────────────────────────────────────────────────────────────────────────────────
+
 ──────────────────────────────────────────────────────────────────────────────────
 CONTEXTO
   Se pidió que la tarjeta azul del total adeudado tuviera un look más
