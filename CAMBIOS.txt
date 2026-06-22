@@ -16,6 +16,50 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0030
+Archivos modificados: index.html, sw.js
+
+Corrección — Overlay "Entre fechas" (#befOverlay): un abono LAV (u otro dato
+de un cálculo anterior) quedaba "pegado" y se sumaba al nuevo cálculo:
+  befCalcularDeuda() (agregada en v2.0621.2324) nunca llamaba a
+  resetAllExceptPensionData() antes de aplicar el nuevo período/monto — a
+  diferencia de dupCalcularDeuda(), que sí lo hace. Si ya había un cálculo
+  hecho con abonos LAV registrados, un nuevo cálculo "Entre fechas" los
+  conservaba en vez de partir limpio.
+
+  Se agrega la misma limpieza (abonos, LAV, pagos parciales, deuda
+  histórica, consolidada, resultados) que usa el flujo DUP, preservando
+  "Datos de Pensión" intacta. El mes/año de befStart/befEnd se traduce a
+  startIndex/endIndex ANTES de llamar a resetAllExceptPensionData(), ya que
+  esa función limpia todos los inputs no protegidos (incluidos los hidden
+  de befStart/befEnd) — leerlos después del reset los habría encontrado
+  vacíos.
+
+================================================================================
+
+v2.0622.0000
+Archivos modificados: index.html, sw.js
+
+Mejora — Overlay "Desde el último pago" (#dupOverlay): nuevo campo "Monto
+de la cuota mensual" (Paso 2), interruptor del valor "Cuota Mensual" de
+"Período Actual":
+  El overlay solo tenía "Monto de la última cuota pagada" (ahora Paso 3),
+  que se registra como abono LAV pero nunca escribe el valor recurrente de
+  cuota mensual (utmAmount/clpAmount) que usa calculate() para proyectar
+  intereses hacia adelante. Si "Datos de Pensión" estaba vacía o desactualizada,
+  el cálculo "Desde el último pago" usaba una cuota mensual incorrecta o nula.
+
+  Se agrega input #dupCuotaMensual (mismo patrón de saneo/formateo que
+  #dupMontoCuota, comparte la unidad UTM/CLP del Paso 1, se prellena desde
+  utmAmount/clpAmount al abrir el overlay). dupCalcularDeuda() ahora valida
+  el nuevo campo y, ANTES de registrar el abono LAV, escribe su valor en
+  utmAmount/clpAmount + calculationMode (vía setCalcMode()) — mismo patrón
+  ya usado en la corrección del overlay "Entre fechas" (v2.0621.2324) — de
+  modo que calculate() (disparado dentro de addAbonoLav()) ya calcula con
+  la cuota mensual correcta y "Período Actual" queda sincronizado.
+
+================================================================================
+
 v2.0621.2324
 Archivos modificados: index.html, sw.js
 

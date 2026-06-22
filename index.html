@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.2324">
+ <meta name="app-version" content="v2.0622.0030">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7980,10 +7980,33 @@ function _ayudaAbrirTema(t) {
         </div>
       </div>
 
-      <!-- Paso 2: Monto -->
+      <!-- Paso 2: Cuota mensual (interruptor del valor "Cuota Mensual" que usa
+           la tarjeta "Período Actual" / Datos de Pensión — independiente del
+           monto de la ÚLTIMA cuota pagada del Paso 3, que solo registra el
+           abono LAV). Comparte la unidad elegida en el Paso 1. -->
       <div class="dup-step">
         <div class="dup-step__header">
           <span class="dup-step__badge">2</span>
+          <span class="dup-step__label">Monto de la cuota mensual</span>
+        </div>
+        <div class="dup-input-wrap">
+          <span class="dup-input__prefix" id="dupCuotaMensualPrefix">UTM</span>
+          <input
+            type="text"
+            id="dupCuotaMensual"
+            class="dup-input"
+            placeholder="0,00"
+            inputmode="decimal"
+            aria-label="Monto de la cuota mensual"
+            oninput="dupFormatCuotaMensualInput(this)"
+          >
+        </div>
+      </div>
+
+      <!-- Paso 3: Monto -->
+      <div class="dup-step">
+        <div class="dup-step__header">
+          <span class="dup-step__badge">3</span>
           <span class="dup-step__label">Monto de la última cuota pagada</span>
         </div>
         <div class="dup-input-wrap">
@@ -8000,10 +8023,10 @@ function _ayudaAbrirTema(t) {
         </div>
       </div>
 
-      <!-- Paso 3: Fecha último pago -->
+      <!-- Paso 4: Fecha último pago -->
       <div class="dup-step">
         <div class="dup-step__header">
-          <span class="dup-step__badge">3</span>
+          <span class="dup-step__badge">4</span>
           <span class="dup-step__label">¿Cuál fue la fecha del último pago?</span>
         </div>
         <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV (openCalendar('dup')) -->
@@ -8119,6 +8142,12 @@ function dupPrefillFromPensionData() {
   } else {
     input.value = formatPlain(clpVal);
   }
+  // Cuota mensual (Paso 2, nuevo) — mismo valor de origen, ya que representa
+  // lo mismo que utmAmount/clpAmount de "Datos de Pensión" en este momento.
+  var inputCuota = document.getElementById('dupCuotaMensual');
+  if (inputCuota) {
+    inputCuota.value = (unidad === 'utm') ? utmVal.toFixed(2).replace('.', ',') : formatPlain(clpVal);
+  }
 }
 
 
@@ -8129,6 +8158,10 @@ function dupSelectUnidad(val) {
   document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
   document.getElementById('dupMontoCuota').placeholder = isUTM ? '0,00' : '0';
   document.getElementById('dupMontoCuota').value = '';
+  const cuotaPrefix = document.getElementById('dupCuotaMensualPrefix');
+  const cuotaInput = document.getElementById('dupCuotaMensual');
+  if (cuotaPrefix) cuotaPrefix.textContent = isUTM ? 'UTM' : '$';
+  if (cuotaInput) { cuotaInput.placeholder = isUTM ? '0,00' : '0'; cuotaInput.value = ''; }
   var btnUTM = document.getElementById('dupRadioLabelUTM');
   var btnCLP = document.getElementById('dupRadioLabelCLP');
   btnUTM.classList.toggle('dup-radio--active', isUTM);
@@ -8157,6 +8190,22 @@ function dupFormatMontoInput(input) {
     var rawClp = input.value.replace(/\D/g, '');
     input.value = rawClp === '' ? '' : formatPlain(rawClp);
   }
+}
+
+// Mismo saneo que dupFormatMontoInput(), aplicado al nuevo campo "Cuota
+// mensual" (Paso 2) — comparte unidad (_dupUnidad) con el resto del overlay.
+function dupFormatCuotaMensualInput(input) {
+  dupFormatMontoInput(input);
+}
+
+// Convierte el valor visible del campo "Cuota mensual" al número real,
+// mismo criterio que dupGetMontoValue().
+function dupGetCuotaMensualValue() {
+  var raw = (document.getElementById('dupCuotaMensual')?.value || '').trim();
+  if (_dupUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
 }
 
 // Convierte el valor visible (con coma decimal en UTM, o con puntos de
@@ -8190,12 +8239,17 @@ function dupSetFechaDisplay(d, mIdx, anio) {
 function dupCalcularDeuda() {
   const unidad = _dupUnidad; // 'utm' | 'clp'
   const monto  = dupGetMontoValue();
+  const cuotaMensual = dupGetCuotaMensualValue();
   const dia  = document.getElementById('dupDia').value;
   const mes  = document.getElementById('dupMes').value;
   const anio = document.getElementById('dupAnio').value;
 
   if (!monto || monto <= 0) {
     alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!cuotaMensual || cuotaMensual <= 0) {
+    alert('Ingresa el monto de la cuota mensual.');
     return;
   }
   if (!dia || !mes || !anio) {
@@ -8210,6 +8264,17 @@ function dupCalcularDeuda() {
   //    monto. La tarjeta "Datos de Pensión" (cuota UTM/CLP, % sueldo, IMM,
   //    día de vencimiento) se preserva intacta.
   if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
+
+  // 0.b) Cuota mensual (Paso 2, nuevo): el overlay es también un interruptor
+  //      del valor "Cuota Mensual" de la tarjeta "Período Actual" — se
+  //      escribe ANTES de registrar el abono LAV para que calculate()
+  //      (disparado dentro de addAbonoLav()) ya use el monto correcto.
+  setCalcMode(unidad);
+  if (unidad === 'utm') {
+    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
+  } else {
+    document.getElementById('clpAmount').value = formatPlain(cuotaMensual);
+  }
 
   // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
   document.getElementById('tempLavMes').value  = mes;
@@ -8250,6 +8315,7 @@ function dupCalcularDeuda() {
   // 4) Resetear el formulario del DUP para que la próxima vez que se abra
   //    no queden datos de un cálculo anterior.
   document.getElementById('dupMontoCuota').value = '';
+  document.getElementById('dupCuotaMensual').value = '';
   document.getElementById('dupDia').value  = '';
   document.getElementById('dupMes').value  = '';
   document.getElementById('dupAnio').value = '';
@@ -8571,6 +8637,8 @@ function befCalcularDeuda() {
 
   // Traducir mes/año de befStart/befEnd al índice real sobre utmData —
   // misma fuente que usan los calendarios 'start'/'end' de "Período Actual".
+  // Se calcula ANTES de resetAllExceptPensionData() porque esa función
+  // limpia todos los inputs no protegidos, incluidos estos hidden.
   const befStartMes  = parseInt(document.getElementById('befStartMes').value, 10);
   const befStartAnio = parseInt(document.getElementById('befStartAnio').value, 10);
   const befEndMes    = parseInt(document.getElementById('befEndMes').value, 10);
@@ -8581,6 +8649,15 @@ function befCalcularDeuda() {
     alert('No hay datos UTM disponibles para las fechas seleccionadas.');
     return;
   }
+
+  // Limpiar TODO el cálculo previo (abonos, LAV, pagos parciales, deuda
+  // histórica, consolidada, resultados) ANTES de aplicar el nuevo período —
+  // evita que un abono LAV (u otro dato) de un cálculo anterior quede
+  // "pegado" y se sume al nuevo cálculo "Entre fechas". La tarjeta "Datos
+  // de Pensión" (cuota UTM/CLP, % sueldo, IMM, día de vencimiento) se
+  // preserva intacta. Mismo patrón que usa dupCalcularDeuda().
+  if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
+
   startIndex = newStartIndex;
   endIndex   = newEndIndex;
 
