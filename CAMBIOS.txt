@@ -16,7 +16,49 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
-v2.0622.0180
+v2.0622.0190
+Archivos modificados: index.html, styles.css
+
+Ajuste visual — Tarjeta "Depósitos LAV": tres correcciones de fidelidad al
+mockup detectadas por Pablo tras v2.0622.0180.
+
+  1. Badge "Cobertura X%" — Pablo decidió SÍ incorporarlo (cambio de
+     decisión respecto a v2.0622.0160, donde se descartó explícitamente).
+     Cálculo: % de la cuota UTM del mes ya cubierto por el TOTAL de
+     depósitos LAV acumulados de ese mismo período (no por el depósito
+     individual) — mismo criterio que ya usa "diff" para determinar
+     parcial/excedente/cubierto en renderAbonosLav(). Si dos depósitos
+     caen en el mismo mes, ambos muestran el mismo % (el del mes),
+     consistente con que la cobertura es del período, no del depósito
+     aislado. No se agregó ningún cálculo nuevo de cobertura por fuera de
+     lo ya existente — coberturaPct = totalLavMes / cuotaUTMPeriodo * 100,
+     usando las mismas variables que ya calculaba la función. El estado
+     real detallado (✓ Cuota cubierta / ⚠ Parcial · Rem. X UTM ≈ $Y /
+     ↪ Excedente X UTM ≈ $Y) se conserva como información secundaria, en
+     una segunda línea bajo la fila principal (.lavx-history__detail) —
+     no se eliminó nada, solo se reorganizó la jerarquía visual.
+
+  2. Filas de "Últimos depósitos" — se veían como texto apilado en vez de
+     fila de tarjeta tipo mockup. Se reestructura cada ítem en dos
+     bloques: .lavx-history__row (línea principal: check, fecha, monto,
+     UTM, badge de cobertura, flecha decorativa ›, botón eliminar — todo
+     en una sola línea horizontal) y .lavx-history__detail (línea
+     secundaria opcional, el texto de estado real). En pantallas ≤380px,
+     si no caben todos los elementos en una línea, el badge + flecha pasan
+     a una segunda línea controlada (wrap), nunca se corta contenido.
+
+  3. Botón "Agregar abono LAV" — se veía con gradiente claro y más alto
+     que en el mockup. Se cambia a verde sólido (#18a76f, sin gradiente) y
+     se reduce su altura (44px→38px) y radio (13px→10px), más fiel al
+     grosor del botón en el mockup de referencia.
+
+  Sin cambios de lógica de cálculo — coberturaPct es una variable nueva
+  puramente de presentación, calculada a partir de cuotaUTMPeriodo y
+  totalLavMes (ya existentes), dentro de renderAbonosLav(). No se tocó
+  calculate(), addAbonoLav(), removeAbonoLav() ni ninguna función de
+  imputación.
+
+================================================================================
 Archivos modificados: styles.css
 
 Ajuste visual — Tarjeta "Depósitos LAV" (.lavx-*): reescalado completo a un

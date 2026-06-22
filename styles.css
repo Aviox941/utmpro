@@ -5444,18 +5444,18 @@
 /* ── Botón Agregar abono LAV ─────────────────────────────── */
 .lavx-add-btn {
   width: 100%;
-  height: 44px;
-  margin-top: 13px;
+  height: 38px;
+  margin-top: 12px;
   border: none;
-  border-radius: 13px;
-  background: linear-gradient(135deg, #19b26f, #12c57b);
+  border-radius: 10px;
+  background: #18a76f;
   color: #fff;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 700;
   font-family: var(--font-main);
-  transition: transform var(--transition-fast), opacity var(--transition-fast);
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast);
 }
-.lavx-add-btn:active { transform: scale(0.97); }
+.lavx-add-btn:active { transform: scale(0.97); background: #15915f; }
 .lavx-add-btn:disabled {
   background: rgba(16,185,129,0.15);
   color: #94a3b8;
@@ -5492,18 +5492,23 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 220px;
+  max-height: 260px;
   overflow-y: auto;
 }
 
+/* Tarjeta de cada depósito: fila principal (.lavx-history__row) en una
+   sola línea horizontal —fiel al mockup—, más una segunda línea opcional
+   (.lavx-history__detail) con el detalle del estado real (parcial/
+   excedente/cubierto), que no cabría junto al badge de cobertura. */
 .lavx-history__item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
+  padding: 8px 9px 7px;
   border: 1px solid #edf2f7;
   border-radius: 11px;
-  flex-wrap: wrap;
+}
+.lavx-history__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .lavx-history__check {
   width: 17px;
@@ -5525,25 +5530,35 @@
   font-weight: 600;
   color: var(--color-text-secondary);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .lavx-history__date svg { width: 10px; height: 10px; }
 .lavx-history__amount {
   font-size: 10px;
   font-weight: 700;
   color: var(--color-text-primary);
+  white-space: nowrap;
 }
 .lavx-history__utm {
   font-size: 9px;
   font-weight: 600;
   color: #18a76f;
+  white-space: nowrap;
+}
+.lavx-history__chevron {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .lavx-history__remove {
-  margin-left: auto;
   color: #dc2626;
   font-weight: 700;
   font-size: 13px;
-  padding: 0 3px;
+  padding: 0 0 0 4px;
   flex-shrink: 0;
+}
+.lavx-history__detail {
+  margin-top: 4px;
+  padding-left: 23px; /* alineado bajo fecha/monto, después del check */
 }
 .lavx-history__group-label {
   font-size: 9px;
@@ -5554,10 +5569,27 @@
   padding: 6px 2px 2px;
 }
 
-.lavx-status {
-  font-size: 9.5px;
+/* Badge "Cobertura X%" — visual, fiel al mockup. No reemplaza el estado
+   real (lavx-status, debajo en la segunda línea); es un resumen rápido
+   de cuánto de la cuota del mes ya está cubierto por el total LAV
+   acumulado de ese período. */
+.lavx-coverage {
+  font-size: 8.5px;
   font-weight: 700;
-  flex-basis: 100%;
+  padding: 3px 7px;
+  border-radius: 7px;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.lavx-coverage--ok { background: #e9faf2; color: #18a76f; }
+.lavx-coverage--parcial { background: #fef3e0; color: #b45309; }
+/* Cuando hay badge de cobertura, ya cumple el rol de "margin-left:auto";
+   el chevron queda inmediatamente después, sin empujarse por separado. */
+.lavx-coverage ~ .lavx-history__chevron { margin-left: 6px; }
+
+.lavx-status {
+  font-size: 9px;
+  font-weight: 700;
 }
 .lavx-status--parcial { color: #b45309; }
 .lavx-status--excedente { color: #18a76f; }
@@ -5572,4 +5604,12 @@
   .lavx-convert-icon svg { width: 14px; height: 14px; }
   .lavx-input-box { padding: 0 8px; }
   .lavx-quota-card { flex-direction: column; align-items: flex-start; gap: 8px; }
+
+  /* Fila de historial: en pantallas muy angostas, fecha+monto+UTM+badge+
+     chevron+eliminar pueden no caber en una sola línea. Se permite que el
+     badge de cobertura + chevron pasen a una segunda línea (wrap), en vez
+     de comprimir o cortar el texto. */
+  .lavx-history__row { flex-wrap: wrap; row-gap: 4px; }
+  .lavx-coverage { margin-left: 23px; } /* alineado bajo fecha, como el detalle */
+  .lavx-coverage ~ .lavx-history__chevron { margin-left: 6px; }
 }
