@@ -16,6 +16,82 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0160
+Archivos modificados: index.html, styles.css, sw.js
+
+Rediseño visual — Tarjeta "Depósitos LAV": nuevo diseño basado en mockup
+provisto por Pablo (imagen + código/CSS de referencia en CODIGO_LAV_CARD.docx).
+Cambio puramente visual — sin tocar lógica de cálculo, inputs reales ni
+funciones de imputación (Art. 1595, reasignarPeriodosLav, addAbonoLav, etc.).
+
+  Decisiones confirmadas con Pablo antes de implementar:
+  1. Chip "Cuota vigente" (header derecho del bloque Cuota Mensual): se
+     agrega sin acción asignada — placeholder visual a configurar en una
+     entrega futura.
+  2. Encabezado "X depósitos registrados • Último: dd/mm/aaaa": calculado
+     en vivo desde abonosLav (cantidad + fecha del depósito más reciente),
+     reemplazando el texto fijo del mockup.
+  3. Bloque "Cuota Mensual" (UTM grande + equivalente CLP): de solo lectura,
+     siempre muestra el valor de "Período Actual" (getMonthlyValues()), con
+     fallback al campo de modo libre LAV (#lavCuotaUtm) si Período Actual
+     no tiene cuota definida.
+  4. Badge "Cobertura X%" del mockup: NO implementado, por decisión
+     explícita de Pablo. Se conserva el indicador de estado real ya
+     existente (✓ Cuota cubierta / ⚠ Parcial / ↪ Excedente), solo con
+     estilo visual nuevo (antes era un bloque de texto, ahora una línea
+     compacta dentro de la fila del depósito).
+  5. "Ver todos (N)" y la flecha "›" de cada fila: sin funcionalidad por
+     ahora (decorativos), tal como fue solicitado.
+  6. Ícono ⇄ entre los campos CLP/UTM: decorativo. La sincronización
+     automática entre ambos campos (onLavClpInput/onLavUtmInput) ya
+     existía y no fue modificada.
+
+  Cambios técnicos:
+  - HTML (index.html): se reemplaza el contenedor .dh-card de la tarjeta
+    LAV por una nueva estructura .lavx-card / .lavx-header / .lavx-body,
+    con bloque "Cuota Mensual" (#lavxQuotaValue, #lavxQuotaClp), bloque
+    "Cuota mensual (modo libre)" reubicado bajo un separador discreto, grid
+    de depósito CLP/UTM con ícono de conversión decorativo, selector de
+    fecha con ícono de calendario, y bloque "Últimos depósitos"
+    (#lavxHistoryWrap) con header "Ver todos (N)". TODOS los IDs
+    funcionales existentes se preservan sin cambios: lavBody, lavChevron,
+    lavModoLibreWrap, lavCuotaUtm, tempLavClp, tempLavUtm, tempLavMes/
+    Anio/Dia, tempLavPickerBtn, tempLavLabel, lavUtmChip, btnAddLav,
+    lavListContainer — por lo que ningún handler (onLavClpInput,
+    onLavUtmInput, addAbonoLav, openCalendar('lav'), openOcrLav,
+    toggleSection) requirió modificación.
+  - JS (index.html): se agregan dos funciones nuevas, puramente de
+    presentación — no participan del cálculo:
+      · lavxUpdateQuotaDisplay() — lee getMonthlyValues() (Período Actual)
+        y, si no hay cuota definida ahí, el campo #lavCuotaUtm (modo
+        libre), y actualiza #lavxQuotaValue/#lavxQuotaClp. Se invoca desde
+        el inicio de renderLavSummary() (ya se llama en los 3 puntos de
+        salida de calculate()), por lo que queda sincronizada con cada
+        recálculo sin tocar calculate() ni calculatePensiones().
+      · lavxUpdateHeaderSubtitle() — lee abonosLav.length y la fecha del
+        depósito más reciente, actualiza #lavxSubtitle. Se invoca al
+        inicio de renderAbonosLav() (ya se llama tras addAbonoLav() y
+        removeAbonoLav()).
+    renderAbonosLav(): se modifica únicamente el HTML generado por
+    renderItem() (markup de cada fila → clases .lavx-history__*) y se
+    agrega mostrar/ocultar #lavxHistoryWrap + actualizar el contador de
+    "Ver todos (N)". La lógica de cálculo de cobertura por mes (override
+    de período variable, detección de parcial/excedente/cubierto vía
+    diff = cuotaUTMPeriodo - totalLavMes) NO se modificó — solo se
+    simplificó el texto de cada estado para la fila compacta.
+  - CSS (styles.css): bloque nuevo .lavx-* (card, header, icon, quota
+    card, deposit grid, input box, date box, add button, history list,
+    status), en paleta verde/azul fiel al mockup. Se incluyen ajustes de
+    escala respecto al mockup original (confirmados con Pablo): ícono de
+    header 56px→44px, título 24px→15px, valor de cuota 42px→32px, altura
+    de inputs 68px→56px, botón "Agregar abono LAV" 70px→58px — para
+    mantener proporción con el resto de las tarjetas (.dh-card) de la app,
+    ya que el mockup fue diseñado como pantalla aislada.
+  - Validación: node --check sobre el JS inline extraído de index.html y
+    sobre export.js — ambos sin errores de sintaxis.
+
+================================================================================
+
 v2.0622.0130
 Archivos modificados: index.html, sw.js
 
