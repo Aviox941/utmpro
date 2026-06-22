@@ -16,6 +16,27 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0230
+Archivos modificados: index.html, styles.css, sw.js
+
+Bug fix — Hero total card no reseteaba al eliminar abono LAV:
+  En renderLavSummary(), cuando abonosLav queda vacío y no hay cálculo de
+  pensiones activo, se resetean grandEl (a '0') y grandUtm (a '0.00 UTM').
+  Antes solo se ocultaba heroLavRow pero los valores escritos por el abono
+  previo quedaban visibles en el número grande de la tarjeta azul.
+
+Bug fix — Welcome screen se re-disparaba al volver desde segundo plano:
+  ws_done ahora se setea en sessionStorage en el momento en que se muestra
+  la welcome screen (no al cerrarla). Así, si el usuario minimiza la app
+  antes de que termine la animación de cierre, un TOKEN_REFRESHED o
+  SIGNED_IN posterior no vuelve a abrir el overlay.
+
+Fix visual — Botón "Registrar abono LAV" (lavx-add-btn):
+  Altura reducida de 38px → 32px, margin-top de 12px → 10px,
+  border-radius de 10px → 8px, font-size de 11.5px → 10.5px.
+  Color de fondo cambiado de #18a76f → #0f7a52 (verde más oscuro y sólido).
+  Color active actualizado a #0a5c3d.
+
 v2.0622.0200
 Archivos modificados: index.html, sw.js
 

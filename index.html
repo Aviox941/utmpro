@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0200">
+ <meta name="app-version" content="v2.0622.0230">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3476,6 +3476,14 @@ function renderLavSummary() {
 
   if (lav.length === 0) {
     heroRow.classList.add('hidden');
+    // BUG FIX: si no hay cálculo de pensiones activo, resetear el número grande
+    // que pudo haber sido escrito por un abono LAV previo (modo sin período).
+    const hayCalculo = typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0;
+    if (!hayCalculo) {
+      grandEl.innerText = '0';
+      grandEl.style.fontFamily = '';
+      if (grandUtm) grandUtm.textContent = '0.00 UTM';
+    }
     return;
   }
 
@@ -7651,7 +7659,13 @@ sb.auth.onAuthStateChange(async (event, session) => {
     // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
     if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
       var ws = document.getElementById('welcomeScreen');
-      if (ws) { ws.style.display = 'flex'; qsLockBodyScroll(); }
+      if (ws) {
+        ws.style.display = 'flex';
+        qsLockBodyScroll();
+        // Marcar inmediatamente para que volver al primer plano (visibility)
+        // o un TOKEN_REFRESHED no vuelva a disparar la welcome screen.
+        sessionStorage.setItem('ws_done', '1');
+      }
     }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
