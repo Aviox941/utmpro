@@ -16,7 +16,48 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
-v2.0622.0170
+v2.0622.0180
+Archivos modificados: styles.css
+
+Ajuste visual — Tarjeta "Depósitos LAV" (.lavx-*): reescalado completo a un
+tamaño proporcional al resto de las tarjetas de la app (.dh-card, .input-*),
+que usan tipografías ~9-14px y controles compactos. El rediseño de
+v2.0622.0160 había heredado las medidas del mockup aislado (pensado como
+pantalla a pantalla completa), lo que hacía que esta tarjeta se viera
+notoriamente más grande que el resto de la interfaz — ícono de header 44px,
+título 15px, valor "Cuota Mensual" 32px, inputs CLP/UTM de 56px de alto con
+fuente 18-20px, botón "Agregar abono LAV" de 58px con fuente 15px.
+
+  Cambios (solo tamaños/paddings/radios — sin tocar colores, estructura,
+  textos ni lógica):
+  - Header: ícono 44px→34px, título 15px→12px, subtítulo 11px→9px,
+    botones OCR/colapsar 38px→29px.
+  - Bloque "Cuota Mensual": valor grande 32px→23px, equivalente CLP
+    12px→10px, chip "Cuota vigente" 11px→9.5px.
+  - Bloque "Cuota mensual (modo libre)": título 10px→9px, hint 9px→8px.
+  - Inputs CLP/UTM (.lavx-input-box): alto 56px→42px, fuente 18-20px→
+    13.5-15px, radio 16px→12px. Ícono de conversión ⇄ ajustado a la misma
+    altura.
+  - Fecha de pago (.lavx-date-box): alto 56px→42px, fuente 15px→12.5px,
+    íconos 18px→14px.
+  - Botón "Agregar abono LAV": alto 58px→44px, fuente 15px→12px, radio
+    18px→13px.
+  - Historial "Últimos depósitos": ítems, fechas, montos, check, ícono de
+    eliminar — todos reducidos proporcionalmente (~20-25%).
+
+  Bonus — Fix adicional del grid CLP/UTM en pantallas angostas: el media
+  query (max-width: 380px) agregado en v2.0622.0170 colapsaba el grid de
+  depósito a 1 columna ("Valor depósito en pesos" arriba, "Valor depósito
+  en UTM" abajo, uno tras otro) en celulares con ancho CSS ≤380px (la
+  mayoría de los celulares reales) — el reporte de Pablo de "Chrome
+  reubica las casillas, una arriba y la otra abajo" venía de esta regla.
+  Se reemplaza por una versión que mantiene las 2 columnas + ícono central
+  pero con el grid/ícono más angostos (26px), evitando el apilamiento.
+  Con la base ya compacta de este ajuste, el resto de las reglas de ese
+  media query (que reducían tamaños ya grandes del mockup original)
+  quedaron redundantes y se eliminaron.
+
+================================================================================
 Archivos modificados: index.html, sw.js
 
 Fix — Overlays "Desde el último pago" (#dupOverlay) y "Entre fechas"
