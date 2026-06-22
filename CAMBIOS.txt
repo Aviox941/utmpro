@@ -21,36 +21,45 @@ Archivos modificados: index.html, styles.css
 
 Corrección — Overlay "Entre fechas" (#befOverlay) deja de usar
 <input type="date"> nativo y pasa a usar el mismo calendario custom
-(#calendarModal) que ya usan Depósitos LAV y "Desde el último pago" (DUP):
+(#calendarModal) que ya usa "Período Actual" (Datos de Pensión):
   Los Pasos 3 y 4 del overlay (fecha de inicio / fecha de fin) abrían el
   date picker nativo del sistema operativo en lugar del calendario propio
-  de la app — único punto de la interfaz que aún no usaba el componente
-  custom. Ahora ambos pasos abren #calendarModal mediante dos nuevos modos
-  de calendarMode: 'befStart' y 'befEnd' (uno por cada fecha, ya que a
-  diferencia del DUP — que solo captura una fecha — "Entre fechas" necesita
-  dos independientes).
+  de la app. Ahora ambos pasos abren #calendarModal mediante dos nuevos
+  modos de calendarMode: 'befStart' y 'befEnd' (uno por cada fecha).
+  Estos modos replican exactamente el comportamiento de 'start'/'end'
+  (calendario de "Período Actual"): mes/año puro, SIN selector de día —
+  al hacer clic en un mes el calendario guarda mes/año y permanece en la
+  vista de meses (no pasa a la vista de días, a diferencia de
+  'dup'/'lav'/'abono'/'parcial', que sí navegan a un selector de día tras
+  elegir el mes).
   - Cada paso pasó de un único <input type="date"> a un trío de hidden
     inputs (befStartDia/Mes/Anio y befEndDia/Mes/Anio) + un <span> de
     display (befStartFechaDisplay / befEndFechaDisplay) dentro de
-    .bef-date-wrap, ahora clickeable vía onclick="openCalendar('befStart')"
-    / onclick="openCalendar('befEnd')" — mismo patrón que el DUP.
-  - Se agregó la rama 'befStart'/'befEnd' en las 7 funciones del calendario
-    custom que ya distinguían por calendarMode: openCalendar (año de
+    .bef-date-wrap, clickeable vía onclick="openCalendar('befStart')" /
+    onclick="openCalendar('befEnd')". El "Dia" hidden se completa
+    internamente con "Día de Vencimiento" (capado a 28) solo para poder
+    construir una fecha ISO completa que usa la validación de rango en
+    befCalcularDeuda() — el usuario nunca elige ni ve ese día; el display
+    muestra solo "Mes Año" (p. ej. "Ene 2026"), igual que startLabel/
+    endLabel del período principal.
+  - Se agregó la rama 'befStart'/'befEnd' en openCalendar (año de
     arranque), changeYear (navegación libre por todos los años con datos
-    UTM, igual que DUP), renderCalendar (flechas de navegación, outOfRange,
-    futureBlocked —ambas fechas bloquean meses futuros, igual que el
-    período principal—, isActive del mes resaltado, onclick del mes →
-    renderDaySelector), renderDaySelector (diaIdRef y onclick del día,
-    que solo guarda la fecha y cierra, sin disparar ningún cálculo —igual
-    criterio que DUP—), updateCalendarActionBtn y calendarAction (el botón
-    siempre cierra: la confirmación real ocurre en "Calcular deuda actual").
+    UTM, igual que DUP — sin restricción de rango entre ambas fechas),
+    renderCalendar (flechas de navegación, outOfRange, futureBlocked
+    —bloquea meses futuros, igual que el período principal—, isActive del
+    mes resaltado, onclick del mes → guarda mes/año + actualiza display +
+    confirma, SIN pasar a renderDaySelector), updateCalendarActionBtn
+    (muestra "✓ Confirmar" en cuanto hay mes/año, igual que start/end) y
+    calendarAction (el mes/año ya quedó guardado en el clic; este botón
+    solo cierra el modal).
   - Se agregó z-index override en openCalendar (#calendarModal sube a
     100001 en modo 'befStart'/'befEnd', igual que en 'dup', para no quedar
     tapado por el overlay #befOverlay que es z-index 100000).
-  - Funciones nuevas: befSetFechaDisplay(which, d, mIdx, anio) — actualiza
-    el <span> de display correspondiente ('start' o 'end') — y
-    befGetFechaISO(which) — construye un ISO YYYY-MM-DD desde los hidden
-    inputs para la validación de rango en befCalcularDeuda().
+  - Funciones nuevas: befSetFechaDisplay(which, mIdx, anio) — actualiza el
+    <span> de display correspondiente ('start' o 'end') con formato
+    "Mes Año" — y befGetFechaISO(which) — construye un ISO YYYY-MM-DD
+    desde los hidden inputs para la validación de rango en
+    befCalcularDeuda().
   - befCalcularDeuda() y befPrefillFromPensionData() se actualizaron para
     leer/escribir los nuevos hidden inputs en vez del .value de
     <input type="date">. No se modificó la lógica de validación de rango
