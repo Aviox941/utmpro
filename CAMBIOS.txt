@@ -16,6 +16,24 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0130
+Archivos modificados: index.html, sw.js
+
+Fix — Flash de interfaz al abrir "Entre fechas" desde calcTypeScreen:
+
+  Causa raíz: al conectar la tarjeta del dock en la entrega anterior se
+  agregó un segundo addEventListener('click') sobre .calc-mode-card--purple,
+  además del que ya existía en befPrefillFromPensionData(). Al hacer click
+  ambos listeners disparaban simultáneamente → openBefOverlay() se llamaba
+  dos veces, produciendo el flash visible.
+
+  Fix: eliminado el listener duplicado (la conexión del dock ya estaba
+  implementada correctamente en el bloque original de befPrefillFromPensionData).
+
+  La transición desde calcTypeScreen (csOpenEntreFechas) ya tenía
+  skipSlideIn=true correctamente aplicado — mismo patrón que
+  csOpenDesdeUltimoPago — por lo que no requirió cambios adicionales.
+
 v2.0622.0100
 Archivos modificados: index.html, styles.css, sw.js
 

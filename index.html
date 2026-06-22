@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0100">
+ <meta name="app-version" content="v2.0622.0130">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8332,11 +8332,6 @@ function dupCalcularDeuda() {
 // Conectar la tarjeta "Desde el último pago" al overlay
 (function() {
   const card = document.querySelector('.calc-mode-card--blue');
-  // No pasar openDupOverlay directo como handler: addEventListener invoca
-  // el callback con el objeto Event como primer argumento, que sería
-  // truthy y activaría por error el modo skipSlideIn (pensado solo para
-  // la transición encadenada desde calcTypeScreen). El dock debe conservar
-  // siempre el slide-up normal.
   if (card) card.addEventListener('click', function() {
     openDupOverlay();
     dupPrefillFromPensionData();
@@ -9035,7 +9030,7 @@ function befPrefillFromPensionData() {
         </div>
       </div>
 
-      <div class="cs-option cs-option--green">
+      <div class="cs-option cs-option--green" role="button" tabindex="0" onclick="csOpenEntreFechas()">
         <div class="cs-option-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="3"/>
@@ -9357,6 +9352,39 @@ function csPrefillDesdeUltimoPago() {
     inputCuota.value = (unidad === 'utm') ? _csUtmActual.toFixed(2).replace('.', ',') : formatPlain(Math.round(_csClpActual));
   }
   // Campo último pago (Paso 2): NO se prellena desde quotaScreen
+}
+
+// Tarjeta "Entre fechas" dentro de calcTypeScreen: mismo patrón que
+// csOpenDesdeUltimoPago() — fade-out de calcTypeScreen + apertura de
+// befOverlay con skipSlideIn=true para evitar el flash de transición.
+// También prellena la cuota mensual en befOverlay si hay monto guardado.
+function csOpenEntreFechas() {
+  var cs = document.getElementById('calcTypeScreen');
+  if (!cs) { openBefOverlay(true); return; }
+  var inner = cs.querySelector('.cs-inner');
+
+  cs.classList.add('cs-screen--out');
+  (inner || cs).addEventListener('animationend', function() {
+    cs.style.display = 'none';
+    qsUnlockBodyScroll();
+    openBefOverlay(true);
+    csPrefillEntreFechas();
+  }, { once: true });
+}
+
+// Prellena la cuota mensual en befOverlay desde el monto capturado en
+// quotaScreen (_csUtmActual / _csClpActual), para que el usuario no tenga
+// que volver a ingresarla.
+function csPrefillEntreFechas() {
+  if (!(_csUtmActual > 0)) return;
+  var unidad = _csUnidadActual || 'utm';
+  // Cambiar unidad del befOverlay y prellenar cuota mensual (Paso 2)
+  if (typeof befSelectUnidad === 'function') befSelectUnidad(unidad);
+  var inputCuota = document.getElementById('befMontoCuota');
+  if (!inputCuota) return;
+  inputCuota.value = (unidad === 'utm')
+    ? _csUtmActual.toFixed(2).replace('.', ',')
+    : formatPlain(Math.round(_csClpActual));
 }
 
 </script>
