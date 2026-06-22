@@ -16,7 +16,46 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
-v2.0622.0190
+v2.0622.0200
+Archivos modificados: index.html, sw.js
+
+Fix — Causa raíz del reporte de Pablo "el botón Agregar abono LAV y la
+fila de Últimos depósitos siguen igual que antes" (tras v2.0622.0190):
+NO era un error en los cambios de v2.0622.0190 — el styles.css realmente
+desplegado por Pablo (comparado byte a byte, mismo MD5) ya tenía el botón
+correcto (38px, verde sólido #18a76f) y la fila correcta. El navegador
+del celular estaba sirviendo una copia vieja de styles.css cacheada desde
+ANTES de borrar datos del sitio/caché de Chrome — algo que normalmente
+debería resolver el problema, pero no lo hizo en este caso porque
+<link rel="stylesheet" href="styles.css"> apuntaba siempre a la misma URL,
+sin ningún parámetro que cambiara entre versiones. Un archivo en esa
+condición puede quedar servido desde una caché HTTP intermedia (CDN edge
+de Vercel, o el propio caché de red de Chrome) que ignora por completo la
+lógica de "Cache-Control"/invalidación que sí aplicaba al index.html
+(que sí cambia de contenido en cada deploy y por eso reflejaba el badge
+de cobertura correctamente — confirmando que el deploy en sí era el
+correcto, solo que un asset estático individual quedó "pegado").
+
+  Fix: cache-busting por query string en los dos `<link>/<script>` que
+  cargan assets estáticos versionados manualmente:
+    <link rel="stylesheet" href="styles.css?v=2.0622.0200">
+    <script src="export.js?v=2.0622.0200"></script>
+  El valor coincide con app-version, así que de aquí en adelante basta
+  con que cada entrega incremente la versión (regla ya existente) para
+  que el query string cambie automáticamente y ningún caché intermedio
+  pueda servir una copia vieja de styles.css o export.js por error,
+  incluso si el index.html que las referencia sí se actualiza. El
+  Service Worker (sw.js) no se ve afectado por este cambio: su matching
+  usa url.pathname para decidir qué interceptar/cachear, que ignora el
+  query string — confirmado revisando sw.js línea 53.
+
+  Nota para Pablo: en adelante, cuando se entregue una nueva versión,
+  recordar actualizar manualmente el "?v=X.X.X.X" de ambas líneas si en
+  algún momento se edita styles.css o export.js fuera de este flujo
+  (p. ej. editando directamente en GitHub) — la app no lo hace de forma
+  automática, es un valor de texto plano en el HTML.
+
+================================================================================
 Archivos modificados: index.html, styles.css
 
 Ajuste visual — Tarjeta "Depósitos LAV": tres correcciones de fidelidad al
