@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0160">
+ <meta name="app-version" content="v2.0622.0170">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2331,6 +2331,16 @@ function unlockBody() {
 }
 function showAppModal() { document.getElementById('appModal').classList.replace('hidden', 'flex'); lockBody(); }
 function hideAppModal() { document.getElementById('appModal').classList.replace('flex', 'hidden'); unlockBody(); }
+// Lleva la página al inicio (donde está "Total Adeudado"). Se usa al cerrar
+// overlays de cálculo (DUP "Desde el último pago", BEF "Entre fechas") para
+// que el resultado quede visible sin que el usuario deba scrollear manualmente
+// de vuelta arriba. requestAnimationFrame asegura que corra después de que el
+// DOM ya reflejó los nuevos valores (totalGrand, etc.) tras calculate().
+function scrollToTop() {
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  });
+}
 function format(n) { return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n); }
 function formatPlain(n) { return new Intl.NumberFormat('es-CL').format(Math.round(n)); }
 const UTM_HISTORICO = {
@@ -8410,8 +8420,12 @@ function dupCalcularDeuda() {
   dupSetFechaDisplay(null, null, null);
 
   // 5) Cerrar el overlay y devolver a la pantalla principal con el cálculo
-  //    ya reflejado en "Total Adeudado".
+  //    ya reflejado en "Total Adeudado". Se fuerza scroll al inicio de la
+  //    página para que el Total quede visible aunque el usuario haya
+  //    hecho scroll hacia abajo antes de abrir el overlay (de lo contrario
+  //    la pantalla principal reaparece donde quedó el scroll anterior).
   closeDupOverlay();
+  if (typeof scrollToTop === 'function') scrollToTop();
 }
 
 // Conectar la tarjeta "Desde el último pago" al overlay
@@ -8756,6 +8770,9 @@ function befCalcularDeuda() {
   closeBefOverlay();
   updateLabels();   // refresca labels/chips de "Período Actual" y dispara calculate()
   saveSession();
+  // Forzar scroll al inicio para que el Total Adeudado quede visible —
+  // mismo patrón que dupCalcularDeuda().
+  if (typeof scrollToTop === 'function') scrollToTop();
 }
 
 // ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────

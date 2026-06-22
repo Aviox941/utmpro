@@ -16,7 +16,41 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
-v2.0622.0160
+v2.0622.0170
+Archivos modificados: index.html, sw.js
+
+Fix — Overlays "Desde el último pago" (#dupOverlay) y "Entre fechas"
+(#befOverlay): al presionar "Calcular" y volver a la pantalla principal, el
+scroll quedaba donde el usuario lo había dejado antes de abrir el overlay
+(p. ej. al final de la página). Si el usuario había scrolleado hacia abajo,
+el resultado ("Total Adeudado", arriba de todo, dentro de <header>) quedaba
+fuera de vista — la app no mostraba ningún indicio de que el cálculo se
+hubiera aplicado a menos que el usuario scrolleara manualmente hacia arriba.
+
+  Causa raíz: ambos overlays son elementos superpuestos (position fixed +
+  document.body.style.overflow='hidden' mientras están abiertos) — nunca
+  modifican el scroll de la página principal, por lo que al cerrarse
+  (closeDupOverlay()/closeBefOverlay()) la página simplemente conserva la
+  posición de scroll que tenía justo antes de abrir el overlay. Ninguna de
+  las dos funciones de cálculo (dupCalcularDeuda()/befCalcularDeuda())
+  forzaba un scroll al inicio tras aplicar el resultado.
+
+  Fix: se agrega la función scrollToTop() (window.scrollTo top:0 con
+  behavior:'smooth', dentro de requestAnimationFrame para correr después
+  de que el DOM ya refleje el nuevo valor de "Total Adeudado"). Se invoca
+  al final de dupCalcularDeuda() (después de closeDupOverlay(), que ya
+  corre después de addAbonoLav() → calculate()) y al final de
+  befCalcularDeuda() (después de closeBefOverlay() + updateLabels() →
+  calculate()). No se modificó ninguna lógica de cálculo ni el
+  comportamiento de apertura/cierre de los overlays — solo se agrega el
+  scroll al final del flujo ya existente, en ambos casos después de que el
+  resultado ya está calculado y visible en el DOM.
+
+  Nota: las tarjetas del dock "Con lagunas" y "Pagos parciales" aún no
+  tienen un flujo de cálculo conectado (sin handler equivalente a
+  dupCalcularDeuda()/befCalcularDeuda()) — no requirieron cambios.
+
+================================================================================
 Archivos modificados: index.html, styles.css, sw.js
 
 Rediseño visual — Tarjeta "Depósitos LAV": nuevo diseño basado en mockup
