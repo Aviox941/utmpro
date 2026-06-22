@@ -3613,6 +3613,45 @@
   font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
 }
 
+/* ── Mini-selector UTM/CLP por campo ───────────────────────────── */
+.dup-input-wrap--split {
+  padding: 0;
+  overflow: hidden;
+}
+.dup-unit-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px 0 14px;
+  background: #f2f4f7;
+  border: none;
+  border-right: 1.5px solid #e4e7ec;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: #344054;
+  min-width: 82px;
+  height: 56px;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+  letter-spacing: 0.01em;
+}
+.dup-unit-btn:active {
+  background: #e9ecf1;
+}
+.dup-unit-chevron {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #98a2b3;
+}
+.dup-input--split {
+  padding: 0 16px;
+}
+
 .dup-input {
   flex: 1;
   border: none;

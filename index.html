@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0030">
+ <meta name="app-version" content="v2.0622.0100">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -7962,39 +7962,21 @@ function _ayudaAbrirTema(t) {
     <!-- Pasos -->
     <div class="dup-form">
 
-      <!-- Paso 1: Unidad -->
+      <!-- Paso 1: Cuota mensual — selector UTM/CLP por campo -->
       <div class="dup-step">
         <div class="dup-step__header">
           <span class="dup-step__badge">1</span>
-          <span class="dup-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
-        </div>
-        <div class="dup-radio-group" role="radiogroup">
-          <button type="button" class="dup-radio dup-radio--active" id="dupRadioLabelUTM" onclick="dupSelectUnidad('utm')" aria-pressed="true">
-            <span class="dup-radio__indicator"></span>
-            <span class="dup-radio__text">UTM</span>
-          </button>
-          <button type="button" class="dup-radio" id="dupRadioLabelCLP" onclick="dupSelectUnidad('clp')" aria-pressed="false">
-            <span class="dup-radio__indicator"></span>
-            <span class="dup-radio__text">CLP</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Paso 2: Cuota mensual (interruptor del valor "Cuota Mensual" que usa
-           la tarjeta "Período Actual" / Datos de Pensión — independiente del
-           monto de la ÚLTIMA cuota pagada del Paso 3, que solo registra el
-           abono LAV). Comparte la unidad elegida en el Paso 1. -->
-      <div class="dup-step">
-        <div class="dup-step__header">
-          <span class="dup-step__badge">2</span>
           <span class="dup-step__label">Monto de la cuota mensual</span>
         </div>
-        <div class="dup-input-wrap">
-          <span class="dup-input__prefix" id="dupCuotaMensualPrefix">UTM</span>
+        <div class="dup-input-wrap dup-input-wrap--split">
+          <button type="button" class="dup-unit-btn" id="dupCuotaUnitBtn" onclick="dupToggleUnidadCuota()">
+            <span id="dupCuotaUnitLabel">UTM</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="dup-unit-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
           <input
             type="text"
             id="dupCuotaMensual"
-            class="dup-input"
+            class="dup-input dup-input--split"
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la cuota mensual"
@@ -8003,18 +7985,21 @@ function _ayudaAbrirTema(t) {
         </div>
       </div>
 
-      <!-- Paso 3: Monto -->
+      <!-- Paso 2: Monto último pago — unidad independiente -->
       <div class="dup-step">
         <div class="dup-step__header">
-          <span class="dup-step__badge">3</span>
+          <span class="dup-step__badge">2</span>
           <span class="dup-step__label">Monto de la última cuota pagada</span>
         </div>
-        <div class="dup-input-wrap">
-          <span class="dup-input__prefix" id="dupPrefixLabel">UTM</span>
+        <div class="dup-input-wrap dup-input-wrap--split">
+          <button type="button" class="dup-unit-btn" id="dupMontoUnitBtn" onclick="dupToggleUnidadMonto()">
+            <span id="dupMontoUnitLabel">UTM</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="dup-unit-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
           <input
             type="text"
             id="dupMontoCuota"
-            class="dup-input"
+            class="dup-input dup-input--split"
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la última cuota pagada"
@@ -8127,59 +8112,65 @@ function closeDupOverlay() {
 // del overlay queda con su placeholder normal). Misma lógica de lectura
 // que usa calculationMode/utmAmount/clpAmount en el resto de la app: modo
 // 'clp' → unidad pesos, cualquier otro modo con utmAmount > 0 → unidad UTM.
+// Variables de unidad independientes por campo
+var _dupUnidadCuota = 'utm'; // unidad del campo "Cuota mensual"
+var _dupUnidadMonto = 'utm'; // unidad del campo "Último pago"
+
+// ── Toggle UTM/CLP independiente por campo ────────────────────────────────
+function dupToggleUnidadCuota() {
+  _dupUnidadCuota = (_dupUnidadCuota === 'utm') ? 'clp' : 'utm';
+  var isUTM = _dupUnidadCuota === 'utm';
+  document.getElementById('dupCuotaUnitLabel').textContent = isUTM ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupCuotaMensual');
+  inp.placeholder = isUTM ? '0,00' : '0';
+  inp.value = '';
+  inp.focus();
+}
+
+function dupToggleUnidadMonto() {
+  _dupUnidadMonto = (_dupUnidadMonto === 'utm') ? 'clp' : 'utm';
+  var isUTM = _dupUnidadMonto === 'utm';
+  document.getElementById('dupMontoUnitLabel').textContent = isUTM ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupMontoCuota');
+  inp.placeholder = isUTM ? '0,00' : '0';
+  inp.value = '';
+  inp.focus();
+}
+
+// ── Prefill: solo cuota mensual (Paso 1) desde "Datos de Pensión" ─────────
+// Bug fix: anteriormente se prellena dupMontoCuota (último pago) en lugar de
+// dupCuotaMensual. Ahora solo se escribe la cuota mensual y se deja el
+// campo de último pago vacío para que el usuario lo ingrese.
 function dupPrefillFromPensionData() {
   var modo = (document.getElementById('calculationMode')?.value) || 'utm';
   var utmVal = parseFloat((document.getElementById('utmAmount')?.value || '').replace(',', '.')) || 0;
   var clpVal = parseInt((document.getElementById('clpAmount')?.value || '').replace(/\./g, '')) || 0;
-  if (!(utmVal > 0) && !(clpVal > 0)) return; // Datos de Pensión vacíos: no hay nada que prellenar
+  if (!(utmVal > 0) && !(clpVal > 0)) return; // Datos de Pensión vacíos
 
   var unidad = (modo === 'clp') ? 'clp' : 'utm';
-  dupSelectUnidad(unidad);
-  var input = document.getElementById('dupMontoCuota');
-  if (!input) return;
-  if (unidad === 'utm') {
-    input.value = utmVal.toFixed(2).replace('.', ',');
-  } else {
-    input.value = formatPlain(clpVal);
-  }
-  // Cuota mensual (Paso 2, nuevo) — mismo valor de origen, ya que representa
-  // lo mismo que utmAmount/clpAmount de "Datos de Pensión" en este momento.
+  // Ajustar unidad del campo cuota mensual
+  _dupUnidadCuota = unidad;
+  document.getElementById('dupCuotaUnitLabel').textContent = unidad === 'utm' ? 'UTM' : 'CLP';
   var inputCuota = document.getElementById('dupCuotaMensual');
   if (inputCuota) {
+    inputCuota.placeholder = unidad === 'utm' ? '0,00' : '0';
     inputCuota.value = (unidad === 'utm') ? utmVal.toFixed(2).replace('.', ',') : formatPlain(clpVal);
   }
+  // Campo último pago (Paso 2): NO se prellena, queda vacío para el usuario
 }
 
-
-
+// dupSelectUnidad: mantenida por compatibilidad con csPrefillDesdeUltimoPago()
+// — solo actualiza el campo de cuota mensual (Paso 1)
 function dupSelectUnidad(val) {
-  _dupUnidad = val;
-  const isUTM = val === 'utm';
-  document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
-  document.getElementById('dupMontoCuota').placeholder = isUTM ? '0,00' : '0';
-  document.getElementById('dupMontoCuota').value = '';
-  const cuotaPrefix = document.getElementById('dupCuotaMensualPrefix');
-  const cuotaInput = document.getElementById('dupCuotaMensual');
-  if (cuotaPrefix) cuotaPrefix.textContent = isUTM ? 'UTM' : '$';
-  if (cuotaInput) { cuotaInput.placeholder = isUTM ? '0,00' : '0'; cuotaInput.value = ''; }
-  var btnUTM = document.getElementById('dupRadioLabelUTM');
-  var btnCLP = document.getElementById('dupRadioLabelCLP');
-  btnUTM.classList.toggle('dup-radio--active', isUTM);
-  btnCLP.classList.toggle('dup-radio--active', !isUTM);
-  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
-  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+  _dupUnidadCuota = val;
+  document.getElementById('dupCuotaUnitLabel').textContent = val === 'utm' ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupCuotaMensual');
+  if (inp) { inp.placeholder = val === 'utm' ? '0,00' : '0'; inp.value = ''; }
 }
 
-// Saneo del input de monto, mismo patrón ya validado en qsFormatAmountInput()
-// (Paso 1 / quotaScreen): en UTM se admite '.' o ',' como separador decimal
-// (el teclado numérico de Android muestra punto) y se normaliza siempre a
-// coma, con máximo 2 decimales. En CLP se descarta todo lo no-numérico y se
-// formatea con separador de miles vía formatPlain(), igual que clpAmount/
-// qsAmountInput. Reemplaza el type="number" nativo anterior, que no permite
-// separador de miles (148.566 quedaba guardado como 148566) y no acepta
-// coma como decimal en ningún locale.
+// Saneo del input de monto último pago — usa _dupUnidadMonto (independiente)
 function dupFormatMontoInput(input) {
-  if (_dupUnidad === 'utm') {
+  if (_dupUnidadMonto === 'utm') {
     var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
     var partes = raw.split(',');
     if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
@@ -8192,27 +8183,34 @@ function dupFormatMontoInput(input) {
   }
 }
 
-// Mismo saneo que dupFormatMontoInput(), aplicado al nuevo campo "Cuota
-// mensual" (Paso 2) — comparte unidad (_dupUnidad) con el resto del overlay.
+// Saneo del input de cuota mensual — usa _dupUnidadCuota (independiente)
 function dupFormatCuotaMensualInput(input) {
-  dupFormatMontoInput(input);
+  if (_dupUnidadCuota === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
 }
 
-// Convierte el valor visible del campo "Cuota mensual" al número real,
-// mismo criterio que dupGetMontoValue().
+// Convierte el valor visible del campo "Cuota mensual" al número real.
 function dupGetCuotaMensualValue() {
   var raw = (document.getElementById('dupCuotaMensual')?.value || '').trim();
-  if (_dupUnidad === 'utm') {
+  if (_dupUnidadCuota === 'utm') {
     return parseFloat(raw.replace(',', '.')) || 0;
   }
   return parseInt(raw.replace(/\./g, '')) || 0;
 }
 
-// Convierte el valor visible (con coma decimal en UTM, o con puntos de
-// miles en CLP) al número real que espera la lógica de cálculo.
+// Convierte el valor visible del campo "Último pago" al número real.
 function dupGetMontoValue() {
   var raw = (document.getElementById('dupMontoCuota').value || '').trim();
-  if (_dupUnidad === 'utm') {
+  if (_dupUnidadMonto === 'utm') {
     return parseFloat(raw.replace(',', '.')) || 0;
   }
   return parseInt(raw.replace(/\./g, '')) || 0;
@@ -8237,7 +8235,7 @@ function dupSetFechaDisplay(d, mIdx, anio) {
 // usaría el usuario manualmente. Así no se duplica lógica de conversión
 // UTM↔CLP ni de imputación: se reutiliza 100% el motor ya existente de LAV.
 function dupCalcularDeuda() {
-  const unidad = _dupUnidad; // 'utm' | 'clp'
+  const unidad = _dupUnidadMonto; // unidad del último pago (independiente de la cuota)
   const monto  = dupGetMontoValue();
   const cuotaMensual = dupGetCuotaMensualValue();
   const dia  = document.getElementById('dupDia').value;
@@ -8269,8 +8267,9 @@ function dupCalcularDeuda() {
   //      del valor "Cuota Mensual" de la tarjeta "Período Actual" — se
   //      escribe ANTES de registrar el abono LAV para que calculate()
   //      (disparado dentro de addAbonoLav()) ya use el monto correcto.
-  setCalcMode(unidad);
-  if (unidad === 'utm') {
+  // Escribir cuota mensual en tarjeta Datos de Pensión con su propia unidad
+  setCalcMode(_dupUnidadCuota);
+  if (_dupUnidadCuota === 'utm') {
     document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
   } else {
     document.getElementById('clpAmount').value = formatPlain(cuotaMensual);
@@ -8316,6 +8315,10 @@ function dupCalcularDeuda() {
   //    no queden datos de un cálculo anterior.
   document.getElementById('dupMontoCuota').value = '';
   document.getElementById('dupCuotaMensual').value = '';
+  // Resetear unidades a UTM por defecto
+  _dupUnidadCuota = 'utm'; _dupUnidadMonto = 'utm';
+  document.getElementById('dupCuotaUnitLabel').textContent = 'UTM';
+  document.getElementById('dupMontoUnitLabel').textContent = 'UTM';
   document.getElementById('dupDia').value  = '';
   document.getElementById('dupMes').value  = '';
   document.getElementById('dupAnio').value = '';
@@ -9343,16 +9346,17 @@ function csOpenDesdeUltimoPago() {
 // (coma decimal en UTM, separador de miles vía formatPlain() en CLP), ya
 // que el input es type="text" con saneo propio, no type="number".
 function csPrefillDesdeUltimoPago() {
-  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder)
+  if (!(_csUtmActual > 0)) return; // sin monto previo
   var unidad = _csUnidadActual || 'utm';
-  dupSelectUnidad(unidad);
-  var input = document.getElementById('dupMontoCuota');
-  if (!input) return;
-  if (unidad === 'utm') {
-    input.value = _csUtmActual.toFixed(2).replace('.', ',');
-  } else {
-    input.value = formatPlain(Math.round(_csClpActual));
+  // Ajustar unidad del campo cuota mensual (Paso 1)
+  _dupUnidadCuota = unidad;
+  document.getElementById('dupCuotaUnitLabel').textContent = unidad === 'utm' ? 'UTM' : 'CLP';
+  var inputCuota = document.getElementById('dupCuotaMensual');
+  if (inputCuota) {
+    inputCuota.placeholder = unidad === 'utm' ? '0,00' : '0';
+    inputCuota.value = (unidad === 'utm') ? _csUtmActual.toFixed(2).replace('.', ',') : formatPlain(Math.round(_csClpActual));
   }
+  // Campo último pago (Paso 2): NO se prellena desde quotaScreen
 }
 
 </script>

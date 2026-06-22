@@ -16,6 +16,40 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0100
+Archivos modificados: index.html, styles.css, sw.js
+
+Corrección y rediseño — Overlay "Desde el último pago" (#dupOverlay): dos bugs
+de usabilidad corregidos y UI mejorada.
+
+BUG 1 — Prefill incorrecto (dupPrefillFromPensionData):
+  El valor de "Datos de Pensión" se prellena en dupMontoCuota (Paso 3, último
+  pago) en lugar de dupCuotaMensual (Paso 2, cuota mensual). El campo de
+  último pago debe quedar vacío para que el usuario ingrese el monto real.
+  Fix: dupPrefillFromPensionData() ahora solo escribe en dupCuotaMensual.
+  Mismo fix aplicado a csPrefillDesdeUltimoPago().
+
+BUG 2 — Toggle global borraba ambos campos:
+  Cambiar UTM/CLP en el Paso 1 (toggle global) limpiaba dupCuotaMensual y
+  dupMontoCuota, haciendo imposible ingresar cuota en UTM y último pago en
+  CLP (o viceversa).
+
+SOLUCIÓN: se elimina el toggle global (Paso 1 anterior) y se reemplaza por
+  un mini-selector UTM/CLP integrado en cada campo, con variables independientes
+  _dupUnidadCuota y _dupUnidadMonto. El usuario ahora puede elegir la unidad
+  de cada campo por separado sin que cambiar una afecte a la otra.
+
+  Cambios técnicos:
+  - HTML: Paso 1 (toggle) eliminado, Pasos 2/3/4 renumerados a 1/2/3.
+    Cada dup-input-wrap ahora tiene class --split con botón dup-unit-btn.
+  - JS: dupSelectUnidad() mantenida por compatibilidad (solo afecta cuota).
+    Nuevas funciones: dupToggleUnidadCuota(), dupToggleUnidadMonto().
+    dupGetCuotaMensualValue() usa _dupUnidadCuota.
+    dupGetMontoValue() usa _dupUnidadMonto.
+    dupCalcularDeuda(): setCalcMode usa _dupUnidadCuota; LAV usa _dupUnidadMonto.
+    Reset al cerrar: unidades vuelven a UTM/UTM.
+  - CSS: .dup-input-wrap--split, .dup-unit-btn, .dup-unit-chevron, .dup-input--split.
+
 v2.0622.0030
 Archivos modificados: index.html, sw.js
 
