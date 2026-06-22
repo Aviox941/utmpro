@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0150">
+ <meta name="app-version" content="v2.0622.0170">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1492,75 +1492,115 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
  </div><!-- /dh-card pensiones -->
 
-<!-- ── TARJETA: Depósitos LAV ───────────────────────────────── -->
-<div class="dh-card" style="--dh-border:rgba(16,185,129,0.25);--dh-bg:rgba(16,185,129,0.05);--dh-text:#10b981;">
-  <div class="dh-card__header" onclick="toggleSection('lavBody','lavChevron')" style="cursor:pointer">
-    <div class="dh-card__header-left">
-      <div class="dh-card__icon" style="background:rgba(16,185,129,0.10);border-color:rgba(16,185,129,0.20);">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+<!-- ── TARJETA: Depósitos LAV (rediseño visual) ───────────────────────────────── -->
+<div class="lavx-card">
+  <div class="lavx-header" onclick="toggleSection('lavBody','lavChevron')" style="cursor:pointer">
+    <div class="lavx-title-wrap">
+      <div class="lavx-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
-      <p class="dh-card__title">Depósitos LAV</p>
+      <div>
+        <h3 class="lavx-title">Depósitos LAV</h3>
+        <p id="lavxSubtitle" class="lavx-subtitle">Sin depósitos registrados</p>
+      </div>
     </div>
-    <div class="dh-card__header-right">
-      <button onclick="event.stopPropagation(); openOcrLav()" class="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black transition-all active:scale-90" style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#10b981;" title="Importar desde PDF o imagen">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <div class="lavx-actions">
+      <button onclick="event.stopPropagation(); openOcrLav()" class="lavx-ocr-btn" title="Importar desde PDF o imagen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         OCR
       </button>
-      <svg id="lavChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <button onclick="event.stopPropagation(); toggleSection('lavBody','lavChevron')" class="lavx-collapse-btn">
+        <svg id="lavChevron" class="collapse-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
     </div>
   </div>
   <div id="lavBody" class="collapsible-body"><div class="collapsible-inner">
-  <div class="dh-body space-y-3" style="padding:12px 14px">
-    <!-- ── Cuota mensual (modo libre LAV — se usa cuando no hay período definido) ── -->
-    <div id="lavModoLibreWrap">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid rgba(16,185,129,0.14);margin-bottom:2px;">
-        <div>
-          <p style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.07em;color:#10b981;line-height:1.2;">Cuota mensual</p>
-          <p style="font-size:8px;color:#94a3b8;margin-top:2px;font-weight:600;">Valor en UTM · inicio = primer depósito</p>
-        </div>
-        <input type="number" id="lavCuotaUtm" placeholder="0.000" step="0.001" min="0"
-          inputmode="decimal"
-          oninput="calculate(); saveSession();"
-          class="input-number input-sm" style="width:88px;">
+  <div class="lavx-body">
+
+    <!-- ── Cuota Mensual (lectura — valor de Período Actual / modo libre) ── -->
+    <div class="lavx-quota-card">
+      <div>
+        <span class="lavx-label">Cuota Mensual</span>
+        <div class="lavx-quota-value" id="lavxQuotaValue">0,00 <span>UTM</span></div>
+        <div class="lavx-quota-clp" id="lavxQuotaClp">≈ $0 CLP</div>
+      </div>
+      <div class="lavx-quota-status" title="Próximamente configurable">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        Cuota vigente
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-2">
-      <div class="space-y-1">
-        <label class="input-label">Valor depósito en pesos</label>
-        <div class="relative">
-          <input type="text" id="tempLavClp" placeholder="$ 0" inputmode="numeric" pattern="[0-9]*"
+
+    <!-- ── Cuota mensual modo libre (oculto cuando hay Período Actual con cuota) ── -->
+    <div id="lavModoLibreWrap" class="lavx-modo-libre">
+      <div>
+        <p class="lavx-modo-libre__title">Cuota mensual (modo libre)</p>
+        <p class="lavx-modo-libre__hint">Valor en UTM · inicio = primer depósito</p>
+      </div>
+      <input type="number" id="lavCuotaUtm" placeholder="0.000" step="0.001" min="0"
+        inputmode="decimal"
+        oninput="calculate(); saveSession(); lavxUpdateQuotaDisplay();"
+        class="input-number input-sm" style="width:88px;">
+    </div>
+
+    <div class="lavx-separator"></div>
+
+    <!-- ── Valor del depósito (CLP / UTM) ── -->
+    <div class="lavx-deposit-grid">
+      <div class="lavx-field">
+        <label class="lavx-field__label">Valor depósito en pesos</label>
+        <div class="lavx-input-box">
+          <span class="lavx-input-box__prefix">$</span>
+          <input type="text" id="tempLavClp" placeholder="0" inputmode="numeric" pattern="[0-9]*"
             oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.'); onLavClpInput()"
-            class="input-currency w-full">
-          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">CLP</span>
+            class="lavx-input-box__input">
+          <span class="lavx-input-box__suffix">CLP</span>
         </div>
       </div>
-      <div class="space-y-1">
-        <label class="input-label">Valor depósito en UTM</label>
-        <div class="relative">
+      <div class="lavx-convert-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </div>
+      <div class="lavx-field">
+        <label class="lavx-field__label">Valor depósito en UTM</label>
+        <div class="lavx-input-box">
           <input type="text" id="tempLavUtm" placeholder="0,000" inputmode="decimal"
             oninput="onLavUtmInput()"
-            class="input-currency w-full">
-          <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-500 pointer-events-none">UTM</span>
+            class="lavx-input-box__input">
+          <span class="lavx-input-box__suffix">UTM</span>
         </div>
       </div>
+    </div>
+
+    <!-- ── Fecha de pago ── -->
+    <div class="lavx-field lavx-field--full">
+      <label class="lavx-field__label">Fecha pago</label>
       <input type="hidden" id="tempLavMes" value="">
       <input type="hidden" id="tempLavAnio" value="">
       <input type="hidden" id="tempLavDia" value="">
-      <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="input-date w-full">
-        <span class="input-date__sublabel">Fecha pago</span>
-        <span id="tempLavLabel" class="input-date__value">Seleccionar</span>
+      <button onclick="openCalendar('lav')" id="tempLavPickerBtn" class="lavx-date-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="tempLavLabel" class="lavx-date-box__value">Seleccionar</span>
+        <svg class="lavx-date-box__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#65758a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
     </div>
-    <div id="lavUtmChip" style="display:none;font-size:9px;font-weight:800;color:#10b981;padding:2px 8px;background:rgba(16,185,129,0.1);border-radius:6px;text-align:center;"></div>
-    <button id="btnAddLav" onclick="addAbonoLav()" disabled
-      class="btn-base btn-full text-[10px] font-black transition-all"
-      style="background:rgba(16,185,129,0.12);color:#475569;border:1px solid rgba(16,185,129,0.15);">
+
+    <div id="lavUtmChip" class="lavx-utm-chip"></div>
+
+    <button id="btnAddLav" onclick="addAbonoLav()" disabled class="lavx-add-btn">
       + Agregar abono LAV
     </button>
-    <div id="lavListContainer" class="space-y-1 max-h-32 overflow-y-auto no-scrollbar"></div>
+
+    <!-- ── Últimos depósitos ── -->
+    <div id="lavxHistoryWrap" class="lavx-history" style="display:none;">
+      <div class="lavx-history__header">
+        <h4>Últimos depósitos</h4>
+        <a href="#" id="lavxVerTodos" onclick="event.preventDefault();">Ver todos (<span id="lavxVerTodosCount">0</span>) ›</a>
+      </div>
+      <div id="lavListContainer" class="lavx-history__list"></div>
+    </div>
+
   </div>
   </div></div><!-- /collapsible-inner -->
-</div><!-- /dh-card lav -->
+</div><!-- /lavx-card -->
 
 <div id="modals-container"></div>
  <div class="dh-card">
@@ -2291,6 +2331,16 @@ function unlockBody() {
 }
 function showAppModal() { document.getElementById('appModal').classList.replace('hidden', 'flex'); lockBody(); }
 function hideAppModal() { document.getElementById('appModal').classList.replace('flex', 'hidden'); unlockBody(); }
+// Lleva la página al inicio (donde está "Total Adeudado"). Se usa al cerrar
+// overlays de cálculo (DUP "Desde el último pago", BEF "Entre fechas") para
+// que el resultado quede visible sin que el usuario deba scrollear manualmente
+// de vuelta arriba. requestAnimationFrame asegura que corra después de que el
+// DOM ya reflejó los nuevos valores (totalGrand, etc.) tras calculate().
+function scrollToTop() {
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  });
+}
 function format(n) { return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n); }
 function formatPlain(n) { return new Intl.NumberFormat('es-CL').format(Math.round(n)); }
 const UTM_HISTORICO = {
@@ -3242,19 +3292,63 @@ function removeAbonoLav(index) {
   calculate();
   saveSession();
 }
+// ── Rediseño visual tarjeta LAV: helpers puramente de presentación ─────────
+// No participan del cálculo (calculate()/calculatePensiones()): solo leen
+// valores ya calculados (getMonthlyValues, abonosLav) para reflejarlos en el
+// nuevo bloque "Cuota Mensual" y en el subtítulo del header de la tarjeta.
+function lavxUpdateQuotaDisplay() {
+  const valEl = document.getElementById('lavxQuotaValue');
+  const clpEl = document.getElementById('lavxQuotaClp');
+  if (!valEl || !clpEl) return;
+  const utmActual = getUtmActualVal();
+  const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
+  const lavCuotaLibre = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
+
+  let utmMostrar = cuotaMensualUTM;
+  let clpMostrar = cuotaMensualCLP;
+  // Si no hay cuota en "Período Actual" pero sí en modo libre LAV, se usa esa.
+  if (!(utmMostrar > 0) && lavCuotaLibre > 0) {
+    utmMostrar = lavCuotaLibre;
+    clpMostrar = lavCuotaLibre * (utmActual || 0);
+  }
+
+  const utmStr = (utmMostrar || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  valEl.innerHTML = `${utmStr} <span>UTM</span>`;
+  clpEl.textContent = `≈ ${format(Math.round(clpMostrar || 0))} CLP`;
+}
+function lavxUpdateHeaderSubtitle() {
+  const subEl = document.getElementById('lavxSubtitle');
+  if (!subEl) return;
+  const lav = Array.isArray(abonosLav) ? abonosLav : [];
+  if (lav.length === 0) {
+    subEl.textContent = 'Sin depósitos registrados';
+    return;
+  }
+  const ultimo = lav.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '')).pop();
+  const fechaUltimo = ultimo && ultimo.date ? ultimo.date.split('-').reverse().join('/') : '—';
+  subEl.textContent = `${lav.length} depósito${lav.length === 1 ? '' : 's'} registrado${lav.length === 1 ? '' : 's'} • Último: ${fechaUltimo}`;
+}
 function renderAbonosLav() {
   const container = document.getElementById('lavListContainer');
   if (!container) return;
   container.innerHTML = '';
-  if (!Array.isArray(abonosLav) || abonosLav.length === 0) return;
+  lavxUpdateHeaderSubtitle();
+  const historyWrap = document.getElementById('lavxHistoryWrap');
+  const verTodosCount = document.getElementById('lavxVerTodosCount');
+  if (!Array.isArray(abonosLav) || abonosLav.length === 0) {
+    if (historyWrap) historyWrap.style.display = 'none';
+    return;
+  }
+  if (historyWrap) historyWrap.style.display = '';
+  if (verTodosCount) verTodosCount.textContent = abonosLav.length;
   const { cuotaMensualUTM: cuotaGlobal, modoEsPesos: modoGlobal } = getMonthlyValues();
 
   function renderItem(p, i) {
     const div = document.createElement('div');
-    div.className = 'abono-item animate-fadeIn';
-    div.style.borderColor = '#6ee7b7';
-    const utmStr = p.amountUtm ? p.amountUtm.toFixed(5) + ' UTM' : '';
+    div.className = 'lavx-history__item animate-fadeIn';
+    const utmStr = p.amountUtm ? p.amountUtm.toFixed(3) + ' UTM' : '';
     const displayLabel = p.periodoLabelOriginal || p.periodoLabel;
+    const fechaCorta = (p.date || '').split('-').reverse().join('/'); // YYYY-MM-DD → DD/MM/YYYY
 
     // ── Detección automática de pago parcial LAV ──────────────────────────
     // Obtener la cuota UTM efectiva del período de este depósito,
@@ -3292,30 +3386,31 @@ function renderAbonosLav() {
         if (diff > 0.0001) {
           // Total LAV del mes menor que la cuota → mes parcialmente cubierto
           const remanenteClp = Math.round(diff * utmMesUsado);
-          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-slate-400">⚠ Parcial · Rem. mes: <span class="text-[#c084fc]">${diff.toFixed(5)} UTM</span> ≈ <span class="text-slate-300">${format(remanenteClp)}</span> · genera interés diario</span></div>`;
+          lavInfoHtml = `<span class="lavx-status lavx-status--parcial">⚠ Parcial · Rem. ${diff.toFixed(3)} UTM ≈ ${format(remanenteClp)}</span>`;
         } else if (diff < -0.0001) {
           // Total LAV del mes mayor que la cuota → excedente suma al pool del mes siguiente
           const excedenteUTM = Math.abs(diff);
           const excedenteClp = Math.round(excedenteUTM * utmMesUsado);
-          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">↪ Excedente mes: ${excedenteUTM.toFixed(5)} UTM ≈ ${format(excedenteClp)} → suma al pool LAV</span></div>`;
+          lavInfoHtml = `<span class="lavx-status lavx-status--excedente">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${format(excedenteClp)}</span>`;
         } else {
           // Cuota cubierta exactamente
-          lavInfoHtml = `<div class="flex gap-2 mt-0.5 flex-wrap"><span class="text-[8px] font-bold text-emerald-400">✓ Cuota cubierta</span></div>`;
+          lavInfoHtml = `<span class="lavx-status lavx-status--ok">✓ Cuota cubierta</span>`;
         }
       }
     }
 
     div.innerHTML = `
-      <div style="flex:1;min-width:0;">
-        <div class="text-[10px] font-black flex flex-wrap items-center gap-1">
-          <span style="color:#6ee7b7" class="font-black">${displayLabel}</span>
-          <span class="mx-1 text-slate-300">|</span>
-          <span class="font-black" style="color:var(--color-text-primary)">${format(p.amount)}</span>
-          ${utmStr ? `<span class="ml-1 text-[9px] font-bold" style="color:#6ee7b7">${utmStr}</span>` : ''}
-        </div>
-        ${lavInfoHtml}
-      </div>
-      <button onclick="removeAbonoLav(${i})" class="text-red-500 font-bold px-2 shrink-0">×</button>`;
+      <span class="lavx-history__check">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <span class="lavx-history__date">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        ${fechaCorta}
+      </span>
+      <span class="lavx-history__amount">${format(p.amount)}</span>
+      <span class="lavx-history__utm">${utmStr}</span>
+      ${lavInfoHtml}
+      <button onclick="removeAbonoLav(${i})" class="lavx-history__remove" title="Eliminar depósito">×</button>`;
     container.appendChild(div);
   }
 
@@ -3332,8 +3427,7 @@ function renderAbonosLav() {
   });
   if (grupoOtros.length > 0) {
     const header = document.createElement('div');
-    header.className = 'text-[8px] font-black uppercase tracking-wide px-1 pt-2 pb-0.5';
-    header.style.color = '#60a5fa';
+    header.className = 'lavx-history__group-label';
     header.textContent = '— Otros Abonos —';
     container.appendChild(header);
     grupoOtros.forEach(({ p, i }) => renderItem(p, i));
@@ -3352,6 +3446,7 @@ function renderAbonosLav() {
 // Esto es puramente informativo/aditivo: NO modifica abonosLav, NO interactúa
 // con el pool LAV del PASO 1 ni con lastCalculationData.
 function renderLavSummary() {
+  lavxUpdateQuotaDisplay();
   const grandEl  = document.getElementById('totalGrand');
   const grandUtm = document.getElementById('totalGrandUtm');
   const heroRow  = document.getElementById('heroLavRow');
@@ -8325,8 +8420,12 @@ function dupCalcularDeuda() {
   dupSetFechaDisplay(null, null, null);
 
   // 5) Cerrar el overlay y devolver a la pantalla principal con el cálculo
-  //    ya reflejado en "Total Adeudado".
+  //    ya reflejado en "Total Adeudado". Se fuerza scroll al inicio de la
+  //    página para que el Total quede visible aunque el usuario haya
+  //    hecho scroll hacia abajo antes de abrir el overlay (de lo contrario
+  //    la pantalla principal reaparece donde quedó el scroll anterior).
   closeDupOverlay();
+  if (typeof scrollToTop === 'function') scrollToTop();
 }
 
 // Conectar la tarjeta "Desde el último pago" al overlay
@@ -8671,6 +8770,9 @@ function befCalcularDeuda() {
   closeBefOverlay();
   updateLabels();   // refresca labels/chips de "Período Actual" y dispara calculate()
   saveSession();
+  // Forzar scroll al inicio para que el Total Adeudado quede visible —
+  // mismo patrón que dupCalcularDeuda().
+  if (typeof scrollToTop === 'function') scrollToTop();
 }
 
 // ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────
