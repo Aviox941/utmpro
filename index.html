@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0800">
+ <meta name="app-version" content="v2.0621.0900">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5169,6 +5169,14 @@ btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// Mismo criterio que DUP: el picker de "Entre fechas" es solo selector de
+// fecha, sin monto que validar aquí. El botón siempre cierra; la
+// confirmación real ocurre en "Calcular deuda actual" del overlay.
+btn.textContent = 'Cerrar';
+btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+btn.style.background = '';
+btn.style.boxShadow = '';
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const mesId = calendarMode === 'histStart' ? 'histStartMes' : 'histEndMes';
 const anioId = calendarMode === 'histStart' ? 'histStartAnio' : 'histEndAnio';
@@ -5251,6 +5259,11 @@ closeCalendar();
 // desde aquí (eso ocurre en dupCalcularDeuda() al presionar el CTA del
 // overlay). Este botón, en la vista de meses, simplemente cierra.
 closeCalendar();
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// Mismo criterio que DUP: este modal solo elige la fecha; nunca calcula
+// nada desde aquí (eso ocurre en befCalcularDeuda() al presionar el CTA
+// del overlay "Entre fechas"). Este botón, en la vista de meses, cierra.
+closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const modoActual = calendarMode;
 tryRegisterHistorical();
@@ -5288,14 +5301,15 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
-// El calendario custom vive con z-index 100 (por debajo del overlay DUP,
-// que es z-index 100000). Cuando se abre en modo 'dup' (desde dentro del
-// overlay "Desde el último pago"), se sube su z-index por encima del
-// overlay para que no quede tapado; en cualquier otro modo se restaura
-// el z-index original (no se modifica la clase Tailwind base, solo este
-// inline override aislado).
+// El calendario custom vive con z-index 100 (por debajo de los overlays
+// DUP y BEF, que son z-index 100000). Cuando se abre en modo 'dup',
+// 'befStart' o 'befEnd' (desde dentro de los overlays "Desde el último
+// pago" / "Entre fechas"), se sube su z-index por encima del overlay para
+// que no quede tapado; en cualquier otro modo se restaura el z-index
+// original (no se modifica la clase Tailwind base, solo este inline
+// override aislado).
 const calModalEl = document.getElementById('calendarModal');
-if (calModalEl) calModalEl.style.zIndex = (m === 'dup') ? '100001' : '';
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5366,6 +5380,18 @@ if (anioDup) {
 } else {
   selectedYear = CURRENT_YEAR;
 }
+} else if (m === 'befStart' || m === 'befEnd') {
+// Mismo picker que DUP, pero para el overlay "Entre fechas": dos fechas
+// independientes (befStart/befEnd), cada una con su propio trío de hidden
+// inputs. Navegación libre por todos los años con datos UTM, sin período
+// asociado — igual criterio que DUP.
+const anioId = m === 'befStart' ? 'befStartAnio' : 'befEndAnio';
+const anioBef = document.getElementById(anioId).value;
+if (anioBef) {
+  selectedYear = parseInt(anioBef);
+} else {
+  selectedYear = CURRENT_YEAR;
+}
 } else if (m === 'abono') {
 // Igual que LAV: si ya hay año guardado, arrancar en ese año; si no, limpiar.
 const anioAbono = document.getElementById('tempAbonoAnio').value;
@@ -5392,7 +5418,7 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() {
   const calModalEl = document.getElementById('calendarModal');
   calModalEl.classList.replace('flex', 'hidden');
-  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup')
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd')
   unlockBody();
 }
 function changeYear(v) {
@@ -5442,6 +5468,14 @@ const nextDup = selectedYear + v;
 const minYearDup = utmData.length > 0 ? utmData[0].y : 2010;
 if (nextDup < minYearDup || nextDup > CURR_YEAR) return;
 selectedYear = nextDup;
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// BEF: igual que DUP, navegación libre por todos los años con datos UTM,
+// sin restricción de rango entre befStart y befEnd (el usuario puede
+// ajustar cualquiera de las dos fechas en cualquier orden).
+const nextBef = selectedYear + v;
+const minYearBef = utmData.length > 0 ? utmData[0].y : 2010;
+if (nextBef < minYearBef || nextBef > CURR_YEAR) return;
+selectedYear = nextBef;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
 const minYearHist = utmData.length > 0 ? utmData[0].y : 2010;
@@ -5482,6 +5516,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
     // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
   } else if (calendarMode === 'dup') {
     // DUP: siempre libre, sin período (minY/maxY ya son los defaults arriba)
+  } else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+    // BEF: siempre libre, sin período (minY/maxY ya son los defaults arriba)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -5507,7 +5543,7 @@ const btn = document.createElement('button');
 // cuota a cuota, independiente del período actual).
 const outOfRange = calendarMode === 'lav'
   ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
-  : calendarMode === 'dup'
+  : (calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
     ? (idx === -1)
     : calendarMode === 'parcial'
     ? (_periodoDefinido
@@ -5519,7 +5555,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
@@ -5565,6 +5601,14 @@ isActive = document.getElementById('tempLavMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('dupMes').value === mesVal
 && document.getElementById('dupAnio').value === String(selectedYear);
+} else if (calendarMode === 'befStart') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('befStartMes').value === mesVal
+&& document.getElementById('befStartAnio').value === String(selectedYear);
+} else if (calendarMode === 'befEnd') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('befEndMes').value === mesVal
+&& document.getElementById('befEndAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -5643,6 +5687,18 @@ document.getElementById('dupMes').value = mesVal;
 document.getElementById('dupAnio').value = String(selectedYear);
 renderDaySelector(selectedYear, i);
 return;
+} else if (calendarMode === 'befStart') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('befStartMes').value = mesVal;
+document.getElementById('befStartAnio').value = String(selectedYear);
+renderDaySelector(selectedYear, i);
+return;
+} else if (calendarMode === 'befEnd') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('befEndMes').value = mesVal;
+document.getElementById('befEndAnio').value = String(selectedYear);
+renderDaySelector(selectedYear, i);
+return;
 } else if (calendarMode === 'histStart') {
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
@@ -5705,7 +5761,9 @@ function renderDaySelector(anio, mesIdx) {
   const isLav = calendarMode === 'lav';
   const isAbono = calendarMode === 'abono';
   const isDup = calendarMode === 'dup';
-  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : (isDup ? 'dupDia' : 'tempParcialDia'));
+  const isBefStart = calendarMode === 'befStart';
+  const isBefEnd = calendarMode === 'befEnd';
+  const diaIdRef = isLav ? 'tempLavDia' : (isAbono ? 'tempAbonoDia' : (isDup ? 'dupDia' : (isBefStart ? 'befStartDia' : (isBefEnd ? 'befEndDia' : 'tempParcialDia'))));
   const diaSeleccionado = parseInt(document.getElementById(diaIdRef).value) || 0;
   for (let d = 1; d <= diasEnMes; d++) {
     const btn = document.createElement('button');
@@ -5751,6 +5809,16 @@ function renderDaySelector(anio, mesIdx) {
         // No se agrega ningún abono aquí: el DUP solo guarda la fecha.
         // El traspaso real a Depósitos LAV ocurre al presionar
         // "Calcular deuda actual" → dupCalcularDeuda().
+      } else if (isBefStart || isBefEnd) {
+        const prefix = isBefStart ? 'befStart' : 'befEnd';
+        const mesVal = document.getElementById(prefix + 'Mes').value;
+        const anioVal = document.getElementById(prefix + 'Anio').value;
+        document.getElementById(prefix + 'Dia').value = String(d);
+        befSetFechaDisplay(isBefStart ? 'start' : 'end', d, parseInt(mesVal), anioVal);
+        closeCalendar();
+        // No se calcula nada aquí: el overlay "Entre fechas" solo guarda la
+        // fecha. El cálculo real ocurre al presionar "Calcular deuda
+        // actual" → befCalcularDeuda().
       } else {
         const mesVal = document.getElementById('tempParcialMes').value;
         const anioVal = document.getElementById('tempParcialAnio').value;
@@ -5792,6 +5860,14 @@ function backToMonths() {
     document.getElementById('dupMes').value = '';
     document.getElementById('dupAnio').value = '';
     document.getElementById('dupDia').value = '';
+  } else if (calendarMode === 'befStart') {
+    document.getElementById('befStartMes').value = '';
+    document.getElementById('befStartAnio').value = '';
+    document.getElementById('befStartDia').value = '';
+  } else if (calendarMode === 'befEnd') {
+    document.getElementById('befEndMes').value = '';
+    document.getElementById('befEndAnio').value = '';
+    document.getElementById('befEndDia').value = '';
   } else {
     document.getElementById('tempParcialMes').value = '';
     document.getElementById('tempParcialAnio').value = '';
@@ -8288,14 +8364,18 @@ function dupCalcularDeuda() {
           <span class="bef-step__badge">3</span>
           <span class="bef-step__label">Fecha de inicio del período</span>
         </div>
-        <div class="bef-date-wrap">
+        <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV / DUP (openCalendar('befStart')) -->
+        <input type="hidden" id="befStartDia" value="">
+        <input type="hidden" id="befStartMes" value="">
+        <input type="hidden" id="befStartAnio" value="">
+        <div class="bef-date-wrap" onclick="openCalendar('befStart')">
           <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <input type="date" id="befFechaInicio" class="bef-date__native" aria-label="Fecha de inicio del período">
+          <span id="befStartFechaDisplay" class="bef-date__display">Seleccionar fecha</span>
           <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
@@ -8311,14 +8391,18 @@ function dupCalcularDeuda() {
           <span class="bef-step__badge">4</span>
           <span class="bef-step__label">Fecha de fin del período</span>
         </div>
-        <div class="bef-date-wrap">
+        <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV / DUP (openCalendar('befEnd')) -->
+        <input type="hidden" id="befEndDia" value="">
+        <input type="hidden" id="befEndMes" value="">
+        <input type="hidden" id="befEndAnio" value="">
+        <div class="bef-date-wrap" onclick="openCalendar('befEnd')">
           <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
             <line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          <input type="date" id="befFechaFin" class="bef-date__native" aria-label="Fecha de fin del período">
+          <span id="befEndFechaDisplay" class="bef-date__display">Seleccionar fecha</span>
           <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
             <line x1="16" y1="2" x2="16" y2="6"/>
@@ -8425,6 +8509,32 @@ function befGetMontoValue() {
   return parseInt(raw.replace(/\./g, '')) || 0;
 }
 
+// La fecha de inicio/fin del BEF ya no usa <input type="date"> nativo: usa
+// el mismo calendario custom (#calendarModal) que Depósitos LAV y DUP, vía
+// openCalendar('befStart') / openCalendar('befEnd'). A diferencia del DUP
+// (una sola fecha), aquí hay dos campos independientes — cada uno con su
+// propio trío de hidden inputs (befStartDia/Mes/Anio, befEndDia/Mes/Anio) y
+// su propio <span> de display (befStartFechaDisplay, befEndFechaDisplay).
+function befSetFechaDisplay(which, d, mIdx, anio) {
+  const display = document.getElementById(which === 'start' ? 'befStartFechaDisplay' : 'befEndFechaDisplay');
+  if (!display) return;
+  if (!d || !mIdx || !anio) { display.textContent = 'Seleccionar fecha'; display.classList.remove('bef-date__display--filled'); return; }
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  display.textContent = `${d} / ${mNamesShort[mIdx - 1]} / ${anio}`;
+  display.classList.add('bef-date__display--filled');
+}
+
+// Construye un ISO YYYY-MM-DD desde los hidden inputs de inicio o fin (o ''
+// si la fecha no está completa). Útil para comparar inicio/fin con Date().
+function befGetFechaISO(which) {
+  const prefix = which === 'start' ? 'befStart' : 'befEnd';
+  const dia  = document.getElementById(prefix + 'Dia').value;
+  const mes  = document.getElementById(prefix + 'Mes').value;
+  const anio = document.getElementById(prefix + 'Anio').value;
+  if (!dia || !mes || !anio) return '';
+  return `${anio}-${mes}-${String(dia).padStart(2, '0')}`;
+}
+
 // Placeholder de cálculo: por ahora este overlay solo está conectado a la
 // tarjeta del dock (ver más abajo). La lógica de cálculo "entre fechas"
 // se implementará en una entrega posterior, igual que ocurrió con
@@ -8432,8 +8542,8 @@ function befGetMontoValue() {
 function befCalcularDeuda() {
   const unidad = _befUnidad; // 'utm' | 'clp'
   const monto  = befGetMontoValue();
-  const inicio = document.getElementById('befFechaInicio').value;
-  const fin    = document.getElementById('befFechaFin').value;
+  const inicio = befGetFechaISO('start');
+  const fin    = befGetFechaISO('end');
 
   if (!monto || monto <= 0) {
     alert('Ingresa un monto de cuota válido.');
@@ -8467,13 +8577,13 @@ function befCalcularDeuda() {
 //  · Fechas (Pasos 3 y 4): "Período Actual" (sección Línea de Tiempo) usa
 //    un calendario de mes/año, no de día exacto (startIndex/endIndex sobre
 //    utmData[], ver openCalendar('start')/('end')). Para construir una
-//    fecha completa (YYYY-MM-DD) que el <input type="date"> pueda mostrar,
-//    se combina año/mes de utmData[startIndex|endIndex] con el día
-//    ingresado en "Día de Vencimiento" (#diaVencimiento) — el mismo día
-//    que la app ya usa como referencia de vencimiento mensual en el resto
-//    de los cálculos. Si el usuario no ha seleccionado período (start/end
-//    en -1), el paso correspondiente queda vacío con su placeholder normal
-//    (no se inventa una fecha).
+//    fecha completa (día/mes/año) que los hidden inputs del calendario
+//    custom puedan usar, se combina año/mes de utmData[startIndex|endIndex]
+//    con el día ingresado en "Día de Vencimiento" (#diaVencimiento) — el
+//    mismo día que la app ya usa como referencia de vencimiento mensual en
+//    el resto de los cálculos. Si el usuario no ha seleccionado período
+//    (start/end en -1), el paso correspondiente queda vacío con su
+//    placeholder normal (no se inventa una fecha).
 function befPrefillFromPensionData() {
   // Monto — idéntico criterio que dupPrefillFromPensionData()
   var modo = (document.getElementById('calculationMode')?.value) || 'utm';
@@ -8490,19 +8600,29 @@ function befPrefillFromPensionData() {
     }
   }
 
-  // Fechas — desde startIndex/endIndex (Período Actual) + diaVencimiento
+  // Fechas — desde startIndex/endIndex (Período Actual) + diaVencimiento.
+  // Se escribe directamente en los hidden inputs día/mes/año (mismo patrón
+  // que el calendario custom usa para LAV/DUP) y se actualiza el <span> de
+  // display correspondiente con befSetFechaDisplay().
   var dia = parseInt(document.getElementById('diaVencimiento')?.value || '5') || 5;
-  function isoFromUtmDataIndex(idx) {
-    if (idx === -1 || !utmData[idx]) return '';
+  function fillFromUtmDataIndex(which, idx) {
+    var prefix = which === 'start' ? 'befStart' : 'befEnd';
+    if (idx === -1 || !utmData[idx]) {
+      document.getElementById(prefix + 'Dia').value  = '';
+      document.getElementById(prefix + 'Mes').value  = '';
+      document.getElementById(prefix + 'Anio').value = '';
+      befSetFechaDisplay(which, null, null, null);
+      return;
+    }
     var entry = utmData[idx];
-    var mm = String(entry.monthIdx + 1).padStart(2, '0');
-    var dd = String(Math.min(dia, 28)).padStart(2, '0'); // cap a 28 — evita fechas inválidas en meses cortos
-    return entry.y + '-' + mm + '-' + dd;
+    var diaCap = Math.min(dia, 28); // cap a 28 — evita fechas inválidas en meses cortos
+    document.getElementById(prefix + 'Dia').value  = String(diaCap);
+    document.getElementById(prefix + 'Mes').value  = String(entry.monthIdx + 1).padStart(2, '0');
+    document.getElementById(prefix + 'Anio').value = String(entry.y);
+    befSetFechaDisplay(which, diaCap, entry.monthIdx + 1, entry.y);
   }
-  var isoInicio = isoFromUtmDataIndex(startIndex);
-  var isoFin    = isoFromUtmDataIndex(endIndex);
-  if (isoInicio) document.getElementById('befFechaInicio').value = isoInicio;
-  if (isoFin)    document.getElementById('befFechaFin').value = isoFin;
+  fillFromUtmDataIndex('start', startIndex);
+  fillFromUtmDataIndex('end', endIndex);
 }
 
 // Conectar la tarjeta "Entre fechas" al overlay

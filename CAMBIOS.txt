@@ -16,6 +16,58 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0621.0900
+Archivos modificados: index.html, styles.css
+
+Corrección — Overlay "Entre fechas" (#befOverlay) deja de usar
+<input type="date"> nativo y pasa a usar el mismo calendario custom
+(#calendarModal) que ya usan Depósitos LAV y "Desde el último pago" (DUP):
+  Los Pasos 3 y 4 del overlay (fecha de inicio / fecha de fin) abrían el
+  date picker nativo del sistema operativo en lugar del calendario propio
+  de la app — único punto de la interfaz que aún no usaba el componente
+  custom. Ahora ambos pasos abren #calendarModal mediante dos nuevos modos
+  de calendarMode: 'befStart' y 'befEnd' (uno por cada fecha, ya que a
+  diferencia del DUP — que solo captura una fecha — "Entre fechas" necesita
+  dos independientes).
+  - Cada paso pasó de un único <input type="date"> a un trío de hidden
+    inputs (befStartDia/Mes/Anio y befEndDia/Mes/Anio) + un <span> de
+    display (befStartFechaDisplay / befEndFechaDisplay) dentro de
+    .bef-date-wrap, ahora clickeable vía onclick="openCalendar('befStart')"
+    / onclick="openCalendar('befEnd')" — mismo patrón que el DUP.
+  - Se agregó la rama 'befStart'/'befEnd' en las 7 funciones del calendario
+    custom que ya distinguían por calendarMode: openCalendar (año de
+    arranque), changeYear (navegación libre por todos los años con datos
+    UTM, igual que DUP), renderCalendar (flechas de navegación, outOfRange,
+    futureBlocked —ambas fechas bloquean meses futuros, igual que el
+    período principal—, isActive del mes resaltado, onclick del mes →
+    renderDaySelector), renderDaySelector (diaIdRef y onclick del día,
+    que solo guarda la fecha y cierra, sin disparar ningún cálculo —igual
+    criterio que DUP—), updateCalendarActionBtn y calendarAction (el botón
+    siempre cierra: la confirmación real ocurre en "Calcular deuda actual").
+  - Se agregó z-index override en openCalendar (#calendarModal sube a
+    100001 en modo 'befStart'/'befEnd', igual que en 'dup', para no quedar
+    tapado por el overlay #befOverlay que es z-index 100000).
+  - Funciones nuevas: befSetFechaDisplay(which, d, mIdx, anio) — actualiza
+    el <span> de display correspondiente ('start' o 'end') — y
+    befGetFechaISO(which) — construye un ISO YYYY-MM-DD desde los hidden
+    inputs para la validación de rango en befCalcularDeuda().
+  - befCalcularDeuda() y befPrefillFromPensionData() se actualizaron para
+    leer/escribir los nuevos hidden inputs en vez del .value de
+    <input type="date">. No se modificó la lógica de validación de rango
+    (fin posterior a inicio) ni el placeholder pendiente del motor de
+    cálculo "entre fechas" — solo la captura de fecha.
+  CSS (styles.css): se eliminó .bef-date__native (estilos del input nativo
+  type="date" y su calendar-picker-indicator) y se agregó .bef-date__display
+  (clon de .dup-date__display: mismo color/peso por defecto y estado
+  --filled). .bef-date-wrap pasó de :focus-within (ya no aplica: no hay
+  ningún <input> real dentro del wrapper) a :active, igual que
+  .dup-date-wrap.
+  No se tocó la lógica de cálculo de "Entre fechas" (befCalcularDeuda()
+  sigue como placeholder), ni el comportamiento de Depósitos LAV, DUP, ni
+  "Datos de Pensión".
+
+================================================================================
+
 v2.0621.0800
 Archivos modificados: index.html
 

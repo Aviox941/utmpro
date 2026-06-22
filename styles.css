@@ -4116,9 +4116,8 @@
   position: relative;
   transition: border-color 0.14s;
 }
-.bef-date-wrap:focus-within {
+.bef-date-wrap:active {
   border-color: #1f5fff;
-  box-shadow: 0 0 0 3px rgba(31,95,255,0.08);
 }
 
 .bef-date__icon {
@@ -4129,39 +4128,22 @@
   pointer-events: none;
 }
 
-/* Input nativo type="date": se hace transparente y se posiciona sobre todo
-   el ancho disponible, dejando ver los íconos custom (calendario + chevron)
-   alrededor. El texto que pinta el propio navegador (DD/MM/AAAA) hereda la
-   tipografía y el color del wrapper. */
-.bef-date__native {
+/* Reemplaza al antiguo <input type="date"> nativo: ahora es un <span>
+   dentro de .bef-date-wrap, igual patrón que .dup-date__display. El click
+   lo maneja el wrapper (onclick="openCalendar('befStart'|'befEnd')"), que
+   abre el mismo calendario custom que usa Depósitos LAV / DUP. */
+.bef-date__display {
   flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
   font-size: 15px;
   font-weight: 500;
-  color: #1a1d2e;
-  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
-  letter-spacing: 0.01em;
-  padding: 0;
-  height: 100%;
-}
-.bef-date__native::-webkit-calendar-picker-indicator {
-  /* Se mantiene clickeable pero invisible: el ícono visible es el SVG
-     custom (.bef-date__chevron); el navegador sigue abriendo su picker
-     nativo al tocar el campo. */
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.bef-date__native:invalid,
-.bef-date__native:not(:focus):placeholder-shown {
   color: #c0c8d8;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}
+.bef-date__display--filled {
+  color: #1a1d2e;
+  font-weight: 700;
 }
 
 .bef-date__chevron {
