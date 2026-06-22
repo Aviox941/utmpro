@@ -1,5 +1,270 @@
-v2.0621.0637
+================================================================================
+INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
+================================================================================
+- Este bloque de instrucciones es PERMANENTE: no se borra, no se resume, no
+  se reemplaza en ninguna entrega futura. Solo se agregan entradas de
+  changelog NUEVAS por encima de la última versión registrada.
+- En cada entrega se deben actualizar: index.html (meta app-version), sw.js
+  (CACHE_NAME), y este archivo CAMBIOS.txt.
+- Cada entrega va en un zip con todos los archivos corregidos/actualizados.
+- El zip siempre debe tener este CAMBIOS.txt con la entrada de la última
+  corrección agregada arriba de las anteriores (orden cronológico inverso).
+- El nombre del zip siempre debe coincidir con el app-version de index.html.
+- Cada entrada debe indicar claramente qué archivo(s) fueron modificados.
+- node --check (u otra validación de sintaxis equivalente) antes de toda
+  entrega.
+
+================================================================================
+
+v2.0622.0130
 Archivos modificados: index.html, sw.js
+
+Fix — Flash de interfaz al abrir "Entre fechas" desde calcTypeScreen:
+
+  Causa raíz: al conectar la tarjeta del dock en la entrega anterior se
+  agregó un segundo addEventListener('click') sobre .calc-mode-card--purple,
+  además del que ya existía en befPrefillFromPensionData(). Al hacer click
+  ambos listeners disparaban simultáneamente → openBefOverlay() se llamaba
+  dos veces, produciendo el flash visible.
+
+  Fix: eliminado el listener duplicado (la conexión del dock ya estaba
+  implementada correctamente en el bloque original de befPrefillFromPensionData).
+
+  La transición desde calcTypeScreen (csOpenEntreFechas) ya tenía
+  skipSlideIn=true correctamente aplicado — mismo patrón que
+  csOpenDesdeUltimoPago — por lo que no requirió cambios adicionales.
+
+v2.0622.0100
+Archivos modificados: index.html, styles.css, sw.js
+
+Corrección y rediseño — Overlay "Desde el último pago" (#dupOverlay): dos bugs
+de usabilidad corregidos y UI mejorada.
+
+BUG 1 — Prefill incorrecto (dupPrefillFromPensionData):
+  El valor de "Datos de Pensión" se prellena en dupMontoCuota (Paso 3, último
+  pago) en lugar de dupCuotaMensual (Paso 2, cuota mensual). El campo de
+  último pago debe quedar vacío para que el usuario ingrese el monto real.
+  Fix: dupPrefillFromPensionData() ahora solo escribe en dupCuotaMensual.
+  Mismo fix aplicado a csPrefillDesdeUltimoPago().
+
+BUG 2 — Toggle global borraba ambos campos:
+  Cambiar UTM/CLP en el Paso 1 (toggle global) limpiaba dupCuotaMensual y
+  dupMontoCuota, haciendo imposible ingresar cuota en UTM y último pago en
+  CLP (o viceversa).
+
+SOLUCIÓN: se elimina el toggle global (Paso 1 anterior) y se reemplaza por
+  un mini-selector UTM/CLP integrado en cada campo, con variables independientes
+  _dupUnidadCuota y _dupUnidadMonto. El usuario ahora puede elegir la unidad
+  de cada campo por separado sin que cambiar una afecte a la otra.
+
+  Cambios técnicos:
+  - HTML: Paso 1 (toggle) eliminado, Pasos 2/3/4 renumerados a 1/2/3.
+    Cada dup-input-wrap ahora tiene class --split con botón dup-unit-btn.
+  - JS: dupSelectUnidad() mantenida por compatibilidad (solo afecta cuota).
+    Nuevas funciones: dupToggleUnidadCuota(), dupToggleUnidadMonto().
+    dupGetCuotaMensualValue() usa _dupUnidadCuota.
+    dupGetMontoValue() usa _dupUnidadMonto.
+    dupCalcularDeuda(): setCalcMode usa _dupUnidadCuota; LAV usa _dupUnidadMonto.
+    Reset al cerrar: unidades vuelven a UTM/UTM.
+  - CSS: .dup-input-wrap--split, .dup-unit-btn, .dup-unit-chevron, .dup-input--split.
+
+v2.0622.0030
+Archivos modificados: index.html, sw.js
+
+Corrección — Overlay "Entre fechas" (#befOverlay): un abono LAV (u otro dato
+de un cálculo anterior) quedaba "pegado" y se sumaba al nuevo cálculo:
+  befCalcularDeuda() (agregada en v2.0621.2324) nunca llamaba a
+  resetAllExceptPensionData() antes de aplicar el nuevo período/monto — a
+  diferencia de dupCalcularDeuda(), que sí lo hace. Si ya había un cálculo
+  hecho con abonos LAV registrados, un nuevo cálculo "Entre fechas" los
+  conservaba en vez de partir limpio.
+
+  Se agrega la misma limpieza (abonos, LAV, pagos parciales, deuda
+  histórica, consolidada, resultados) que usa el flujo DUP, preservando
+  "Datos de Pensión" intacta. El mes/año de befStart/befEnd se traduce a
+  startIndex/endIndex ANTES de llamar a resetAllExceptPensionData(), ya que
+  esa función limpia todos los inputs no protegidos (incluidos los hidden
+  de befStart/befEnd) — leerlos después del reset los habría encontrado
+  vacíos.
+
+================================================================================
+
+v2.0622.0000
+Archivos modificados: index.html, sw.js
+
+Mejora — Overlay "Desde el último pago" (#dupOverlay): nuevo campo "Monto
+de la cuota mensual" (Paso 2), interruptor del valor "Cuota Mensual" de
+"Período Actual":
+  El overlay solo tenía "Monto de la última cuota pagada" (ahora Paso 3),
+  que se registra como abono LAV pero nunca escribe el valor recurrente de
+  cuota mensual (utmAmount/clpAmount) que usa calculate() para proyectar
+  intereses hacia adelante. Si "Datos de Pensión" estaba vacía o desactualizada,
+  el cálculo "Desde el último pago" usaba una cuota mensual incorrecta o nula.
+
+  Se agrega input #dupCuotaMensual (mismo patrón de saneo/formateo que
+  #dupMontoCuota, comparte la unidad UTM/CLP del Paso 1, se prellena desde
+  utmAmount/clpAmount al abrir el overlay). dupCalcularDeuda() ahora valida
+  el nuevo campo y, ANTES de registrar el abono LAV, escribe su valor en
+  utmAmount/clpAmount + calculationMode (vía setCalcMode()) — mismo patrón
+  ya usado en la corrección del overlay "Entre fechas" (v2.0621.2324) — de
+  modo que calculate() (disparado dentro de addAbonoLav()) ya calcula con
+  la cuota mensual correcta y "Período Actual" queda sincronizado.
+
+================================================================================
+
+v2.0621.2324
+Archivos modificados: index.html, sw.js
+
+Corrección — Overlay "Entre fechas" (#befOverlay) no quedaba conectado al
+motor de cálculo real:
+  befCalcularDeuda() validaba monto/fechas y solo cerraba el overlay
+  (placeholder con TODO pendiente). Las fechas elegidas en befStart/befEnd
+  vivían en hidden inputs propios, totalmente aislados de startIndex/endIndex
+  — las variables que usan calculate() y los calendarios de "Período Actual".
+  Resultado: el usuario seleccionaba fecha/monto en el overlay, pero al tocar
+  "Calcular" no aparecía ningún resultado y "Período Actual" seguía vacío.
+
+  Se convierte el overlay en un interruptor real de "Período Actual":
+  befCalcularDeuda() ahora traduce mes/año de befStart/befEnd al índice
+  correspondiente en utmData (misma fuente que usan los calendarios
+  'start'/'end'), asigna startIndex/endIndex, escribe el monto/unidad
+  ingresados en los campos reales (utmAmount/clpAmount/calculationMode vía
+  setCalcMode()), cierra el overlay y llama a updateLabels() (dispara
+  calculate()) + saveSession().
+
+================================================================================
+
+v2.0621.0900
+Archivos modificados: index.html, styles.css
+
+Corrección — Overlay "Entre fechas" (#befOverlay) deja de usar
+<input type="date"> nativo y pasa a usar el mismo calendario custom
+(#calendarModal) que ya usa "Período Actual" (Datos de Pensión):
+  Los Pasos 3 y 4 del overlay (fecha de inicio / fecha de fin) abrían el
+  date picker nativo del sistema operativo en lugar del calendario propio
+  de la app. Ahora ambos pasos abren #calendarModal mediante dos nuevos
+  modos de calendarMode: 'befStart' y 'befEnd' (uno por cada fecha).
+  Estos modos replican exactamente el comportamiento de 'start'/'end'
+  (calendario de "Período Actual"): mes/año puro, SIN selector de día —
+  al hacer clic en un mes el calendario guarda mes/año y permanece en la
+  vista de meses (no pasa a la vista de días, a diferencia de
+  'dup'/'lav'/'abono'/'parcial', que sí navegan a un selector de día tras
+  elegir el mes).
+  - Cada paso pasó de un único <input type="date"> a un trío de hidden
+    inputs (befStartDia/Mes/Anio y befEndDia/Mes/Anio) + un <span> de
+    display (befStartFechaDisplay / befEndFechaDisplay) dentro de
+    .bef-date-wrap, clickeable vía onclick="openCalendar('befStart')" /
+    onclick="openCalendar('befEnd')". El "Dia" hidden se completa
+    internamente con "Día de Vencimiento" (capado a 28) solo para poder
+    construir una fecha ISO completa que usa la validación de rango en
+    befCalcularDeuda() — el usuario nunca elige ni ve ese día; el display
+    muestra solo "Mes Año" (p. ej. "Ene 2026"), igual que startLabel/
+    endLabel del período principal.
+  - Se agregó la rama 'befStart'/'befEnd' en openCalendar (año de
+    arranque), changeYear (navegación libre por todos los años con datos
+    UTM, igual que DUP — sin restricción de rango entre ambas fechas),
+    renderCalendar (flechas de navegación, outOfRange, futureBlocked
+    —bloquea meses futuros, igual que el período principal—, isActive del
+    mes resaltado, onclick del mes → guarda mes/año + actualiza display +
+    confirma, SIN pasar a renderDaySelector), updateCalendarActionBtn
+    (muestra "✓ Confirmar" en cuanto hay mes/año, igual que start/end) y
+    calendarAction (el mes/año ya quedó guardado en el clic; este botón
+    solo cierra el modal).
+  - Se agregó z-index override en openCalendar (#calendarModal sube a
+    100001 en modo 'befStart'/'befEnd', igual que en 'dup', para no quedar
+    tapado por el overlay #befOverlay que es z-index 100000).
+  - Funciones nuevas: befSetFechaDisplay(which, mIdx, anio) — actualiza el
+    <span> de display correspondiente ('start' o 'end') con formato
+    "Mes Año" — y befGetFechaISO(which) — construye un ISO YYYY-MM-DD
+    desde los hidden inputs para la validación de rango en
+    befCalcularDeuda().
+  - befCalcularDeuda() y befPrefillFromPensionData() se actualizaron para
+    leer/escribir los nuevos hidden inputs en vez del .value de
+    <input type="date">. No se modificó la lógica de validación de rango
+    (fin posterior a inicio) ni el placeholder pendiente del motor de
+    cálculo "entre fechas" — solo la captura de fecha.
+  CSS (styles.css): se eliminó .bef-date__native (estilos del input nativo
+  type="date" y su calendar-picker-indicator) y se agregó .bef-date__display
+  (clon de .dup-date__display: mismo color/peso por defecto y estado
+  --filled). .bef-date-wrap pasó de :focus-within (ya no aplica: no hay
+  ningún <input> real dentro del wrapper) a :active, igual que
+  .dup-date-wrap.
+  No se tocó la lógica de cálculo de "Entre fechas" (befCalcularDeuda()
+  sigue como placeholder), ni el comportamiento de Depósitos LAV, DUP, ni
+  "Datos de Pensión".
+
+================================================================================
+
+v2.0621.0800
+Archivos modificados: index.html
+
+Nuevo — Overlays "Desde el último pago" y "Entre fechas" se prellenan con
+los datos ya cargados en la tarjeta "Datos de Pensión" (index.html):
+  Hasta esta versión, ambos overlays (#dupOverlay y #befOverlay) se abrían
+  siempre vacíos al presionar su tarjeta del dock principal, aunque el
+  usuario ya tuviera una cuota mensual y un período cargados en "Datos de
+  Pensión". Ahora, al abrir cualquiera de los dos desde el dock:
+  - Monto de cuota (UTM/CLP): se lee utmAmount/clpAmount + calculationMode
+    de "Datos de Pensión" y se prellena el Paso 2 del overlay con el mismo
+    valor y unidad — idéntica fuente y criterio para ambos overlays (antes
+    esto solo ocurría para #dupOverlay, y únicamente dentro del flujo de
+    onboarding vía csPrefillDesdeUltimoPago(), nunca al abrir desde el
+    dock). Si "Datos de Pensión" está vacía, el campo queda con su
+    placeholder normal — no se sobrescribe nada inventado.
+  - Fechas desde/hasta (solo #befOverlay, Pasos 3 y 4): "Período Actual"
+    (sección Línea de Tiempo) guarda mes/año vía startIndex/endIndex sobre
+    utmData[], no un día exacto. Para prellenar los <input type="date">
+    de "Entre fechas" se combina el año/mes de
+    utmData[startIndex|endIndex] con el día ingresado en "Día de
+    Vencimiento" (#diaVencimiento), capado a 28 para evitar fechas
+    inválidas en meses cortos. Si el usuario no ha seleccionado período en
+    "Datos de Pensión" (startIndex/endIndex en -1), el campo de fecha
+    correspondiente queda vacío.
+  Funciones agregadas: dupPrefillFromPensionData() y
+  befPrefillFromPensionData(), llamadas justo después de
+  openDupOverlay()/openBefOverlay() en el listener de cada tarjeta del
+  dock (.calc-mode-card--blue / .calc-mode-card--purple). No se modificó
+  la lógica de cálculo de ninguno de los dos overlays ni el comportamiento
+  de "Datos de Pensión" / "Período Actual".
+
+================================================================================
+
+v2.0621.0700
+Archivos modificados: index.html, styles.css, sw.js
+
+Nuevo — Overlay fullscreen "Entre fechas" (index.html, styles.css):
+  El dock principal ("¿Cómo deseas calcular?") tenía la tarjeta púrpura
+  "Entre fechas" sin acción funcional. Se agregó el overlay fullscreen
+  #befOverlay, construido con el mismo patrón estructural que el overlay
+  #dupOverlay ya existente ("Desde el último pago"): header con botón
+  volver, body desplazable con hero card + 4 pasos numerados, footer fijo
+  con CTA. Prefijo de clases propio (bef-*) para no chocar con dup-*.
+  - Paso 1: selector UTM/CLP (radio buttons estilo pill)
+  - Paso 2: monto de cuota mensual (mismo saneo de decimales coma/punto
+    que ya usa dupFormatMontoInput)
+  - Paso 3 y 4: fecha de inicio y fin del período vía <input type="date">
+    nativo estilizado, con ícono calendario + chevron
+  - Texto de ayuda: "Calcularemos desde el día de inicio hasta el día de
+    fin, ambos incluidos."
+  - CTA "Calcular deuda actual" en gradiente azul (#1f5fff → #0036d9)
+  Funciones agregadas: openBefOverlay()/closeBefOverlay() (slide-up/
+  slide-down, mismo timing y curva que DUP), befSelectUnidad(),
+  befFormatMontoInput(), befGetMontoValue() y befCalcularDeuda(). Esta
+  última solo valida monto y rango de fechas y cierra el overlay por
+  ahora: el motor de cálculo "entre fechas" queda pendiente para una
+  entrega posterior.
+  Conexión: únicamente la tarjeta .calc-mode-card--purple del dock
+  dispara openBefOverlay() (mismo patrón defensivo que
+  .calc-mode-card--blue → openDupOverlay, vía addEventListener para
+  evitar que el objeto Event active por error el modo skipSlideIn). La
+  tarjeta equivalente dentro de calcTypeScreen (Paso 2 / cs-option--green)
+  no fue tocada — sigue sin acción asignada, según lo solicitado.
+  styles.css: bloque completo de estilos bef-* (overlay, header, hero,
+  pasos, radio group, input de monto, date picker estilizado, hint,
+  footer/CTA, responsive desktop) en paleta azul en vez del morado de DUP.
+  sw.js: CACHE_NAME → pension-utm-v217.
+
+
 
 Fix — Contraste de textos en modal de detalle mensual (index.html):
   Todos los colores del modal estaban pensados para fondo oscuro pero el modal

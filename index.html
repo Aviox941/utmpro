@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0637">
+ <meta name="app-version" content="v2.0622.0150">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5169,6 +5169,24 @@ btn.textContent = 'Cerrar';
 btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
 btn.style.background = '';
 btn.style.boxShadow = '';
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// Igual criterio que start/end del período principal: mes/año puro, sin
+// día seleccionable. El botón confirma en cuanto hay mes y año.
+const mesId  = calendarMode === 'befStart' ? 'befStartMes'  : 'befEndMes';
+const anioId = calendarMode === 'befStart' ? 'befStartAnio' : 'befEndAnio';
+const mesBef  = document.getElementById(mesId).value;
+const anioBef = document.getElementById(anioId).value;
+if (mesBef && anioBef) {
+btn.textContent = '✓ Confirmar';
+btn.className = 'w-full mt-6 py-3 rounded-xl font-black text-xs uppercase transition-all active:scale-95 text-white btn-ready-amber';
+btn.style.background = 'linear-gradient(135deg,#3b82f6,#5b3fa0)';
+btn.style.boxShadow = '0 4px 18px rgba(59,130,246,0.4)';
+} else {
+btn.textContent = 'Cerrar';
+btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+btn.style.background = '';
+btn.style.boxShadow = '';
+}
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const mesId = calendarMode === 'histStart' ? 'histStartMes' : 'histEndMes';
 const anioId = calendarMode === 'histStart' ? 'histStartAnio' : 'histEndAnio';
@@ -5251,6 +5269,12 @@ closeCalendar();
 // desde aquí (eso ocurre en dupCalcularDeuda() al presionar el CTA del
 // overlay). Este botón, en la vista de meses, simplemente cierra.
 closeCalendar();
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// Igual criterio que start/end del período principal: el mes/año ya quedó
+// guardado en el onclick del mes (renderCalendar). Este botón solo cierra
+// el modal; el cálculo real ocurre al presionar "Calcular deuda actual"
+// del overlay "Entre fechas" → befCalcularDeuda().
+closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const modoActual = calendarMode;
 tryRegisterHistorical();
@@ -5288,14 +5312,15 @@ closeCalendar();
 }
 function openCalendar(m) {
 calendarMode = m;
-// El calendario custom vive con z-index 100 (por debajo del overlay DUP,
-// que es z-index 100000). Cuando se abre en modo 'dup' (desde dentro del
-// overlay "Desde el último pago"), se sube su z-index por encima del
-// overlay para que no quede tapado; en cualquier otro modo se restaura
-// el z-index original (no se modifica la clase Tailwind base, solo este
-// inline override aislado).
+// El calendario custom vive con z-index 100 (por debajo de los overlays
+// DUP y BEF, que son z-index 100000). Cuando se abre en modo 'dup',
+// 'befStart' o 'befEnd' (desde dentro de los overlays "Desde el último
+// pago" / "Entre fechas"), se sube su z-index por encima del overlay para
+// que no quede tapado; en cualquier otro modo se restaura el z-index
+// original (no se modifica la clase Tailwind base, solo este inline
+// override aislado).
 const calModalEl = document.getElementById('calendarModal');
-if (calModalEl) calModalEl.style.zIndex = (m === 'dup') ? '100001' : '';
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5366,6 +5391,18 @@ if (anioDup) {
 } else {
   selectedYear = CURRENT_YEAR;
 }
+} else if (m === 'befStart' || m === 'befEnd') {
+// Mismo picker que DUP, pero para el overlay "Entre fechas": dos fechas
+// independientes (befStart/befEnd), cada una con su propio trío de hidden
+// inputs. Navegación libre por todos los años con datos UTM, sin período
+// asociado — igual criterio que DUP.
+const anioId = m === 'befStart' ? 'befStartAnio' : 'befEndAnio';
+const anioBef = document.getElementById(anioId).value;
+if (anioBef) {
+  selectedYear = parseInt(anioBef);
+} else {
+  selectedYear = CURRENT_YEAR;
+}
 } else if (m === 'abono') {
 // Igual que LAV: si ya hay año guardado, arrancar en ese año; si no, limpiar.
 const anioAbono = document.getElementById('tempAbonoAnio').value;
@@ -5392,7 +5429,7 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() {
   const calModalEl = document.getElementById('calendarModal');
   calModalEl.classList.replace('flex', 'hidden');
-  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup')
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd')
   unlockBody();
 }
 function changeYear(v) {
@@ -5442,6 +5479,14 @@ const nextDup = selectedYear + v;
 const minYearDup = utmData.length > 0 ? utmData[0].y : 2010;
 if (nextDup < minYearDup || nextDup > CURR_YEAR) return;
 selectedYear = nextDup;
+} else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+// BEF: igual que DUP, navegación libre por todos los años con datos UTM,
+// sin restricción de rango entre befStart y befEnd (el usuario puede
+// ajustar cualquiera de las dos fechas en cualquier orden).
+const nextBef = selectedYear + v;
+const minYearBef = utmData.length > 0 ? utmData[0].y : 2010;
+if (nextBef < minYearBef || nextBef > CURR_YEAR) return;
+selectedYear = nextBef;
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const next = selectedYear + v;
 const minYearHist = utmData.length > 0 ? utmData[0].y : 2010;
@@ -5482,6 +5527,8 @@ const container = document.getElementById('calendarMonths'); container.innerHTML
     // Si parcial sin período: maxY = CURR_YEAR (navegación libre, igual que LAV)
   } else if (calendarMode === 'dup') {
     // DUP: siempre libre, sin período (minY/maxY ya son los defaults arriba)
+  } else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
+    // BEF: siempre libre, sin período (minY/maxY ya son los defaults arriba)
   } else if (calendarMode === 'histEnd') {
     const sa = document.getElementById('histStartAnio').value;
     if (sa) minY = Math.max(minYearData, parseInt(sa));
@@ -5507,7 +5554,7 @@ const btn = document.createElement('button');
 // cuota a cuota, independiente del período actual).
 const outOfRange = calendarMode === 'lav'
   ? (idx === -1 || (_periodoDefinido && (idx < rangeStartIdx || idx > rangeEndIdx)))
-  : calendarMode === 'dup'
+  : (calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
     ? (idx === -1)
     : calendarMode === 'parcial'
     ? (_periodoDefinido
@@ -5519,7 +5566,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
@@ -5565,6 +5612,14 @@ isActive = document.getElementById('tempLavMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('dupMes').value === mesVal
 && document.getElementById('dupAnio').value === String(selectedYear);
+} else if (calendarMode === 'befStart') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('befStartMes').value === mesVal
+&& document.getElementById('befStartAnio').value === String(selectedYear);
+} else if (calendarMode === 'befEnd') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('befEndMes').value === mesVal
+&& document.getElementById('befEndAnio').value === String(selectedYear);
 } else if (calendarMode === 'histStart') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('histStartMes').value === mesVal
@@ -5642,6 +5697,26 @@ const mesVal = String(i + 1).padStart(2, '0');
 document.getElementById('dupMes').value = mesVal;
 document.getElementById('dupAnio').value = String(selectedYear);
 renderDaySelector(selectedYear, i);
+return;
+} else if (calendarMode === 'befStart') {
+const mesVal = String(i + 1).padStart(2, '0');
+const _diaVto = Math.min(parseInt(document.getElementById('diaVencimiento')?.value || '5') || 5, 28);
+document.getElementById('befStartDia').value = String(_diaVto);
+document.getElementById('befStartMes').value = mesVal;
+document.getElementById('befStartAnio').value = String(selectedYear);
+befSetFechaDisplay('start', i + 1, selectedYear);
+updateCalendarActionBtn();
+renderCalendar();
+return;
+} else if (calendarMode === 'befEnd') {
+const mesVal = String(i + 1).padStart(2, '0');
+const _diaVto = Math.min(parseInt(document.getElementById('diaVencimiento')?.value || '5') || 5, 28);
+document.getElementById('befEndDia').value = String(_diaVto);
+document.getElementById('befEndMes').value = mesVal;
+document.getElementById('befEndAnio').value = String(selectedYear);
+befSetFechaDisplay('end', i + 1, selectedYear);
+updateCalendarActionBtn();
+renderCalendar();
 return;
 } else if (calendarMode === 'histStart') {
 document.getElementById('histStartAnio').value = String(selectedYear);
@@ -7860,7 +7935,7 @@ function _ayudaAbrirTema(t) {
         <polyline points="15 18 9 12 15 6"/>
       </svg>
     </button>
-    <span class="dup-overlay__header-title">Desde el último pago</span>
+    
     <!-- Espacio para alinear — simétrico al botón volver -->
     <div style="width:34px;"></div>
   </div>
@@ -7887,36 +7962,44 @@ function _ayudaAbrirTema(t) {
     <!-- Pasos -->
     <div class="dup-form">
 
-      <!-- Paso 1: Unidad -->
+      <!-- Paso 1: Cuota mensual — selector UTM/CLP por campo -->
       <div class="dup-step">
         <div class="dup-step__header">
           <span class="dup-step__badge">1</span>
-          <span class="dup-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
+          <span class="dup-step__label">Monto de la cuota mensual</span>
         </div>
-        <div class="dup-radio-group" role="radiogroup">
-          <button type="button" class="dup-radio dup-radio--active" id="dupRadioLabelUTM" onclick="dupSelectUnidad('utm')" aria-pressed="true">
-            <span class="dup-radio__indicator"></span>
-            <span class="dup-radio__text">UTM</span>
+        <div class="dup-input-wrap dup-input-wrap--split">
+          <button type="button" class="dup-unit-btn" id="dupCuotaUnitBtn" onclick="dupToggleUnidadCuota()">
+            <span id="dupCuotaUnitLabel">UTM</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="dup-unit-chevron"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
-          <button type="button" class="dup-radio" id="dupRadioLabelCLP" onclick="dupSelectUnidad('clp')" aria-pressed="false">
-            <span class="dup-radio__indicator"></span>
-            <span class="dup-radio__text">CLP</span>
-          </button>
+          <input
+            type="text"
+            id="dupCuotaMensual"
+            class="dup-input dup-input--split"
+            placeholder="0,00"
+            inputmode="decimal"
+            aria-label="Monto de la cuota mensual"
+            oninput="dupFormatCuotaMensualInput(this)"
+          >
         </div>
       </div>
 
-      <!-- Paso 2: Monto -->
+      <!-- Paso 2: Monto último pago — unidad independiente -->
       <div class="dup-step">
         <div class="dup-step__header">
           <span class="dup-step__badge">2</span>
           <span class="dup-step__label">Monto de la última cuota pagada</span>
         </div>
-        <div class="dup-input-wrap">
-          <span class="dup-input__prefix" id="dupPrefixLabel">UTM</span>
+        <div class="dup-input-wrap dup-input-wrap--split">
+          <button type="button" class="dup-unit-btn" id="dupMontoUnitBtn" onclick="dupToggleUnidadMonto()">
+            <span id="dupMontoUnitLabel">UTM</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="dup-unit-chevron"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
           <input
             type="text"
             id="dupMontoCuota"
-            class="dup-input"
+            class="dup-input dup-input--split"
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la última cuota pagada"
@@ -7925,10 +8008,10 @@ function _ayudaAbrirTema(t) {
         </div>
       </div>
 
-      <!-- Paso 3: Fecha último pago -->
+      <!-- Paso 4: Fecha último pago -->
       <div class="dup-step">
         <div class="dup-step__header">
-          <span class="dup-step__badge">3</span>
+          <span class="dup-step__badge">4</span>
           <span class="dup-step__label">¿Cuál fue la fecha del último pago?</span>
         </div>
         <!-- Hidden: día/mes/año seleccionados vía el mismo calendario custom que usa Depósitos LAV (openCalendar('dup')) -->
@@ -8020,33 +8103,74 @@ function closeDupOverlay() {
   }, { once: true });
 }
 
-// Estado de unidad seleccionada (evita depender de input[type=radio] nativo)
-var _dupUnidad = 'utm';
+// ── Prefill: monto de cuota desde "Datos de Pensión" ──────────────────────
+// Al abrir dupOverlay desde la tarjeta del dock (.calc-mode-card--blue), si
+// ya hay un monto cargado en la tarjeta "Datos de Pensión" (utmAmount /
+// clpAmount), se prellena el Paso 2 del overlay con ese mismo valor y
+// unidad — el usuario no debería tener que volver a escribir la cuota que
+// ya ingresó. No sobrescribe si "Datos de Pensión" está vacía (el campo
+// del overlay queda con su placeholder normal). Misma lógica de lectura
+// que usa calculationMode/utmAmount/clpAmount en el resto de la app: modo
+// 'clp' → unidad pesos, cualquier otro modo con utmAmount > 0 → unidad UTM.
+// Variables de unidad independientes por campo
+var _dupUnidadCuota = 'utm'; // unidad del campo "Cuota mensual"
+var _dupUnidadMonto = 'utm'; // unidad del campo "Último pago"
 
-function dupSelectUnidad(val) {
-  _dupUnidad = val;
-  const isUTM = val === 'utm';
-  document.getElementById('dupPrefixLabel').textContent = isUTM ? 'UTM' : '$';
-  document.getElementById('dupMontoCuota').placeholder = isUTM ? '0,00' : '0';
-  document.getElementById('dupMontoCuota').value = '';
-  var btnUTM = document.getElementById('dupRadioLabelUTM');
-  var btnCLP = document.getElementById('dupRadioLabelCLP');
-  btnUTM.classList.toggle('dup-radio--active', isUTM);
-  btnCLP.classList.toggle('dup-radio--active', !isUTM);
-  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
-  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+// ── Toggle UTM/CLP independiente por campo ────────────────────────────────
+function dupToggleUnidadCuota() {
+  _dupUnidadCuota = (_dupUnidadCuota === 'utm') ? 'clp' : 'utm';
+  var isUTM = _dupUnidadCuota === 'utm';
+  document.getElementById('dupCuotaUnitLabel').textContent = isUTM ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupCuotaMensual');
+  inp.placeholder = isUTM ? '0,00' : '0';
+  inp.value = '';
+  inp.focus();
 }
 
-// Saneo del input de monto, mismo patrón ya validado en qsFormatAmountInput()
-// (Paso 1 / quotaScreen): en UTM se admite '.' o ',' como separador decimal
-// (el teclado numérico de Android muestra punto) y se normaliza siempre a
-// coma, con máximo 2 decimales. En CLP se descarta todo lo no-numérico y se
-// formatea con separador de miles vía formatPlain(), igual que clpAmount/
-// qsAmountInput. Reemplaza el type="number" nativo anterior, que no permite
-// separador de miles (148.566 quedaba guardado como 148566) y no acepta
-// coma como decimal en ningún locale.
+function dupToggleUnidadMonto() {
+  _dupUnidadMonto = (_dupUnidadMonto === 'utm') ? 'clp' : 'utm';
+  var isUTM = _dupUnidadMonto === 'utm';
+  document.getElementById('dupMontoUnitLabel').textContent = isUTM ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupMontoCuota');
+  inp.placeholder = isUTM ? '0,00' : '0';
+  inp.value = '';
+  inp.focus();
+}
+
+// ── Prefill: solo cuota mensual (Paso 1) desde "Datos de Pensión" ─────────
+// Bug fix: anteriormente se prellena dupMontoCuota (último pago) en lugar de
+// dupCuotaMensual. Ahora solo se escribe la cuota mensual y se deja el
+// campo de último pago vacío para que el usuario lo ingrese.
+function dupPrefillFromPensionData() {
+  var modo = (document.getElementById('calculationMode')?.value) || 'utm';
+  var utmVal = parseFloat((document.getElementById('utmAmount')?.value || '').replace(',', '.')) || 0;
+  var clpVal = parseInt((document.getElementById('clpAmount')?.value || '').replace(/\./g, '')) || 0;
+  if (!(utmVal > 0) && !(clpVal > 0)) return; // Datos de Pensión vacíos
+
+  var unidad = (modo === 'clp') ? 'clp' : 'utm';
+  // Ajustar unidad del campo cuota mensual
+  _dupUnidadCuota = unidad;
+  document.getElementById('dupCuotaUnitLabel').textContent = unidad === 'utm' ? 'UTM' : 'CLP';
+  var inputCuota = document.getElementById('dupCuotaMensual');
+  if (inputCuota) {
+    inputCuota.placeholder = unidad === 'utm' ? '0,00' : '0';
+    inputCuota.value = (unidad === 'utm') ? utmVal.toFixed(2).replace('.', ',') : formatPlain(clpVal);
+  }
+  // Campo último pago (Paso 2): NO se prellena, queda vacío para el usuario
+}
+
+// dupSelectUnidad: mantenida por compatibilidad con csPrefillDesdeUltimoPago()
+// — solo actualiza el campo de cuota mensual (Paso 1)
+function dupSelectUnidad(val) {
+  _dupUnidadCuota = val;
+  document.getElementById('dupCuotaUnitLabel').textContent = val === 'utm' ? 'UTM' : 'CLP';
+  var inp = document.getElementById('dupCuotaMensual');
+  if (inp) { inp.placeholder = val === 'utm' ? '0,00' : '0'; inp.value = ''; }
+}
+
+// Saneo del input de monto último pago — usa _dupUnidadMonto (independiente)
 function dupFormatMontoInput(input) {
-  if (_dupUnidad === 'utm') {
+  if (_dupUnidadMonto === 'utm') {
     var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
     var partes = raw.split(',');
     if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
@@ -8059,11 +8183,34 @@ function dupFormatMontoInput(input) {
   }
 }
 
-// Convierte el valor visible (con coma decimal en UTM, o con puntos de
-// miles en CLP) al número real que espera la lógica de cálculo.
+// Saneo del input de cuota mensual — usa _dupUnidadCuota (independiente)
+function dupFormatCuotaMensualInput(input) {
+  if (_dupUnidadCuota === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+// Convierte el valor visible del campo "Cuota mensual" al número real.
+function dupGetCuotaMensualValue() {
+  var raw = (document.getElementById('dupCuotaMensual')?.value || '').trim();
+  if (_dupUnidadCuota === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
+}
+
+// Convierte el valor visible del campo "Último pago" al número real.
 function dupGetMontoValue() {
   var raw = (document.getElementById('dupMontoCuota').value || '').trim();
-  if (_dupUnidad === 'utm') {
+  if (_dupUnidadMonto === 'utm') {
     return parseFloat(raw.replace(',', '.')) || 0;
   }
   return parseInt(raw.replace(/\./g, '')) || 0;
@@ -8088,14 +8235,19 @@ function dupSetFechaDisplay(d, mIdx, anio) {
 // usaría el usuario manualmente. Así no se duplica lógica de conversión
 // UTM↔CLP ni de imputación: se reutiliza 100% el motor ya existente de LAV.
 function dupCalcularDeuda() {
-  const unidad = _dupUnidad; // 'utm' | 'clp'
+  const unidad = _dupUnidadMonto; // unidad del último pago (independiente de la cuota)
   const monto  = dupGetMontoValue();
+  const cuotaMensual = dupGetCuotaMensualValue();
   const dia  = document.getElementById('dupDia').value;
   const mes  = document.getElementById('dupMes').value;
   const anio = document.getElementById('dupAnio').value;
 
   if (!monto || monto <= 0) {
     alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!cuotaMensual || cuotaMensual <= 0) {
+    alert('Ingresa el monto de la cuota mensual.');
     return;
   }
   if (!dia || !mes || !anio) {
@@ -8110,6 +8262,18 @@ function dupCalcularDeuda() {
   //    monto. La tarjeta "Datos de Pensión" (cuota UTM/CLP, % sueldo, IMM,
   //    día de vencimiento) se preserva intacta.
   if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
+
+  // 0.b) Cuota mensual (Paso 2, nuevo): el overlay es también un interruptor
+  //      del valor "Cuota Mensual" de la tarjeta "Período Actual" — se
+  //      escribe ANTES de registrar el abono LAV para que calculate()
+  //      (disparado dentro de addAbonoLav()) ya use el monto correcto.
+  // Escribir cuota mensual en tarjeta Datos de Pensión con su propia unidad
+  setCalcMode(_dupUnidadCuota);
+  if (_dupUnidadCuota === 'utm') {
+    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
+  } else {
+    document.getElementById('clpAmount').value = formatPlain(cuotaMensual);
+  }
 
   // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
   document.getElementById('tempLavMes').value  = mes;
@@ -8150,6 +8314,11 @@ function dupCalcularDeuda() {
   // 4) Resetear el formulario del DUP para que la próxima vez que se abra
   //    no queden datos de un cálculo anterior.
   document.getElementById('dupMontoCuota').value = '';
+  document.getElementById('dupCuotaMensual').value = '';
+  // Resetear unidades a UTM por defecto
+  _dupUnidadCuota = 'utm'; _dupUnidadMonto = 'utm';
+  document.getElementById('dupCuotaUnitLabel').textContent = 'UTM';
+  document.getElementById('dupMontoUnitLabel').textContent = 'UTM';
   document.getElementById('dupDia').value  = '';
   document.getElementById('dupMes').value  = '';
   document.getElementById('dupAnio').value = '';
@@ -8163,12 +8332,415 @@ function dupCalcularDeuda() {
 // Conectar la tarjeta "Desde el último pago" al overlay
 (function() {
   const card = document.querySelector('.calc-mode-card--blue');
-  // No pasar openDupOverlay directo como handler: addEventListener invoca
+  if (card) card.addEventListener('click', function() {
+    openDupOverlay();
+    dupPrefillFromPensionData();
+  });
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     FULLSCREEN OVERLAY: Entre fechas
+     position:fixed inset:0 — cubre toda la pantalla como una página.
+     Mismo patrón estructural que dupOverlay (clases bef-*, prefijo propio
+     para no chocar con dup-*). Se abre con animación slide-up, se cierra
+     con slide-down. Por ahora solo conectado a la tarjeta del dock
+     (.calc-mode-card--purple); sin lógica de cálculo todavía.
+     ══════════════════════════════════════════════════════════════════ -->
+<div id="befOverlay" class="bef-overlay" aria-label="Entre fechas" role="dialog" aria-modal="true" style="display:none;">
+
+  <!-- Header propio (espeja el header de la app) -->
+  <div class="bef-overlay__header">
+    <button class="bef-overlay__back" onclick="closeBefOverlay()" aria-label="Volver">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    
+    <!-- Espacio para alinear — simétrico al botón volver -->
+    <div style="width:34px;"></div>
+  </div>
+
+  <!-- Contenido desplazable -->
+  <div class="bef-overlay__body">
+
+    <!-- Hero card -->
+    <div class="bef-hero">
+      <div class="bef-hero__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="bef-hero__text">
+        <h2 class="bef-hero__title">Entre fechas</h2>
+        <p class="bef-hero__subtitle">Calcularemos tu deuda entre el período de inicio y fin que indiques.</p>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="bef-form">
+
+      <!-- Paso 1: Unidad -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">1</span>
+          <span class="bef-step__label">¿En qué unidad está fijada tu cuota mensual?</span>
+        </div>
+        <div class="bef-radio-group" role="radiogroup">
+          <button type="button" class="bef-radio bef-radio--active" id="befRadioLabelUTM" onclick="befSelectUnidad('utm')" aria-pressed="true">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">UTM</span>
+          </button>
+          <button type="button" class="bef-radio" id="befRadioLabelCLP" onclick="befSelectUnidad('clp')" aria-pressed="false">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">CLP</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 2: Monto -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">2</span>
+          <span class="bef-step__label">Monto de la cuota mensual</span>
+        </div>
+        <div class="bef-input-wrap">
+          <span class="bef-input__prefix" id="befPrefixLabel">UTM</span>
+          <input
+            type="text"
+            id="befMontoCuota"
+            class="bef-input"
+            placeholder="0,00"
+            inputmode="decimal"
+            aria-label="Monto de la cuota mensual"
+            oninput="befFormatMontoInput(this)"
+          >
+        </div>
+      </div>
+
+      <!-- Paso 3: Fecha de inicio -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">3</span>
+          <span class="bef-step__label">Fecha de inicio del período</span>
+        </div>
+        <!-- Hidden: mes/año seleccionados vía el mismo calendario custom que usa "Período Actual" (openCalendar('befStart')) — mes/año puro, sin selector de día; el campo "Dia" se completa con "Día de Vencimiento" solo para construir el ISO interno -->
+        <input type="hidden" id="befStartDia" value="">
+        <input type="hidden" id="befStartMes" value="">
+        <input type="hidden" id="befStartAnio" value="">
+        <div class="bef-date-wrap" onclick="openCalendar('befStart')">
+          <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span id="befStartFechaDisplay" class="bef-date__display">Seleccionar fecha</span>
+          <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Paso 4: Fecha de fin -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">4</span>
+          <span class="bef-step__label">Fecha de fin del período</span>
+        </div>
+        <!-- Hidden: mes/año seleccionados vía el mismo calendario custom que usa "Período Actual" (openCalendar('befEnd')) — mes/año puro, sin selector de día; el campo "Dia" se completa con "Día de Vencimiento" solo para construir el ISO interno -->
+        <input type="hidden" id="befEndDia" value="">
+        <input type="hidden" id="befEndMes" value="">
+        <input type="hidden" id="befEndAnio" value="">
+        <div class="bef-date-wrap" onclick="openCalendar('befEnd')">
+          <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span id="befEndFechaDisplay" class="bef-date__display">Seleccionar fecha</span>
+          <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+      </div>
+
+      <p class="bef-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#a0aab8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Calcularemos desde el día de inicio hasta el día de fin, ambos incluidos.
+      </p>
+
+    </div><!-- /bef-form -->
+
+    <!-- Espaciado final para que el CTA no tape contenido -->
+    <div style="height: 100px;"></div>
+  </div><!-- /bef-overlay__body -->
+
+  <!-- CTA fijo en el fondo -->
+  <div class="bef-overlay__footer">
+    <button type="button" class="bef-cta-btn" onclick="befCalcularDeuda()">
+      Calcular deuda actual
+    </button>
+  </div>
+
+</div>
+<!-- /FULLSCREEN OVERLAY: Entre fechas -->
+
+<script>
+// ── Fullscreen overlay: Entre fechas ──────────────────────────────────────
+
+function openBefOverlay(skipSlideIn) {
+  const el = document.getElementById('befOverlay');
+  el.style.display = 'flex';
+  if (skipSlideIn) {
+    el.style.transform = 'translateY(0)';
+  } else {
+    // Forzar reflow para que la animación se dispare
+    el.getBoundingClientRect();
+    el.classList.add('bef-overlay--open');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeBefOverlay() {
+  const el = document.getElementById('befOverlay');
+  el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
+  el.classList.remove('bef-overlay--open');
+  el.classList.add('bef-overlay--closing');
+  el.addEventListener('animationend', function handler() {
+    el.style.display = 'none';
+    el.classList.remove('bef-overlay--closing');
+    document.body.style.overflow = '';
+    el.removeEventListener('animationend', handler);
+  }, { once: true });
+}
+
+// Estado de unidad seleccionada (evita depender de input[type=radio] nativo)
+var _befUnidad = 'utm';
+
+function befSelectUnidad(val) {
+  _befUnidad = val;
+  const isUTM = val === 'utm';
+  document.getElementById('befPrefixLabel').textContent = isUTM ? 'UTM' : '$';
+  document.getElementById('befMontoCuota').placeholder = isUTM ? '0,00' : '0';
+  document.getElementById('befMontoCuota').value = '';
+  var btnUTM = document.getElementById('befRadioLabelUTM');
+  var btnCLP = document.getElementById('befRadioLabelCLP');
+  btnUTM.classList.toggle('bef-radio--active', isUTM);
+  btnCLP.classList.toggle('bef-radio--active', !isUTM);
+  btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
+  btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+}
+
+// Saneo del input de monto — mismo patrón que dupFormatMontoInput()/
+// qsFormatAmountInput(): en UTM se admite '.' o ',' como separador decimal
+// y se normaliza siempre a coma, con máximo 2 decimales. En CLP se descarta
+// todo lo no-numérico y se formatea con separador de miles vía formatPlain().
+function befFormatMontoInput(input) {
+  if (_befUnidad === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+// Convierte el valor visible (con coma decimal en UTM, o con puntos de
+// miles en CLP) al número real que espera la lógica de cálculo.
+function befGetMontoValue() {
+  var raw = (document.getElementById('befMontoCuota').value || '').trim();
+  if (_befUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
+}
+
+// La fecha de inicio/fin del BEF ya no usa <input type="date"> nativo: usa
+// el mismo calendario custom (#calendarModal) que Depósitos LAV y DUP, vía
+// openCalendar('befStart') / openCalendar('befEnd'). A diferencia del DUP
+// (una sola fecha) y de LAV (mes/año + día exacto), el modo 'befStart'/
+// 'befEnd' es mes/año PURO — igual que "Período Actual" (calendarMode
+// 'start'/'end') — y nunca pasa a la vista de selector de días: el clic
+// en el mes ya guarda la fecha y cierra/confirma directamente. Cada campo
+// tiene su propio trío de hidden inputs (befStartDia/Mes/Anio,
+// befEndDia/Mes/Anio — el "Dia" se completa internamente con "Día de
+// Vencimiento" para poder construir un ISO completo, pero el usuario nunca
+// lo elige) y su propio <span> de display (befStartFechaDisplay,
+// befEndFechaDisplay).
+function befSetFechaDisplay(which, mIdx, anio) {
+  const display = document.getElementById(which === 'start' ? 'befStartFechaDisplay' : 'befEndFechaDisplay');
+  if (!display) return;
+  if (!mIdx || !anio) { display.textContent = 'Seleccionar fecha'; display.classList.remove('bef-date__display--filled'); return; }
+  const mNamesShort = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  display.textContent = `${mNamesShort[mIdx - 1]} ${anio}`;
+  display.classList.add('bef-date__display--filled');
+}
+
+// Construye un ISO YYYY-MM-DD desde los hidden inputs de inicio o fin (o ''
+// si la fecha no está completa). Útil para comparar inicio/fin con Date().
+function befGetFechaISO(which) {
+  const prefix = which === 'start' ? 'befStart' : 'befEnd';
+  const dia  = document.getElementById(prefix + 'Dia').value;
+  const mes  = document.getElementById(prefix + 'Mes').value;
+  const anio = document.getElementById(prefix + 'Anio').value;
+  if (!dia || !mes || !anio) return '';
+  return `${anio}-${mes}-${String(dia).padStart(2, '0')}`;
+}
+
+// El overlay "Entre fechas" es un INTERRUPTOR de la tarjeta "Período Actual",
+// no un motor de cálculo paralelo: befStart/befEnd/monto se traducen acá a
+// startIndex/endIndex (utmData) + utmAmount/clpAmount/calculationMode —
+// las mismas variables/campos que usa calculate() — y se dispara el cálculo
+// real. Así el resultado queda igual que si el usuario hubiera elegido esas
+// fechas/monto directamente en "Período Actual".
+function befCalcularDeuda() {
+  const unidad = _befUnidad; // 'utm' | 'clp'
+  const monto  = befGetMontoValue();
+  const inicio = befGetFechaISO('start');
+  const fin    = befGetFechaISO('end');
+
+  if (!monto || monto <= 0) {
+    alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!inicio) {
+    alert('Selecciona la fecha de inicio del período.');
+    return;
+  }
+  if (!fin) {
+    alert('Selecciona la fecha de fin del período.');
+    return;
+  }
+  if (new Date(fin) < new Date(inicio)) {
+    alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+    return;
+  }
+
+  // Traducir mes/año de befStart/befEnd al índice real sobre utmData —
+  // misma fuente que usan los calendarios 'start'/'end' de "Período Actual".
+  // Se calcula ANTES de resetAllExceptPensionData() porque esa función
+  // limpia todos los inputs no protegidos, incluidos estos hidden.
+  const befStartMes  = parseInt(document.getElementById('befStartMes').value, 10);
+  const befStartAnio = parseInt(document.getElementById('befStartAnio').value, 10);
+  const befEndMes    = parseInt(document.getElementById('befEndMes').value, 10);
+  const befEndAnio   = parseInt(document.getElementById('befEndAnio').value, 10);
+  const newStartIndex = utmData.findIndex(d => d.y === befStartAnio && d.monthIdx === (befStartMes - 1));
+  const newEndIndex   = utmData.findIndex(d => d.y === befEndAnio   && d.monthIdx === (befEndMes - 1));
+  if (newStartIndex === -1 || newEndIndex === -1) {
+    alert('No hay datos UTM disponibles para las fechas seleccionadas.');
+    return;
+  }
+
+  // Limpiar TODO el cálculo previo (abonos, LAV, pagos parciales, deuda
+  // histórica, consolidada, resultados) ANTES de aplicar el nuevo período —
+  // evita que un abono LAV (u otro dato) de un cálculo anterior quede
+  // "pegado" y se sume al nuevo cálculo "Entre fechas". La tarjeta "Datos
+  // de Pensión" (cuota UTM/CLP, % sueldo, IMM, día de vencimiento) se
+  // preserva intacta. Mismo patrón que usa dupCalcularDeuda().
+  if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
+
+  startIndex = newStartIndex;
+  endIndex   = newEndIndex;
+
+  // Escribir el monto/unidad ingresados en el overlay en los campos reales
+  // de "Datos de Pensión" (mismo patrón que dupCalcularDeuda()/setCalcMode()).
+  setCalcMode(unidad);
+  if (unidad === 'utm') {
+    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
+  } else {
+    document.getElementById('clpAmount').value = formatPlain(monto);
+  }
+
+  closeBefOverlay();
+  updateLabels();   // refresca labels/chips de "Período Actual" y dispara calculate()
+  saveSession();
+}
+
+// ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────
+// Al abrir befOverlay desde la tarjeta del dock (.calc-mode-card--purple),
+// se prellenan ambos pasos con lo que ya existe en "Datos de Pensión":
+//
+//  · Monto de cuota (Paso 2): misma lectura que dupPrefillFromPensionData()
+//    — utmAmount/clpAmount + calculationMode definen unidad y valor.
+//
+//  · Fechas (Pasos 3 y 4): "Período Actual" (sección Línea de Tiempo) usa
+//    un calendario de mes/año, no de día exacto (startIndex/endIndex sobre
+//    utmData[], ver openCalendar('start')/('end')). Para construir una
+//    fecha completa (día/mes/año) que los hidden inputs del calendario
+//    custom puedan usar, se combina año/mes de utmData[startIndex|endIndex]
+//    con el día ingresado en "Día de Vencimiento" (#diaVencimiento) — el
+//    mismo día que la app ya usa como referencia de vencimiento mensual en
+//    el resto de los cálculos. Si el usuario no ha seleccionado período
+//    (start/end en -1), el paso correspondiente queda vacío con su
+//    placeholder normal (no se inventa una fecha).
+function befPrefillFromPensionData() {
+  // Monto — idéntico criterio que dupPrefillFromPensionData()
+  var modo = (document.getElementById('calculationMode')?.value) || 'utm';
+  var utmVal = parseFloat((document.getElementById('utmAmount')?.value || '').replace(',', '.')) || 0;
+  var clpVal = parseInt((document.getElementById('clpAmount')?.value || '').replace(/\./g, '')) || 0;
+  if (utmVal > 0 || clpVal > 0) {
+    var unidad = (modo === 'clp') ? 'clp' : 'utm';
+    befSelectUnidad(unidad);
+    var montoInput = document.getElementById('befMontoCuota');
+    if (montoInput) {
+      montoInput.value = (unidad === 'utm')
+        ? utmVal.toFixed(2).replace('.', ',')
+        : formatPlain(clpVal);
+    }
+  }
+
+  // Fechas — desde startIndex/endIndex (Período Actual) + diaVencimiento.
+  // Se escribe directamente en los hidden inputs día/mes/año (mismo patrón
+  // que el calendario custom usa para LAV/DUP) y se actualiza el <span> de
+  // display correspondiente con befSetFechaDisplay().
+  var dia = parseInt(document.getElementById('diaVencimiento')?.value || '5') || 5;
+  function fillFromUtmDataIndex(which, idx) {
+    var prefix = which === 'start' ? 'befStart' : 'befEnd';
+    if (idx === -1 || !utmData[idx]) {
+      document.getElementById(prefix + 'Dia').value  = '';
+      document.getElementById(prefix + 'Mes').value  = '';
+      document.getElementById(prefix + 'Anio').value = '';
+      befSetFechaDisplay(which, null, null);
+      return;
+    }
+    var entry = utmData[idx];
+    var diaCap = Math.min(dia, 28); // cap a 28 — evita fechas inválidas en meses cortos
+    document.getElementById(prefix + 'Dia').value  = String(diaCap);
+    document.getElementById(prefix + 'Mes').value  = String(entry.monthIdx + 1).padStart(2, '0');
+    document.getElementById(prefix + 'Anio').value = String(entry.y);
+    befSetFechaDisplay(which, entry.monthIdx + 1, entry.y);
+  }
+  fillFromUtmDataIndex('start', startIndex);
+  fillFromUtmDataIndex('end', endIndex);
+}
+
+// Conectar la tarjeta "Entre fechas" al overlay
+(function() {
+  const card = document.querySelector('.calc-mode-card--purple');
+  // No pasar openBefOverlay directo como handler: addEventListener invoca
   // el callback con el objeto Event como primer argumento, que sería
-  // truthy y activaría por error el modo skipSlideIn (pensado solo para
-  // la transición encadenada desde calcTypeScreen). El dock debe conservar
-  // siempre el slide-up normal.
-  if (card) card.addEventListener('click', function() { openDupOverlay(); });
+  // truthy y activaría por error el modo skipSlideIn.
+  if (card) card.addEventListener('click', function() {
+    openBefOverlay();
+    befPrefillFromPensionData();
+  });
 })();
 </script>
 
@@ -8314,7 +8886,7 @@ function dupCalcularDeuda() {
 
       <!-- Ícono calendario + moneda -->
       <div class="qs-icon-wrap">
-        <svg width="54" height="54" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="32" height="32" viewBox="0 0 54 54" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="8" width="36" height="32" rx="6" fill="none" stroke="#5b4ff7" stroke-width="2.8"/>
           <line x1="4" y1="18" x2="40" y2="18" stroke="#5b4ff7" stroke-width="2.8"/>
           <line x1="13" y1="4" x2="13" y2="12" stroke="#5b4ff7" stroke-width="2.8" stroke-linecap="round"/>
@@ -8418,7 +8990,7 @@ function dupCalcularDeuda() {
 
       <!-- Ícono calculadora -->
       <div class="cs-icon-wrap">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="4" y="2" width="16" height="20" rx="3" stroke="#5b4ff7" stroke-width="2"/>
           <path d="M8 7H16" stroke="#5b4ff7" stroke-width="2" stroke-linecap="round"/>
           <rect x="7.25" y="11.25" width="3.5" height="3.5" rx="1" fill="#5b4ff7"/>
@@ -8458,7 +9030,7 @@ function dupCalcularDeuda() {
         </div>
       </div>
 
-      <div class="cs-option cs-option--green">
+      <div class="cs-option cs-option--green" role="button" tabindex="0" onclick="csOpenEntreFechas()">
         <div class="cs-option-icon">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="4" width="18" height="18" rx="3"/>
@@ -8769,16 +9341,50 @@ function csOpenDesdeUltimoPago() {
 // (coma decimal en UTM, separador de miles vía formatPlain() en CLP), ya
 // que el input es type="text" con saneo propio, no type="number".
 function csPrefillDesdeUltimoPago() {
-  if (!(_csUtmActual > 0)) return; // sin monto previo: se deja como venía (placeholder)
+  if (!(_csUtmActual > 0)) return; // sin monto previo
   var unidad = _csUnidadActual || 'utm';
-  dupSelectUnidad(unidad);
-  var input = document.getElementById('dupMontoCuota');
-  if (!input) return;
-  if (unidad === 'utm') {
-    input.value = _csUtmActual.toFixed(2).replace('.', ',');
-  } else {
-    input.value = formatPlain(Math.round(_csClpActual));
+  // Ajustar unidad del campo cuota mensual (Paso 1)
+  _dupUnidadCuota = unidad;
+  document.getElementById('dupCuotaUnitLabel').textContent = unidad === 'utm' ? 'UTM' : 'CLP';
+  var inputCuota = document.getElementById('dupCuotaMensual');
+  if (inputCuota) {
+    inputCuota.placeholder = unidad === 'utm' ? '0,00' : '0';
+    inputCuota.value = (unidad === 'utm') ? _csUtmActual.toFixed(2).replace('.', ',') : formatPlain(Math.round(_csClpActual));
   }
+  // Campo último pago (Paso 2): NO se prellena desde quotaScreen
+}
+
+// Tarjeta "Entre fechas" dentro de calcTypeScreen: mismo patrón que
+// csOpenDesdeUltimoPago() — fade-out de calcTypeScreen + apertura de
+// befOverlay con skipSlideIn=true para evitar el flash de transición.
+// También prellena la cuota mensual en befOverlay si hay monto guardado.
+function csOpenEntreFechas() {
+  var cs = document.getElementById('calcTypeScreen');
+  if (!cs) { openBefOverlay(true); return; }
+  var inner = cs.querySelector('.cs-inner');
+
+  cs.classList.add('cs-screen--out');
+  (inner || cs).addEventListener('animationend', function() {
+    cs.style.display = 'none';
+    qsUnlockBodyScroll();
+    openBefOverlay(true);
+    csPrefillEntreFechas();
+  }, { once: true });
+}
+
+// Prellena la cuota mensual en befOverlay desde el monto capturado en
+// quotaScreen (_csUtmActual / _csClpActual), para que el usuario no tenga
+// que volver a ingresarla.
+function csPrefillEntreFechas() {
+  if (!(_csUtmActual > 0)) return;
+  var unidad = _csUnidadActual || 'utm';
+  // Cambiar unidad del befOverlay y prellenar cuota mensual (Paso 2)
+  if (typeof befSelectUnidad === 'function') befSelectUnidad(unidad);
+  var inputCuota = document.getElementById('befMontoCuota');
+  if (!inputCuota) return;
+  inputCuota.value = (unidad === 'utm')
+    ? _csUtmActual.toFixed(2).replace('.', ',')
+    : formatPlain(Math.round(_csClpActual));
 }
 
 </script>

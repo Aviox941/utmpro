@@ -3613,6 +3613,45 @@
   font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
 }
 
+/* ── Mini-selector UTM/CLP por campo ───────────────────────────── */
+.dup-input-wrap--split {
+  padding: 0;
+  overflow: hidden;
+}
+.dup-unit-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 12px 0 14px;
+  background: #f2f4f7;
+  border: none;
+  border-right: 1.5px solid #e4e7ec;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: #344054;
+  min-width: 82px;
+  height: 56px;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+  letter-spacing: 0.01em;
+}
+.dup-unit-btn:active {
+  background: #e9ecf1;
+}
+.dup-unit-chevron {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: #98a2b3;
+}
+.dup-input--split {
+  padding: 0 16px;
+}
+
 .dup-input {
   flex: 1;
   border: none;
@@ -3793,6 +3832,455 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   FULLSCREEN OVERLAY: Entre fechas (BEF)
+   Mismo patrón estructural que el overlay DUP de arriba, con prefijo
+   propio (bef-*) y paleta azul (#1f5fff) fiel a la imagen de referencia
+   en vez del morado (#5b4fff) usado en DUP.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Contenedor fullscreen */
+.bef-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: var(--color-bg-app, #f5f6f8);
+  display: none;
+  flex-direction: column;
+  /* Slide-up al abrir */
+  transform: translateY(100%);
+}
+
+@keyframes bef-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+
+@keyframes bef-slide-down {
+  from { transform: translateY(0);    }
+  to   { transform: translateY(100%); }
+}
+
+.bef-overlay--open {
+  animation: bef-slide-up 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.bef-overlay--closing {
+  animation: bef-slide-down 0.26s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+}
+
+/* ── Header del overlay ─────────────────────────────────────────── */
+.bef-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--color-bg-app, #f5f6f8);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  flex-shrink: 0;
+  min-height: 50px;
+}
+
+.bef-overlay__back {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #5a6380;
+  flex-shrink: 0;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bef-overlay__back:active {
+  background: rgba(31,95,255,0.09);
+  transform: scale(0.92);
+}
+.bef-overlay__back svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bef-overlay__header-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1d2e;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+/* ── Cuerpo desplazable ─────────────────────────────────────────── */
+.bef-overlay__body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 14px 0;
+}
+
+/* ── Hero card ──────────────────────────────────────────────────── */
+.bef-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 20px;
+}
+
+.bef-hero__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(31, 95, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bef-hero__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.bef-hero__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.bef-hero__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1d2e;
+  letter-spacing: -0.02em;
+  margin: 0 0 5px 0;
+  line-height: 1.2;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.bef-hero__subtitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: #5a6380;
+  line-height: 1.45;
+  margin: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+/* ── Formulario de pasos ────────────────────────────────────────── */
+.bef-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.bef-step {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bef-step__header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.bef-step__badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #1f5fff;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  line-height: 1;
+}
+
+.bef-step__label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #1a1d2e;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  line-height: 1.3;
+}
+
+/* ── Radio group UTM / CLP ──────────────────────────────────────── */
+.bef-radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.bef-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.14s, background 0.14s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  text-align: center;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.bef-radio input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Radio activo */
+.bef-radio--active {
+  border-color: #1f5fff;
+  background: rgba(31, 95, 255, 0.04);
+}
+
+.bef-radio__indicator {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #c0c8d8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.14s;
+  position: relative;
+}
+.bef-radio__indicator::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1f5fff;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.14s, transform 0.14s;
+}
+.bef-radio--active .bef-radio__indicator {
+  border-color: #1f5fff;
+}
+.bef-radio--active .bef-radio__indicator::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.bef-radio__text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #5a6380;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  transition: color 0.14s;
+}
+.bef-radio--active .bef-radio__text {
+  color: #1f5fff;
+}
+
+/* ── Input de monto ─────────────────────────────────────────────── */
+.bef-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 56px;
+  gap: 10px;
+  transition: border-color 0.14s;
+}
+.bef-input-wrap:focus-within {
+  border-color: #1f5fff;
+  box-shadow: 0 0 0 3px rgba(31,95,255,0.08);
+}
+
+.bef-input__prefix {
+  font-size: 13px;
+  font-weight: 700;
+  color: #8e97b0;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.bef-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1d2e;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  letter-spacing: -0.02em;
+  outline: none;
+  padding: 0;
+  min-width: 0;
+}
+.bef-input::placeholder {
+  color: #c0c8d8;
+  font-weight: 500;
+}
+.bef-input::-webkit-inner-spin-button,
+.bef-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.bef-input[type=number] { -moz-appearance: textfield; }
+
+/* ── Date picker ────────────────────────────────────────────────── */
+.bef-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.09);
+  border-radius: 14px;
+  padding: 0 16px;
+  height: 56px;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.14s;
+}
+.bef-date-wrap:active {
+  border-color: #1f5fff;
+}
+
+.bef-date__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #8e97b0;
+  pointer-events: none;
+}
+
+/* Reemplaza al antiguo <input type="date"> nativo: ahora es un <span>
+   dentro de .bef-date-wrap, igual patrón que .dup-date__display. El click
+   lo maneja el wrapper (onclick="openCalendar('befStart'|'befEnd')"), que
+   abre el mismo calendario custom que usa Depósitos LAV / DUP. */
+.bef-date__display {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: #c0c8d8;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}
+.bef-date__display--filled {
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.bef-date__chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/* ── Hint text ──────────────────────────────────────────────────── */
+.bef-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #8e97b0;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  margin: 0;
+  padding: 0 2px;
+  font-weight: 400;
+}
+.bef-hint svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* ── Footer con CTA fijo ────────────────────────────────────────── */
+.bef-overlay__footer {
+  flex-shrink: 0;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--color-bg-app, #f5f6f8);
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.bef-cta-btn {
+  width: 100%;
+  height: 54px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #1f5fff, #0036d9);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  cursor: pointer;
+  transition: filter 0.14s, transform 0.1s, box-shadow 0.14s;
+  box-shadow: 0 4px 16px rgba(31,95,255,0.32);
+  -webkit-tap-highlight-color: transparent;
+}
+.bef-cta-btn:hover {
+  filter: brightness(0.94);
+}
+.bef-cta-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(31,95,255,0.22);
+}
+
+/* ── Responsive: tablet y desktop (centrado) ────────────────────── */
+@media (min-width: 600px) {
+  .bef-overlay__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .bef-overlay__body > * {
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .bef-overlay__header {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .bef-overlay__header > * {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .bef-overlay__footer {
+    display: flex;
+    justify-content: center;
+  }
+
+  .bef-overlay__footer > * {
+    width: 100%;
+    max-width: 520px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    WELCOME SCREEN (ws-*)
    ══════════════════════════════════════════════════════════════════ */
 
@@ -3840,11 +4328,11 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   width: 100%;
-  padding: 32px 24px 24px;
+  padding: 48px 24px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 /* ── Footer sticky (nota + botón Comenzar + dots) ──────────────────── */
@@ -3866,13 +4354,13 @@
 /* ── Título ─────────────────────────────────────────────────────── */
 .ws-title {
   font-family: "DM Sans", system-ui, sans-serif;
-  font-size: 38px;
+  font-size: 30px;
   font-weight: 800;
-  line-height: 1.12;
+  line-height: 1.15;
   text-align: center;
   color: #1a1d40;
   letter-spacing: -0.03em;
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
 }
 
 .ws-title__pension {
@@ -3886,12 +4374,12 @@
 /* ── Subtítulo ──────────────────────────────────────────────────── */
 .ws-subtitle {
   font-family: "DM Sans", system-ui, sans-serif;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 400;
   color: #667085;
   text-align: center;
   line-height: 1.5;
-  margin: 0 0 30px 0;
+  margin: 0 0 22px 0;
 }
 
 /* ── Features card ──────────────────────────────────────────────── */
@@ -4063,10 +4551,7 @@
 
 /* ── Header ── */
 .qs-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 56px 20px 20px;
+  display: none;
 }
 
 .qs-back {
@@ -4128,14 +4613,14 @@
 
 /* ── Ícono ── */
 .qs-icon-wrap {
-  width: 96px;
-  height: 96px;
+  width: 56px;
+  height: 56px;
   background: #edeaff;
-  border-radius: 28px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 20px auto 28px;
+  margin: 24px auto 16px;
   flex-shrink: 0;
 }
 
@@ -4388,10 +4873,7 @@
 
 /* ── Header (idéntico patrón a .qs-header) ── */
 .cs-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 56px 20px 20px;
+  display: none;
 }
 
 .cs-back {
@@ -4453,14 +4935,14 @@
 
 /* ── Ícono calculadora ── */
 .cs-icon-wrap {
-  width: 88px;
-  height: 88px;
+  width: 56px;
+  height: 56px;
   background: #edeaff;
-  border-radius: 24px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 12px auto 22px;
+  margin: 24px auto 14px;
   flex-shrink: 0;
 }
 
