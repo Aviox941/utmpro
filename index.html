@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0621.0900">
+ <meta name="app-version" content="v2.0621.2324">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8540,10 +8540,12 @@ function befGetFechaISO(which) {
   return `${anio}-${mes}-${String(dia).padStart(2, '0')}`;
 }
 
-// Placeholder de cálculo: por ahora este overlay solo está conectado a la
-// tarjeta del dock (ver más abajo). La lógica de cálculo "entre fechas"
-// se implementará en una entrega posterior, igual que ocurrió con
-// dupCalcularDeuda() en su momento.
+// El overlay "Entre fechas" es un INTERRUPTOR de la tarjeta "Período Actual",
+// no un motor de cálculo paralelo: befStart/befEnd/monto se traducen acá a
+// startIndex/endIndex (utmData) + utmAmount/clpAmount/calculationMode —
+// las mismas variables/campos que usa calculate() — y se dispara el cálculo
+// real. Así el resultado queda igual que si el usuario hubiera elegido esas
+// fechas/monto directamente en "Período Actual".
 function befCalcularDeuda() {
   const unidad = _befUnidad; // 'utm' | 'clp'
   const monto  = befGetMontoValue();
@@ -8567,9 +8569,33 @@ function befCalcularDeuda() {
     return;
   }
 
-  // TODO: conectar con el motor de cálculo correspondiente a "Entre fechas"
-  // cuando esa lógica esté definida. Por ahora solo cierra el overlay.
+  // Traducir mes/año de befStart/befEnd al índice real sobre utmData —
+  // misma fuente que usan los calendarios 'start'/'end' de "Período Actual".
+  const befStartMes  = parseInt(document.getElementById('befStartMes').value, 10);
+  const befStartAnio = parseInt(document.getElementById('befStartAnio').value, 10);
+  const befEndMes    = parseInt(document.getElementById('befEndMes').value, 10);
+  const befEndAnio   = parseInt(document.getElementById('befEndAnio').value, 10);
+  const newStartIndex = utmData.findIndex(d => d.y === befStartAnio && d.monthIdx === (befStartMes - 1));
+  const newEndIndex   = utmData.findIndex(d => d.y === befEndAnio   && d.monthIdx === (befEndMes - 1));
+  if (newStartIndex === -1 || newEndIndex === -1) {
+    alert('No hay datos UTM disponibles para las fechas seleccionadas.');
+    return;
+  }
+  startIndex = newStartIndex;
+  endIndex   = newEndIndex;
+
+  // Escribir el monto/unidad ingresados en el overlay en los campos reales
+  // de "Datos de Pensión" (mismo patrón que dupCalcularDeuda()/setCalcMode()).
+  setCalcMode(unidad);
+  if (unidad === 'utm') {
+    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
+  } else {
+    document.getElementById('clpAmount').value = formatPlain(monto);
+  }
+
   closeBefOverlay();
+  updateLabels();   // refresca labels/chips de "Período Actual" y dispara calculate()
+  saveSession();
 }
 
 // ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────

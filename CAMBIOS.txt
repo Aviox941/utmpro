@@ -16,6 +16,28 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0621.2324
+Archivos modificados: index.html, sw.js
+
+Corrección — Overlay "Entre fechas" (#befOverlay) no quedaba conectado al
+motor de cálculo real:
+  befCalcularDeuda() validaba monto/fechas y solo cerraba el overlay
+  (placeholder con TODO pendiente). Las fechas elegidas en befStart/befEnd
+  vivían en hidden inputs propios, totalmente aislados de startIndex/endIndex
+  — las variables que usan calculate() y los calendarios de "Período Actual".
+  Resultado: el usuario seleccionaba fecha/monto en el overlay, pero al tocar
+  "Calcular" no aparecía ningún resultado y "Período Actual" seguía vacío.
+
+  Se convierte el overlay en un interruptor real de "Período Actual":
+  befCalcularDeuda() ahora traduce mes/año de befStart/befEnd al índice
+  correspondiente en utmData (misma fuente que usan los calendarios
+  'start'/'end'), asigna startIndex/endIndex, escribe el monto/unidad
+  ingresados en los campos reales (utmAmount/clpAmount/calculationMode vía
+  setCalcMode()), cierra el overlay y llama a updateLabels() (dispara
+  calculate()) + saveSession().
+
+================================================================================
+
 v2.0621.0900
 Archivos modificados: index.html, styles.css
 
