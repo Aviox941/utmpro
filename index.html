@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0230">
+ <meta name="app-version" content="v2.0622.0240">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -310,7 +310,7 @@ try {
       • Comenzar por formatters (bajo riesgo, alta repetición).
       ============================================================ -->
 
- <link rel="stylesheet" href="styles.css?v=2.0622.0200">
+ <link rel="stylesheet" href="styles.css?v=2.0622.0240">
 <style>
 /* ── Collapsible: grid-template-rows GPU-friendly ───────────────────────────
    .collapsible-inner es el hijo directo sin padding — permite colapso a 0.
@@ -7657,14 +7657,14 @@ sb.auth.onAuthStateChange(async (event, session) => {
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
     // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
-    if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
+    if (event === 'SIGNED_IN' && !localStorage.getItem('ws_done')) {
       var ws = document.getElementById('welcomeScreen');
       if (ws) {
         ws.style.display = 'flex';
         qsLockBodyScroll();
         // Marcar inmediatamente para que volver al primer plano (visibility)
         // o un TOKEN_REFRESHED no vuelva a disparar la welcome screen.
-        sessionStorage.setItem('ws_done', '1');
+        localStorage.setItem('ws_done', '1');
       }
     }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
@@ -7683,6 +7683,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
     sbAccessToken = null;
+    // Al cerrar sesión, limpiar ws_done para que el próximo login muestre la welcome screen
+    if (event === 'SIGNED_OUT') localStorage.removeItem('ws_done');
     // Cancelar keep-alive para no acumular intervalos entre sesiones
     if (window._keepAliveInterval) {
       clearInterval(window._keepAliveInterval);
@@ -9268,7 +9270,7 @@ function qsUnlockBodyScroll() {
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 // La welcome screen NO se muestra al cargar la página.
 // Se muestra solo tras un login manual exitoso (event === 'SIGNED_IN' en onAuthStateChange).
-// closeWelcomeScreen() marca ws_done en sessionStorage para no repetirla.
+// closeWelcomeScreen() marca ws_done en localStorage para no repetirla.
 (function() {
   var ws = document.getElementById('welcomeScreen');
   if (ws) ws.style.display = 'none';
@@ -9284,7 +9286,7 @@ function closeWelcomeScreen() {
   ws.classList.add('ws-screen--out');
   ws.addEventListener('animationend', function() {
     ws.style.display = 'none';
-    sessionStorage.setItem('ws_done', '1');
+    localStorage.setItem('ws_done', '1');
   }, { once: true });
 }
 
@@ -9293,7 +9295,7 @@ function closeWelcomeScreen() {
 // que se muestra tras un SIGNED_IN real, sin depender del evento de auth.
 // Solo para pruebas visuales; no toca sesión, casos ni datos guardados.
 function devTestWelcomeFlow() {
-  sessionStorage.removeItem('ws_done');
+  localStorage.removeItem('ws_done');
   var ws = document.getElementById('welcomeScreen');
   if (!ws) { dbg('DEV: welcomeScreen no encontrado en el DOM'); return; }
   ws.classList.remove('ws-screen--out');

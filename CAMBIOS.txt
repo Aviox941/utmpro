@@ -16,6 +16,19 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0240
+Archivos modificados: index.html, sw.js
+
+Fix — Welcome screen se re-disparaba al volver desde segundo plano (tablet):
+  Cambiado ws_done de sessionStorage → localStorage. sessionStorage se borra
+  cuando la tablet mata el proceso en segundo plano, causando que al reabrir
+  la app Supabase emita SIGNED_IN nuevamente y re-mostrara el overlay.
+  Con localStorage el flag persiste entre reinicios de proceso.
+  Además: SIGNED_OUT ahora limpia ws_done de localStorage para que el
+  próximo login manual vuelva a mostrar la welcome screen correctamente.
+  El query param de styles.css también fue versionado (?v=2.0622.0240)
+  para forzar descarga del CSS actualizado en el browser.
+
 v2.0622.0230
 Archivos modificados: index.html, styles.css, sw.js
 
