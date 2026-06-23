@@ -16,6 +16,22 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0250
+Archivos modificados: export.js, index.html, sw.js
+
+PDF — Columna "Subtotal UTM" agregada en tabla de pensiones impagas:
+  Cada fila ahora muestra su subtotal (capital + interés) expresado en UTM
+  histórica del período. El footer de la tabla también totaliza en UTM.
+  Anchos de columna ajustados para acomodar la nueva columna sin overflow.
+
+PDF — Resumen final de liquidación simplificado:
+  Eliminada la fila "SUBTOTAL HISTÓRICO". El resumen ahora muestra solo:
+  1) Total cuotas impagas  2) Intereses generados
+  3) (-) Abonos LAV (una sola línea con el monto original depositado)
+  4) TOTAL ADEUDADO
+  Eliminado el desglose LAV en intereses/capital por ser innecesario para
+  el lector. Todas las filas conservan su equivalente en UTM.
+
 v2.0622.0240
 Archivos modificados: index.html, sw.js
 

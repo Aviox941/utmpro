@@ -158,7 +158,7 @@ const pensSub    = pensCap + pensInt;
 const pensCapUTM = pensiones.reduce((s,d) => s + (d.utmVal > 0 ? d.cap / d.utmVal : 0), 0);
 doc.autoTable({
 startY: y,
-head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)']],
+head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)','Subtotal UTM']],
 body: pensiones.map(d => {
   // Valores netos: 0 si cubierto por LAV, remanente si parcial, completo si adeudado
   const capMostrado = d.cap;
@@ -184,17 +184,18 @@ body: pensiones.map(d => {
   } else if (d.esLav && d.lavAplicadoCLP > 0 && d.cap <= 0.01) {
     periodoLabel += '\nCubierto LAV';
   }
+  const subUtm = d.utmVal > 0 ? ((capMostrado + intMostrado) / d.utmVal).toFixed(5) : '0.00000';
   return [periodoLabel, fmt(capMostrado), capUTMMostrado.toFixed(3), d.mora,
     ((d.tasa * 10).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
-    fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado)];
+    fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado), subUtm];
 }),
-foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>s+(d.utmVal>0?d.inte/d.utmVal:0),0)).toFixed(5)+' UTM', fmt(pensSub)]],
+foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>s+(d.utmVal>0?d.inte/d.utmVal:0),0)).toFixed(5)+' UTM', fmt(pensSub), (pensiones.reduce((s,d)=>s+(d.utmVal>0?(d.cap+d.inte)/d.utmVal:0),0)).toFixed(5)+' UTM']],
 showFoot: 'lastPage',
 theme:'grid',
 headStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'center'},
 footStyles:{fillColor:[37,99,155],textColor:[255,255,255],fontSize:6,fontStyle:'bold',halign:'right'},
 styles:{fontSize:6,cellPadding:1.5,textColor:[15,23,42]},
-columnStyles:{0:{cellWidth:22},1:{halign:'right'},2:{halign:'right',cellWidth:14},3:{halign:'center',cellWidth:11},4:{halign:'center',cellWidth:13},5:{halign:'right'},6:{halign:'right',cellWidth:16},7:{halign:'right'}},
+columnStyles:{0:{cellWidth:20},1:{halign:'right'},2:{halign:'right',cellWidth:13},3:{halign:'center',cellWidth:10},4:{halign:'center',cellWidth:12},5:{halign:'right'},6:{halign:'right',cellWidth:14},7:{halign:'right',cellWidth:14},8:{halign:'right',cellWidth:14}},
 margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W,
 didParseCell: function(data) {
   if (data.section === 'body' && data.column.index === 0) {
@@ -410,43 +411,24 @@ doc.setFontSize(9); doc.setFont('helvetica', 'bold');
 doc.text('RESUMEN FINAL DE LIQUIDACION', MARGIN + 3, y + 5.5);
 y += 11;
 const filasDesglose = [];
-// 1 · Capital total bruto
+// 1 · Total cuotas impagas
 filasDesglose.push([
-  'Capital total (pensiones impagas)',
+  'Total cuotas impagas',
   fmt(totalCapPesos),
-  totalCapUTM.toFixed(4) + ' UTM',
-  ''
+  totalCapUTM.toFixed(5) + ' UTM'
 ]);
-// 2 · Intereses totales (en UTM históricas, igual que el tribunal)
+// 2 · Intereses totales
 const totalIntUTMpdf = lastCalculationData.reduce((s,d) => {
   const utm = d.utmVal && d.utmVal > 0 ? d.utmVal : utmHoy;
   return s + Math.max(0, (d.intOriginal ?? d.inte) / utm);
 }, 0);
 filasDesglose.push([
-  'Total intereses generados',
+  'Intereses generados',
   fmt(totalIntPesos),
-  totalIntUTMpdf.toFixed(4) + ' UTM',
-  ''
+  totalIntUTMpdf.toFixed(5) + ' UTM'
 ]);
-// 3 · Subtotal histórico
-const subtotalBruto = totalCapPesos + totalIntPesos;
-const subtotalUTMpdf = totalCapUTM + totalIntUTMpdf;
-filasDesglose.push([
-  'SUBTOTAL HISTÓRICO',
-  fmt(subtotalBruto),
-  subtotalUTMpdf.toFixed(4) + ' UTM',
-  ''
-]);
-// 4 · Ajuste UTM eliminado: el PDF muestra CARGOS brutos (pre-imputación) por lo que
-// subtotalBruto no coincide con totalFinalReal por diseño — no es un "ajuste", es la
-// diferencia entre bruto y neto que se explica con los descuentos LAV/abonos de abajo.
-// 5 y 6 · Descuento LAV (desglosado si hay intereses cubiertos)
+// 3 · Abono LAV (una sola línea, monto original depositado)
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
-// FIX precisión: sumar en UTM sin redondear (lavIntAplicadoUTM/lavAplicadoUTM) y convertir
-// a CLP una sola vez al final. Antes se sumaban lavIntAplicadoCLP/lavAplicadoCLP, ya redondeados
-// mes a mes — eso acumulaba sesgo de redondeo y desconectaba este total del usado en
-// totalFinalReal (que sí opera 100% en UTM histórica), rompiendo la cuadratura
-// bruto - LAV imputado = TOTAL ADEUDADO.
 const lavIntCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
 const lavCapCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavAplicadoUTM || 0), 0);
 const lavIntCubiertoPDF = lavIntCubiertoUTMpdf * utmLiq;
@@ -454,50 +436,30 @@ const lavCapCubiertoPDF = lavCapCubiertoUTMpdf * utmLiq;
 const lavTotalImputadoPDF = lavIntCubiertoPDF + lavCapCubiertoPDF;
 const lavRemanentePDF = lavTotalCLPpdf - lavTotalImputadoPDF;
 if (lavTotalCLPpdf > 0) {
-  if (lavIntCubiertoPDF > 0) {
-    filasDesglose.push([
-      '(-) LAV — intereses cubiertos (Art. 1595 CC)',
-      '-' + fmt(lavIntCubiertoPDF),
-      '-' + (lavIntCubiertoPDF / utmHoy).toFixed(4) + ' UTM',
-      ''
-    ]);
-    filasDesglose.push([
-      '(-) LAV — capital cubierto (depósitos cuenta vista)',
-      '-' + fmt(lavCapCubiertoPDF),
-      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
-      ''
-    ]);
-  } else {
-    filasDesglose.push([
-      '(-) Abonos LAV (depósitos cuenta vista)',
-      '-' + fmt(lavCapCubiertoPDF),
-      '-' + lavTotalUTMpdf.toFixed(5) + ' UTM',
-      ''
-    ]);
-  }
+  filasDesglose.push([
+    '(-) Abonos LAV (depósitos cuenta vista)',
+    '-' + fmt(lavTotalCLPpdf),
+    '-' + lavTotalUTMpdf.toFixed(5) + ' UTM'
+  ]);
   if (lavRemanentePDF > 50) {
     filasDesglose.push([
       'LAV remanente sin imputar (saldo a favor)',
       '+' + fmt(Math.round(lavRemanentePDF)),
-      '',
       ''
     ]);
   }
 }
-// Fila final: TOTAL ADEUDADO
+// 4 · Total adeudado
 filasDesglose.push([
   'TOTAL ADEUDADO (saldo neto a la fecha)',
   fmt(Math.round(totalFinalReal)),
-  totalFinalRealUTM.toFixed(5) + ' UTM',
-  ''
+  totalFinalRealUTM.toFixed(5) + ' UTM'
 ]);
-const idxSubtotal = 2;
 const idxLast = filasDesglose.length - 1;
-const filasDesgloseClean = filasDesglose.map(f => [f[0], f[1], f[2]]);
 doc.autoTable({
 startY: y,
 head: [['Concepto', 'Monto ($)', 'Equiv. UTM']],
-body: filasDesgloseClean,
+body: filasDesglose,
 theme: 'grid',
 headStyles: { fillColor: [18, 38, 71], textColor: [255, 255, 255], fontSize: 7, fontStyle: 'bold', halign: 'center' },
 styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [15, 23, 42] },
@@ -508,10 +470,6 @@ columnStyles: {
 },
 willDrawCell: (data) => {
 if (data.section !== 'body') return;
-if (data.row.index === idxSubtotal) {
-doc.setFillColor(241, 245, 249);
-doc.setFont('helvetica', 'bold');
-}
 if (data.row.index === idxLast - 1 && totalAbonosCLP > 0) {
 doc.setFillColor(239, 246, 255);
 }
