@@ -186,7 +186,7 @@ body: pensiones.map(d => {
   }
   const subUtm = d.utmVal > 0 ? ((capMostrado + intMostrado) / d.utmVal).toFixed(5) : '0.00000';
   return [periodoLabel, fmt(capMostrado), capUTMMostrado.toFixed(3), d.mora,
-    ((d.tasa * 10).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
+    ((d.tasa * 100 / 12).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
     fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado), subUtm];
 }),
 foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>s+(d.utmVal>0?d.inte/d.utmVal:0),0)).toFixed(5)+' UTM', fmt(pensSub), (pensiones.reduce((s,d)=>s+(d.utmVal>0?(d.cap+d.inte)/d.utmVal:0),0)).toFixed(5)+' UTM']],
@@ -237,7 +237,7 @@ const histCapUTM = historicas.reduce((s,d) => s + (d.capUTM||(d.capOriginal??d.c
 doc.autoTable({
 startY: y,
 head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Subtotal ($)']],
-body: historicas.map(d => { const cap0=d.capOriginal??d.capOriginalBruto??d.cap; const int0=d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)]; }),
+body: historicas.map(d => { const cap0=d.capOriginal??d.capOriginalBruto??d.cap; const int0=d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*100/12).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)]; }),
 foot: [['TOTAL', fmt(histCap), histCapUTM.toFixed(3)+' UTM', '', '', fmt(histInt), fmt(histSub)]],
 showFoot: 'lastPage',
 theme:'grid',

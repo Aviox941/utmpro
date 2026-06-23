@@ -16,6 +16,41 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
+v2.0622.0300
+Archivos modificados: export.js, index.html, sw.js
+
+FIX CRÍTICO — Categoría de TIC reajustable incorrecta (causaba interés más
+alto que el tribunal en todas las liquidaciones):
+  La app consultaba tipoindicador=21 (CMF: "Operaciones reajustables en
+  moneda nacional, menos de 1 año" — cat. 3.a) cuando la liquidación
+  judicial usa la categoría 3.c ("Operaciones reajustables en moneda
+  nacional, 1 año o más, superiores a 2.000 UF").
+  Confirmado comparando certificados CMF N°09/2025 a N°06/2026 contra
+  liquidación oficial PJUD (RIT Z-617-2024, Juzgado de Familia Talca):
+  el tribunal usa consistentemente 3.c (ej. sep-2025=4,20% anual,
+  oct-2025=4,20%), NO 3.a (que daba 3,88%/3,84% — tampoco eran los valores
+  que mostraba la app) ni el valor previamente hardcodeado (4,26%/4,28%,
+  que no correspondía a ninguna de las tres categorías oficiales).
+  - Cambiado tipoindicador=21 → tipoindicador=22 en _fetchTicCMF (fetch
+    dinámico CMF).
+  - Tabla estática TIC_REAJ actualizada con valores oficiales 3.c
+    confirmados contra certificados CMF, sep-2025 a jun-2026.
+  - Comentario de metodología corregido (ya no dice "sin distinción de
+    plazo").
+
+FIX — Columna "Tasa Mensual" del PDF mostraba la tasa ANUAL sin convertir:
+  En export.js, las tablas "Pensiones mensuales impagas" e "Histórico de
+  pensiones" calculaban la columna de tasa como (d.tasa * 10), cuando
+  d.tasa es el decimal de la tasa ANUAL (ej. 0.0420 = 4,20% anual). Esto
+  mostraba "0.420%" en vez de "0.350%" (anual/12). Esto era puramente un
+  bug de visualización en el PDF — calcularInteres() ya usaba la fórmula
+  correcta (tasaAnual/365 × días) y el monto de interés calculado no se
+  vio afectado por este bug específico, pero la columna confundía al
+  lector y dificultó diagnosticar el problema real de categoría de tasa.
+  Corregido a (d.tasa * 100 / 12) en ambas tablas.
+
+================================================================================
+
 v2.0622.0250
 Archivos modificados: export.js, index.html, sw.js
 
