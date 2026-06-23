@@ -1,6 +1,14 @@
 ================================================================================
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
+
+[v236 · 2026-06-23]
+MEJORA · Modo Monto Fijo (Deuda Histórica): se agrega toggle CLP / UTM.
+Al seleccionar UTM aparece un campo para ingresar el capital consolidado
+en UTM; el sistema lo convierte a CLP usando el valor UTM del mes de
+consolidación (utmData) antes de calcular intereses. El preview de
+Capital muestra el valor en UTM cuando se usa ese modo.
+────────────────────────────────────────────────────────────────────────────────
 - Este bloque de instrucciones es PERMANENTE: no se borra, no se resume, no
   se reemplaza en ninguna entrega futura. Solo se agregan entradas de
   changelog NUEVAS por encima de la última versión registrada.

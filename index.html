@@ -1784,12 +1784,29 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div class="dh-section" style="padding-bottom:0;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
 
-          <!-- Monto -->
+          <!-- Monto (CLP o UTM) -->
           <div>
-            <input type="text" id="consolidadaMontoCLP" placeholder="Monto ($ pesos)"
-              inputmode="numeric" pattern="[0-9]*"
-              oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');tryRegisterConsolidada();"
-              class="input-currency" style="width:100%;">
+            <!-- Toggle CLP / UTM -->
+            <div style="display:flex;gap:0;margin-bottom:6px;border-radius:8px;overflow:hidden;border:1px solid rgba(234,88,12,0.18);width:fit-content;">
+              <button id="btnConsCLP" onclick="setConsModoMonto('clp')"
+                style="font-size:8px;font-weight:700;padding:3px 10px;background:rgba(234,88,12,0.90);color:#fff;border:none;cursor:pointer;transition:background 0.15s;">$ CLP</button>
+              <button id="btnConsUTM" onclick="setConsModoMonto('utm')"
+                style="font-size:8px;font-weight:700;padding:3px 10px;background:transparent;color:rgba(234,88,12,0.70);border:none;cursor:pointer;transition:background 0.15s;">UTM</button>
+            </div>
+            <!-- Input CLP -->
+            <div id="wrapConsCLP">
+              <input type="text" id="consolidadaMontoCLP" placeholder="Monto ($ pesos)"
+                inputmode="numeric" pattern="[0-9]*"
+                oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');tryRegisterConsolidada();"
+                class="input-currency" style="width:100%;">
+            </div>
+            <!-- Input UTM -->
+            <div id="wrapConsUTM" style="display:none;">
+              <input type="text" id="consolidadaMontoUTM" placeholder="0.000 UTM"
+                inputmode="decimal"
+                oninput="tryRegisterConsolidada();"
+                class="input-number" style="width:100%;">
+            </div>
           </div>
 
           <!-- Toggle Intereses -->
@@ -2893,11 +2910,47 @@ function setHistMode(mode) {
   calculate();
   saveSession();
 }
+let consModoMonto = 'clp'; // 'clp' | 'utm'
+function setConsModoMonto(modo) {
+  consModoMonto = modo;
+  const btnCLP = document.getElementById('btnConsCLP');
+  const btnUTM = document.getElementById('btnConsUTM');
+  const wCLP   = document.getElementById('wrapConsCLP');
+  const wUTM   = document.getElementById('wrapConsUTM');
+  if (modo === 'utm') {
+    btnCLP.style.background = 'transparent';
+    btnCLP.style.color = 'rgba(234,88,12,0.70)';
+    btnUTM.style.background = 'rgba(234,88,12,0.90)';
+    btnUTM.style.color = '#fff';
+    wCLP.style.display = 'none';
+    wUTM.style.display = '';
+  } else {
+    btnCLP.style.background = 'rgba(234,88,12,0.90)';
+    btnCLP.style.color = '#fff';
+    btnUTM.style.background = 'transparent';
+    btnUTM.style.color = 'rgba(234,88,12,0.70)';
+    wCLP.style.display = '';
+    wUTM.style.display = 'none';
+  }
+  tryRegisterConsolidada();
+}
 function tryRegisterConsolidada() {
-  const rawMonto = (document.getElementById('consolidadaMontoCLP').value || '').replace(/\./g, '');
-  const monto = parseInt(rawMonto) || 0;
   const fechaMes = document.getElementById('consolidadaFechaMes').value;
   const fechaAnio = document.getElementById('consolidadaFechaAnio').value;
+  // Resolve monto según modo CLP/UTM
+  let monto = 0, montoUTMOrig = 0;
+  if (consModoMonto === 'utm') {
+    const rawUTM = (document.getElementById('consolidadaMontoUTM').value || '').replace(',', '.');
+    montoUTMOrig = parseFloat(rawUTM) || 0;
+    if (montoUTMOrig > 0 && fechaMes && fechaAnio) {
+      const utmEntry = utmData.find(d => d.y === parseInt(fechaAnio) && d.monthIdx === parseInt(fechaMes) - 1);
+      const utmVal = (utmEntry && utmEntry.v > 0) ? utmEntry.v : 0;
+      monto = utmVal > 0 ? Math.round(montoUTMOrig * utmVal) : 0;
+    }
+  } else {
+    const rawMonto = (document.getElementById('consolidadaMontoCLP').value || '').replace(/\./g, '');
+    monto = parseInt(rawMonto) || 0;
+  }
   if (monto <= 0) {
     consolidadaData = null;
     document.getElementById('consolidadaPreview').classList.add('hidden');
@@ -2916,6 +2969,7 @@ function tryRegisterConsolidada() {
   const usaMaxima = document.getElementById('consolidadaUsaMaxima').checked;
   consolidadaData = {
     montoCLP: monto,
+    montoUTMOrig: consModoMonto === 'utm' ? montoUTMOrig : null,
     fechaMes: parseInt(fechaMes),
     fechaAnio: parseInt(fechaAnio),
     aplicaIntereses,
@@ -2933,7 +2987,11 @@ function tryRegisterConsolidada() {
   }
   const total = monto + interes;
   const fmt = v => '$' + Math.round(v).toLocaleString('es-CL');
-  document.getElementById('consolidadaCapLabel').textContent = fmt(monto);
+  if (consModoMonto === 'utm' && montoUTMOrig > 0) {
+    document.getElementById('consolidadaCapLabel').textContent = montoUTMOrig.toFixed(3) + ' UTM';
+  } else {
+    document.getElementById('consolidadaCapLabel').textContent = fmt(monto);
+  }
   document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
   document.getElementById('consolidadaDiasMoraLabel').textContent = diasMora + ' días de interés';
