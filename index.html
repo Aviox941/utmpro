@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0300">
+ <meta name="app-version" content="v2.0622.0250">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2017,16 +2017,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
  <script>
 // ============================================================
 // TABLA TIC — Tasa de Interés Corriente para Operaciones
-// Reajustables en MN, categoría 3.c del Certificado CMF
-// ("De un año o más. Superiores al equivalente de 2.000 UF").
+// Reajustables en MN (única categoría aplicable a pensiones
+// alimenticias según Art. 19 Ley 14.908 y práctica SITFA/PJUD).
 //
 // Fuente: CMF Chile — valores decimales anuales (ej: 0.0416 = 4.16% anual).
 // Índices base 0: [0]=Ene, [1]=Feb, ..., [11]=Dic.
 //
-// METODOLOGÍA CONFIRMADA contra liquidación oficial del Poder Judicial
-// (RIT Z-617-2024, Juzgado de Familia Talca) y certificados CMF N°09/2025
-// y N°10/2025: el tribunal usa la categoría 3.c (reajustable, ≥1 año,
-// >2.000 UF), NO la categoría 3.a (<1 año) que usaba esta tabla antes.
+// METODOLOGÍA CONFIRMADA por ingeniería inversa sobre liquidación
+// oficial del Poder Judicial (RIT Z-617-2024, Juzgado de Familia Talca):
+//   - Una sola tasa: TIC reajustable, sin distinción de plazo.
+//   - Sin categorías CAT 1A, 3A, 3B ni escalonamiento por mora.
 //   - Interés simple diario: Capital_UTM × (TIC_anual / 365) × días_mora.
 //   - Vencimiento: día D del MISMO mes del período (no del siguiente).
 // ============================================================
@@ -2042,8 +2042,8 @@ const TIC_REAJ = {
 2022:[0.024,0.0253,0.0301,0.0268,0.0232,0.0253,0.0257,0.0255,0.0275,0.0298,0.04,0.0442],
 2023:[0.051,0.0676,0.0694,0.0722,0.0718,0.0936,0.0962,0.0972,0.0792,0.074,0.0698,0.0828],
 2024:[0.0758,0.0846,0.0634,0.0524,0.0532,0.0534,0.053,0.0472,0.0384,0.0381,0.0387,0.0361],
-2025:[0.0416,0.0342,0.0297,0.0380,0.0406,0.0472,0.0480,0.0450,0.0420,0.0420,0.0426,0.0424],
-2026:[0.0430,0.0448,0.0424,0.0383,0.0359,0.0344,null,null,null,null,null,null],
+2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0426,0.0428,0.0433,0.0439],
+2026:[0.0439,0.043,0.0413,0.0375,0.033,null,null,null,null,null,null,null],
 };
 
 // TMC reajustable (disponible como referencia; el recargo Art. 14 Ley 14.908 multiplica la TIC × 1.5)
@@ -2077,11 +2077,9 @@ async function _fetchTicCMF(year, monthBase1) {
   if (_ticFetching.has(key)) return;
   _ticFetching.add(key);
   try {
-    // Endpoint CMF: TIC para operaciones reajustables en MN, categoría 3.c
-    // ("De un año o más. Superiores al equivalente de 2.000 UF").
-    // Tipo 22 = TIC reajustable ≥1 año >2.000 UF (confirmado contra
-    // certificados CMF N°09/2025–N°06/2026 y liquidación PJUD RIT Z-617-2024).
-    const url = `https://api.cmfchile.cl/api-sbifv3/recursos/v1/periodo/${year}/${String(monthBase1).padStart(2,'0')}/tic.json?tipoindicador=22&apikey=l7aee24393f1e64b60e7d7eb714571d4e1e3b`;
+    // Endpoint CMF: TIC para operaciones reajustables en MN
+    // Tipo 21 = TIC reajustable (confirmado por CMF)
+    const url = `https://api.cmfchile.cl/api-sbifv3/recursos/v1/periodo/${year}/${String(monthBase1).padStart(2,'0')}/tic.json?tipoindicador=21&apikey=l7aee24393f1e64b60e7d7eb714571d4e1e3b`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
