@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0250">
+ <meta name="app-version" content="v2.0625.1200">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -310,7 +310,7 @@ try {
       • Comenzar por formatters (bajo riesgo, alta repetición).
       ============================================================ -->
 
- <link rel="stylesheet" href="styles.css?v=2.0622.0250">
+ <link rel="stylesheet" href="styles.css?v=2.0625.1200">
 <style>
 /* ── Collapsible: grid-template-rows GPU-friendly ───────────────────────────
    .collapsible-inner es el hijo directo sin padding — permite colapso a 0.
@@ -2942,11 +2942,9 @@ function tryRegisterConsolidada() {
   if (consModoMonto === 'utm') {
     const rawUTM = (document.getElementById('consolidadaMontoUTM').value || '').replace(',', '.');
     montoUTMOrig = parseFloat(rawUTM) || 0;
-    if (montoUTMOrig > 0 && fechaMes && fechaAnio) {
-      const utmEntry = utmData.find(d => d.y === parseInt(fechaAnio) && d.monthIdx === parseInt(fechaMes) - 1);
-      const utmVal = (utmEntry && utmEntry.v > 0) ? utmEntry.v : 0;
-      monto = utmVal > 0 ? Math.round(montoUTMOrig * utmVal) : 0;
-    }
+    // En modo UTM el capital se guarda directamente en UTM — sin convertir a CLP.
+    // La conversión ocurre mes a mes al calcular intereses y solo para visualizar totales.
+    monto = montoUTMOrig; // se interpretará como UTM, no CLP
   } else {
     const rawMonto = (document.getElementById('consolidadaMontoCLP').value || '').replace(/\./g, '');
     monto = parseInt(rawMonto) || 0;
@@ -2968,29 +2966,46 @@ function tryRegisterConsolidada() {
   const aplicaIntereses = document.getElementById('consolidadaAplicaIntereses').checked;
   const usaMaxima = document.getElementById('consolidadaUsaMaxima').checked;
   consolidadaData = {
-    montoCLP: monto,
-    montoUTMOrig: consModoMonto === 'utm' ? montoUTMOrig : null,
+    // Si modo UTM: montoUTM guarda las UTM originales; montoCLP = 0 (se calcula al vuelo)
+    // Si modo CLP: montoCLP guarda los pesos; montoUTM = 0
+    montoUTM: consModoMonto === 'utm' ? monto : 0,
+    montoCLP: consModoMonto === 'clp' ? monto : 0,
+    esUTM: consModoMonto === 'utm',
     fechaMes: parseInt(fechaMes),
     fechaAnio: parseInt(fechaAnio),
     aplicaIntereses,
     usaMaxima
   };
-  // Calcular preview
+  // Preview: convertir a CLP al vuelo solo para mostrar
   const hoy = new Date();
   const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
+  // Capital en CLP para preview: si es UTM, convertir con UTM del mes de corte (o el más reciente)
+  let capitalClpPreview = consolidadaData.montoCLP;
+  if (consolidadaData.esUTM) {
+    const utmCortePreview = (() => {
+      let entry = utmData.find(d => d.y === consolidadaData.fechaAnio && d.monthIdx === consolidadaData.fechaMes - 1);
+      if (!entry || !entry.v) {
+        const targetAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+        const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+        entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+      }
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    capitalClpPreview = Math.round(consolidadaData.montoUTM * utmCortePreview);
+  }
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(monto, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy, aplicarRecargoPreview);
+    const res = calcularInteresConsolidadaMensual(capitalClpPreview, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy, aplicarRecargoPreview, consolidadaData.esUTM ? consolidadaData.montoUTM : null);
     interes = res.interes;
     diasMora = res.diasMora;
   }
-  const total = monto + interes;
+  const total = capitalClpPreview + interes;
   const fmt = v => '$' + Math.round(v).toLocaleString('es-CL');
-  if (consModoMonto === 'utm' && montoUTMOrig > 0) {
-    document.getElementById('consolidadaCapLabel').textContent = montoUTMOrig.toFixed(3) + ' UTM';
+  if (consolidadaData.esUTM) {
+    document.getElementById('consolidadaCapLabel').textContent = consolidadaData.montoUTM.toFixed(3) + ' UTM';
   } else {
-    document.getElementById('consolidadaCapLabel').textContent = fmt(monto);
+    document.getElementById('consolidadaCapLabel').textContent = fmt(capitalClpPreview);
   }
   document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
@@ -3005,11 +3020,14 @@ function tryRegisterConsolidada() {
 // la TIC/TMC real de cada mes (igual que las pensiones regulares).
 // Devuelve { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada }
 // ============================================================
-function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo) {
+// montoUTM: si se pasa (modo UTM), el capital de cada tramo se reajusta mes a mes
+// usando la UTM vigente de ese tramo. Si es null/undefined, se usa montoCLP fijo (modo CLP).
+function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo, montoUTM) {
   let interesTotal = 0;
   let diasMoraTotal = 0;
   let sumaPonderada = 0;
   let hayTasaAproximada = false;
+  const esUTM = montoUTM != null && montoUTM > 0;
   const fechaCorte = new Date(fechaAnio, fechaMes - 1, 1);
   if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
   let curAnio = fechaAnio;
@@ -3021,14 +3039,17 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
     const finEfectivo = finTramo < hoy ? finTramo : hoy;
     const diasTramo = Math.floor((finEfectivo - inicioTramo) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {
-      // Consolidada en UTM → reajustable; usar TIC reajustable única (modoEsPesos=false)
-      const utmMes = (utmData.find(d => d.y === curAnio && d.monthIdx === curMes) || {v:1}).v;
-      const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, montoCLP, utmMes, diasMoraTotal);
+      const utmMesEntry = utmData.find(d => d.y === curAnio && d.monthIdx === curMes);
+      const utmMes = (utmMesEntry && utmMesEntry.v > 0) ? utmMesEntry.v : (getUtmActualVal() || 1);
+      // Modo UTM: capital reajustado mes a mes (UTM × valor UTM del tramo)
+      // Modo CLP: capital fijo en pesos
+      const capitalTramo = esUTM ? Math.round(montoUTM * utmMes) : montoCLP;
+      const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, capitalTramo, utmMes, diasMoraTotal);
       if (tasaInfo.esAproximada) hayTasaAproximada = true;
-      // Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
       const recargoAplicaTramo = aplicarRecargo && diasMoraTotal > 0;
       const tasaEfectiva = recargoAplicaTramo ? tasaInfo.valor * 1.5 : tasaInfo.valor;
-      const intTramo = montoCLP * (tasaEfectiva / 365) * diasTramo; // Base 365 — estándar judicial SITFA
+      // Interés del tramo: capital reajustado × tasa diaria × días
+      const intTramo = capitalTramo * (tasaEfectiva / 365) * diasTramo;
       interesTotal += intTramo;
       diasMoraTotal += diasTramo;
       sumaPonderada += tasaEfectiva * diasTramo;
@@ -3041,32 +3062,52 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
-  const { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima } = consolidadaData;
+  const { montoUTM, montoCLP, esUTM, fechaMes, fechaAnio, aplicaIntereses, usaMaxima } = consolidadaData;
+  const utmHoy = getUtmActualVal();
+
+  // UTM del mes de corte — para conversión puntual de visualización
+  const utmCorte = (() => {
+    let entry = utmData.find(d => d.y === fechaAnio && d.monthIdx === fechaMes - 1);
+    if (!entry || !entry.v) {
+      const targetAbs = fechaAnio * 12 + (fechaMes - 1);
+      const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+      entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+    }
+    return (entry && entry.v > 0) ? entry.v : utmHoy;
+  })();
+
+  // Capital en CLP al momento del corte (solo para detalle y fallback)
+  const capitalClpCorte = esUTM ? Math.round(montoUTM * utmCorte) : montoCLP;
+  // Capital en UTM: si modo CLP, back-calculamos para mostrar equivalencia
+  const capitalUTM = esUTM ? montoUTM : (utmCorte > 0 ? montoCLP / utmCorte : 0);
+
   let interes = 0;
   let diasMora = 0;
   let tasaPromedio = 0;
   let tasaAproximada = false;
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo);
+    // Modo UTM: pasa montoUTM → el loop reajusta capitalTramo mes a mes
+    // Modo CLP: pasa montoCLP fijo (montoUTM=null)
+    const res = calcularInteresConsolidadaMensual(
+      capitalClpCorte, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo,
+      esUTM ? montoUTM : null
+    );
     interes = res.interes;
     diasMora = res.diasMora;
     tasaPromedio = res.tasaPromedioPonderada;
     tasaAproximada = res.hayTasaAproximada;
   }
-  const utmHoy = getUtmActualVal();
-  // UTM del período de corte (fecha en que se consolidó la deuda) para reflejar la equivalencia histórica
-  const utmCorte = (() => {
-    const item = utmData.find(d => d.y === fechaAnio && d.monthIdx === fechaMes - 1);
-    return (item && item.v > 0) ? item.v : utmHoy;
-  })();
-  const capitalUTM = utmCorte > 0 ? montoCLP / utmCorte : 0;
+
+  // Capital CLP hoy (para totales): si UTM, usar UTM actual
+  const capitalClpHoy = esUTM ? Math.round(montoUTM * utmHoy) : montoCLP;
+
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const periodoLabel = `CONS ${mNames[fechaMes-1]} ${fechaAnio}`;
   const detalle = {
     id: 'cons0',
     periodo: periodoLabel,
     utmVal: utmCorte,
-    cap: montoCLP,
+    cap: capitalClpCorte,
     tasa: tasaPromedio,
     tasaBase: tasaPromedio,
     tasaHist: tasaPromedio,
@@ -3074,20 +3115,20 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     isConsolidadaTasaPromedio: true,
     mora: diasMora,
     inte: interes,
-    sub: montoCLP + interes,
+    sub: capitalClpCorte + interes,
     year: fechaAnio,
     isDebt: true,
     isConsolidada: true,
     capUTM: capitalUTM,
     usarMaxima: usaMaxima
   };
-  // Actualizar debtSummary con datos consolidados
+  // debtSummary: mostrar en UTM cuando proceda
   document.getElementById('debtSummary').classList.remove('hidden');
   document.getElementById('debtMonthCount').innerText = 'CONSOLIDADA';
   document.getElementById('debtSumUtm').innerText = capitalUTM.toFixed(2) + ' UTM';
-  document.getElementById('debtIntUtm').innerText = (utmCorte > 0 ? interes / utmCorte : 0).toFixed(2) + ' UTM';
-  updateDebtDetailPanel(montoCLP, interes, capitalUTM);
-  return { capital: montoCLP, intereses: interes, capitalUTM, detalles: [detalle] };
+  document.getElementById('debtIntUtm').innerText = (utmHoy > 0 ? interes / utmHoy : 0).toFixed(2) + ' UTM';
+  updateDebtDetailPanel(capitalClpHoy, interes, capitalUTM);
+  return { capital: capitalClpHoy, intereses: interes, capitalUTM, detalles: [detalle] };
 }
 function removeHistorical(index) {
 historicalDebts.splice(index, 1);
@@ -5885,6 +5926,8 @@ document.getElementById('befStartAnio').value = String(selectedYear);
 befSetFechaDisplay('start', i + 1, selectedYear);
 updateCalendarActionBtn();
 renderCalendar();
+// Actualizar chip de equivalencia UTM si hay monto CLP ingresado
+if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
 return;
 } else if (calendarMode === 'befEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -8169,6 +8212,9 @@ function _ayudaAbrirTema(t) {
             oninput="dupFormatCuotaMensualInput(this)"
           >
         </div>
+        <p id="dupClpConversionNote" style="display:none;font-size:11px;color:#5b4ff7;margin:6px 4px 0;line-height:1.4;">
+          Se convertirá a UTM del mes del último pago para reajustar mes a mes.
+        </p>
       </div>
 
       <!-- Paso 2: Monto último pago — unidad independiente -->
@@ -8311,6 +8357,8 @@ function dupToggleUnidadCuota() {
   inp.placeholder = isUTM ? '0,00' : '0';
   inp.value = '';
   inp.focus();
+  var note = document.getElementById('dupClpConversionNote');
+  if (note) note.style.display = isUTM ? 'none' : 'block';
 }
 
 function dupToggleUnidadMonto() {
@@ -8449,16 +8497,28 @@ function dupCalcularDeuda() {
   //    día de vencimiento) se preserva intacta.
   if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
 
-  // 0.b) Cuota mensual (Paso 2, nuevo): el overlay es también un interruptor
-  //      del valor "Cuota Mensual" de la tarjeta "Período Actual" — se
-  //      escribe ANTES de registrar el abono LAV para que calculate()
-  //      (disparado dentro de addAbonoLav()) ya use el monto correcto.
-  // Escribir cuota mensual en tarjeta Datos de Pensión con su propia unidad
-  setCalcMode(_dupUnidadCuota);
-  if (_dupUnidadCuota === 'utm') {
-    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
+  // 0.b) Cuota mensual → tarjeta "Datos de Pensión".
+  // Si el usuario ingresó en CLP: convertir a UTM usando la UTM del mes del
+  // último pago (ya cargada en tempLavMes/tempLavAnio que se acaban de escribir
+  // arriba en el paso 1). Así el cálculo siempre opera en UTM reajustable,
+  // replicando lo que hace el tribunal cuando convierte la cuota en pesos a UTM.
+  if (_dupUnidadCuota === 'clp') {
+    // Obtener UTM del mes del último pago para la conversión
+    const _utmMesUltPago = (() => {
+      const entry = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === parseInt(mes) - 1);
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    const cuotaEnUTM = _utmMesUltPago > 0 ? cuotaMensual / _utmMesUltPago : 0;
+    if (cuotaEnUTM <= 0) {
+      alert('No se pudo obtener el valor UTM del mes seleccionado para convertir la cuota.');
+      return;
+    }
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = cuotaEnUTM.toFixed(2).replace('.', ',');
   } else {
-    document.getElementById('clpAmount').value = formatPlain(cuotaMensual);
+    // Modo UTM: escribir directamente
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
   }
 
   // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
@@ -8606,8 +8666,15 @@ function dupCalcularDeuda() {
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la cuota mensual"
-            oninput="befFormatMontoInput(this)"
+            oninput="befFormatMontoInput(this); befUpdateEquivChip();"
           >
+        </div>
+        <!-- Chip de equivalencia: visible solo en modo CLP cuando hay monto y fecha de inicio -->
+        <div id="befEquivChip" style="display:none;margin-top:8px;display:none;">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#f0eeff;border:1px solid #c4b5fd;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#5b4ff7;font-family:inherit;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <span id="befEquivChipText">≈ — UTM</span>
+          </span>
         </div>
       </div>
 
@@ -8732,6 +8799,52 @@ function befSelectUnidad(val) {
   btnCLP.classList.toggle('bef-radio--active', !isUTM);
   btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
   btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+  // Al cambiar a UTM ocultar el chip; al cambiar a CLP limpiar y esperar input
+  befUpdateEquivChip();
+}
+
+// Actualiza el chip de equivalencia UTM bajo el campo de monto.
+// Se llama desde: oninput del campo, befSelectUnidad(), y cuando el
+// calendario BEF confirma la fecha de inicio.
+function befUpdateEquivChip() {
+  const chip = document.getElementById('befEquivChip');
+  const chipText = document.getElementById('befEquivChipText');
+  if (!chip || !chipText) return;
+
+  // Solo mostrar en modo CLP
+  if (_befUnidad !== 'clp') { chip.style.display = 'none'; return; }
+
+  const monto = befGetMontoValue();
+  if (!(monto > 0)) { chip.style.display = 'none'; return; }
+
+  // Obtener UTM del mes de inicio si ya está seleccionado
+  const startMes  = parseInt(document.getElementById('befStartMes')?.value || '0');
+  const startAnio = parseInt(document.getElementById('befStartAnio')?.value || '0');
+
+  if (startMes > 0 && startAnio > 0) {
+    // Tenemos fecha de inicio — mostrar equivalencia del período
+    let entry = utmData.find(d => d.y === startAnio && d.monthIdx === startMes - 1);
+    if (!entry || !entry.v) {
+      const targetAbs = startAnio * 12 + (startMes - 1);
+      const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+      entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+    }
+    if (entry && entry.v > 0) {
+      const utmEquiv = monto / entry.v;
+      const mNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      chipText.textContent = '≈ ' + utmEquiv.toFixed(3) + ' UTM · ' + mNames[startMes-1] + ' ' + startAnio;
+      chip.style.display = 'block';
+      return;
+    }
+  }
+
+  // No hay fecha de inicio aún — mostrar equivalencia con UTM actual
+  const utmActual = getUtmActualVal();
+  if (utmActual > 0) {
+    const utmEquiv = monto / utmActual;
+    chipText.textContent = '≈ ' + utmEquiv.toFixed(3) + ' UTM · hoy';
+    chip.style.display = 'block';
+  }
 }
 
 // Saneo del input de monto — mismo patrón que dupFormatMontoInput()/
@@ -8849,13 +8962,25 @@ function befCalcularDeuda() {
   startIndex = newStartIndex;
   endIndex   = newEndIndex;
 
-  // Escribir el monto/unidad ingresados en el overlay en los campos reales
-  // de "Datos de Pensión" (mismo patrón que dupCalcularDeuda()/setCalcMode()).
-  setCalcMode(unidad);
-  if (unidad === 'utm') {
-    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
+  // Escribir el monto en "Datos de Pensión".
+  // Si el usuario ingresó CLP: convertir a UTM usando la UTM del mes de
+  // INICIO del período — mismo criterio que dupCalcularDeuda(). El cálculo
+  // siempre opera en UTM reajustable; los pesos se convierten solo para mostrar.
+  if (unidad === 'clp') {
+    const _utmInicio = (() => {
+      const entry = utmData.find(d => d.y === befStartAnio && d.monthIdx === befStartMes - 1);
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    const montoEnUTM = _utmInicio > 0 ? monto / _utmInicio : 0;
+    if (montoEnUTM <= 0) {
+      alert('No se pudo obtener el valor UTM del mes de inicio para convertir la cuota.');
+      return;
+    }
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = montoEnUTM.toFixed(2).replace('.', ',');
   } else {
-    document.getElementById('clpAmount').value = formatPlain(monto);
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
   }
 
   closeBefOverlay();

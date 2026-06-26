@@ -2,6 +2,96 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v240 · 2026-06-25]
+index.html, sw.js
+
+Mejora — Chip de equivalencia UTM en tiempo real en overlay "Entre fechas":
+
+  Cuando el usuario está en modo CLP en el Paso 2 del overlay BEF, aparece
+  un chip debajo del campo de monto que muestra la equivalencia en UTM:
+
+  · Si ya tiene fecha de inicio seleccionada: muestra UTM del mes de inicio
+    (ej. "≈ 3,695 UTM · mar 2022") — el valor exacto que se usará para el
+    cálculo.
+  · Si aún no tiene fecha de inicio: muestra equivalencia con UTM actual
+    (ej. "≈ 3,412 UTM · hoy") como referencia.
+  · Al seleccionar la fecha de inicio el chip se actualiza automáticamente.
+  · El chip se oculta cuando el usuario está en modo UTM o borra el monto.
+
+  El chip se actualiza en tres eventos:
+    - oninput del campo de monto (befFormatMontoInput + befUpdateEquivChip)
+    - befSelectUnidad() al cambiar UTM/CLP
+    - Calendario al confirmar mes de inicio (calendarMode === 'befStart')
+
+[v239 · 2026-06-25]
+index.html, sw.js
+
+Fix — Cuota CLP en "Desde el último pago" ahora se convierte a UTM reajustable:
+
+  Caso de uso: usuario sabe que paga $200.000/mes pero no sabe las UTM
+  equivalentes. Al ingresar CLP en el overlay DUP, la app ahora convierte
+  automáticamente a UTM usando el valor UTM del mes del último pago, y escribe
+  esa UTM en el campo de cuota mensual (utmAmount). El cálculo opera desde
+  ahí en UTM reajustable mes a mes — replicando la conversión que hace el
+  tribunal cuando la resolución fija la pensión en pesos.
+
+  Ejemplo: $200.000 CLP + último pago marzo 2022 (UTM=$54.123)
+    → cuota = 200.000 / 54.123 = 3.695 UTM (fija)
+    → cada mes: capital = 3.695 × UTM_del_mes (reajustado)
+
+  Cambios:
+  - dupCalcularDeuda(): si _dupUnidadCuota === 'clp', busca UTM del mes del
+    último pago en utmData (fallback: UTM actual) y convierte antes de llamar
+    setCalcMode('utm'). Siempre escribe en utmAmount, nunca en clpAmount.
+  - dupToggleUnidadCuota(): muestra/oculta nota explicativa bajo el campo
+    cuando el usuario cambia a CLP.
+  - HTML: agrega <p id="dupClpConversionNote"> (oculto por defecto).
+
+[v238 · 2026-06-25]
+index.html, sw.js
+
+Refactor — Monto fijo UTM trabaja en UTM internamente (no convierte a CLP al ingresar):
+
+  Antes: tryRegisterConsolidada() convertía UTM→CLP al ingresar y guardaba
+  montoCLP fijo. Los intereses se calculaban sobre pesos fijos → el capital
+  no se reajustaba con la UTM en el tiempo.
+
+  Ahora: el capital se guarda como montoUTM en consolidadaData (esUTM=true).
+  La conversión a CLP ocurre solo para visualización:
+
+  calcularInteresConsolidadaMensual():
+    - Recibe parámetro montoUTM opcional.
+    - Si esUTM: capitalTramo = montoUTM × utmMes (reajustado mes a mes).
+    - Si CLP: capitalTramo = montoCLP fijo (comportamiento anterior).
+
+  calculateConsolidada():
+    - Lee montoUTM/montoCLP/esUTM de consolidadaData.
+    - utmCorte: solo para etiqueta de período y fallback de visualización.
+    - capitalClpHoy = montoUTM × utmHoy (capital a valor de hoy).
+    - Intereses calculados sobre capital reajustado → resultado correcto judicial.
+
+  Preview en tryRegisterConsolidada():
+    - Convierte UTM→CLP con utmCorte al vuelo solo para mostrar en pantalla.
+
+  Modo CLP: sin cambios.
+
+[v237 · 2026-06-25]
+index.html, sw.js
+
+Fix — Monto fijo UTM en Deudas Históricas no calculaba:
+
+  Causa: tryRegisterConsolidada() en modo UTM convertía el monto a CLP
+  buscando utmData.find(y === fechaAnio && monthIdx === fechaMes-1).
+  Si la fecha seleccionada no tenía entrada exacta en utmData (mes reciente
+  o con dato faltante), utmVal quedaba en 0, monto = 0, y el bloque
+  if (monto <= 0) abortaba seteando consolidadaData = null → sin cálculo.
+
+  Fix: si no hay UTM exacto para la fecha, se busca el entry más reciente
+  disponible con monthAbs <= targetAbs (fallback al último UTM conocido).
+  Si no existe ningún UTM anterior, usa el primer entry con v > 0.
+  Con esto el monto CLP siempre se calcula correctamente y consolidadaData
+  se registra, permitiendo que calculate() complete el cálculo.
+
 [v236 · 2026-06-23]
 MEJORA · Modo Monto Fijo (Deuda Histórica): se agrega toggle CLP / UTM.
 Al seleccionar UTM aparece un campo para ingresar el capital consolidado
