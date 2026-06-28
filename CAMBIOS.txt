@@ -2,6 +2,41 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v251 · 2026-06-28]
+index.html, sw.js
+
+Fix CRÍTICO — sbGetUtmCache()/sbGetTasasCache() podían colgarse para siempre,
+bloqueando la restauración de casos (el fix de v250 sí resolvió el crash de
+loadingProgress, pero destapó este segundo bug latente — ya existía en v240,
+no lo introdujo el movimiento del botón Casos):
+
+  Log de diagnóstico (panel debug):
+    UTM[5] intentando sbGetUtmCache...
+    ← se traba acá para siempre, nunca llega UTM[6] ni error.
+    LOAD[L2] (restauración del caso) nunca aparece — sbLoadCasos() queda
+    esperando "await _utmReady" indefinidamente.
+
+  Causa: sbGetUtmCache() y sbGetTasasCache() hacían
+  `await sb.from('cmf_cache')...single()` SIN timeout. A diferencia del
+  fetch de casos en sbLoadCasos() (que ya usa Promise.race con 6s), estas
+  dos consultas no tenían protección. Si Supabase no responde (token en
+  mal estado — el log mostraba también "sb.auth.signOut falló: timeout"
+  justo antes — o red lenta), el await queda colgado para siempre: no
+  resuelve ni rechaza. Eso bloqueaba _utmReadyResolve() dentro de
+  fetchUTM(), lo que dejaba _utmReady sin resolver nunca, lo que dejaba
+  sbLoadCasos() esperando para siempre antes de restaurar el último caso.
+
+  Fix: mismo patrón Promise.race con timeout de 6s ya usado en
+  sbLoadCasos(), aplicado a ambas funciones. Si Supabase no responde en
+  6s, la función retorna null (cache miss) y fetchUTM()/fetchTasasCMF()
+  caen al siguiente paso del flujo normal (API CMF / valores locales) en
+  vez de colgarse. _utmReady se resuelve siempre, sin importar el estado
+  de Supabase.
+
+  sw.js: CACHE_NAME → pension-utm-v251.
+
+
+
 [v250 · 2026-06-28]
 index.html, sw.js
 
