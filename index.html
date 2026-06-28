@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0628.0332">
+ <meta name="app-version" content="v2.0628.0456">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1164,6 +1164,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 <span id="cmfTasasStatus" style="display:none;"></span>
 <span id="saveIndicator" style="display:none;"><span id="saveTime"></span></span>
 <span id="activeCasoBadge" style="display:none;"><span id="activeCasoNombreHeader"></span></span>
+<!-- Ghosts del header viejo: fetchUTM()/renderUtmTicker() escriben en estos IDs sin
+     null-check (setLoadingProgress, hideLoadingBar). Sin ellos, fetchUTM() lanza una
+     excepción en su primera línea y _utmReady nunca se resuelve, lo que deja a
+     sbLoadCasos() colgada para siempre en "await _utmReady" — por eso no cargaban
+     los casos. Se restauran ocultos, sin afectar el header nuevo. -->
+<div id="loadingBar" style="display:none;"><div id="loadingProgress" style="width:0%;"></div><span id="loadingText"></span></div>
+<div id="utmTicker" class="hidden ticker-removed"><span id="utmActualVal"></span><span id="utmActualMes" style="display:none;"></span></div>
  <main class="px-4 md:px-6 lg:px-8 mt-1 md:mt-2 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
       <!-- ── Hero: tarjeta total única, centrada ── -->
@@ -6579,10 +6586,13 @@ const SB_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
 async function sbGetUtmCache() {
   if (!sbCurrentUser) return null; // sin sesión no tiene caso consultar
   try {
-    const { data, error } = await sb.from('cmf_cache')
-      .select('payload, updated_at')
-      .eq('id', 'utm')
-      .single();
+    // FIX: timeout 6s — sin esto, si Supabase no responde (token en mal estado,
+    // red lenta, etc.) este await queda colgado para siempre, lo que nunca
+    // resuelve _utmReady y deja a sbLoadCasos() esperando indefinidamente
+    // (síntoma: casos nunca se restauran, log se traba en "UTM[5]").
+    const _q = sb.from('cmf_cache').select('payload, updated_at').eq('id', 'utm').single();
+    const _timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('UTM_CACHE_TIMEOUT_6S')), 6000));
+    const { data, error } = await Promise.race([_q, _timeout]);
     if (error || !data) { dbg('UTM CACHE MISS (read error o vacío): ' + (error?.message||'sin datos')); return null; }
     const age = Date.now() - new Date(data.updated_at).getTime();
     const ageDays = Math.round(age / 86400000);
@@ -6611,10 +6621,10 @@ async function sbSetUtmCache(valoresNuevos) {
 async function sbGetTasasCache() {
   if (!sbCurrentUser) return null; // sin sesión no tiene caso consultar
   try {
-    const { data, error } = await sb.from('cmf_cache')
-      .select('payload, updated_at')
-      .eq('id', 'tasas')
-      .single();
+    // FIX: mismo timeout 6s que sbGetUtmCache — evita cuelgue indefinido.
+    const _q = sb.from('cmf_cache').select('payload, updated_at').eq('id', 'tasas').single();
+    const _timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TASAS_CACHE_TIMEOUT_6S')), 6000));
+    const { data, error } = await Promise.race([_q, _timeout]);
     if (error || !data) { dbg('TASAS CACHE MISS: ' + (error?.message||'sin datos')); return null; }
     const age = Date.now() - new Date(data.updated_at).getTime();
     const ageDays = Math.round(age / 86400000);
