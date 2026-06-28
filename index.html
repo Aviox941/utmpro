@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0628.1600">
+ <meta name="app-version" content="v2.0628.0332">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1540,29 +1540,22 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   <div id="lavBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="lavx-body">
 
-    <!-- ── Cuota Mensual (lectura — valor de Período Actual / modo libre) ── -->
+    <!-- ── Cuota Mensual (editable: número grande en UTM = modo libre) ── -->
     <div class="lavx-quota-card">
       <div>
-        <span class="lavx-label">Cuota Mensual</span>
-        <div class="lavx-quota-value" id="lavxQuotaValue">0,00 <span>UTM</span></div>
+        <span class="lavx-label">Cuota Mensual <span class="lavx-label__hint">(editable · UTM)</span></span>
+        <div class="lavx-quota-value lavx-quota-value--editable">
+          <input type="number" id="lavCuotaUtm" placeholder="0,00" step="0.001" min="0"
+            inputmode="decimal"
+            oninput="calculate(); saveSession(); lavxUpdateQuotaDisplay();"
+            class="lavx-quota-input"> <span>UTM</span>
+        </div>
         <div class="lavx-quota-clp" id="lavxQuotaClp">≈ $0 CLP</div>
       </div>
       <div class="lavx-quota-status" title="Próximamente configurable">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         Cuota vigente
       </div>
-    </div>
-
-    <!-- ── Cuota mensual modo libre (oculto cuando hay Período Actual con cuota) ── -->
-    <div id="lavModoLibreWrap" class="lavx-modo-libre">
-      <div>
-        <p class="lavx-modo-libre__title">Cuota mensual (modo libre)</p>
-        <p class="lavx-modo-libre__hint">Valor en UTM · inicio = primer depósito</p>
-      </div>
-      <input type="number" id="lavCuotaUtm" placeholder="0.000" step="0.001" min="0"
-        inputmode="decimal"
-        oninput="calculate(); saveSession(); lavxUpdateQuotaDisplay();"
-        class="input-number input-sm" style="width:88px;">
     </div>
 
     <div class="lavx-separator"></div>
@@ -1607,10 +1600,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
 
     <div id="lavUtmChip" class="lavx-utm-chip"></div>
-
-    <button id="btnAddLav" onclick="addAbonoLav()" disabled class="lavx-add-btn">
-      + Agregar abono LAV
-    </button>
 
     <!-- ── Últimos depósitos ── -->
     <div id="lavxHistoryWrap" class="lavx-history" style="display:none;">
@@ -3437,24 +3426,34 @@ function removeAbonoLav(index) {
 // No participan del cálculo (calculate()/calculatePensiones()): solo leen
 // valores ya calculados (getMonthlyValues, abonosLav) para reflejarlos en el
 // nuevo bloque "Cuota Mensual" y en el subtítulo del header de la tarjeta.
+// NOTA (v249): el número grande "Cuota Mensual" ahora ES el input
+// lavCuotaUtm (antes era un <div> de solo lectura + un input "modo libre"
+// duplicado debajo). Esta función NUNCA escribe el valor numérico dentro del
+// input (para no pisar lo que el usuario está escribiendo ni simular un
+// valor que no ingresó) — solo usa el placeholder para sugerir la cuota
+// heredada del "Período Actual" cuando el campo está vacío, y refresca el
+// CLP equivalente de abajo.
 function lavxUpdateQuotaDisplay() {
-  const valEl = document.getElementById('lavxQuotaValue');
+  const valEl = document.getElementById('lavCuotaUtm');
   const clpEl = document.getElementById('lavxQuotaClp');
   if (!valEl || !clpEl) return;
   const utmActual = getUtmActualVal();
-  const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
-  const lavCuotaLibre = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
+  const { cuotaMensualUTM, cuotaMensualCLP } = getMonthlyValues();
+  const lavCuotaLibre = parseFloat(valEl.value) || 0;
 
-  let utmMostrar = cuotaMensualUTM;
-  let clpMostrar = cuotaMensualCLP;
-  // Si no hay cuota en "Período Actual" pero sí en modo libre LAV, se usa esa.
-  if (!(utmMostrar > 0) && lavCuotaLibre > 0) {
-    utmMostrar = lavCuotaLibre;
-    clpMostrar = lavCuotaLibre * (utmActual || 0);
+  let clpMostrar = lavCuotaLibre * (utmActual || 0);
+  if (!(lavCuotaLibre > 0)) {
+    // Campo vacío: sugerir vía placeholder la cuota del Período Actual
+    // (el cálculo real ya hace este mismo fallback en calculate()).
+    if (cuotaMensualUTM > 0) {
+      valEl.placeholder = cuotaMensualUTM.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      clpMostrar = cuotaMensualCLP;
+    } else {
+      valEl.placeholder = '0,00';
+      clpMostrar = 0;
+    }
   }
 
-  const utmStr = (utmMostrar || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  valEl.innerHTML = `${utmStr} <span>UTM</span>`;
   clpEl.textContent = `≈ ${format(Math.round(clpMostrar || 0))} CLP`;
 }
 function lavxUpdateHeaderSubtitle() {

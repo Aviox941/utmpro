@@ -2,6 +2,35 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v249 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Tarjeta "Depósitos LAV" — número grande editable + sin botón duplicado:
+
+  1. El número grande "Cuota Mensual" (antes <div> de solo lectura) ahora
+     ES el input editable en UTM. Cumple la misma función que el viejo
+     campo "Cuota mensual (modo libre)", que se elimina por duplicado.
+     Mismo id (lavCuotaUtm) preservado → cero cambios en calculate(),
+     saveSession() ni export.js (restauración de sesión intacta).
+
+  2. lavxUpdateQuotaDisplay() ajustada: ya no escribe el valor numérico
+     dentro del input (evita pisar lo que el usuario está tecleando).
+     Si el campo está vacío, sugiere vía placeholder la cuota heredada
+     del "Período Actual" — el cálculo real ya hacía ese mismo fallback
+     en calculate(), esto es solo reflejo visual.
+
+  3. Eliminado el botón "+ Agregar abono LAV": era redundante, ya que
+     addAbonoLav() se dispara automáticamente al seleccionar el día en
+     el calendario (igual que antes). checkBtnLav() queda con guard
+     (if (!btn) return) por si se reintroduce en el futuro.
+
+  4. Tipografía Geist unificada en toda la tarjeta LAV (.lavx-card),
+     siguiendo la misma convención de la tarjeta "Datos de la pensión"
+     (v247): labels en Geist bold, número grande UTM con tracking
+     -0.03em, valores CLP/fecha con peso 600, header título/subtítulo
+     con la misma jerarquía.
+
+
 [v248 · 2026-06-28]
 index.html, sw.js
 

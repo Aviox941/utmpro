@@ -5250,7 +5250,7 @@
   padding: 12px;
 }
 
-/* ── Cuota Mensual (bloque de lectura) ───────────────────── */
+/* ── Cuota Mensual (número grande ahora editable) ────────── */
 .lavx-quota-card {
   display: flex;
   justify-content: space-between;
@@ -5267,6 +5267,12 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
+.lavx-label__hint {
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
 
 .lavx-quota-value {
   font-size: 23px;
@@ -5275,11 +5281,49 @@
   color: var(--color-text-primary);
   font-family: var(--font-main);
   line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
 }
 .lavx-quota-value span {
   font-size: 12px;
   font-weight: 700;
   color: var(--color-text-secondary);
+}
+
+/* Input grande editable: hereda tamaño/peso de .lavx-quota-value, sin
+   aspecto de "campo de formulario" (transparente, sin borde fijo) hasta
+   que el usuario lo enfoca, para mantener la lectura tipo "número hero". */
+.lavx-quota-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  width: 4.2ch;
+  min-width: 56px;
+  font-size: 23px;
+  font-weight: 700;
+  font-family: var(--font-main);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  border-radius: 6px;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.lavx-quota-input::-webkit-inner-spin-button,
+.lavx-quota-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.lavx-quota-input::placeholder {
+  color: #c2cbd6;
+  font-weight: 700;
+}
+.lavx-quota-input:focus {
+  background: #f3fbf7;
+  box-shadow: 0 0 0 2px rgba(24,167,111,0.18);
 }
 
 .lavx-quota-clp {
@@ -5301,32 +5345,6 @@
   gap: 5px;
   white-space: nowrap;
   cursor: default;
-}
-
-/* ── Cuota mensual modo libre (input compacto, sin tocar lógica) ── */
-.lavx-modo-libre {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0 0;
-  margin-top: 5px;
-  border-top: 1px dashed #d8f0e7;
-}
-.lavx-modo-libre__title {
-  margin: 0;
-  font-size: 9px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #18a76f;
-  line-height: 1.2;
-}
-.lavx-modo-libre__hint {
-  margin: 1px 0 0;
-  font-size: 8px;
-  color: #94a3b8;
-  font-weight: 600;
 }
 
 .lavx-separator {
@@ -5439,27 +5457,6 @@
   border-radius: 7px;
   text-align: center;
   margin-top: 8px;
-}
-
-/* ── Botón Agregar abono LAV ─────────────────────────────── */
-.lavx-add-btn {
-  width: 100%;
-  height: 32px;
-  margin-top: 10px;
-  border: none;
-  border-radius: 8px;
-  background: #0f7a52;
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  font-family: var(--font-main);
-  transition: transform var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast);
-}
-.lavx-add-btn:active { transform: scale(0.97); background: #0a5c3d; }
-.lavx-add-btn:disabled {
-  background: rgba(16,185,129,0.15);
-  color: #94a3b8;
-  cursor: not-allowed;
 }
 
 /* ── Historial: Últimos depósitos ────────────────────────── */
@@ -6092,4 +6089,62 @@
 .dp-dia-suffix {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
   font-weight: 500 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   lavx-* — Tipografía Geist + labels consistentes (v249)
+   Misma convención aplicada a .dp-card (v247), trasladada a la tarjeta
+   "Depósitos LAV". Scope: solo dentro de .lavx-card.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Aplicar Geist a toda la tarjeta */
+.lavx-card,
+.lavx-card * {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+}
+
+/* ── Labels importantes: Geist bold (mantiene color/uppercase propios
+   de la identidad visual verde de LAV — solo se unifica tipografía) ──── */
+.lavx-card .lavx-label,
+.lavx-card .lavx-field__label {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+/* ── Header: título y subtítulo ─────────────────────────────────────── */
+.lavx-card .lavx-title {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+.lavx-card .lavx-subtitle {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+
+/* ── Número grande UTM (editable) ───────────────────────────────────── */
+.lavx-card .lavx-quota-input {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+}
+.lavx-card .lavx-quota-value span {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+/* ── Valor CLP equivalente ──────────────────────────────────────────── */
+.lavx-card .lavx-quota-clp {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* ── Inputs de depósito (CLP / UTM) y fecha de pago ─────────────────── */
+.lavx-card .lavx-input-box__input,
+.lavx-card .lavx-date-box__value {
+  font-family: 'Geist', 'DM Sans', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
 }
