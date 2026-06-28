@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0625.1300">
+ <meta name="app-version" content="v2.0628.1000">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1312,19 +1312,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div id="detailsList" class="hidden grid grid-cols-2 gap-3 animate-fadeIn"></div>
     </div>
   <div id="mainInputs" class="space-y-3">
- <div class="dh-card" style="position:relative;overflow:visible;">
-
-  <!-- Header azul, mismo patrón que dh-card naranja -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px 8px;border-bottom:1px solid rgba(59,130,246,0.13);background:rgba(59,130,246,0.05);">
-    <div style="display:flex;align-items:center;gap:9px;">
-      <div style="width:30px;height:30px;border-radius:10px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
-        </svg>
-      </div>
-      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Datos de Pensión</p>
-    </div>
-  </div>
+ <div class="dh-card dp-card" style="position:relative;overflow:visible;">
 
   <!-- Hidden select keeps existing JS working -->
   <select id="calculationMode" onchange="handleCalculationModeChange(); saveSession();" class="hidden">
@@ -1333,113 +1321,180 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <option value="salary_percent">% de Sueldo</option>
   </select>
 
-  <!-- Body blanco con padding igual a dh-card -->
-  <div style="padding:14px 16px 16px;background:#ffffff;">
-
-    <!-- Toggle centrado -->
-    <div style="display:flex;justify-content:center;margin-bottom:12px;">
-      <div class="flex items-center rounded-full gap-0" style="background:#f0f2f7;border:1px solid rgba(0,0,0,0.08);padding:2px;">
-        <button id="toggleUtmBtn" onclick="setCalcMode('utm')" class="rounded-full font-black transition-all" style="padding:5px 20px;font-size:9px;">UTM</button>
-        <button id="toggleSalaryBtn" onclick="setCalcMode('salary_percent')" class="rounded-full font-black transition-all" style="padding:5px 20px;font-size:9px;">% Sueldo</button>
+  <!-- Header compacto con ícono + título + badge Paso 1 de 5 -->
+  <div class="dp-header">
+    <div class="dp-header__left">
+      <div class="dp-header__icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
+      </div>
+      <div>
+        <p class="dp-header__title">Datos de la pensión</p>
+        <p class="dp-header__sub">Configura la obligación alimenticia</p>
       </div>
     </div>
-
-    <div id="utmClpInputs" class="space-y-2">
-      <div class="grid grid-cols-2 gap-3">
-        <div class="space-y-1">
-          <label class="input-label">Valor cuota en UTM</label>
-          <div style="position:relative;">
-            <input type="text" id="utmAmount" placeholder="0,000 UTM" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
-            <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
-          </div>
-        </div>
-        <div class="space-y-1">
-          <label class="input-label">Valor cuota en pesos</label>
-          <input type="text" id="clpAmount" placeholder="$ 0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
-        </div>
-      </div>
-      <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
-      <div id="clpHistoricoChip" class="hidden"><span id="clpHistoricoText"></span></div>
-    </div>
-    <div id="salaryInputs" class="hidden space-y-3">
-      <div class="grid grid-cols-2 gap-2 items-start">
-        <div class="space-y-1">
-          <label class="input-label">Sueldo ($)</label>
-          <input type="text" id="salaryAmount" placeholder="0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this); saveSession();" class="input-currency">
-          <div id="salaryUtmBadge" class="hidden pt-0.5 text-right" style="min-height:0">
-            <span class="text-[9px] font-black text-[#60a5fa] px-2 py-1 rounded-lg whitespace-nowrap" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)" id="salaryUtmText">--- UTM</span>
-          </div>
-        </div>
-        <div class="space-y-1">
-          <label class="input-label">IMM</label>
-          <div class="flex items-center justify-between rounded-xl px-3 py-2.5 border h-[42px]" style="background:#fafbfd;border-color:rgba(37,99,235,0.11)">
-            <div>
-              <p class="text-[10px] font-semibold text-[#5a6380] leading-none">IMM</p>
-              <p id="immValue" class="text-[9px] font-medium text-[#9aa3bb] leading-none mt-0.5">Cargando...</p>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="toggleIMM" onchange="handleIMMToggle(); saveSession();">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <label class="input-label">% Pension</label>
-        <input type="number" id="salaryPercent" placeholder="0" step="0.1" inputmode="decimal" oninput="calculate(); saveSession();" class="input-number">
-      </div>
-      <div id="salaryCalcChip" class="hidden items-center justify-between rounded-xl px-3 py-2" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18)">
-        <span class="text-[10px] font-black text-[#60a5fa]" id="salaryCalcText">---</span>
-      </div>
-      <input type="hidden" id="minimumPercent" value="">
-      <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
-    </div>
-    <!-- ── DÍA DE VENCIMIENTO — parte de la orden judicial, junto al monto ── -->
-    <div class="border-t border-white/7 pt-3" style="margin-top:10px;">
-      <div class="flex items-center gap-1" style="margin-bottom:4px;">
-        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
-        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
-      </div>
-      <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
-    </div>
-
-    <!-- ── LÍNEA DE TIEMPO ─────────────────────────────────── -->
-    <div class="grid grid-cols-2 gap-3" style="margin-top:10px;">
-      <button onclick="openCalendar('start')" id="startBtn" class="input-date">
-        <span class="input-date__sublabel">Mes que dejó de pagar</span>
-        <span id="startLabel" class="input-date__value">Seleccionar</span>
-      </button>
-      <button onclick="openCalendar('end')" id="endBtn" class="input-date">
-        <span class="input-date__sublabel">Último mes sin pago</span>
-        <span id="endLabel" class="input-date__value">Seleccionar</span>
-      </button>
-    </div>
-    <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-3 text-[10px] font-black text-red-400 flex items-center gap-2">
-      La fecha "Desde" no puede ser posterior a "Hasta"
-    </div>
-
-    <!-- ── CORTE DEL REPORTE ───────────────────────────────── -->
-    <div class="border-t border-white/7 pt-3" style="margin-top:4px;">
-      <p class="text-[10px] font-black uppercase text-[#93c5fd]" style="margin-bottom:4px;">Calcular hasta</p>
-      <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
-    </div>
-
-    <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
-    <div id="periodosVariablesWrap" style="margin-top:12px;">
-      <div style="display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:6px;">
-        <button id="btnAddPeriodoPension" onclick="addPeriodoPension()"
-          style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
-          onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Agregar UTM variable
-        </button>
-        <button onclick="showPeriodoHelp()" style="position:absolute;right:0;width:16px;height:16px;border-radius:50%;background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.18);font-size:8px;font-weight:900;color:#93c5fd;display:flex;align-items:center;justify-content:center;cursor:pointer;">?</button>
-      </div>
-      <!-- Lista de períodos registrados -->
-      <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-bottom:8px;"></div>
-    </div>
-
+    <span class="dp-step-badge">Paso 1 de 5</span>
   </div>
+
+  <!-- Body compacto -->
+  <div class="dp-body">
+
+    <!-- ── SECCIÓN: Monto de la cuota ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <!-- Toggle UTM / % Sueldo -->
+        <div class="dp-toggle-wrap">
+          <div class="dp-toggle">
+            <button id="toggleUtmBtn" onclick="setCalcMode('utm')" class="dp-toggle__btn">UTM</button>
+            <button id="toggleSalaryBtn" onclick="setCalcMode('salary_percent')" class="dp-toggle__btn">% Sueldo</button>
+          </div>
+        </div>
+
+        <!-- UTM / CLP inputs -->
+        <div id="utmClpInputs" style="margin-top:8px;">
+          <div class="dp-amount-row">
+            <div class="dp-amount-field">
+              <label class="input-label">Monto de la cuota (UTM)</label>
+              <div style="position:relative;">
+                <input type="text" id="utmAmount" placeholder="0,000" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number dp-input" style="padding-bottom:14px;">
+                <p id="utmPeriodChip" style="position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+              </div>
+            </div>
+            <div class="dp-amount-sep">
+              <span class="dp-equiv-label">≈</span>
+            </div>
+            <div class="dp-amount-field">
+              <label class="input-label">CLP</label>
+              <input type="text" id="clpAmount" placeholder="$0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency dp-input">
+            </div>
+          </div>
+          <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
+          <div id="clpHistoricoChip" class="hidden"><span id="clpHistoricoText"></span></div>
+        </div>
+
+        <!-- % Sueldo inputs -->
+        <div id="salaryInputs" class="hidden" style="margin-top:8px;">
+          <div class="dp-amount-row">
+            <div class="dp-amount-field">
+              <label class="input-label">Sueldo ($)</label>
+              <input type="text" id="salaryAmount" placeholder="0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this); saveSession();" class="input-currency dp-input">
+              <div id="salaryUtmBadge" class="hidden pt-0.5 text-right" style="min-height:0">
+                <span class="text-[9px] font-black text-[#60a5fa] px-2 py-1 rounded-lg whitespace-nowrap" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)" id="salaryUtmText">--- UTM</span>
+              </div>
+            </div>
+            <div class="dp-amount-sep"></div>
+            <div class="dp-amount-field">
+              <label class="input-label">% Pensión</label>
+              <input type="number" id="salaryPercent" placeholder="0" step="0.1" inputmode="decimal" oninput="calculate(); saveSession();" class="input-number dp-input">
+            </div>
+          </div>
+          <div style="margin-top:6px;">
+            <label class="input-label">IMM</label>
+            <div class="flex items-center justify-between rounded-xl px-3 py-2 border" style="background:#fafbfd;border-color:rgba(37,99,235,0.11);height:38px;">
+              <div>
+                <p class="text-[10px] font-semibold text-[#5a6380] leading-none">IMM</p>
+                <p id="immValue" class="text-[9px] font-medium text-[#9aa3bb] leading-none mt-0.5">Cargando...</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggleIMM" onchange="handleIMMToggle(); saveSession();">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div id="salaryCalcChip" class="hidden items-center justify-between rounded-xl px-3 py-2 mt-1" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18)">
+            <span class="text-[10px] font-black text-[#60a5fa]" id="salaryCalcText">---</span>
+          </div>
+          <input type="hidden" id="minimumPercent" value="">
+          <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Día de vencimiento ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <div class="dp-field-row">
+          <label class="input-label" style="margin-bottom:4px;">Día de vencimiento
+            <button onclick="showHelpModal('diaVenc')" class="dp-help-btn">?</button>
+          </label>
+          <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm dp-input">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Período de mora ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <div class="dp-dates-row">
+          <button onclick="openCalendar('start')" id="startBtn" class="input-date dp-date-btn">
+            <span class="input-date__sublabel">Mes que dejó de pagar</span>
+            <span id="startLabel" class="input-date__value">Seleccionar</span>
+          </button>
+          <div class="dp-arrow">→</div>
+          <button onclick="openCalendar('end')" id="endBtn" class="input-date dp-date-btn">
+            <span class="input-date__sublabel">Último mes sin pago</span>
+            <span id="endLabel" class="input-date__value">Seleccionar</span>
+          </button>
+        </div>
+        <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-2 text-[10px] font-black text-red-400 flex items-center gap-2" style="margin-top:4px;">
+          La fecha "Desde" no puede ser posterior a "Hasta"
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: UTM variable ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <label class="input-label" style="margin-bottom:6px;">UTM variable <span style="font-weight:500;opacity:0.55;">(opcional)</span>
+          <button onclick="showPeriodoHelp()" class="dp-help-btn">?</button>
+        </label>
+        <div id="periodosVariablesWrap">
+          <div style="display:flex;align-items:center;justify-content:center;position:relative;">
+            <button id="btnAddPeriodoPension" onclick="addPeriodoPension()"
+              style="display:flex;align-items:center;gap:4px;padding:5px 14px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
+              onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Agregar cambio de cuota
+            </button>
+          </div>
+          <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-top:6px;margin-bottom:2px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Fecha de liquidación (opcional) ── -->
+    <div class="dp-section dp-section--last">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <label class="input-label" style="margin-bottom:4px;">Fecha de liquidación <span style="font-weight:500;opacity:0.55;">(opcional)</span>
+          <button onclick="showHelpModal('fechaLiquidacion')" class="dp-help-btn">?</button>
+        </label>
+        <button onclick="document.getElementById('fechaLiquidacion').showPicker ? document.getElementById('fechaLiquidacion').showPicker() : document.getElementById('fechaLiquidacion').focus()" class="input-date dp-date-btn dp-date-btn--full">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#3b82f6;flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="fechaLiquidacionLabel" class="input-date__value" style="flex:1;">Seleccionar fecha</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <!-- Input date oculto — conectado al mismo id que usaba "Calcular hasta" -->
+        <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession(); dpUpdateFechaLiqLabel();" onchange="calculate(); saveSession(); dpUpdateFechaLiqLabel();" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
+      </div>
+    </div>
+
+  </div><!-- /dp-body -->
 
  </div><!-- /dh-card pensiones -->
 
@@ -2629,6 +2684,20 @@ setLoadingProgress(100, '✓ Datos cargados');
 document.getElementById('loadingText').classList.remove('loading-pulse');
 renderUtmTicker();
 setTimeout(() => { bar.style.opacity = '0'; bar.style.transition = 'opacity 0.5s'; setTimeout(() => bar.style.display = 'none', 500); }, 1000);
+}
+function dpUpdateFechaLiqLabel() {
+  var el = document.getElementById('fechaLiquidacionLabel');
+  var inp = document.getElementById('fechaLiquidacion');
+  if (!el || !inp) return;
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if (inp.value) {
+    var p = inp.value.split('-');
+    el.textContent = meses[parseInt(p[1],10)-1] + ' ' + p[0];
+    el.style.color = '#1a1d2e';
+  } else {
+    el.textContent = 'Seleccionar fecha';
+    el.style.color = '';
+  }
 }
 function setCalcMode(mode) {
   document.getElementById('calculationMode').value = mode;

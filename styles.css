@@ -5613,3 +5613,244 @@
   .lavx-coverage { margin-left: 23px; } /* alineado bajo fecha, como el detalle */
   .lavx-coverage ~ .lavx-history__chevron { margin-left: 6px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   dp-* — Tarjeta "Datos de la pensión" (rediseño compacto v242)
+   Convención: dp- prefix (Datos de la Pensión)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Card wrapper ───────────────────────────────────────────────────── */
+.dp-card {
+  border-radius: 18px;
+  overflow: visible;
+  position: relative;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.dp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px 8px;
+  border-bottom: 1px solid rgba(59,130,246,0.12);
+  background: rgba(59,130,246,0.04);
+}
+.dp-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dp-header__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(59,130,246,0.11);
+  border: 1px solid rgba(59,130,246,0.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.dp-header__title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.15;
+}
+.dp-header__sub {
+  font-size: 9px;
+  color: #94a3b8;
+  font-weight: 500;
+  line-height: 1;
+  margin-top: 1px;
+}
+.dp-step-badge {
+  background: #eef3ff;
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Body ───────────────────────────────────────────────────────────── */
+.dp-body {
+  padding: 10px 14px 12px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Sección con punto azul ─────────────────────────────────────────── */
+.dp-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.dp-section--last {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+.dp-section__dot-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+  flex-shrink: 0;
+  width: 10px;
+}
+.dp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #2563eb;
+  display: block;
+  flex-shrink: 0;
+}
+.dp-section__content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Toggle UTM / % Sueldo ──────────────────────────────────────────── */
+.dp-toggle-wrap {
+  display: flex;
+  justify-content: flex-start;
+}
+.dp-toggle {
+  display: flex;
+  align-items: center;
+  background: #f0f2f7;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 20px;
+  padding: 2px;
+  gap: 0;
+}
+.dp-toggle__btn {
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 800;
+  transition: all 0.18s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+}
+.dp-toggle__btn.active,
+.dp-toggle__btn--active {
+  background: #fff;
+  color: #2563eb;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+/* ── Fila de montos (UTM ≈ CLP) ─────────────────────────────────────── */
+.dp-amount-row {
+  display: grid;
+  grid-template-columns: 1fr 20px 1fr;
+  align-items: end;
+  gap: 6px;
+}
+.dp-amount-field {
+  min-width: 0;
+}
+.dp-amount-sep {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 10px;
+}
+.dp-equiv-label {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+/* ── Inputs compactos ───────────────────────────────────────────────── */
+.dp-input {
+  font-size: 13px !important;
+  padding: 7px 10px !important;
+  min-height: 36px !important;
+  height: 36px !important;
+}
+
+/* ── Día de vencimiento (field-row alineado) ────────────────────────── */
+.dp-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dp-field-row .input-label {
+  margin-bottom: 0 !important;
+  flex: 1;
+}
+.dp-field-row .input-number.input-sm {
+  width: 70px;
+  flex-shrink: 0;
+}
+
+/* ── Fechas (dos columnas con flecha central) ───────────────────────── */
+.dp-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 20px 1fr;
+  align-items: start;
+  gap: 4px;
+}
+.dp-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 22px;
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.dp-date-btn {
+  min-height: 52px !important;
+}
+.dp-date-btn--full {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px !important;
+  min-height: 38px !important;
+  height: 38px !important;
+}
+
+/* ── Botón de ayuda inline ──────────────────────────────────────────── */
+.dp-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(59,130,246,0.09);
+  border: 1px solid rgba(59,130,246,0.22);
+  color: #93c5fd;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+  margin-left: 4px;
+  vertical-align: middle;
+  transition: background 0.15s;
+}
+.dp-help-btn:hover {
+  background: rgba(59,130,246,0.18);
+}
+
+/* ── Responsive ≤ 380px ─────────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .dp-amount-row { grid-template-columns: 1fr 16px 1fr; gap: 4px; }
+  .dp-dates-row  { grid-template-columns: 1fr 16px 1fr; gap: 3px; }
+  .dp-body { padding: 8px 11px 10px; }
+  .dp-toggle__btn { padding: 4px 12px; }
+  .dp-field-row .input-number.input-sm { width: 60px; }
+}

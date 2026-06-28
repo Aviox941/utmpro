@@ -2,6 +2,36 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v242 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Rediseño compacto tarjeta "Datos de la pensión":
+
+  1. Header rediseñado: ícono + título "Datos de la pensión" + subtítulo
+     "Configura la obligación alimenticia" + badge "Paso 1 de 5" a la derecha.
+
+  2. Estructura de secciones con punto azul (dp-dot) alineado a la
+     izquierda de cada grupo de campos. Cuatro secciones:
+     · Monto de la cuota (toggle UTM/% Sueldo + campos)
+     · Día de vencimiento
+     · Período de mora (Mes que dejó de pagar → Último mes sin pago)
+     · UTM variable (opcional)
+     · Fecha de liquidación (opcional) — nueva sección al final
+
+  3. Eliminada sección "Calcular hasta" visible. El input #fechaLiquidacion
+     se conserva oculto (position:absolute;opacity:0) conectado a un botón
+     tipo input-date visible con label dinámico vía dpUpdateFechaLiqLabel().
+
+  4. Padding/márgenes reducidos: dp-body padding 10px 14px vs 14px 16px
+     anterior; dp-section gap 9px vertical. Altura total ~30% menor.
+
+  5. Nuevas clases CSS dp-* (prefijo Datos de la Pensión) en styles.css.
+     Responsive @media (max-width:380px) incluido.
+
+  6. Funcionalidad 100% preservada: todos los IDs y eventos JS existentes
+     sin modificación. dpUpdateFechaLiqLabel() añadida como helper nuevo.
+
+
 [v241 · 2026-06-25]
 index.html, sw.js
 
