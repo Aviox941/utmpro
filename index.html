@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0622.0170">
+ <meta name="app-version" content="v2.0628.0332">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -12,6 +12,7 @@
  <meta name="apple-mobile-web-app-title" content="2.0610.v20">
  <link rel="apple-touch-icon" href="icon-192.png">
  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet">
  <script>
 // ── PRE-BUFFER: captura logs ANTES de que el panel exista en el DOM ──
 window._dbgBuffer = [];
@@ -310,7 +311,7 @@ try {
       • Comenzar por formatters (bajo riesgo, alta repetición).
       ============================================================ -->
 
- <link rel="stylesheet" href="styles.css">
+ <link rel="stylesheet" href="styles.css?v=2.0625.1300">
 <style>
 /* ── Collapsible: grid-template-rows GPU-friendly ───────────────────────────
    .collapsible-inner es el hijo directo sin padding — permite colapso a 0.
@@ -984,6 +985,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
+      <!-- Botón CASOS: mismo onclick que el original del header -->
+      <button onclick="openCasosManagerModal()" id="casosManagerBtn"
+        style="margin-top:12px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.01em;touch-action:manipulation;">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        CASOS
+      </button>
     </div>
 
     <!-- Contenido scrolleable -->
@@ -1152,97 +1159,24 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
      ══════════════════════════════════════════════════════════ -->
 
 <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
- <header>
-  <!-- Fila principal de controles -->
-  <div class="header-row-main">
 
-    <!-- Botón Casos (dropdown) -->
-    <div class="flex items-center gap-2 flex-shrink-0">
-
-      <!-- Menú hamburguesa (original) -->
-      <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Casos">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
-
-      <!-- Botón Casos: reubicado aquí desde el ticker UTM (mismo id/onclick, solo se movió y achicó) -->
-      <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-1.5" id="casosManagerBtn"
-        style="flex-shrink:0;touch-action:manipulation;padding:6px 10px;font-size:11px;">
-        <svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Casos
-      </button>
-
-      <!-- activeCasoBadge: oculto (icono usuario + nombre). Se conserva en el DOM porque
-           abrirUserProfile/activeCasoNombreHeader se siguen usando sin guard desde JS. -->
-      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:none !important;">
-        <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-        </svg>
-        <span id="activeCasoNombreHeader" class="text-[9px] font-black text-[#93c5fd] leading-none max-w-[120px] truncate">Sin sesión</span>
-      </div>
-    </div>
-
-    <!-- Botones de acción: VER, PDF, Reset -->
-    <div class="flex-shrink-0 flex items-center gap-1.5" style="margin-left:auto;">
-      <div id="saveIndicator" class="hidden"><div id="saveTime"></div></div>
-      <button onclick="showResumenModal()" class="header-icon-btn" title="Ver resumen detallado">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      </button>
-      <div style="position:relative;">
-        <button id="downloadBtn" onclick="toggleDownloadMenu()" class="header-icon-btn" title="Descargar">
-          <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        </button>
-      </div>
-      <button onclick="showResetConfirm()" class="header-icon-btn header-icon-btn--danger" title="Limpiar">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-      </button>
-
-    </div>
-
-  </div>
-
-  <!-- Barra de carga -->
-  <div id="loadingBar" class="flex items-center gap-2">
-    <div class="flex-1 bg-white/10 rounded-full h-0.5">
-      <div id="loadingProgress" class="bg-[#60a5fa] h-0.5 rounded-full transition-all duration-500" style="width:0%"></div>
-    </div>
-    <span id="loadingText" class="text-[9px] font-black text-white/40 loading-pulse">Cargando datos UTM...</span>
-  </div>
-
-  <!-- Tarjetas UTM: oculto por completo y sin espacio reservado (Casos se movió
-       junto a la hamburguesa). Se conserva en el DOM porque el script escribe en
-       utmActualVal/utmActualMes y togglea utmTicker.classList/style sin validar
-       que existan. La clase ticker-removed (con !important real, no inline) es
-       lo que evita que utmTicker.style.display='flex' (ejecutado desde JS) lo
-       vuelva a mostrar. -->
-  <div id="utmTicker" class="hidden ticker-removed" style="flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
-    <div class="utm-card-premium utm-card-premium--secondary" style="flex-shrink:0;flex-basis:160px;min-width:0;display:flex;flex-direction:column;justify-content:center;background:#eff6ff;border-color:#bfdbfe;">
-      <span class="utm-card-label" style="color:#3b82f6;">Caso activo</span>
-      <div class="utm-card-value-row" style="margin-top:2px;">
-        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
-      </div>
-    </div>
-    <div style="flex:1;display:flex;justify-content:center;gap:7px;align-items:center;" id="tickerCards">
-      <div class="utm-card-premium" style="flex:0 1 130px;background:#f0fdf4;border-color:#bbf7d0;">
-        <span class="utm-card-label" style="color:#16a34a;">UTM Actual</span>
-        <div class="utm-card-value-row">
-          <span id="utmActualVal" class="utm-val-main" style="color:#15803d;">$—</span>
-          <span id="utmActualMes" class="utm-val-month" style="display:none;">—</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</header>
-<!-- cmfTasasStatus: elemento fantasma para compatibilidad JS (no visible) -->
+<!-- Elementos fantasma: IDs que el JS usa sin null-check, conservados ocultos -->
 <span id="cmfTasasStatus" style="display:none;"></span>
+<span id="saveIndicator" style="display:none;"><span id="saveTime"></span></span>
+<span id="activeCasoBadge" style="display:none;"><span id="activeCasoNombreHeader"></span></span>
  <main class="px-4 md:px-6 lg:px-8 mt-1 md:mt-2 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
         <!-- Tarjeta Total Adeudado (azul) -->
-        <div class="hero-total-card">
-          <!-- Ondas decorativas: SVG real con vector-effect:non-scaling-stroke,
-               evita la distorsión que tenía el background-image data URI anterior -->
+        <div class="hero-total-card" style="position:relative;">
+          <!-- Hamburguesa minimalista — abre sidebar -->
+          <button onclick="openSidebar()" style="position:absolute;top:12px;left:14px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.7;" title="Menú">
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+          </button>
           <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
@@ -1335,8 +1269,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
       <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
         <!-- Header colapsable -->
-        <button onclick="toggleCalcSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;cursor:pointer;text-align:left;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;gap:9px;">
+        <!-- Header colapsable: click en zona izquierda colapsa; íconos de acción a la derecha -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <!-- Zona colapsable (izquierda) -->
+          <button onclick="toggleCalcSummary()" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;padding:0;flex:1;text-align:left;">
             <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
@@ -1344,9 +1280,25 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
               <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
               <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
             </div>
+          </button>
+          <!-- Íconos de acción (derecha) — reemplaza al chevron -->
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <!-- Ver resumen / PDF -->
+            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </button>
+            <!-- Descargar -->
+            <div style="position:relative;">
+              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </button>
+            </div>
+            <!-- Eliminar / reset -->
+            <button onclick="showResetConfirm()" title="Limpiar cálculo" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ef4444;" onmouseenter="this.style.background='#fef2f2'" onmouseleave="this.style.background='none'">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
           </div>
-          <svg id="calcSummaryChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;transform:rotate(180deg);flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
-        </button>
+        </div>
         <!-- Contenido: reutiliza buildResumenContent() pero sin la sección "Datos del Caso" -->
         <div id="calcSummaryBody" style="padding:12px 0 4px;max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <div id="calcSummaryContent" class="space-y-4 text-[11px] text-[#5a6380]" style="padding:0 0 8px;"></div>
@@ -1361,19 +1313,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div id="detailsList" class="hidden grid grid-cols-2 gap-3 animate-fadeIn"></div>
     </div>
   <div id="mainInputs" class="space-y-3">
- <div class="dh-card" style="position:relative;overflow:visible;">
-
-  <!-- Header azul, mismo patrón que dh-card naranja -->
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px 8px;border-bottom:1px solid rgba(59,130,246,0.13);background:rgba(59,130,246,0.05);">
-    <div style="display:flex;align-items:center;gap:9px;">
-      <div style="width:30px;height:30px;border-radius:10px;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
-        </svg>
-      </div>
-      <p style="font-size:10px;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;">Datos de Pensión</p>
-    </div>
-  </div>
+ <div class="dh-card dp-card" style="position:relative;overflow:visible;">
 
   <!-- Hidden select keeps existing JS working -->
   <select id="calculationMode" onchange="handleCalculationModeChange(); saveSession();" class="hidden">
@@ -1382,113 +1322,196 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <option value="salary_percent">% de Sueldo</option>
   </select>
 
-  <!-- Body blanco con padding igual a dh-card -->
-  <div style="padding:14px 16px 16px;background:#ffffff;">
-
-    <!-- Toggle centrado -->
-    <div style="display:flex;justify-content:center;margin-bottom:12px;">
-      <div class="flex items-center rounded-full gap-0" style="background:#f0f2f7;border:1px solid rgba(0,0,0,0.08);padding:2px;">
-        <button id="toggleUtmBtn" onclick="setCalcMode('utm')" class="rounded-full font-black transition-all" style="padding:5px 20px;font-size:9px;">UTM</button>
-        <button id="toggleSalaryBtn" onclick="setCalcMode('salary_percent')" class="rounded-full font-black transition-all" style="padding:5px 20px;font-size:9px;">% Sueldo</button>
+  <!-- Header compacto con ícono + título + badge Paso 1 de 5 -->
+  <div class="dp-header">
+    <div class="dp-header__left">
+      <div class="dp-header__icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+        </svg>
       </div>
-    </div>
-
-    <div id="utmClpInputs" class="space-y-2">
-      <div class="grid grid-cols-2 gap-3">
-        <div class="space-y-1">
-          <label class="input-label">Valor cuota en UTM</label>
-          <div style="position:relative;">
-            <input type="text" id="utmAmount" placeholder="0,000 UTM" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number" style="padding-bottom:16px;">
-            <p id="utmPeriodChip" style="position:absolute;bottom:5px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
-          </div>
-        </div>
-        <div class="space-y-1">
-          <label class="input-label">Valor cuota en pesos</label>
-          <input type="text" id="clpAmount" placeholder="$ 0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency">
-        </div>
+      <div>
+        <p class="dp-header__title">Datos de la pensión</p>
+        <p class="dp-header__sub">Configura la obligación alimenticia</p>
       </div>
-      <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
-      <div id="clpHistoricoChip" class="hidden"><span id="clpHistoricoText"></span></div>
-    </div>
-    <div id="salaryInputs" class="hidden space-y-3">
-      <div class="grid grid-cols-2 gap-2 items-start">
-        <div class="space-y-1">
-          <label class="input-label">Sueldo ($)</label>
-          <input type="text" id="salaryAmount" placeholder="0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this); saveSession();" class="input-currency">
-          <div id="salaryUtmBadge" class="hidden pt-0.5 text-right" style="min-height:0">
-            <span class="text-[9px] font-black text-[#60a5fa] px-2 py-1 rounded-lg whitespace-nowrap" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)" id="salaryUtmText">--- UTM</span>
-          </div>
-        </div>
-        <div class="space-y-1">
-          <label class="input-label">IMM</label>
-          <div class="flex items-center justify-between rounded-xl px-3 py-2.5 border h-[42px]" style="background:#fafbfd;border-color:rgba(37,99,235,0.11)">
-            <div>
-              <p class="text-[10px] font-semibold text-[#5a6380] leading-none">IMM</p>
-              <p id="immValue" class="text-[9px] font-medium text-[#9aa3bb] leading-none mt-0.5">Cargando...</p>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="toggleIMM" onchange="handleIMMToggle(); saveSession();">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-      </div>
-      <div class="space-y-1">
-        <label class="input-label">% Pension</label>
-        <input type="number" id="salaryPercent" placeholder="0" step="0.1" inputmode="decimal" oninput="calculate(); saveSession();" class="input-number">
-      </div>
-      <div id="salaryCalcChip" class="hidden items-center justify-between rounded-xl px-3 py-2" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18)">
-        <span class="text-[10px] font-black text-[#60a5fa]" id="salaryCalcText">---</span>
-      </div>
-      <input type="hidden" id="minimumPercent" value="">
-      <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
-    </div>
-    <!-- ── DÍA DE VENCIMIENTO — parte de la orden judicial, junto al monto ── -->
-    <div class="border-t border-white/7 pt-3" style="margin-top:10px;">
-      <div class="flex items-center gap-1" style="margin-bottom:4px;">
-        <p class="text-[10px] font-black uppercase text-slate-400">Día de Vencimiento</p>
-        <button onclick="showHelpModal('diaVenc')" class="w-5 h-5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#93c5fd] font-black text-[10px] flex items-center justify-center hover:bg-[#3b82f6]/40 transition-all active:scale-90">?</button>
-      </div>
-      <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm">
-    </div>
-
-    <!-- ── LÍNEA DE TIEMPO ─────────────────────────────────── -->
-    <div class="grid grid-cols-2 gap-3" style="margin-top:10px;">
-      <button onclick="openCalendar('start')" id="startBtn" class="input-date">
-        <span class="input-date__sublabel">Mes que dejó de pagar</span>
-        <span id="startLabel" class="input-date__value">Seleccionar</span>
-      </button>
-      <button onclick="openCalendar('end')" id="endBtn" class="input-date">
-        <span class="input-date__sublabel">Último mes sin pago</span>
-        <span id="endLabel" class="input-date__value">Seleccionar</span>
-      </button>
-    </div>
-    <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-3 text-[10px] font-black text-red-400 flex items-center gap-2">
-      La fecha "Desde" no puede ser posterior a "Hasta"
-    </div>
-
-    <!-- ── CORTE DEL REPORTE ───────────────────────────────── -->
-    <div class="border-t border-white/7 pt-3" style="margin-top:4px;">
-      <p class="text-[10px] font-black uppercase text-[#93c5fd]" style="margin-bottom:4px;">Calcular hasta</p>
-      <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number" style="font-size:11px;padding:4px 8px;width:auto;color:#1a1d2e;">
-    </div>
-
-    <!-- ── PERÍODOS VARIABLES ─────────────────────────────── -->
-    <div id="periodosVariablesWrap" style="margin-top:12px;">
-      <div style="display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:6px;">
-        <button id="btnAddPeriodoPension" onclick="addPeriodoPension()"
-          style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
-          onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Agregar UTM variable
-        </button>
-        <button onclick="showPeriodoHelp()" style="position:absolute;right:0;width:16px;height:16px;border-radius:50%;background:rgba(37,99,235,0.10);border:1px solid rgba(37,99,235,0.18);font-size:8px;font-weight:900;color:#93c5fd;display:flex;align-items:center;justify-content:center;cursor:pointer;">?</button>
-      </div>
-      <!-- Lista de períodos registrados -->
-      <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-bottom:8px;"></div>
     </div>
 
   </div>
+
+  <!-- Body compacto -->
+  <div class="dp-body">
+
+    <!-- ── SECCIÓN: Monto de la cuota ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <!-- Toggle UTM / % Sueldo -->
+        <div class="dp-toggle-wrap">
+          <div class="dp-toggle">
+            <button id="toggleUtmBtn" onclick="setCalcMode('utm')" class="dp-toggle__btn">UTM</button>
+            <button id="toggleSalaryBtn" onclick="setCalcMode('salary_percent')" class="dp-toggle__btn">% Sueldo</button>
+          </div>
+        </div>
+
+        <!-- UTM / CLP inputs -->
+        <div id="utmClpInputs" style="margin-top:8px;">
+          <div class="dp-amount-row">
+            <div class="dp-amount-field">
+              <label class="input-label">Monto de la cuota (UTM)</label>
+              <div style="position:relative;">
+                <input type="text" id="utmAmount" placeholder="0,000" inputmode="decimal" oninput="updateFromUtm(); saveSession();" class="input-number dp-input" style="padding-bottom:14px;">
+                <p id="utmPeriodChip" style="position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:8px;font-weight:600;color:rgba(90,99,128,0.60);pointer-events:none;line-height:1;"><span id="utmPeriodChipText"></span></p>
+              </div>
+            </div>
+            <div class="dp-amount-sep">
+              <span class="dp-equiv-label">≈</span>
+            </div>
+            <div class="dp-amount-field">
+              <label class="input-label">CLP</label>
+              <input type="text" id="clpAmount" placeholder="$0 CLP" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this, 'clp'); saveSession();" class="input-currency dp-input">
+            </div>
+          </div>
+          <div id="utmEquivChip" class="hidden"><span id="utmEquivText"></span></div>
+          <div id="clpHistoricoChip" class="hidden"><span id="clpHistoricoText"></span></div>
+        </div>
+
+        <!-- % Sueldo inputs -->
+        <div id="salaryInputs" class="hidden" style="margin-top:8px;">
+          <div class="dp-amount-row">
+            <div class="dp-amount-field">
+              <label class="input-label">Sueldo ($)</label>
+              <input type="text" id="salaryAmount" placeholder="0" inputmode="numeric" pattern="[0-9]*" oninput="formatAndSync(this); saveSession();" class="input-currency dp-input">
+              <div id="salaryUtmBadge" class="hidden pt-0.5 text-right" style="min-height:0">
+                <span class="text-[9px] font-black text-[#60a5fa] px-2 py-1 rounded-lg whitespace-nowrap" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2)" id="salaryUtmText">--- UTM</span>
+              </div>
+            </div>
+            <div class="dp-amount-sep"></div>
+            <div class="dp-amount-field">
+              <label class="input-label">% Pensión</label>
+              <input type="number" id="salaryPercent" placeholder="0" step="0.1" inputmode="decimal" oninput="calculate(); saveSession();" class="input-number dp-input">
+            </div>
+          </div>
+          <div style="margin-top:6px;">
+            <label class="input-label">IMM</label>
+            <div class="flex items-center justify-between rounded-xl px-3 py-2 border" style="background:#fafbfd;border-color:rgba(37,99,235,0.11);height:38px;">
+              <div>
+                <p class="text-[10px] font-semibold text-[#5a6380] leading-none">IMM</p>
+                <p id="immValue" class="text-[9px] font-medium text-[#9aa3bb] leading-none mt-0.5">Cargando...</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="toggleIMM" onchange="handleIMMToggle(); saveSession();">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+          <div id="salaryCalcChip" class="hidden items-center justify-between rounded-xl px-3 py-2 mt-1" style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18)">
+            <span class="text-[10px] font-black text-[#60a5fa]" id="salaryCalcText">---</span>
+          </div>
+          <input type="hidden" id="minimumPercent" value="">
+          <input type="text" id="minimumSalaryDisplay" readonly class="hidden">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Día de vencimiento ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <div class="dp-label-row">
+          <span class="input-date__sublabel">Día de vencimiento</span>
+          <button onclick="showHelpModal('diaVenc')" class="dp-help-btn" type="button">?</button>
+        </div>
+        <div class="dp-dia-btn" onclick="document.getElementById('diaVencimiento').focus()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="dp-dia-input">
+          <span class="dp-dia-suffix">Día
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Período de mora ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <!-- Labels superiores -->
+        <div class="dp-dates-labels">
+          <span class="input-date__sublabel">Mes que dejó de pagar</span>
+          <span style="width:20px;flex-shrink:0;"></span>
+          <span class="input-date__sublabel">Último mes sin pago</span>
+        </div>
+        <!-- Botones de fecha en fila -->
+        <div class="dp-dates-row" style="margin-top:4px;">
+          <button onclick="openCalendar('start')" id="startBtn" class="input-date dp-period-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="startLabel" class="dp-period-value">Seleccionar</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dp-arrow">→</div>
+          <button onclick="openCalendar('end')" id="endBtn" class="input-date dp-period-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="endLabel" class="dp-period-value">Seleccionar</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+        </div>
+        <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-2 text-[10px] font-black text-red-400 flex items-center gap-2" style="margin-top:4px;">
+          La fecha "Desde" no puede ser posterior a "Hasta"
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: UTM variable ── -->
+    <div class="dp-section">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <div class="dp-label-row" style="margin-bottom:6px;">
+          <span class="input-label" style="margin-bottom:0;">UTM variable <span style="font-weight:500;opacity:0.55;">(opcional)</span></span>
+          <button onclick="showPeriodoHelp()" class="dp-help-btn" type="button">?</button>
+        </div>
+        <div id="periodosVariablesWrap">
+          <div style="display:flex;align-items:center;justify-content:center;position:relative;">
+            <button id="btnAddPeriodoPension" onclick="addPeriodoPension()"
+              style="display:flex;align-items:center;gap:4px;padding:5px 14px;border-radius:20px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.18);font-size:9px;font-weight:700;color:#60a5fa;cursor:pointer;transition:all 0.15s ease;"
+              onmouseover="this.style.background='rgba(37,99,235,0.14)'" onmouseout="this.style.background='rgba(37,99,235,0.08)'">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Agregar cambio de cuota
+            </button>
+          </div>
+          <div id="periodosPensionList" class="space-y-1 max-h-40 overflow-y-auto no-scrollbar" style="margin-top:6px;margin-bottom:2px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECCIÓN: Fecha de liquidación (opcional) ── -->
+    <div class="dp-section dp-section--last">
+      <div class="dp-section__dot-col">
+        <span class="dp-dot"></span>
+      </div>
+      <div class="dp-section__content">
+        <div class="dp-label-row" style="margin-bottom:4px;">
+          <span class="input-label" style="margin-bottom:0;">Fecha de liquidación <span style="font-weight:500;opacity:0.55;">(opcional)</span></span>
+          <button onclick="showHelpModal('fechaLiquidacion')" class="dp-help-btn" type="button">?</button>
+        </div>
+        <button onclick="document.getElementById('fechaLiquidacion').showPicker ? document.getElementById('fechaLiquidacion').showPicker() : document.getElementById('fechaLiquidacion').focus()" class="input-date dp-liq-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="fechaLiquidacionLabel" class="dp-liq-label">Seleccionar fecha</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <!-- Input date oculto — conectado al mismo id que usaba "Calcular hasta" -->
+        <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession(); dpUpdateFechaLiqLabel();" onchange="calculate(); saveSession(); dpUpdateFechaLiqLabel();" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
+      </div>
+    </div>
+
+  </div><!-- /dp-body -->
 
  </div><!-- /dh-card pensiones -->
 
@@ -1517,29 +1540,22 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
   <div id="lavBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="lavx-body">
 
-    <!-- ── Cuota Mensual (lectura — valor de Período Actual / modo libre) ── -->
+    <!-- ── Cuota Mensual (editable: número grande en UTM = modo libre) ── -->
     <div class="lavx-quota-card">
       <div>
-        <span class="lavx-label">Cuota Mensual</span>
-        <div class="lavx-quota-value" id="lavxQuotaValue">0,00 <span>UTM</span></div>
+        <span class="lavx-label">Cuota Mensual <span class="lavx-label__hint">(editable · UTM)</span></span>
+        <div class="lavx-quota-value lavx-quota-value--editable">
+          <input type="number" id="lavCuotaUtm" placeholder="0,00" step="0.001" min="0"
+            inputmode="decimal"
+            oninput="calculate(); saveSession(); lavxUpdateQuotaDisplay();"
+            class="lavx-quota-input"> <span>UTM</span>
+        </div>
         <div class="lavx-quota-clp" id="lavxQuotaClp">≈ $0 CLP</div>
       </div>
       <div class="lavx-quota-status" title="Próximamente configurable">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
         Cuota vigente
       </div>
-    </div>
-
-    <!-- ── Cuota mensual modo libre (oculto cuando hay Período Actual con cuota) ── -->
-    <div id="lavModoLibreWrap" class="lavx-modo-libre">
-      <div>
-        <p class="lavx-modo-libre__title">Cuota mensual (modo libre)</p>
-        <p class="lavx-modo-libre__hint">Valor en UTM · inicio = primer depósito</p>
-      </div>
-      <input type="number" id="lavCuotaUtm" placeholder="0.000" step="0.001" min="0"
-        inputmode="decimal"
-        oninput="calculate(); saveSession(); lavxUpdateQuotaDisplay();"
-        class="input-number input-sm" style="width:88px;">
     </div>
 
     <div class="lavx-separator"></div>
@@ -1584,10 +1600,6 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
 
     <div id="lavUtmChip" class="lavx-utm-chip"></div>
-
-    <button id="btnAddLav" onclick="addAbonoLav()" disabled class="lavx-add-btn">
-      + Agregar abono LAV
-    </button>
 
     <!-- ── Últimos depósitos ── -->
     <div id="lavxHistoryWrap" class="lavx-history" style="display:none;">
@@ -1784,12 +1796,29 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <div class="dh-section" style="padding-bottom:0;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
 
-          <!-- Monto -->
+          <!-- Monto (CLP o UTM) -->
           <div>
-            <input type="text" id="consolidadaMontoCLP" placeholder="Monto ($ pesos)"
-              inputmode="numeric" pattern="[0-9]*"
-              oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');tryRegisterConsolidada();"
-              class="input-currency" style="width:100%;">
+            <!-- Toggle CLP / UTM -->
+            <div style="display:flex;gap:0;margin-bottom:6px;border-radius:8px;overflow:hidden;border:1px solid rgba(234,88,12,0.18);width:fit-content;">
+              <button id="btnConsCLP" onclick="setConsModoMonto('clp')"
+                style="font-size:8px;font-weight:700;padding:3px 10px;background:rgba(234,88,12,0.90);color:#fff;border:none;cursor:pointer;transition:background 0.15s;">$ CLP</button>
+              <button id="btnConsUTM" onclick="setConsModoMonto('utm')"
+                style="font-size:8px;font-weight:700;padding:3px 10px;background:transparent;color:rgba(234,88,12,0.70);border:none;cursor:pointer;transition:background 0.15s;">UTM</button>
+            </div>
+            <!-- Input CLP -->
+            <div id="wrapConsCLP">
+              <input type="text" id="consolidadaMontoCLP" placeholder="Monto ($ pesos)"
+                inputmode="numeric" pattern="[0-9]*"
+                oninput="this.value=this.value.replace(/\D/g,'').replace(/\B(?=(\d{3})+(?!\d))/g,'.');tryRegisterConsolidada();"
+                class="input-currency" style="width:100%;">
+            </div>
+            <!-- Input UTM -->
+            <div id="wrapConsUTM" style="display:none;">
+              <input type="text" id="consolidadaMontoUTM" placeholder="0.000 UTM"
+                inputmode="decimal"
+                oninput="tryRegisterConsolidada();"
+                class="input-number" style="width:100%;">
+            </div>
           </div>
 
           <!-- Toggle Intereses -->
@@ -2662,6 +2691,25 @@ document.getElementById('loadingText').classList.remove('loading-pulse');
 renderUtmTicker();
 setTimeout(() => { bar.style.opacity = '0'; bar.style.transition = 'opacity 0.5s'; setTimeout(() => bar.style.display = 'none', 500); }, 1000);
 }
+function dpUpdateFechaLiqLabel() {
+  var el = document.getElementById('fechaLiquidacionLabel');
+  var inp = document.getElementById('fechaLiquidacion');
+  if (!el || !inp) return;
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  if (inp.value) {
+    var p = inp.value.split('-');
+    var dia = parseInt(p[2], 10);
+    var mes = meses[parseInt(p[1], 10) - 1];
+    var anio = p[0];
+    el.textContent = dia + ' de ' + mes + ' ' + anio;
+    el.classList.add('has-value');
+    el.style.color = '#3a4060';
+  } else {
+    el.textContent = 'Seleccionar fecha';
+    el.classList.remove('has-value');
+    el.style.color = '';
+  }
+}
 function setCalcMode(mode) {
   document.getElementById('calculationMode').value = mode;
   handleCalculationModeChange();
@@ -2893,11 +2941,45 @@ function setHistMode(mode) {
   calculate();
   saveSession();
 }
+let consModoMonto = 'clp'; // 'clp' | 'utm'
+function setConsModoMonto(modo) {
+  consModoMonto = modo;
+  const btnCLP = document.getElementById('btnConsCLP');
+  const btnUTM = document.getElementById('btnConsUTM');
+  const wCLP   = document.getElementById('wrapConsCLP');
+  const wUTM   = document.getElementById('wrapConsUTM');
+  if (modo === 'utm') {
+    btnCLP.style.background = 'transparent';
+    btnCLP.style.color = 'rgba(234,88,12,0.70)';
+    btnUTM.style.background = 'rgba(234,88,12,0.90)';
+    btnUTM.style.color = '#fff';
+    wCLP.style.display = 'none';
+    wUTM.style.display = '';
+  } else {
+    btnCLP.style.background = 'rgba(234,88,12,0.90)';
+    btnCLP.style.color = '#fff';
+    btnUTM.style.background = 'transparent';
+    btnUTM.style.color = 'rgba(234,88,12,0.70)';
+    wCLP.style.display = '';
+    wUTM.style.display = 'none';
+  }
+  tryRegisterConsolidada();
+}
 function tryRegisterConsolidada() {
-  const rawMonto = (document.getElementById('consolidadaMontoCLP').value || '').replace(/\./g, '');
-  const monto = parseInt(rawMonto) || 0;
   const fechaMes = document.getElementById('consolidadaFechaMes').value;
   const fechaAnio = document.getElementById('consolidadaFechaAnio').value;
+  // Resolve monto según modo CLP/UTM
+  let monto = 0, montoUTMOrig = 0;
+  if (consModoMonto === 'utm') {
+    const rawUTM = (document.getElementById('consolidadaMontoUTM').value || '').replace(',', '.');
+    montoUTMOrig = parseFloat(rawUTM) || 0;
+    // En modo UTM el capital se guarda directamente en UTM — sin convertir a CLP.
+    // La conversión ocurre mes a mes al calcular intereses y solo para visualizar totales.
+    monto = montoUTMOrig; // se interpretará como UTM, no CLP
+  } else {
+    const rawMonto = (document.getElementById('consolidadaMontoCLP').value || '').replace(/\./g, '');
+    monto = parseInt(rawMonto) || 0;
+  }
   if (monto <= 0) {
     consolidadaData = null;
     document.getElementById('consolidadaPreview').classList.add('hidden');
@@ -2915,25 +2997,47 @@ function tryRegisterConsolidada() {
   const aplicaIntereses = document.getElementById('consolidadaAplicaIntereses').checked;
   const usaMaxima = document.getElementById('consolidadaUsaMaxima').checked;
   consolidadaData = {
-    montoCLP: monto,
+    // Si modo UTM: montoUTM guarda las UTM originales; montoCLP = 0 (se calcula al vuelo)
+    // Si modo CLP: montoCLP guarda los pesos; montoUTM = 0
+    montoUTM: consModoMonto === 'utm' ? monto : 0,
+    montoCLP: consModoMonto === 'clp' ? monto : 0,
+    esUTM: consModoMonto === 'utm',
     fechaMes: parseInt(fechaMes),
     fechaAnio: parseInt(fechaAnio),
     aplicaIntereses,
     usaMaxima
   };
-  // Calcular preview
+  // Preview: convertir a CLP al vuelo solo para mostrar
   const hoy = new Date();
   const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
+  // Capital en CLP para preview: si es UTM, convertir con UTM del mes de corte (o el más reciente)
+  let capitalClpPreview = consolidadaData.montoCLP;
+  if (consolidadaData.esUTM) {
+    const utmCortePreview = (() => {
+      let entry = utmData.find(d => d.y === consolidadaData.fechaAnio && d.monthIdx === consolidadaData.fechaMes - 1);
+      if (!entry || !entry.v) {
+        const targetAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+        const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+        entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+      }
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    capitalClpPreview = Math.round(consolidadaData.montoUTM * utmCortePreview);
+  }
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(monto, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy, aplicarRecargoPreview);
+    const res = calcularInteresConsolidadaMensual(capitalClpPreview, consolidadaData.fechaMes, consolidadaData.fechaAnio, usaMaxima, hoy, aplicarRecargoPreview, consolidadaData.esUTM ? consolidadaData.montoUTM : null);
     interes = res.interes;
     diasMora = res.diasMora;
   }
-  const total = monto + interes;
+  const total = capitalClpPreview + interes;
   const fmt = v => '$' + Math.round(v).toLocaleString('es-CL');
-  document.getElementById('consolidadaCapLabel').textContent = fmt(monto);
+  if (consolidadaData.esUTM) {
+    document.getElementById('consolidadaCapLabel').textContent = consolidadaData.montoUTM.toFixed(3) + ' UTM';
+  } else {
+    document.getElementById('consolidadaCapLabel').textContent = fmt(capitalClpPreview);
+  }
   document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
   document.getElementById('consolidadaDiasMoraLabel').textContent = diasMora + ' días de interés';
@@ -2947,11 +3051,14 @@ function tryRegisterConsolidada() {
 // la TIC/TMC real de cada mes (igual que las pensiones regulares).
 // Devuelve { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada }
 // ============================================================
-function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo) {
+// montoUTM: si se pasa (modo UTM), el capital de cada tramo se reajusta mes a mes
+// usando la UTM vigente de ese tramo. Si es null/undefined, se usa montoCLP fijo (modo CLP).
+function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo, montoUTM) {
   let interesTotal = 0;
   let diasMoraTotal = 0;
   let sumaPonderada = 0;
   let hayTasaAproximada = false;
+  const esUTM = montoUTM != null && montoUTM > 0;
   const fechaCorte = new Date(fechaAnio, fechaMes - 1, 1);
   if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
   let curAnio = fechaAnio;
@@ -2963,14 +3070,17 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
     const finEfectivo = finTramo < hoy ? finTramo : hoy;
     const diasTramo = Math.floor((finEfectivo - inicioTramo) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {
-      // Consolidada en UTM → reajustable; usar TIC reajustable única (modoEsPesos=false)
-      const utmMes = (utmData.find(d => d.y === curAnio && d.monthIdx === curMes) || {v:1}).v;
-      const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, montoCLP, utmMes, diasMoraTotal);
+      const utmMesEntry = utmData.find(d => d.y === curAnio && d.monthIdx === curMes);
+      const utmMes = (utmMesEntry && utmMesEntry.v > 0) ? utmMesEntry.v : (getUtmActualVal() || 1);
+      // Modo UTM: capital reajustado mes a mes (UTM × valor UTM del tramo)
+      // Modo CLP: capital fijo en pesos
+      const capitalTramo = esUTM ? Math.round(montoUTM * utmMes) : montoCLP;
+      const tasaInfo = getTasaAnualInfo(curAnio, curMes, usaMaxima, false, capitalTramo, utmMes, diasMoraTotal);
       if (tasaInfo.esAproximada) hayTasaAproximada = true;
-      // Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
       const recargoAplicaTramo = aplicarRecargo && diasMoraTotal > 0;
       const tasaEfectiva = recargoAplicaTramo ? tasaInfo.valor * 1.5 : tasaInfo.valor;
-      const intTramo = montoCLP * (tasaEfectiva / 365) * diasTramo; // Base 365 — estándar judicial SITFA
+      // Interés del tramo: capital reajustado × tasa diaria × días
+      const intTramo = capitalTramo * (tasaEfectiva / 365) * diasTramo;
       interesTotal += intTramo;
       diasMoraTotal += diasTramo;
       sumaPonderada += tasaEfectiva * diasTramo;
@@ -2983,32 +3093,52 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
-  const { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima } = consolidadaData;
+  const { montoUTM, montoCLP, esUTM, fechaMes, fechaAnio, aplicaIntereses, usaMaxima } = consolidadaData;
+  const utmHoy = getUtmActualVal();
+
+  // UTM del mes de corte — para conversión puntual de visualización
+  const utmCorte = (() => {
+    let entry = utmData.find(d => d.y === fechaAnio && d.monthIdx === fechaMes - 1);
+    if (!entry || !entry.v) {
+      const targetAbs = fechaAnio * 12 + (fechaMes - 1);
+      const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+      entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+    }
+    return (entry && entry.v > 0) ? entry.v : utmHoy;
+  })();
+
+  // Capital en CLP al momento del corte (solo para detalle y fallback)
+  const capitalClpCorte = esUTM ? Math.round(montoUTM * utmCorte) : montoCLP;
+  // Capital en UTM: si modo CLP, back-calculamos para mostrar equivalencia
+  const capitalUTM = esUTM ? montoUTM : (utmCorte > 0 ? montoCLP / utmCorte : 0);
+
   let interes = 0;
   let diasMora = 0;
   let tasaPromedio = 0;
   let tasaAproximada = false;
   if (aplicaIntereses) {
-    const res = calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo);
+    // Modo UTM: pasa montoUTM → el loop reajusta capitalTramo mes a mes
+    // Modo CLP: pasa montoCLP fijo (montoUTM=null)
+    const res = calcularInteresConsolidadaMensual(
+      capitalClpCorte, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo,
+      esUTM ? montoUTM : null
+    );
     interes = res.interes;
     diasMora = res.diasMora;
     tasaPromedio = res.tasaPromedioPonderada;
     tasaAproximada = res.hayTasaAproximada;
   }
-  const utmHoy = getUtmActualVal();
-  // UTM del período de corte (fecha en que se consolidó la deuda) para reflejar la equivalencia histórica
-  const utmCorte = (() => {
-    const item = utmData.find(d => d.y === fechaAnio && d.monthIdx === fechaMes - 1);
-    return (item && item.v > 0) ? item.v : utmHoy;
-  })();
-  const capitalUTM = utmCorte > 0 ? montoCLP / utmCorte : 0;
+
+  // Capital CLP hoy (para totales): si UTM, usar UTM actual
+  const capitalClpHoy = esUTM ? Math.round(montoUTM * utmHoy) : montoCLP;
+
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const periodoLabel = `CONS ${mNames[fechaMes-1]} ${fechaAnio}`;
   const detalle = {
     id: 'cons0',
     periodo: periodoLabel,
     utmVal: utmCorte,
-    cap: montoCLP,
+    cap: capitalClpCorte,
     tasa: tasaPromedio,
     tasaBase: tasaPromedio,
     tasaHist: tasaPromedio,
@@ -3016,20 +3146,20 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     isConsolidadaTasaPromedio: true,
     mora: diasMora,
     inte: interes,
-    sub: montoCLP + interes,
+    sub: capitalClpCorte + interes,
     year: fechaAnio,
     isDebt: true,
     isConsolidada: true,
     capUTM: capitalUTM,
     usarMaxima: usaMaxima
   };
-  // Actualizar debtSummary con datos consolidados
+  // debtSummary: mostrar en UTM cuando proceda
   document.getElementById('debtSummary').classList.remove('hidden');
   document.getElementById('debtMonthCount').innerText = 'CONSOLIDADA';
   document.getElementById('debtSumUtm').innerText = capitalUTM.toFixed(2) + ' UTM';
-  document.getElementById('debtIntUtm').innerText = (utmCorte > 0 ? interes / utmCorte : 0).toFixed(2) + ' UTM';
-  updateDebtDetailPanel(montoCLP, interes, capitalUTM);
-  return { capital: montoCLP, intereses: interes, capitalUTM, detalles: [detalle] };
+  document.getElementById('debtIntUtm').innerText = (utmHoy > 0 ? interes / utmHoy : 0).toFixed(2) + ' UTM';
+  updateDebtDetailPanel(capitalClpHoy, interes, capitalUTM);
+  return { capital: capitalClpHoy, intereses: interes, capitalUTM, detalles: [detalle] };
 }
 function removeHistorical(index) {
 historicalDebts.splice(index, 1);
@@ -3296,24 +3426,34 @@ function removeAbonoLav(index) {
 // No participan del cálculo (calculate()/calculatePensiones()): solo leen
 // valores ya calculados (getMonthlyValues, abonosLav) para reflejarlos en el
 // nuevo bloque "Cuota Mensual" y en el subtítulo del header de la tarjeta.
+// NOTA (v249): el número grande "Cuota Mensual" ahora ES el input
+// lavCuotaUtm (antes era un <div> de solo lectura + un input "modo libre"
+// duplicado debajo). Esta función NUNCA escribe el valor numérico dentro del
+// input (para no pisar lo que el usuario está escribiendo ni simular un
+// valor que no ingresó) — solo usa el placeholder para sugerir la cuota
+// heredada del "Período Actual" cuando el campo está vacío, y refresca el
+// CLP equivalente de abajo.
 function lavxUpdateQuotaDisplay() {
-  const valEl = document.getElementById('lavxQuotaValue');
+  const valEl = document.getElementById('lavCuotaUtm');
   const clpEl = document.getElementById('lavxQuotaClp');
   if (!valEl || !clpEl) return;
   const utmActual = getUtmActualVal();
-  const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
-  const lavCuotaLibre = parseFloat(document.getElementById('lavCuotaUtm')?.value) || 0;
+  const { cuotaMensualUTM, cuotaMensualCLP } = getMonthlyValues();
+  const lavCuotaLibre = parseFloat(valEl.value) || 0;
 
-  let utmMostrar = cuotaMensualUTM;
-  let clpMostrar = cuotaMensualCLP;
-  // Si no hay cuota en "Período Actual" pero sí en modo libre LAV, se usa esa.
-  if (!(utmMostrar > 0) && lavCuotaLibre > 0) {
-    utmMostrar = lavCuotaLibre;
-    clpMostrar = lavCuotaLibre * (utmActual || 0);
+  let clpMostrar = lavCuotaLibre * (utmActual || 0);
+  if (!(lavCuotaLibre > 0)) {
+    // Campo vacío: sugerir vía placeholder la cuota del Período Actual
+    // (el cálculo real ya hace este mismo fallback en calculate()).
+    if (cuotaMensualUTM > 0) {
+      valEl.placeholder = cuotaMensualUTM.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      clpMostrar = cuotaMensualCLP;
+    } else {
+      valEl.placeholder = '0,00';
+      clpMostrar = 0;
+    }
   }
 
-  const utmStr = (utmMostrar || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  valEl.innerHTML = `${utmStr} <span>UTM</span>`;
   clpEl.textContent = `≈ ${format(Math.round(clpMostrar || 0))} CLP`;
 }
 function lavxUpdateHeaderSubtitle() {
@@ -3355,6 +3495,7 @@ function renderAbonosLav() {
     // respetando períodos variables (igual lógica que renderPagosParciales).
     let cuotaUTMPeriodo = cuotaGlobal;
     let lavInfoHtml = '';
+    let coberturaBadgeHtml = '';
     const periodoStr = p.periodo || ''; // "YYYY-MM"
     const [pAnioStr, pMesStr] = periodoStr.split('-');
     const pAnio = parseInt(pAnioStr);
@@ -3383,6 +3524,18 @@ function renderAbonosLav() {
           .reduce((s, x) => s + (x.amountUtm || 0), 0);
         const diff = cuotaUTMPeriodo - totalLavMes; // positivo = parcial; negativo/cero = cubierto
         const utmMesUsado = p.utmVal || getUtmActualVal();
+
+        // ── Badge "Cobertura X%" (visual, fiel al mockup) ───────────────────
+        // % de la cuota del mes ya cubierto por el total acumulado LAV de ese
+        // mes (no por este depósito individual) — mismo criterio que "diff"
+        // arriba. Si dos depósitos caen en el mismo mes, ambos muestran el
+        // mismo % (el del mes), porque la cobertura es del período, no del
+        // depósito aislado. Se acota a 999% por seguridad visual ante
+        // excedentes muy grandes.
+        const coberturaPct = Math.min(999, (totalLavMes / cuotaUTMPeriodo) * 100);
+        const coberturaClass = diff > 0.0001 ? 'lavx-coverage--parcial' : 'lavx-coverage--ok';
+        coberturaBadgeHtml = `<span class="lavx-coverage ${coberturaClass}">Cobertura ${coberturaPct.toFixed(1).replace('.', ',')}%</span>`;
+
         if (diff > 0.0001) {
           // Total LAV del mes menor que la cuota → mes parcialmente cubierto
           const remanenteClp = Math.round(diff * utmMesUsado);
@@ -3400,17 +3553,21 @@ function renderAbonosLav() {
     }
 
     div.innerHTML = `
-      <span class="lavx-history__check">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </span>
-      <span class="lavx-history__date">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        ${fechaCorta}
-      </span>
-      <span class="lavx-history__amount">${format(p.amount)}</span>
-      <span class="lavx-history__utm">${utmStr}</span>
-      ${lavInfoHtml}
-      <button onclick="removeAbonoLav(${i})" class="lavx-history__remove" title="Eliminar depósito">×</button>`;
+      <div class="lavx-history__row">
+        <span class="lavx-history__check">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#18a76f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </span>
+        <span class="lavx-history__date">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          ${fechaCorta}
+        </span>
+        <span class="lavx-history__amount">${format(p.amount)}</span>
+        <span class="lavx-history__utm">${utmStr}</span>
+        ${coberturaBadgeHtml}
+        <svg class="lavx-history__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9aa7b5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <button onclick="removeAbonoLav(${i})" class="lavx-history__remove" title="Eliminar depósito">×</button>
+      </div>
+      ${lavInfoHtml ? `<div class="lavx-history__detail">${lavInfoHtml}</div>` : ''}`;
     container.appendChild(div);
   }
 
@@ -3459,6 +3616,14 @@ function renderLavSummary() {
 
   if (lav.length === 0) {
     heroRow.classList.add('hidden');
+    // BUG FIX: si no hay cálculo de pensiones activo, resetear el número grande
+    // que pudo haber sido escrito por un abono LAV previo (modo sin período).
+    const hayCalculo = typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0;
+    if (!hayCalculo) {
+      grandEl.innerText = '0';
+      grandEl.style.fontFamily = '';
+      if (grandUtm) grandUtm.textContent = '0.00 UTM';
+    }
     return;
   }
 
@@ -5802,6 +5967,8 @@ document.getElementById('befStartAnio').value = String(selectedYear);
 befSetFechaDisplay('start', i + 1, selectedYear);
 updateCalendarActionBtn();
 renderCalendar();
+// Actualizar chip de equivalencia UTM si hay monto CLP ingresado
+if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
 return;
 } else if (calendarMode === 'befEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6295,7 +6462,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js"></script>
+<script src="export.js?v=2.0622.0200"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
@@ -7632,9 +7799,15 @@ sb.auth.onAuthStateChange(async (event, session) => {
     if (profileEmailEl) profileEmailEl.textContent = email;
     hideLoginScreen();
     // Mostrar welcome screen solo tras login manual (no al restaurar sesión existente)
-    if (event === 'SIGNED_IN' && !sessionStorage.getItem('ws_done')) {
+    if (event === 'SIGNED_IN' && !localStorage.getItem('ws_done')) {
       var ws = document.getElementById('welcomeScreen');
-      if (ws) { ws.style.display = 'flex'; qsLockBodyScroll(); }
+      if (ws) {
+        ws.style.display = 'flex';
+        qsLockBodyScroll();
+        // Marcar inmediatamente para que volver al primer plano (visibility)
+        // o un TOKEN_REFRESHED no vuelva a disparar la welcome screen.
+        localStorage.setItem('ws_done', '1');
+      }
     }
     if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || isFirstLoad) {
       // sbLoadCasos: correr siempre en SIGNED_IN (login manual) o en la primera carga.
@@ -7652,6 +7825,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
   } else if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
     sbCurrentUser = null;
     sbAccessToken = null;
+    // Al cerrar sesión, limpiar ws_done para que el próximo login muestre la welcome screen
+    if (event === 'SIGNED_OUT') localStorage.removeItem('ws_done');
     // Cancelar keep-alive para no acumular intervalos entre sesiones
     if (window._keepAliveInterval) {
       clearInterval(window._keepAliveInterval);
@@ -8078,6 +8253,9 @@ function _ayudaAbrirTema(t) {
             oninput="dupFormatCuotaMensualInput(this)"
           >
         </div>
+        <p id="dupClpConversionNote" style="display:none;font-size:11px;color:#5b4ff7;margin:6px 4px 0;line-height:1.4;">
+          Se convertirá a UTM del mes del último pago para reajustar mes a mes.
+        </p>
       </div>
 
       <!-- Paso 2: Monto último pago — unidad independiente -->
@@ -8220,6 +8398,8 @@ function dupToggleUnidadCuota() {
   inp.placeholder = isUTM ? '0,00' : '0';
   inp.value = '';
   inp.focus();
+  var note = document.getElementById('dupClpConversionNote');
+  if (note) note.style.display = isUTM ? 'none' : 'block';
 }
 
 function dupToggleUnidadMonto() {
@@ -8358,16 +8538,28 @@ function dupCalcularDeuda() {
   //    día de vencimiento) se preserva intacta.
   if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
 
-  // 0.b) Cuota mensual (Paso 2, nuevo): el overlay es también un interruptor
-  //      del valor "Cuota Mensual" de la tarjeta "Período Actual" — se
-  //      escribe ANTES de registrar el abono LAV para que calculate()
-  //      (disparado dentro de addAbonoLav()) ya use el monto correcto.
-  // Escribir cuota mensual en tarjeta Datos de Pensión con su propia unidad
-  setCalcMode(_dupUnidadCuota);
-  if (_dupUnidadCuota === 'utm') {
-    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
+  // 0.b) Cuota mensual → tarjeta "Datos de Pensión".
+  // Si el usuario ingresó en CLP: convertir a UTM usando la UTM del mes del
+  // último pago (ya cargada en tempLavMes/tempLavAnio que se acaban de escribir
+  // arriba en el paso 1). Así el cálculo siempre opera en UTM reajustable,
+  // replicando lo que hace el tribunal cuando convierte la cuota en pesos a UTM.
+  if (_dupUnidadCuota === 'clp') {
+    // Obtener UTM del mes del último pago para la conversión
+    const _utmMesUltPago = (() => {
+      const entry = utmData.find(d => d.y === parseInt(anio) && d.monthIdx === parseInt(mes) - 1);
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    const cuotaEnUTM = _utmMesUltPago > 0 ? cuotaMensual / _utmMesUltPago : 0;
+    if (cuotaEnUTM <= 0) {
+      alert('No se pudo obtener el valor UTM del mes seleccionado para convertir la cuota.');
+      return;
+    }
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = cuotaEnUTM.toFixed(2).replace('.', ',');
   } else {
-    document.getElementById('clpAmount').value = formatPlain(cuotaMensual);
+    // Modo UTM: escribir directamente
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = cuotaMensual.toFixed(2).replace('.', ',');
   }
 
   // 1) Fecha → mismos hidden inputs que usa la tarjeta LAV
@@ -8515,8 +8707,15 @@ function dupCalcularDeuda() {
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la cuota mensual"
-            oninput="befFormatMontoInput(this)"
+            oninput="befFormatMontoInput(this); befUpdateEquivChip();"
           >
+        </div>
+        <!-- Chip de equivalencia: visible solo en modo CLP cuando hay monto y fecha de inicio -->
+        <div id="befEquivChip" style="display:none;margin-top:8px;display:none;">
+          <span style="display:inline-flex;align-items:center;gap:6px;background:#f0eeff;border:1px solid #c4b5fd;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;color:#5b4ff7;font-family:inherit;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            <span id="befEquivChipText">≈ — UTM</span>
+          </span>
         </div>
       </div>
 
@@ -8641,6 +8840,52 @@ function befSelectUnidad(val) {
   btnCLP.classList.toggle('bef-radio--active', !isUTM);
   btnUTM.setAttribute('aria-pressed', isUTM ? 'true' : 'false');
   btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
+  // Al cambiar a UTM ocultar el chip; al cambiar a CLP limpiar y esperar input
+  befUpdateEquivChip();
+}
+
+// Actualiza el chip de equivalencia UTM bajo el campo de monto.
+// Se llama desde: oninput del campo, befSelectUnidad(), y cuando el
+// calendario BEF confirma la fecha de inicio.
+function befUpdateEquivChip() {
+  const chip = document.getElementById('befEquivChip');
+  const chipText = document.getElementById('befEquivChipText');
+  if (!chip || !chipText) return;
+
+  // Solo mostrar en modo CLP
+  if (_befUnidad !== 'clp') { chip.style.display = 'none'; return; }
+
+  const monto = befGetMontoValue();
+  if (!(monto > 0)) { chip.style.display = 'none'; return; }
+
+  // Obtener UTM del mes de inicio si ya está seleccionado
+  const startMes  = parseInt(document.getElementById('befStartMes')?.value || '0');
+  const startAnio = parseInt(document.getElementById('befStartAnio')?.value || '0');
+
+  if (startMes > 0 && startAnio > 0) {
+    // Tenemos fecha de inicio — mostrar equivalencia del período
+    let entry = utmData.find(d => d.y === startAnio && d.monthIdx === startMes - 1);
+    if (!entry || !entry.v) {
+      const targetAbs = startAnio * 12 + (startMes - 1);
+      const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+      entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+    }
+    if (entry && entry.v > 0) {
+      const utmEquiv = monto / entry.v;
+      const mNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      chipText.textContent = '≈ ' + utmEquiv.toFixed(3) + ' UTM · ' + mNames[startMes-1] + ' ' + startAnio;
+      chip.style.display = 'block';
+      return;
+    }
+  }
+
+  // No hay fecha de inicio aún — mostrar equivalencia con UTM actual
+  const utmActual = getUtmActualVal();
+  if (utmActual > 0) {
+    const utmEquiv = monto / utmActual;
+    chipText.textContent = '≈ ' + utmEquiv.toFixed(3) + ' UTM · hoy';
+    chip.style.display = 'block';
+  }
 }
 
 // Saneo del input de monto — mismo patrón que dupFormatMontoInput()/
@@ -8758,13 +9003,25 @@ function befCalcularDeuda() {
   startIndex = newStartIndex;
   endIndex   = newEndIndex;
 
-  // Escribir el monto/unidad ingresados en el overlay en los campos reales
-  // de "Datos de Pensión" (mismo patrón que dupCalcularDeuda()/setCalcMode()).
-  setCalcMode(unidad);
-  if (unidad === 'utm') {
-    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
+  // Escribir el monto en "Datos de Pensión".
+  // Si el usuario ingresó CLP: convertir a UTM usando la UTM del mes de
+  // INICIO del período — mismo criterio que dupCalcularDeuda(). El cálculo
+  // siempre opera en UTM reajustable; los pesos se convierten solo para mostrar.
+  if (unidad === 'clp') {
+    const _utmInicio = (() => {
+      const entry = utmData.find(d => d.y === befStartAnio && d.monthIdx === befStartMes - 1);
+      return (entry && entry.v > 0) ? entry.v : getUtmActualVal();
+    })();
+    const montoEnUTM = _utmInicio > 0 ? monto / _utmInicio : 0;
+    if (montoEnUTM <= 0) {
+      alert('No se pudo obtener el valor UTM del mes de inicio para convertir la cuota.');
+      return;
+    }
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = montoEnUTM.toFixed(2).replace('.', ',');
   } else {
-    document.getElementById('clpAmount').value = formatPlain(monto);
+    setCalcMode('utm');
+    document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
   }
 
   closeBefOverlay();
@@ -9237,7 +9494,7 @@ function qsUnlockBodyScroll() {
 // ── Welcome Screen ────────────────────────────────────────────────────────────
 // La welcome screen NO se muestra al cargar la página.
 // Se muestra solo tras un login manual exitoso (event === 'SIGNED_IN' en onAuthStateChange).
-// closeWelcomeScreen() marca ws_done en sessionStorage para no repetirla.
+// closeWelcomeScreen() marca ws_done en localStorage para no repetirla.
 (function() {
   var ws = document.getElementById('welcomeScreen');
   if (ws) ws.style.display = 'none';
@@ -9253,7 +9510,7 @@ function closeWelcomeScreen() {
   ws.classList.add('ws-screen--out');
   ws.addEventListener('animationend', function() {
     ws.style.display = 'none';
-    sessionStorage.setItem('ws_done', '1');
+    localStorage.setItem('ws_done', '1');
   }, { once: true });
 }
 
@@ -9262,7 +9519,7 @@ function closeWelcomeScreen() {
 // que se muestra tras un SIGNED_IN real, sin depender del evento de auth.
 // Solo para pruebas visuales; no toca sesión, casos ni datos guardados.
 function devTestWelcomeFlow() {
-  sessionStorage.removeItem('ws_done');
+  localStorage.removeItem('ws_done');
   var ws = document.getElementById('welcomeScreen');
   if (!ws) { dbg('DEV: welcomeScreen no encontrado en el DOM'); return; }
   ws.classList.remove('ws-screen--out');

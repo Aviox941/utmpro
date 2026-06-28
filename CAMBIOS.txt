@@ -1,6 +1,272 @@
 ================================================================================
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
+
+[v249 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Tarjeta "Depósitos LAV" — número grande editable + sin botón duplicado:
+
+  1. El número grande "Cuota Mensual" (antes <div> de solo lectura) ahora
+     ES el input editable en UTM. Cumple la misma función que el viejo
+     campo "Cuota mensual (modo libre)", que se elimina por duplicado.
+     Mismo id (lavCuotaUtm) preservado → cero cambios en calculate(),
+     saveSession() ni export.js (restauración de sesión intacta).
+
+  2. lavxUpdateQuotaDisplay() ajustada: ya no escribe el valor numérico
+     dentro del input (evita pisar lo que el usuario está tecleando).
+     Si el campo está vacío, sugiere vía placeholder la cuota heredada
+     del "Período Actual" — el cálculo real ya hacía ese mismo fallback
+     en calculate(), esto es solo reflejo visual.
+
+  3. Eliminado el botón "+ Agregar abono LAV": era redundante, ya que
+     addAbonoLav() se dispara automáticamente al seleccionar el día en
+     el calendario (igual que antes). checkBtnLav() queda con guard
+     (if (!btn) return) por si se reintroduce en el futuro.
+
+  4. Tipografía Geist unificada en toda la tarjeta LAV (.lavx-card),
+     siguiendo la misma convención de la tarjeta "Datos de la pensión"
+     (v247): labels en Geist bold, número grande UTM con tracking
+     -0.03em, valores CLP/fecha con peso 600, header título/subtítulo
+     con la misma jerarquía.
+
+
+[v248 · 2026-06-28]
+index.html, sw.js
+
+Fecha de liquidación: muestra día completo al seleccionar.
+
+  dpUpdateFechaLiqLabel() ahora formatea como "15 de Junio 2026"
+  en lugar de solo "Junio 2026". Color #3a4060 al tener valor
+  (corrige bug donde has-value se agregaba y removía inmediatamente).
+
+
+[v247 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Tipografía Geist + labels consistentes en tarjeta Datos de la pensión:
+
+  1. Geist cargada desde Google Fonts (wght 400–800), aplicada a toda
+     la tarjeta via .dp-card * sin afectar el resto de la app.
+
+  2. Labels de sección unificados: font-weight 700, sin text-transform
+     uppercase, sin font-style italic, color #3a4060 (legible pero
+     no dominante). Aplica a .input-label, .input-date__sublabel y
+     los labels de dp-dates-labels.
+
+  3. Jerarquía tipográfica:
+     · Header título: 15px / 700 / tracking -0.02em
+     · Labels de sección: 11px / 700
+     · Toggle UTM/% Sueldo: 11px / 600
+     · Número UTM grande: tracking -0.03em / 700
+     · Valores de fecha: 600 / tracking -0.01em
+     · Texto (opcional): 400 / color #94a3b8
+
+
+[v246 · 2026-06-28]
+index.html, sw.js
+
+Eliminado badge "Paso 1 de 5" del header de la tarjeta Datos de la pensión.
+
+
+[v245 · 2026-06-28]
+styles.css, sw.js
+
+Monto de la cuota: número más grande (alineación con mockup).
+
+  #utmAmount: font-size 26px / weight 700, altura 52px.
+  #clpAmount: font-size 14px / color secundario, altura 52px.
+  dp-amount-row: align-items:center para alinear los dos campos.
+
+
+[v244 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Bugfix: botones de ayuda (?) se disparaban al hacer click en cualquier
+parte del label contenedor.
+
+  Causa: los <button class="dp-help-btn"> estaban anidados dentro de
+  elementos <label> o <span> con onclick. El browser propaga el click
+  del label/span al primer control interactivo hijo, activando el modal.
+
+  Fix: en las tres secciones afectadas (Día de vencimiento, UTM variable,
+  Fecha de liquidación) se reemplazó el patrón <label>texto<button>?
+  por un <div class="dp-label-row"> con <span> y <button> como hermanos
+  en flex, sin relación padre-hijo de control. El botón ? ahora solo
+  responde a clicks directos sobre él.
+
+
+[v243 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Fixes de detalle tarjeta "Datos de la pensión" — alineación con mockup:
+
+  1. Día de vencimiento: reemplazado input-number pequeño por botón
+     estilo mockup (.dp-dia-btn): ícono calendario azul + input numérico
+     inline + sufijo "Día ∨" a la derecha. Mismo patrón visual que los
+     selectores de fecha del mockup aprobado.
+
+  2. Período de mora (Mes que dejó de pagar / Último mes sin pago):
+     agregados labels visibles (.dp-dates-labels) encima de los botones
+     de fecha. Botones reconvertidos a flex-direction:row (.dp-period-btn)
+     con ícono calendario + valor + chevron en una sola línea.
+
+  3. Fecha de liquidación: botón .dp-liq-btn con flex-direction:row
+     (sobreescribe herencia column de .input-date). Ícono calendario
+     azul + label dinámico (.dp-liq-label / .has-value) + chevron.
+     dpUpdateFechaLiqLabel() actualizada para agregar clase has-value.
+
+
+[v242 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Rediseño compacto tarjeta "Datos de la pensión":
+
+  1. Header rediseñado: ícono + título "Datos de la pensión" + subtítulo
+     "Configura la obligación alimenticia" + badge "Paso 1 de 5" a la derecha.
+
+  2. Estructura de secciones con punto azul (dp-dot) alineado a la
+     izquierda de cada grupo de campos. Cuatro secciones:
+     · Monto de la cuota (toggle UTM/% Sueldo + campos)
+     · Día de vencimiento
+     · Período de mora (Mes que dejó de pagar → Último mes sin pago)
+     · UTM variable (opcional)
+     · Fecha de liquidación (opcional) — nueva sección al final
+
+  3. Eliminada sección "Calcular hasta" visible. El input #fechaLiquidacion
+     se conserva oculto (position:absolute;opacity:0) conectado a un botón
+     tipo input-date visible con label dinámico vía dpUpdateFechaLiqLabel().
+
+  4. Padding/márgenes reducidos: dp-body padding 10px 14px vs 14px 16px
+     anterior; dp-section gap 9px vertical. Altura total ~30% menor.
+
+  5. Nuevas clases CSS dp-* (prefijo Datos de la Pensión) en styles.css.
+     Responsive @media (max-width:380px) incluido.
+
+  6. Funcionalidad 100% preservada: todos los IDs y eventos JS existentes
+     sin modificación. dpUpdateFechaLiqLabel() añadida como helper nuevo.
+
+
+[v241 · 2026-06-25]
+index.html, sw.js
+
+Rediseño — Eliminación del header principal y reubicación de controles:
+
+  1. Header principal eliminado completamente (<header>...</header>).
+     IDs saveIndicator/saveTime/activeCasoBadge/activeCasoNombreHeader
+     conservados como spans fantasma ocultos para compatibilidad JS.
+
+  2. Hamburguesa (≡): reubicada dentro del hero-total-card, esquina
+     superior izquierda. Solo 3 líneas blancas (1.5px), sin fondo,
+     opacidad 0.7. position:absolute sobre la card.
+
+  3. Botón CASOS: reubicado en el sidebar, bajo el header del drawer,
+     ancho completo, mismo onclick=openCasosManagerModal() que antes.
+     id="casosManagerBtn" conservado para compatibilidad JS.
+
+  4. Íconos PDF/descarga/eliminar: reubicados en el header de la card
+     "Detalle del cálculo", lado derecho. El chevron (solo el símbolo)
+     fue eliminado. La funcionalidad expand/collapse se mantiene
+     (click en la zona izquierda del header llama toggleCalcSummary()).
+     toggleCalcSummary() ya tenía guard null-check para calcSummaryChevron.
+
+[v240 · 2026-06-25]
+index.html, sw.js
+
+Mejora — Chip de equivalencia UTM en tiempo real en overlay "Entre fechas":
+
+  Cuando el usuario está en modo CLP en el Paso 2 del overlay BEF, aparece
+  un chip debajo del campo de monto que muestra la equivalencia en UTM:
+
+  · Si ya tiene fecha de inicio seleccionada: muestra UTM del mes de inicio
+    (ej. "≈ 3,695 UTM · mar 2022") — el valor exacto que se usará para el
+    cálculo.
+  · Si aún no tiene fecha de inicio: muestra equivalencia con UTM actual
+    (ej. "≈ 3,412 UTM · hoy") como referencia.
+  · Al seleccionar la fecha de inicio el chip se actualiza automáticamente.
+  · El chip se oculta cuando el usuario está en modo UTM o borra el monto.
+
+  El chip se actualiza en tres eventos:
+    - oninput del campo de monto (befFormatMontoInput + befUpdateEquivChip)
+    - befSelectUnidad() al cambiar UTM/CLP
+    - Calendario al confirmar mes de inicio (calendarMode === 'befStart')
+
+[v239 · 2026-06-25]
+index.html, sw.js
+
+Fix — Cuota CLP en "Desde el último pago" ahora se convierte a UTM reajustable:
+
+  Caso de uso: usuario sabe que paga $200.000/mes pero no sabe las UTM
+  equivalentes. Al ingresar CLP en el overlay DUP, la app ahora convierte
+  automáticamente a UTM usando el valor UTM del mes del último pago, y escribe
+  esa UTM en el campo de cuota mensual (utmAmount). El cálculo opera desde
+  ahí en UTM reajustable mes a mes — replicando la conversión que hace el
+  tribunal cuando la resolución fija la pensión en pesos.
+
+  Ejemplo: $200.000 CLP + último pago marzo 2022 (UTM=$54.123)
+    → cuota = 200.000 / 54.123 = 3.695 UTM (fija)
+    → cada mes: capital = 3.695 × UTM_del_mes (reajustado)
+
+  Cambios:
+  - dupCalcularDeuda(): si _dupUnidadCuota === 'clp', busca UTM del mes del
+    último pago en utmData (fallback: UTM actual) y convierte antes de llamar
+    setCalcMode('utm'). Siempre escribe en utmAmount, nunca en clpAmount.
+  - dupToggleUnidadCuota(): muestra/oculta nota explicativa bajo el campo
+    cuando el usuario cambia a CLP.
+  - HTML: agrega <p id="dupClpConversionNote"> (oculto por defecto).
+
+[v238 · 2026-06-25]
+index.html, sw.js
+
+Refactor — Monto fijo UTM trabaja en UTM internamente (no convierte a CLP al ingresar):
+
+  Antes: tryRegisterConsolidada() convertía UTM→CLP al ingresar y guardaba
+  montoCLP fijo. Los intereses se calculaban sobre pesos fijos → el capital
+  no se reajustaba con la UTM en el tiempo.
+
+  Ahora: el capital se guarda como montoUTM en consolidadaData (esUTM=true).
+  La conversión a CLP ocurre solo para visualización:
+
+  calcularInteresConsolidadaMensual():
+    - Recibe parámetro montoUTM opcional.
+    - Si esUTM: capitalTramo = montoUTM × utmMes (reajustado mes a mes).
+    - Si CLP: capitalTramo = montoCLP fijo (comportamiento anterior).
+
+  calculateConsolidada():
+    - Lee montoUTM/montoCLP/esUTM de consolidadaData.
+    - utmCorte: solo para etiqueta de período y fallback de visualización.
+    - capitalClpHoy = montoUTM × utmHoy (capital a valor de hoy).
+    - Intereses calculados sobre capital reajustado → resultado correcto judicial.
+
+  Preview en tryRegisterConsolidada():
+    - Convierte UTM→CLP con utmCorte al vuelo solo para mostrar en pantalla.
+
+  Modo CLP: sin cambios.
+
+[v237 · 2026-06-25]
+index.html, sw.js
+
+Fix — Monto fijo UTM en Deudas Históricas no calculaba:
+
+  Causa: tryRegisterConsolidada() en modo UTM convertía el monto a CLP
+  buscando utmData.find(y === fechaAnio && monthIdx === fechaMes-1).
+  Si la fecha seleccionada no tenía entrada exacta en utmData (mes reciente
+  o con dato faltante), utmVal quedaba en 0, monto = 0, y el bloque
+  if (monto <= 0) abortaba seteando consolidadaData = null → sin cálculo.
+
+  Fix: si no hay UTM exacto para la fecha, se busca el entry más reciente
+  disponible con monthAbs <= targetAbs (fallback al último UTM conocido).
+  Si no existe ningún UTM anterior, usa el primer entry con v > 0.
+  Con esto el monto CLP siempre se calcula correctamente y consolidadaData
+  se registra, permitiendo que calculate() complete el cálculo.
+
+[v236 · 2026-06-23]
+MEJORA · Modo Monto Fijo (Deuda Histórica): se agrega toggle CLP / UTM.
+Al seleccionar UTM aparece un campo para ingresar el capital consolidado
+en UTM; el sistema lo convierte a CLP usando el valor UTM del mes de
+consolidación (utmData) antes de calcular intereses. El preview de
+Capital muestra el valor en UTM cuando se usa ese modo.
+────────────────────────────────────────────────────────────────────────────────
 - Este bloque de instrucciones es PERMANENTE: no se borra, no se resume, no
   se reemplaza en ninguna entrega futura. Solo se agregan entradas de
   changelog NUEVAS por encima de la última versión registrada.
@@ -16,7 +282,179 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 
 ================================================================================
 
-v2.0622.0170
+v2.0622.0250
+Archivos modificados: export.js, index.html, sw.js
+
+PDF — Columna "Subtotal UTM" agregada en tabla de pensiones impagas:
+  Cada fila ahora muestra su subtotal (capital + interés) expresado en UTM
+  histórica del período. El footer de la tabla también totaliza en UTM.
+  Anchos de columna ajustados para acomodar la nueva columna sin overflow.
+
+PDF — Resumen final de liquidación simplificado:
+  Eliminada la fila "SUBTOTAL HISTÓRICO". El resumen ahora muestra solo:
+  1) Total cuotas impagas  2) Intereses generados
+  3) (-) Abonos LAV (una sola línea con el monto original depositado)
+  4) TOTAL ADEUDADO
+  Eliminado el desglose LAV en intereses/capital por ser innecesario para
+  el lector. Todas las filas conservan su equivalente en UTM.
+
+v2.0622.0240
+Archivos modificados: index.html, sw.js
+
+Fix — Welcome screen se re-disparaba al volver desde segundo plano (tablet):
+  Cambiado ws_done de sessionStorage → localStorage. sessionStorage se borra
+  cuando la tablet mata el proceso en segundo plano, causando que al reabrir
+  la app Supabase emita SIGNED_IN nuevamente y re-mostrara el overlay.
+  Con localStorage el flag persiste entre reinicios de proceso.
+  Además: SIGNED_OUT ahora limpia ws_done de localStorage para que el
+  próximo login manual vuelva a mostrar la welcome screen correctamente.
+  El query param de styles.css también fue versionado (?v=2.0622.0240)
+  para forzar descarga del CSS actualizado en el browser.
+
+v2.0622.0230
+Archivos modificados: index.html, styles.css, sw.js
+
+Bug fix — Hero total card no reseteaba al eliminar abono LAV:
+  En renderLavSummary(), cuando abonosLav queda vacío y no hay cálculo de
+  pensiones activo, se resetean grandEl (a '0') y grandUtm (a '0.00 UTM').
+  Antes solo se ocultaba heroLavRow pero los valores escritos por el abono
+  previo quedaban visibles en el número grande de la tarjeta azul.
+
+Bug fix — Welcome screen se re-disparaba al volver desde segundo plano:
+  ws_done ahora se setea en sessionStorage en el momento en que se muestra
+  la welcome screen (no al cerrarla). Así, si el usuario minimiza la app
+  antes de que termine la animación de cierre, un TOKEN_REFRESHED o
+  SIGNED_IN posterior no vuelve a abrir el overlay.
+
+Fix visual — Botón "Registrar abono LAV" (lavx-add-btn):
+  Altura reducida de 38px → 32px, margin-top de 12px → 10px,
+  border-radius de 10px → 8px, font-size de 11.5px → 10.5px.
+  Color de fondo cambiado de #18a76f → #0f7a52 (verde más oscuro y sólido).
+  Color active actualizado a #0a5c3d.
+
+v2.0622.0200
+Archivos modificados: index.html, sw.js
+
+Fix — Causa raíz del reporte de Pablo "el botón Agregar abono LAV y la
+fila de Últimos depósitos siguen igual que antes" (tras v2.0622.0190):
+NO era un error en los cambios de v2.0622.0190 — el styles.css realmente
+desplegado por Pablo (comparado byte a byte, mismo MD5) ya tenía el botón
+correcto (38px, verde sólido #18a76f) y la fila correcta. El navegador
+del celular estaba sirviendo una copia vieja de styles.css cacheada desde
+ANTES de borrar datos del sitio/caché de Chrome — algo que normalmente
+debería resolver el problema, pero no lo hizo en este caso porque
+<link rel="stylesheet" href="styles.css"> apuntaba siempre a la misma URL,
+sin ningún parámetro que cambiara entre versiones. Un archivo en esa
+condición puede quedar servido desde una caché HTTP intermedia (CDN edge
+de Vercel, o el propio caché de red de Chrome) que ignora por completo la
+lógica de "Cache-Control"/invalidación que sí aplicaba al index.html
+(que sí cambia de contenido en cada deploy y por eso reflejaba el badge
+de cobertura correctamente — confirmando que el deploy en sí era el
+correcto, solo que un asset estático individual quedó "pegado").
+
+  Fix: cache-busting por query string en los dos `<link>/<script>` que
+  cargan assets estáticos versionados manualmente:
+    <link rel="stylesheet" href="styles.css?v=2.0622.0200">
+    <script src="export.js?v=2.0622.0200"></script>
+  El valor coincide con app-version, así que de aquí en adelante basta
+  con que cada entrega incremente la versión (regla ya existente) para
+  que el query string cambie automáticamente y ningún caché intermedio
+  pueda servir una copia vieja de styles.css o export.js por error,
+  incluso si el index.html que las referencia sí se actualiza. El
+  Service Worker (sw.js) no se ve afectado por este cambio: su matching
+  usa url.pathname para decidir qué interceptar/cachear, que ignora el
+  query string — confirmado revisando sw.js línea 53.
+
+  Nota para Pablo: en adelante, cuando se entregue una nueva versión,
+  recordar actualizar manualmente el "?v=X.X.X.X" de ambas líneas si en
+  algún momento se edita styles.css o export.js fuera de este flujo
+  (p. ej. editando directamente en GitHub) — la app no lo hace de forma
+  automática, es un valor de texto plano en el HTML.
+
+================================================================================
+Archivos modificados: index.html, styles.css
+
+Ajuste visual — Tarjeta "Depósitos LAV": tres correcciones de fidelidad al
+mockup detectadas por Pablo tras v2.0622.0180.
+
+  1. Badge "Cobertura X%" — Pablo decidió SÍ incorporarlo (cambio de
+     decisión respecto a v2.0622.0160, donde se descartó explícitamente).
+     Cálculo: % de la cuota UTM del mes ya cubierto por el TOTAL de
+     depósitos LAV acumulados de ese mismo período (no por el depósito
+     individual) — mismo criterio que ya usa "diff" para determinar
+     parcial/excedente/cubierto en renderAbonosLav(). Si dos depósitos
+     caen en el mismo mes, ambos muestran el mismo % (el del mes),
+     consistente con que la cobertura es del período, no del depósito
+     aislado. No se agregó ningún cálculo nuevo de cobertura por fuera de
+     lo ya existente — coberturaPct = totalLavMes / cuotaUTMPeriodo * 100,
+     usando las mismas variables que ya calculaba la función. El estado
+     real detallado (✓ Cuota cubierta / ⚠ Parcial · Rem. X UTM ≈ $Y /
+     ↪ Excedente X UTM ≈ $Y) se conserva como información secundaria, en
+     una segunda línea bajo la fila principal (.lavx-history__detail) —
+     no se eliminó nada, solo se reorganizó la jerarquía visual.
+
+  2. Filas de "Últimos depósitos" — se veían como texto apilado en vez de
+     fila de tarjeta tipo mockup. Se reestructura cada ítem en dos
+     bloques: .lavx-history__row (línea principal: check, fecha, monto,
+     UTM, badge de cobertura, flecha decorativa ›, botón eliminar — todo
+     en una sola línea horizontal) y .lavx-history__detail (línea
+     secundaria opcional, el texto de estado real). En pantallas ≤380px,
+     si no caben todos los elementos en una línea, el badge + flecha pasan
+     a una segunda línea controlada (wrap), nunca se corta contenido.
+
+  3. Botón "Agregar abono LAV" — se veía con gradiente claro y más alto
+     que en el mockup. Se cambia a verde sólido (#18a76f, sin gradiente) y
+     se reduce su altura (44px→38px) y radio (13px→10px), más fiel al
+     grosor del botón en el mockup de referencia.
+
+  Sin cambios de lógica de cálculo — coberturaPct es una variable nueva
+  puramente de presentación, calculada a partir de cuotaUTMPeriodo y
+  totalLavMes (ya existentes), dentro de renderAbonosLav(). No se tocó
+  calculate(), addAbonoLav(), removeAbonoLav() ni ninguna función de
+  imputación.
+
+================================================================================
+Archivos modificados: styles.css
+
+Ajuste visual — Tarjeta "Depósitos LAV" (.lavx-*): reescalado completo a un
+tamaño proporcional al resto de las tarjetas de la app (.dh-card, .input-*),
+que usan tipografías ~9-14px y controles compactos. El rediseño de
+v2.0622.0160 había heredado las medidas del mockup aislado (pensado como
+pantalla a pantalla completa), lo que hacía que esta tarjeta se viera
+notoriamente más grande que el resto de la interfaz — ícono de header 44px,
+título 15px, valor "Cuota Mensual" 32px, inputs CLP/UTM de 56px de alto con
+fuente 18-20px, botón "Agregar abono LAV" de 58px con fuente 15px.
+
+  Cambios (solo tamaños/paddings/radios — sin tocar colores, estructura,
+  textos ni lógica):
+  - Header: ícono 44px→34px, título 15px→12px, subtítulo 11px→9px,
+    botones OCR/colapsar 38px→29px.
+  - Bloque "Cuota Mensual": valor grande 32px→23px, equivalente CLP
+    12px→10px, chip "Cuota vigente" 11px→9.5px.
+  - Bloque "Cuota mensual (modo libre)": título 10px→9px, hint 9px→8px.
+  - Inputs CLP/UTM (.lavx-input-box): alto 56px→42px, fuente 18-20px→
+    13.5-15px, radio 16px→12px. Ícono de conversión ⇄ ajustado a la misma
+    altura.
+  - Fecha de pago (.lavx-date-box): alto 56px→42px, fuente 15px→12.5px,
+    íconos 18px→14px.
+  - Botón "Agregar abono LAV": alto 58px→44px, fuente 15px→12px, radio
+    18px→13px.
+  - Historial "Últimos depósitos": ítems, fechas, montos, check, ícono de
+    eliminar — todos reducidos proporcionalmente (~20-25%).
+
+  Bonus — Fix adicional del grid CLP/UTM en pantallas angostas: el media
+  query (max-width: 380px) agregado en v2.0622.0170 colapsaba el grid de
+  depósito a 1 columna ("Valor depósito en pesos" arriba, "Valor depósito
+  en UTM" abajo, uno tras otro) en celulares con ancho CSS ≤380px (la
+  mayoría de los celulares reales) — el reporte de Pablo de "Chrome
+  reubica las casillas, una arriba y la otra abajo" venía de esta regla.
+  Se reemplaza por una versión que mantiene las 2 columnas + ícono central
+  pero con el grid/ícono más angostos (26px), evitando el apilamiento.
+  Con la base ya compacta de este ajuste, el resto de las reglas de ese
+  media query (que reducían tamaños ya grandes del mockup original)
+  quedaron redundantes y se eliminaron.
+
+================================================================================
 Archivos modificados: index.html, sw.js
 
 Fix — Overlays "Desde el último pago" (#dupOverlay) y "Entre fechas"
