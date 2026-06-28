@@ -2,6 +2,16 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v248 · 2026-06-28]
+index.html, sw.js
+
+Fecha de liquidación: muestra día completo al seleccionar.
+
+  dpUpdateFechaLiqLabel() ahora formatea como "15 de Junio 2026"
+  en lugar de solo "Junio 2026". Color #3a4060 al tener valor
+  (corrige bug donde has-value se agregaba y removía inmediatamente).
+
+
 [v247 · 2026-06-28]
 index.html, styles.css, sw.js
 

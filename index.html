@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0628.1500">
+ <meta name="app-version" content="v2.0628.1600">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2709,11 +2709,16 @@ function dpUpdateFechaLiqLabel() {
   var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   if (inp.value) {
     var p = inp.value.split('-');
-    el.textContent = meses[parseInt(p[1],10)-1] + ' ' + p[0];
-    el.classList.add('has-value'); el.classList.remove('has-value'); el.style.color = '';
+    var dia = parseInt(p[2], 10);
+    var mes = meses[parseInt(p[1], 10) - 1];
+    var anio = p[0];
+    el.textContent = dia + ' de ' + mes + ' ' + anio;
+    el.classList.add('has-value');
+    el.style.color = '#3a4060';
   } else {
     el.textContent = 'Seleccionar fecha';
-    el.classList.remove('has-value'); el.style.color = '';
+    el.classList.remove('has-value');
+    el.style.color = '';
   }
 }
 function setCalcMode(mode) {
