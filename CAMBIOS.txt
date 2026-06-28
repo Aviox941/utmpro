@@ -2,6 +2,29 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v241 · 2026-06-25]
+index.html, sw.js
+
+Rediseño — Eliminación del header principal y reubicación de controles:
+
+  1. Header principal eliminado completamente (<header>...</header>).
+     IDs saveIndicator/saveTime/activeCasoBadge/activeCasoNombreHeader
+     conservados como spans fantasma ocultos para compatibilidad JS.
+
+  2. Hamburguesa (≡): reubicada dentro del hero-total-card, esquina
+     superior izquierda. Solo 3 líneas blancas (1.5px), sin fondo,
+     opacidad 0.7. position:absolute sobre la card.
+
+  3. Botón CASOS: reubicado en el sidebar, bajo el header del drawer,
+     ancho completo, mismo onclick=openCasosManagerModal() que antes.
+     id="casosManagerBtn" conservado para compatibilidad JS.
+
+  4. Íconos PDF/descarga/eliminar: reubicados en el header de la card
+     "Detalle del cálculo", lado derecho. El chevron (solo el símbolo)
+     fue eliminado. La funcionalidad expand/collapse se mantiene
+     (click en la zona izquierda del header llama toggleCalcSummary()).
+     toggleCalcSummary() ya tenía guard null-check para calcSummaryChevron.
+
 [v240 · 2026-06-25]
 index.html, sw.js
 

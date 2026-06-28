@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0625.1200">
+ <meta name="app-version" content="v2.0625.1300">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -310,7 +310,7 @@ try {
       • Comenzar por formatters (bajo riesgo, alta repetición).
       ============================================================ -->
 
- <link rel="stylesheet" href="styles.css?v=2.0625.1200">
+ <link rel="stylesheet" href="styles.css?v=2.0625.1300">
 <style>
 /* ── Collapsible: grid-template-rows GPU-friendly ───────────────────────────
    .collapsible-inner es el hijo directo sin padding — permite colapso a 0.
@@ -984,6 +984,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
+      <!-- Botón CASOS: mismo onclick que el original del header -->
+      <button onclick="openCasosManagerModal()" id="casosManagerBtn"
+        style="margin-top:12px;width:100%;display:flex;align-items:center;justify-content:center;gap:7px;background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.01em;touch-action:manipulation;">
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        CASOS
+      </button>
     </div>
 
     <!-- Contenido scrolleable -->
@@ -1152,97 +1158,24 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
      ══════════════════════════════════════════════════════════ -->
 
 <div id="app-container" class="w-full max-w-3xl mx-auto min-h-screen flex flex-col pb-20 bg-[#0d1117]">
- <header>
-  <!-- Fila principal de controles -->
-  <div class="header-row-main">
 
-    <!-- Botón Casos (dropdown) -->
-    <div class="flex items-center gap-2 flex-shrink-0">
-
-      <!-- Menú hamburguesa (original) -->
-      <button onclick="openSidebar()" class="header-icon-btn flex-shrink-0" title="Casos">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </button>
-
-      <!-- Botón Casos: reubicado aquí desde el ticker UTM (mismo id/onclick, solo se movió y achicó) -->
-      <button onclick="openCasosManagerModal()" class="btn-base btn-primary gap-1.5" id="casosManagerBtn"
-        style="flex-shrink:0;touch-action:manipulation;padding:6px 10px;font-size:11px;">
-        <svg class="w-[14px] h-[14px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Casos
-      </button>
-
-      <!-- activeCasoBadge: oculto (icono usuario + nombre). Se conserva en el DOM porque
-           abrirUserProfile/activeCasoNombreHeader se siguen usando sin guard desde JS. -->
-      <div id="activeCasoBadge" onclick="abrirUserProfile()" style="display:none !important;">
-        <svg class="w-[14px] h-[14px] flex-shrink-0" style="color:#93c5fd;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-        </svg>
-        <span id="activeCasoNombreHeader" class="text-[9px] font-black text-[#93c5fd] leading-none max-w-[120px] truncate">Sin sesión</span>
-      </div>
-    </div>
-
-    <!-- Botones de acción: VER, PDF, Reset -->
-    <div class="flex-shrink-0 flex items-center gap-1.5" style="margin-left:auto;">
-      <div id="saveIndicator" class="hidden"><div id="saveTime"></div></div>
-      <button onclick="showResumenModal()" class="header-icon-btn" title="Ver resumen detallado">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      </button>
-      <div style="position:relative;">
-        <button id="downloadBtn" onclick="toggleDownloadMenu()" class="header-icon-btn" title="Descargar">
-          <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-        </button>
-      </div>
-      <button onclick="showResetConfirm()" class="header-icon-btn header-icon-btn--danger" title="Limpiar">
-        <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-      </button>
-
-    </div>
-
-  </div>
-
-  <!-- Barra de carga -->
-  <div id="loadingBar" class="flex items-center gap-2">
-    <div class="flex-1 bg-white/10 rounded-full h-0.5">
-      <div id="loadingProgress" class="bg-[#60a5fa] h-0.5 rounded-full transition-all duration-500" style="width:0%"></div>
-    </div>
-    <span id="loadingText" class="text-[9px] font-black text-white/40 loading-pulse">Cargando datos UTM...</span>
-  </div>
-
-  <!-- Tarjetas UTM: oculto por completo y sin espacio reservado (Casos se movió
-       junto a la hamburguesa). Se conserva en el DOM porque el script escribe en
-       utmActualVal/utmActualMes y togglea utmTicker.classList/style sin validar
-       que existan. La clase ticker-removed (con !important real, no inline) es
-       lo que evita que utmTicker.style.display='flex' (ejecutado desde JS) lo
-       vuelva a mostrar. -->
-  <div id="utmTicker" class="hidden ticker-removed" style="flex-direction:row;align-items:center;padding:0 12px 7px 12px;gap:0;position:relative;z-index:1;">
-    <div class="utm-card-premium utm-card-premium--secondary" style="flex-shrink:0;flex-basis:160px;min-width:0;display:flex;flex-direction:column;justify-content:center;background:#eff6ff;border-color:#bfdbfe;">
-      <span class="utm-card-label" style="color:#3b82f6;">Caso activo</span>
-      <div class="utm-card-value-row" style="margin-top:2px;">
-        <span id="headerCasoNombre" style="font-size:11px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block;line-height:1.2;letter-spacing:-0.01em;"></span>
-      </div>
-    </div>
-    <div style="flex:1;display:flex;justify-content:center;gap:7px;align-items:center;" id="tickerCards">
-      <div class="utm-card-premium" style="flex:0 1 130px;background:#f0fdf4;border-color:#bbf7d0;">
-        <span class="utm-card-label" style="color:#16a34a;">UTM Actual</span>
-        <div class="utm-card-value-row">
-          <span id="utmActualVal" class="utm-val-main" style="color:#15803d;">$—</span>
-          <span id="utmActualMes" class="utm-val-month" style="display:none;">—</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</header>
-<!-- cmfTasasStatus: elemento fantasma para compatibilidad JS (no visible) -->
+<!-- Elementos fantasma: IDs que el JS usa sin null-check, conservados ocultos -->
 <span id="cmfTasasStatus" style="display:none;"></span>
+<span id="saveIndicator" style="display:none;"><span id="saveTime"></span></span>
+<span id="activeCasoBadge" style="display:none;"><span id="activeCasoNombreHeader"></span></span>
  <main class="px-4 md:px-6 lg:px-8 mt-1 md:mt-2 space-y-3 md:space-y-4">
  <div id="resultsCard" class="space-y-3">
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
         <!-- Tarjeta Total Adeudado (azul) -->
-        <div class="hero-total-card">
-          <!-- Ondas decorativas: SVG real con vector-effect:non-scaling-stroke,
-               evita la distorsión que tenía el background-image data URI anterior -->
+        <div class="hero-total-card" style="position:relative;">
+          <!-- Hamburguesa minimalista — abre sidebar -->
+          <button onclick="openSidebar()" style="position:absolute;top:12px;left:14px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.7;" title="Menú">
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+          </button>
           <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
@@ -1335,8 +1268,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
       <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
         <!-- Header colapsable -->
-        <button onclick="toggleCalcSummary()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;cursor:pointer;text-align:left;border-bottom:1px solid rgba(0,0,0,0.06);">
-          <div style="display:flex;align-items:center;gap:9px;">
+        <!-- Header colapsable: click en zona izquierda colapsa; íconos de acción a la derecha -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
+          <!-- Zona colapsable (izquierda) -->
+          <button onclick="toggleCalcSummary()" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;padding:0;flex:1;text-align:left;">
             <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
@@ -1344,9 +1279,25 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
               <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
               <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
             </div>
+          </button>
+          <!-- Íconos de acción (derecha) — reemplaza al chevron -->
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+            <!-- Ver resumen / PDF -->
+            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </button>
+            <!-- Descargar -->
+            <div style="position:relative;">
+              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              </button>
+            </div>
+            <!-- Eliminar / reset -->
+            <button onclick="showResetConfirm()" title="Limpiar cálculo" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ef4444;" onmouseenter="this.style.background='#fef2f2'" onmouseleave="this.style.background='none'">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
           </div>
-          <svg id="calcSummaryChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.22s;transform:rotate(180deg);flex-shrink:0;"><polyline points="18 15 12 9 6 15"/></svg>
-        </button>
+        </div>
         <!-- Contenido: reutiliza buildResumenContent() pero sin la sección "Datos del Caso" -->
         <div id="calcSummaryBody" style="padding:12px 0 4px;max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
           <div id="calcSummaryContent" class="space-y-4 text-[11px] text-[#5a6380]" style="padding:0 0 8px;"></div>
