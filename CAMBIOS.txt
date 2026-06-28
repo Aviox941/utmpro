@@ -2,6 +2,60 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v246 · 2026-06-28]
+index.html, sw.js
+
+Eliminado badge "Paso 1 de 5" del header de la tarjeta Datos de la pensión.
+
+
+[v245 · 2026-06-28]
+styles.css, sw.js
+
+Monto de la cuota: número más grande (alineación con mockup).
+
+  #utmAmount: font-size 26px / weight 700, altura 52px.
+  #clpAmount: font-size 14px / color secundario, altura 52px.
+  dp-amount-row: align-items:center para alinear los dos campos.
+
+
+[v244 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Bugfix: botones de ayuda (?) se disparaban al hacer click en cualquier
+parte del label contenedor.
+
+  Causa: los <button class="dp-help-btn"> estaban anidados dentro de
+  elementos <label> o <span> con onclick. El browser propaga el click
+  del label/span al primer control interactivo hijo, activando el modal.
+
+  Fix: en las tres secciones afectadas (Día de vencimiento, UTM variable,
+  Fecha de liquidación) se reemplazó el patrón <label>texto<button>?
+  por un <div class="dp-label-row"> con <span> y <button> como hermanos
+  en flex, sin relación padre-hijo de control. El botón ? ahora solo
+  responde a clicks directos sobre él.
+
+
+[v243 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Fixes de detalle tarjeta "Datos de la pensión" — alineación con mockup:
+
+  1. Día de vencimiento: reemplazado input-number pequeño por botón
+     estilo mockup (.dp-dia-btn): ícono calendario azul + input numérico
+     inline + sufijo "Día ∨" a la derecha. Mismo patrón visual que los
+     selectores de fecha del mockup aprobado.
+
+  2. Período de mora (Mes que dejó de pagar / Último mes sin pago):
+     agregados labels visibles (.dp-dates-labels) encima de los botones
+     de fecha. Botones reconvertidos a flex-direction:row (.dp-period-btn)
+     con ícono calendario + valor + chevron en una sola línea.
+
+  3. Fecha de liquidación: botón .dp-liq-btn con flex-direction:row
+     (sobreescribe herencia column de .input-date). Ícono calendario
+     azul + label dinámico (.dp-liq-label / .has-value) + chevron.
+     dpUpdateFechaLiqLabel() actualizada para agregar clase has-value.
+
+
 [v242 · 2026-06-28]
 index.html, styles.css, sw.js
 

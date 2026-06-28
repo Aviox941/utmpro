@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0628.1000">
+ <meta name="app-version" content="v2.0628.1400">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1334,7 +1334,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <p class="dp-header__sub">Configura la obligación alimenticia</p>
       </div>
     </div>
-    <span class="dp-step-badge">Paso 1 de 5</span>
+
   </div>
 
   <!-- Body compacto -->
@@ -1420,11 +1420,16 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <span class="dp-dot"></span>
       </div>
       <div class="dp-section__content">
-        <div class="dp-field-row">
-          <label class="input-label" style="margin-bottom:4px;">Día de vencimiento
-            <button onclick="showHelpModal('diaVenc')" class="dp-help-btn">?</button>
-          </label>
-          <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="input-number input-sm dp-input">
+        <div class="dp-label-row">
+          <span class="input-date__sublabel">Día de vencimiento</span>
+          <button onclick="showHelpModal('diaVenc')" class="dp-help-btn" type="button">?</button>
+        </div>
+        <div class="dp-dia-btn" onclick="document.getElementById('diaVencimiento').focus()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <input type="number" id="diaVencimiento" value="5" min="1" max="28" inputmode="numeric" oninput="calculate(); saveSession();" onchange="calculate(); saveSession();" class="dp-dia-input">
+          <span class="dp-dia-suffix">Día
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
         </div>
       </div>
     </div>
@@ -1435,15 +1440,24 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <span class="dp-dot"></span>
       </div>
       <div class="dp-section__content">
-        <div class="dp-dates-row">
-          <button onclick="openCalendar('start')" id="startBtn" class="input-date dp-date-btn">
-            <span class="input-date__sublabel">Mes que dejó de pagar</span>
-            <span id="startLabel" class="input-date__value">Seleccionar</span>
+        <!-- Labels superiores -->
+        <div class="dp-dates-labels">
+          <span class="input-date__sublabel">Mes que dejó de pagar</span>
+          <span style="width:20px;flex-shrink:0;"></span>
+          <span class="input-date__sublabel">Último mes sin pago</span>
+        </div>
+        <!-- Botones de fecha en fila -->
+        <div class="dp-dates-row" style="margin-top:4px;">
+          <button onclick="openCalendar('start')" id="startBtn" class="input-date dp-period-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="startLabel" class="dp-period-value">Seleccionar</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="dp-arrow">→</div>
-          <button onclick="openCalendar('end')" id="endBtn" class="input-date dp-date-btn">
-            <span class="input-date__sublabel">Último mes sin pago</span>
-            <span id="endLabel" class="input-date__value">Seleccionar</span>
+          <button onclick="openCalendar('end')" id="endBtn" class="input-date dp-period-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span id="endLabel" class="dp-period-value">Seleccionar</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
         </div>
         <div id="dateError" class="hidden bg-red-500/10 border border-red-500/25 rounded-xl p-2 text-[10px] font-black text-red-400 flex items-center gap-2" style="margin-top:4px;">
@@ -1458,9 +1472,10 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <span class="dp-dot"></span>
       </div>
       <div class="dp-section__content">
-        <label class="input-label" style="margin-bottom:6px;">UTM variable <span style="font-weight:500;opacity:0.55;">(opcional)</span>
-          <button onclick="showPeriodoHelp()" class="dp-help-btn">?</button>
-        </label>
+        <div class="dp-label-row" style="margin-bottom:6px;">
+          <span class="input-label" style="margin-bottom:0;">UTM variable <span style="font-weight:500;opacity:0.55;">(opcional)</span></span>
+          <button onclick="showPeriodoHelp()" class="dp-help-btn" type="button">?</button>
+        </div>
         <div id="periodosVariablesWrap">
           <div style="display:flex;align-items:center;justify-content:center;position:relative;">
             <button id="btnAddPeriodoPension" onclick="addPeriodoPension()"
@@ -1481,13 +1496,14 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <span class="dp-dot"></span>
       </div>
       <div class="dp-section__content">
-        <label class="input-label" style="margin-bottom:4px;">Fecha de liquidación <span style="font-weight:500;opacity:0.55;">(opcional)</span>
-          <button onclick="showHelpModal('fechaLiquidacion')" class="dp-help-btn">?</button>
-        </label>
-        <button onclick="document.getElementById('fechaLiquidacion').showPicker ? document.getElementById('fechaLiquidacion').showPicker() : document.getElementById('fechaLiquidacion').focus()" class="input-date dp-date-btn dp-date-btn--full">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:#3b82f6;flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          <span id="fechaLiquidacionLabel" class="input-date__value" style="flex:1;">Seleccionar fecha</span>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="dp-label-row" style="margin-bottom:4px;">
+          <span class="input-label" style="margin-bottom:0;">Fecha de liquidación <span style="font-weight:500;opacity:0.55;">(opcional)</span></span>
+          <button onclick="showHelpModal('fechaLiquidacion')" class="dp-help-btn" type="button">?</button>
+        </div>
+        <button onclick="document.getElementById('fechaLiquidacion').showPicker ? document.getElementById('fechaLiquidacion').showPicker() : document.getElementById('fechaLiquidacion').focus()" class="input-date dp-liq-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span id="fechaLiquidacionLabel" class="dp-liq-label">Seleccionar fecha</span>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:#94a3b8;flex-shrink:0;margin-left:auto;"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <!-- Input date oculto — conectado al mismo id que usaba "Calcular hasta" -->
         <input type="date" id="fechaLiquidacion" oninput="calculate(); saveSession(); dpUpdateFechaLiqLabel();" onchange="calculate(); saveSession(); dpUpdateFechaLiqLabel();" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;">
@@ -2693,10 +2709,10 @@ function dpUpdateFechaLiqLabel() {
   if (inp.value) {
     var p = inp.value.split('-');
     el.textContent = meses[parseInt(p[1],10)-1] + ' ' + p[0];
-    el.style.color = '#1a1d2e';
+    el.classList.add('has-value'); el.classList.remove('has-value'); el.style.color = '';
   } else {
     el.textContent = 'Seleccionar fecha';
-    el.style.color = '';
+    el.classList.remove('has-value'); el.style.color = '';
   }
 }
 function setCalcMode(mode) {

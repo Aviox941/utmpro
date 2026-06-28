@@ -5854,3 +5854,138 @@
   .dp-toggle__btn { padding: 4px 12px; }
   .dp-field-row .input-number.input-sm { width: 60px; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   dp-* additions — v243 (fixes de mockup: día venc, período, liq)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Día de vencimiento: botón estilo mockup ────────────────────────── */
+.dp-dia-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: #fafbfd;
+  border: 1px solid rgba(37,99,235,0.11);
+  border-radius: 11px;
+  padding: 9px 12px;
+  min-height: 44px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.025);
+  transition: background 0.15s;
+}
+.dp-dia-btn:active { background: #f0f2f7; }
+.dp-dia-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1d2e;
+  outline: none;
+  min-width: 0;
+  width: 40px;
+  -moz-appearance: textfield;
+}
+.dp-dia-input::-webkit-inner-spin-button,
+.dp-dia-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.dp-dia-suffix {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a6380;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Período: labels en fila sobre los botones ──────────────────────── */
+.dp-dates-labels {
+  display: grid;
+  grid-template-columns: 1fr 20px 1fr;
+  gap: 4px;
+  margin-bottom: 2px;
+}
+
+/* ── Período: botón fecha en fila (ícono + valor + chevron) ─────────── */
+.dp-period-btn {
+  flex-direction: row !important;   /* sobreescribe input-date column */
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 9px 10px !important;
+  min-height: 40px !important;
+  height: 40px !important;
+}
+.dp-period-value {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3a4060;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Fecha de liquidación: botón full-width en fila ─────────────────── */
+.dp-liq-btn {
+  flex-direction: row !important;   /* sobreescribe input-date column */
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  min-height: 44px !important;
+  height: 44px !important;
+}
+.dp-liq-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+.dp-liq-label.has-value {
+  color: #3a4060;
+}
+
+/* ── Responsive ≤ 380px ─────────────────────────────────────────────── */
+@media (max-width: 380px) {
+  .dp-period-btn { padding: 7px 8px !important; }
+  .dp-period-value { font-size: 10.5px; }
+  .dp-liq-btn { padding: 8px 10px !important; }
+  .dp-dia-btn { padding: 8px 10px; }
+  .dp-dia-input { font-size: 14px; }
+}
+
+/* ── dp-label-row: label + botón ? como hermanos (evita propagación) ── */
+.dp-label-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+.dp-label-row .input-label,
+.dp-label-row .input-date__sublabel {
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* ── dp-amount: inputs de monto con número grande (mockup) ─────────── */
+#utmAmount.dp-input {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  padding: 6px 10px 18px !important;  /* más espacio abajo para el period chip */
+  height: 52px !important;
+  min-height: 52px !important;
+  letter-spacing: -0.5px;
+}
+#clpAmount.dp-input {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  color: #5a6380 !important;
+}
+/* Alinear verticalmente los campos al centro */
+.dp-amount-row { align-items: center; }
+.dp-amount-sep { padding-bottom: 0; align-items: center; }
