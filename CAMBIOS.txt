@@ -2,6 +2,28 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v247 · 2026-06-28]
+index.html, styles.css, sw.js
+
+Tipografía Geist + labels consistentes en tarjeta Datos de la pensión:
+
+  1. Geist cargada desde Google Fonts (wght 400–800), aplicada a toda
+     la tarjeta via .dp-card * sin afectar el resto de la app.
+
+  2. Labels de sección unificados: font-weight 700, sin text-transform
+     uppercase, sin font-style italic, color #3a4060 (legible pero
+     no dominante). Aplica a .input-label, .input-date__sublabel y
+     los labels de dp-dates-labels.
+
+  3. Jerarquía tipográfica:
+     · Header título: 15px / 700 / tracking -0.02em
+     · Labels de sección: 11px / 700
+     · Toggle UTM/% Sueldo: 11px / 600
+     · Número UTM grande: tracking -0.03em / 700
+     · Valores de fecha: 600 / tracking -0.01em
+     · Texto (opcional): 400 / color #94a3b8
+
+
 [v246 · 2026-06-28]
 index.html, sw.js
 
