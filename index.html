@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0628.0456">
+ <meta name="app-version" content="v2.0630.0346">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1009,6 +1009,25 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         </button>
         <div id="cfgCasos" class="sidebar-cfg-body" style="display:none;">
           <div id="casosList" style="padding:4px 0 2px;"></div>
+        </div>
+      </div>
+
+      <!-- ── Sección HERRAMIENTAS ── -->
+      <div class="sidebar-cfg-section">
+        <button class="sidebar-cfg-header" onclick="sidebarToggleSection('cfgHerramientas')">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:26px;height:26px;border-radius:8px;background:rgba(31,95,255,0.1);display:flex;align-items:center;justify-content:center;">
+              <svg width="13" height="13" fill="none" stroke="#1f5fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+            </div>
+            <span>Herramientas</span>
+          </div>
+          <svg id="cfgHerramientas-chevron" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="transition:transform 0.2s;"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+        <div id="cfgHerramientas" class="sidebar-cfg-body" style="display:none;">
+          <button onclick="closeSidebar(); openConvOverlay();" class="sidebar-cfg-item">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+            Conversor UTM ↔ pesos
+          </button>
         </div>
       </div>
 
@@ -2067,6 +2086,12 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 //   - Vencimiento: día D del MISMO mes del período (no del siguiente).
 // ============================================================
 const TIC_REAJ = {
+// ── 2010-2013: backfill desde API CMF (tipo 21 reajustable), verificado contra
+//    relación TMC=TIC×1.5 (Art. 14 Ley 14.908) antes de integrar ──
+2010:[0.0416,0.0452,0.0364,0.0370,0.0374,0.0328,0.0344,0.0350,0.0352,0.0420,0.0458,0.0484],
+2011:[0.0502,0.0466,0.0438,0.0416,0.0346,0.0384,0.0394,0.0434,0.0534,0.0514,0.0490,0.0520],
+2012:[0.0586,0.0486,0.0508,0.0460,0.0492,0.0540,0.0598,0.0640,0.0592,0.0492,0.0458,0.0522],
+2013:[0.0582,0.0576,0.0498,0.0478,0.0502,0.0544,0.0468,0.0380,0.0380,0.0416,0.0458,0.0490],
 2014:[0.0412,0.0336,0.0362,0.0233,0.0264,0.0219,0.0311,0.0369,0.0296,0.0198,0.0223,0.0291],
 2015:[0.0406,0.0426,0.0297,0.0182,0.0211,0.0243,0.0246,0.0199,0.0162,0.0184,0.024,0.0332],
 2016:[0.0365,0.0303,0.0233,0.0223,0.0253,0.024,0.0245,0.0263,0.0271,0.0278,0.0314,0.0388],
@@ -2084,6 +2109,10 @@ const TIC_REAJ = {
 
 // TMC reajustable (disponible como referencia; el recargo Art. 14 Ley 14.908 multiplica la TIC × 1.5)
 const TMC_REAJ = {
+2010:[0.0624,0.0678,0.0546,0.0555,0.0561,0.0492,0.0516,0.0525,0.0528,0.0630,0.0687,0.0726],
+2011:[0.0753,0.0699,0.0657,0.0624,0.0519,0.0576,0.0591,0.0651,0.0801,0.0771,0.0735,0.0780],
+2012:[0.0879,0.0729,0.0762,0.0690,0.0738,0.0810,0.0897,0.0960,0.0888,0.0738,0.0687,0.0783],
+2013:[0.0873,0.0864,0.0747,0.0717,0.0753,0.0816,0.0702,0.0570,0.0570,0.0624,0.0687,0.0735],
 2014:[0.0618,0.0504,0.0562,0.0433,0.0464,0.0419,0.0511,0.0569,0.0496,0.0398,0.0423,0.0491],
 2015:[0.0609,0.0639,0.0497,0.0382,0.0411,0.0443,0.0446,0.0399,0.0362,0.0384,0.044,0.0532],
 2016:[0.0565,0.0503,0.0433,0.0423,0.0453,0.044,0.0445,0.0463,0.0471,0.0478,0.0514,0.0588],
@@ -5484,6 +5513,20 @@ if (mes && anio) {
   btn.style.background = '';
   btn.style.boxShadow = '';
 }
+} else if (calendarMode === 'convPeriodo') {
+const mes = document.getElementById('convPeriodoMes').value;
+const anio = document.getElementById('convPeriodoAnio').value;
+if (mes && anio) {
+  btn.textContent = '✓ Confirmar Período';
+  btn.className = 'w-full mt-6 py-3 rounded-xl font-black text-xs uppercase transition-all active:scale-95 text-white';
+  btn.style.background = 'linear-gradient(135deg,#3b82f6,#1f5fff)';
+  btn.style.boxShadow = '0 4px 18px rgba(31,95,255,0.4)';
+} else {
+  btn.textContent = 'Cerrar';
+  btn.className = 'w-full mt-6 py-3 bg-white/10 text-slate-300 rounded-xl font-black text-xs uppercase transition-all active:scale-95';
+  btn.style.background = '';
+  btn.style.boxShadow = '';
+}
 } else if (calendarMode === 'ppDesde' || calendarMode === 'ppHasta') {
 const mesId  = calendarMode === 'ppDesde' ? 'ppDesdeMes'  : 'ppHastaMes';
 const anioId = calendarMode === 'ppDesde' ? 'ppDesdeAnio' : 'ppHastaAnio';
@@ -5559,6 +5602,16 @@ if (_mes && _anio) {
 tryRegisterConsolidada();
 closeCalendar();
 saveSession();
+} else if (calendarMode === 'convPeriodo') {
+const _mes = document.getElementById('convPeriodoMes').value;
+const _anio = document.getElementById('convPeriodoAnio').value;
+if (_mes && _anio) {
+  const _mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const _lbl = document.getElementById('convPeriodoDisplay');
+  if (_lbl) { _lbl.textContent = _mNames[parseInt(_mes)-1] + ' ' + _anio; _lbl.classList.add('bef-date__display--filled'); }
+}
+convActualizarResultado();
+closeCalendar();
 } else if (calendarMode === 'ppDesde' || calendarMode === 'ppHasta') {
 const mesId  = calendarMode === 'ppDesde' ? 'ppDesdeMes'  : 'ppHastaMes';
 const anioId = calendarMode === 'ppDesde' ? 'ppDesdeAnio' : 'ppHastaAnio';
@@ -5581,13 +5634,13 @@ function openCalendar(m) {
 calendarMode = m;
 // El calendario custom vive con z-index 100 (por debajo de los overlays
 // DUP y BEF, que son z-index 100000). Cuando se abre en modo 'dup',
-// 'befStart' o 'befEnd' (desde dentro de los overlays "Desde el último
-// pago" / "Entre fechas"), se sube su z-index por encima del overlay para
-// que no quede tapado; en cualquier otro modo se restaura el z-index
-// original (no se modifica la clase Tailwind base, solo este inline
-// override aislado).
+// 'befStart', 'befEnd' o 'convPeriodo' (desde dentro de los overlays
+// "Desde el último pago" / "Entre fechas" / "Conversor UTM ↔ pesos"), se
+// sube su z-index por encima del overlay para que no quede tapado; en
+// cualquier otro modo se restaura el z-index original (no se modifica la
+// clase Tailwind base, solo este inline override aislado).
 const calModalEl = document.getElementById('calendarModal');
-if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd') ? '100001' : '';
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd' || m === 'convPeriodo') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5632,6 +5685,9 @@ const anio = document.getElementById('histEndAnio').value;
 selectedYear = anio ? parseInt(anio) : CURRENT_YEAR;
 } else if (m === 'consolidadaFecha') {
 const anio = document.getElementById('consolidadaFechaAnio').value;
+selectedYear = anio ? parseInt(anio) : CURRENT_YEAR;
+} else if (m === 'convPeriodo') {
+const anio = document.getElementById('convPeriodoAnio').value;
 selectedYear = anio ? parseInt(anio) : CURRENT_YEAR;
 } else if (m === 'ppDesde' || m === 'ppHasta') {
 const anioId = m === 'ppDesde' ? 'ppDesdeAnio' : 'ppHastaAnio';
@@ -5696,7 +5752,7 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() {
   const calModalEl = document.getElementById('calendarModal');
   calModalEl.classList.replace('flex', 'hidden');
-  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd')
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd'/'convPeriodo')
   unlockBody();
 }
 function changeYear(v) {
@@ -5833,7 +5889,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd' || calendarMode === 'convPeriodo')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
@@ -5899,6 +5955,10 @@ isActive = document.getElementById('histEndMes').value === mesVal
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('consolidadaFechaMes').value === mesVal
   && document.getElementById('consolidadaFechaAnio').value === String(selectedYear);
+} else if (calendarMode === 'convPeriodo') {
+const mesVal = String(i + 1).padStart(2, '0');
+isActive = document.getElementById('convPeriodoMes').value === mesVal
+  && document.getElementById('convPeriodoAnio').value === String(selectedYear);
 } else if (calendarMode === 'ppDesde') {
 const mesVal = String(i + 1).padStart(2, '0');
 isActive = document.getElementById('ppDesdeMes').value === mesVal
@@ -6012,6 +6072,13 @@ document.getElementById('consolidadaFechaAnio').value = String(selectedYear);
 const lbl = document.getElementById('consolidadaFechaLabel');
 lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#fb923c]';
+updateCalendarActionBtn();
+renderCalendar();
+return;
+} else if (calendarMode === 'convPeriodo') {
+const mesVal = String(i + 1).padStart(2, '0');
+document.getElementById('convPeriodoMes').value = mesVal;
+document.getElementById('convPeriodoAnio').value = String(selectedYear);
 updateCalendarActionBtn();
 renderCalendar();
 return;
@@ -8805,6 +8872,255 @@ function dupCalcularDeuda() {
 
 </div>
 <!-- /FULLSCREEN OVERLAY: Entre fechas -->
+
+<!-- FULLSCREEN OVERLAY: Conversor CLP ↔ UTM por período ──────────────────
+     Misma estética y mismas clases CSS que #befOverlay (bef-overlay,
+     bef-hero, bef-step, bef-radio, bef-input, etc.) — sin lógica de cálculo
+     nueva: solo hace utmData.find(y, monthIdx) igual que el resto de la
+     app y multiplica/divide. No toca ningún caso ni dispara saveSession().
+     Accesible desde el sidebar (sección "Herramientas"), no desde el dock
+     de "¿Cómo deseas calcular?" porque no liquida una deuda. ────────────── -->
+<div id="convOverlay" class="bef-overlay" aria-label="Conversor UTM y pesos" role="dialog" aria-modal="true" style="display:none;">
+
+  <!-- Header propio (espeja el header de la app) -->
+  <div class="bef-overlay__header">
+    <button class="bef-overlay__back" onclick="closeConvOverlay()" aria-label="Volver">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div style="width:34px;"></div>
+  </div>
+
+  <!-- Contenido desplazable -->
+  <div class="bef-overlay__body">
+
+    <!-- Hero card -->
+    <div class="bef-hero">
+      <div class="bef-hero__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1f5fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/>
+          <path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+        </svg>
+      </div>
+      <div class="bef-hero__text">
+        <h2 class="bef-hero__title">Conversor UTM ↔ pesos</h2>
+        <p class="bef-hero__subtitle">Indica el período en que se fijó la cuota y su monto: te mostramos el equivalente en UTM y en pesos de ese mes.</p>
+      </div>
+    </div>
+
+    <!-- Pasos -->
+    <div class="bef-form">
+
+      <!-- Paso 1: Período -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">1</span>
+          <span class="bef-step__label">Período en que se fijó la cuota</span>
+        </div>
+        <!-- Hidden: mes/año puro, mismo patrón que befStart/befEnd/consolidadaFecha -->
+        <input type="hidden" id="convPeriodoMes" value="">
+        <input type="hidden" id="convPeriodoAnio" value="">
+        <div class="bef-date-wrap" onclick="openCalendar('convPeriodo')">
+          <svg class="bef-date__icon" viewBox="0 0 24 24" fill="none" stroke="#8e97b0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span id="convPeriodoDisplay" class="bef-date__display">Seleccionar período</span>
+          <svg class="bef-date__chevron" viewBox="0 0 24 24" fill="none" stroke="#c0c8d8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Paso 2: Unidad -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">2</span>
+          <span class="bef-step__label">¿En qué unidad tienes el monto?</span>
+        </div>
+        <div class="bef-radio-group" role="radiogroup">
+          <button type="button" class="bef-radio bef-radio--active" id="convRadioLabelCLP" onclick="convSelectUnidad('clp')" aria-pressed="true">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">CLP</span>
+          </button>
+          <button type="button" class="bef-radio" id="convRadioLabelUTM" onclick="convSelectUnidad('utm')" aria-pressed="false">
+            <span class="bef-radio__indicator"></span>
+            <span class="bef-radio__text">UTM</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Paso 3: Monto -->
+      <div class="bef-step">
+        <div class="bef-step__header">
+          <span class="bef-step__badge">3</span>
+          <span class="bef-step__label">Monto de la cuota</span>
+        </div>
+        <div class="bef-input-wrap">
+          <span class="bef-input__prefix" id="convPrefixLabel">$</span>
+          <input
+            type="text"
+            id="convMontoCuota"
+            class="bef-input"
+            placeholder="0"
+            inputmode="decimal"
+            aria-label="Monto de la cuota"
+            oninput="convFormatMontoInput(this); convActualizarResultado();"
+          >
+        </div>
+      </div>
+
+      <!-- Tarjeta de resultado — oculta hasta tener período + monto válidos -->
+      <div id="convResultCard" style="display:none;margin-top:6px;background:linear-gradient(135deg,#eff6ff,#eef2ff);border:1px solid #c7d7fe;border-radius:14px;padding:16px;">
+        <p style="font-size:9px;font-weight:700;color:#5a6380;text-transform:uppercase;letter-spacing:0.06em;margin:0 0 10px;">Equivale a</p>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(31,95,255,0.12);">
+          <span style="font-size:12px;font-weight:600;color:#5a6380;">UTM</span>
+          <span id="convResultUTM" style="font-size:19px;font-weight:800;color:#1a1d2e;font-variant-numeric:tabular-nums;">—</span>
+        </div>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;padding:8px 0;">
+          <span style="font-size:12px;font-weight:600;color:#5a6380;">Pesos (CLP)</span>
+          <span id="convResultCLP" style="font-size:19px;font-weight:800;color:#1a1d2e;font-variant-numeric:tabular-nums;">—</span>
+        </div>
+        <p id="convResultPeriodo" style="font-size:10.5px;color:#8e97b0;margin:10px 0 0;text-align:center;"></p>
+      </div>
+
+      <p class="bef-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#a0aab8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Usamos el valor de la UTM del mes seleccionado. Solo de referencia — no guarda ni modifica ningún caso.
+      </p>
+
+    </div><!-- /bef-form -->
+
+    <!-- Espaciado final para que el footer no tape contenido -->
+    <div style="height: 40px;"></div>
+  </div><!-- /bef-overlay__body -->
+
+</div>
+<!-- /FULLSCREEN OVERLAY: Conversor CLP ↔ UTM por período -->
+
+<script>
+// ── Fullscreen overlay: Conversor CLP ↔ UTM por período ──────────────────
+// Sin lógica de cálculo nueva: reutiliza utmData.find(y, monthIdx) con el
+// mismo fallback "mes anterior más cercano con v>0" que ya usa el resto de
+// la app (ver befUpdateEquivChip, líneas ~8870-8900) y getUtmActualVal().
+
+function openConvOverlay(skipSlideIn) {
+  const el = document.getElementById('convOverlay');
+  el.style.display = 'flex';
+  if (skipSlideIn) {
+    el.style.transform = 'translateY(0)';
+  } else {
+    el.getBoundingClientRect();
+    el.classList.add('bef-overlay--open');
+  }
+  document.body.style.overflow = 'hidden';
+}
+
+function closeConvOverlay() {
+  const el = document.getElementById('convOverlay');
+  el.style.transform = '';
+  el.classList.remove('bef-overlay--open');
+  el.classList.add('bef-overlay--closing');
+  el.addEventListener('animationend', function handler() {
+    el.style.display = 'none';
+    el.classList.remove('bef-overlay--closing');
+    document.body.style.overflow = '';
+    el.removeEventListener('animationend', handler);
+  }, { once: true });
+}
+
+// Estado de unidad de entrada (qué está escribiendo el usuario): 'clp' o 'utm'.
+var _convUnidad = 'clp';
+
+function convSelectUnidad(val) {
+  _convUnidad = val;
+  const isCLP = val === 'clp';
+  document.getElementById('convPrefixLabel').textContent = isCLP ? '$' : 'UTM';
+  document.getElementById('convMontoCuota').placeholder = isCLP ? '0' : '0,00';
+  document.getElementById('convMontoCuota').value = '';
+  var btnCLP = document.getElementById('convRadioLabelCLP');
+  var btnUTM = document.getElementById('convRadioLabelUTM');
+  btnCLP.classList.toggle('bef-radio--active', isCLP);
+  btnUTM.classList.toggle('bef-radio--active', !isCLP);
+  btnCLP.setAttribute('aria-pressed', isCLP ? 'true' : 'false');
+  btnUTM.setAttribute('aria-pressed', isCLP ? 'false' : 'true');
+  convActualizarResultado();
+}
+
+// Mismo saneo que befFormatMontoInput(): coma decimal en UTM, separador de
+// miles en CLP vía formatPlain() (ya definida — Intl.NumberFormat es-CL).
+function convFormatMontoInput(input) {
+  if (_convUnidad === 'utm') {
+    var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+    var partes = raw.split(',');
+    if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+    var p2 = raw.split(',');
+    if (p2[1] && p2[1].length > 2) raw = p2[0] + ',' + p2[1].slice(0, 2);
+    input.value = raw;
+  } else {
+    var rawClp = input.value.replace(/\D/g, '');
+    input.value = rawClp === '' ? '' : formatPlain(rawClp);
+  }
+}
+
+function convGetMontoValue() {
+  var raw = (document.getElementById('convMontoCuota').value || '').trim();
+  if (_convUnidad === 'utm') {
+    return parseFloat(raw.replace(',', '.')) || 0;
+  }
+  return parseInt(raw.replace(/\./g, '')) || 0;
+}
+
+// Busca la UTM del mes/año pedido; si no existe (mes futuro sin proyección,
+// o hueco de datos), cae al mes anterior más cercano con valor > 0 — mismo
+// patrón usado en befUpdateEquivChip() y en el resto de la app.
+function convGetUtmDelPeriodo(anio, mes) {
+  let entry = utmData.find(d => d.y === anio && d.monthIdx === mes - 1);
+  if (entry && entry.v > 0) return entry.v;
+  const targetAbs = anio * 12 + (mes - 1);
+  const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+  if (cands.length > 0) return cands[cands.length - 1].v;
+  const fallback = utmData.find(d => d.v > 0);
+  return fallback ? fallback.v : 0;
+}
+
+function convActualizarResultado() {
+  const card = document.getElementById('convResultCard');
+  const mes  = parseInt(document.getElementById('convPeriodoMes').value || '0');
+  const anio = parseInt(document.getElementById('convPeriodoAnio').value || '0');
+  const monto = convGetMontoValue();
+
+  if (!mes || !anio || !(monto > 0)) { card.style.display = 'none'; return; }
+
+  const utmDelMes = convGetUtmDelPeriodo(anio, mes);
+  if (!(utmDelMes > 0)) { card.style.display = 'none'; return; }
+
+  let montoUTM, montoCLP;
+  if (_convUnidad === 'clp') {
+    montoCLP = monto;
+    montoUTM = monto / utmDelMes;
+  } else {
+    montoUTM = monto;
+    montoCLP = monto * utmDelMes;
+  }
+
+  document.getElementById('convResultUTM').textContent = montoUTM.toFixed(3) + ' UTM';
+  document.getElementById('convResultCLP').textContent = '$' + formatPlain(montoCLP);
+  const mNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('convResultPeriodo').textContent =
+    `Según UTM de ${mNames[mes-1]} ${anio}: $${formatPlain(utmDelMes)}`;
+  card.style.display = 'block';
+}
+</script>
+
 
 <script>
 // ── Fullscreen overlay: Entre fechas ──────────────────────────────────────

@@ -2,6 +2,90 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v254 · 2026-06-30]
+index.html, sw.js
+
+Fix — calendario no abría visualmente dentro del Conversor UTM ↔ pesos:
+
+  Causa: el calendario custom (#calendarModal) vive con z-index base 100,
+  por debajo de los overlays fullscreen tipo BEF/DUP (z-index 100000).
+  openCalendar() sube el z-index del calendario a 100001 solo para los
+  modos 'dup'/'befStart'/'befEnd' — me olvidé de agregar 'convPeriodo' a
+  esa lista en v253. Resultado: el calendario sí se abría, pero quedaba
+  oculto detrás del overlay del conversor — parecía que "no funcionaba".
+
+  Fix: agregado 'convPeriodo' a la condición de elevación de z-index en
+  openCalendar(), y también a futureBlocked (bloqueo de meses futuros en
+  la grilla) por consistencia con befStart/befEnd — el período en que se
+  fijó una cuota no puede ser una fecha futura.
+
+  sw.js: CACHE_NAME → pension-utm-v254.
+
+
+
+[v253 · 2026-06-30]
+index.html, sw.js
+
+Nueva herramienta: Conversor UTM ↔ pesos (sidebar → Herramientas):
+
+  Overlay fullscreen nuevo (#convOverlay) con la misma estética y las
+  mismas clases CSS que #befOverlay ("Entre fechas") — bef-hero, bef-step,
+  bef-radio, bef-input, bef-date-wrap, etc. — sin agregar CSS nuevo.
+
+  Flujo: 1) período (mes/año, reutiliza el calendario custom existente
+  vía openCalendar('convPeriodo') — mismo patrón mes/año puro que
+  'consolidadaFecha'/'befStart'/'befEnd'), 2) unidad de entrada CLP o
+  UTM, 3) monto. La tarjeta de resultado se actualiza en vivo mostrando
+  el equivalente en ambas monedas según la UTM del mes elegido.
+
+  Cero lógica de cálculo nueva: convGetUtmDelPeriodo() es el mismo
+  utmData.find(y, monthIdx) con el mismo fallback "mes anterior más
+  cercano con v>0" que ya usa befUpdateEquivChip() en todo el resto de
+  la app. No guarda nada, no toca ningún caso, no llama saveSession().
+
+  Se agregaron 5 branches 'convPeriodo' en las funciones compartidas del
+  calendario custom (updateCalendarActionBtn, calendarAction, openCalendar,
+  resaltado de celda activa, click de celda) — mismo patrón ya usado por
+  'consolidadaFecha', sin modificar ningún branch existente.
+
+  Acceso: sidebar → nueva sección "Herramientas" (antes de "Usuario") →
+  "Conversor UTM ↔ pesos". Deliberadamente NO se puso en el dock
+  "¿Cómo deseas calcular?" (Entre fechas / Desde el último pago / etc.)
+  porque esas tarjetas liquidan la deuda de un caso; el conversor es una
+  utilidad de un solo período, sin caso activo necesario.
+
+  sw.js: CACHE_NAME → pension-utm-v253.
+
+
+
+[v252 · 2026-06-29]
+index.html, sw.js
+
+Backfill TIC/TMC reajustable (Tipo 21) — 2010 a 2013:
+
+  Antes de este cambio, las tablas estáticas TIC_REAJ/TMC_REAJ solo tenían
+  datos desde 2014. Para 2010-2013, getTasaAnualInfo() no encontraba ningún
+  año anterior en la tabla para hacer fallback, así que caía al fallback
+  absoluto de 0.04 (4.00% marcado "~" como aproximado) en vez de la tasa
+  real de cada mes.
+
+  Se agregaron los 4 años (48 meses TIC + 48 meses TMC) con datos reales
+  obtenidos directo de la API CMF (recursos_api/tip|tmc/<año>, tipo 21),
+  vía herramienta standalone (backfill-tic-tmc.html) que corre en el
+  navegador y no depende de mi acceso de red. Verificados antes de
+  integrar: cada valor de TMC = TIC × 1.5 (Art. 14 Ley 14.908), igual que
+  la relación ya presente en los años 2014-2026 — los 96 valores nuevos
+  cuadran con ese patrón.
+
+  Impacto: cálculos que abarquen 2010-2013 ahora usan la tasa real de
+  cada mes en vez del fallback de 4.00%. Esto puede cambiar montos de
+  liquidaciones que incluyan ese rango de fechas — revisar casos
+  guardados que toquen 2010-2013 si ya se habían exportado a PDF.
+
+  sw.js: CACHE_NAME → pension-utm-v252.
+
+
+
 [v251 · 2026-06-28]
 index.html, sw.js
 
