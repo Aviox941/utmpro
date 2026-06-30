@@ -2,6 +2,27 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v254 · 2026-06-30]
+index.html, sw.js
+
+Fix — calendario no abría visualmente dentro del Conversor UTM ↔ pesos:
+
+  Causa: el calendario custom (#calendarModal) vive con z-index base 100,
+  por debajo de los overlays fullscreen tipo BEF/DUP (z-index 100000).
+  openCalendar() sube el z-index del calendario a 100001 solo para los
+  modos 'dup'/'befStart'/'befEnd' — me olvidé de agregar 'convPeriodo' a
+  esa lista en v253. Resultado: el calendario sí se abría, pero quedaba
+  oculto detrás del overlay del conversor — parecía que "no funcionaba".
+
+  Fix: agregado 'convPeriodo' a la condición de elevación de z-index en
+  openCalendar(), y también a futureBlocked (bloqueo de meses futuros en
+  la grilla) por consistencia con befStart/befEnd — el período en que se
+  fijó una cuota no puede ser una fecha futura.
+
+  sw.js: CACHE_NAME → pension-utm-v254.
+
+
+
 [v253 · 2026-06-30]
 index.html, sw.js
 

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0630.0333">
+ <meta name="app-version" content="v2.0630.0346">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5634,13 +5634,13 @@ function openCalendar(m) {
 calendarMode = m;
 // El calendario custom vive con z-index 100 (por debajo de los overlays
 // DUP y BEF, que son z-index 100000). Cuando se abre en modo 'dup',
-// 'befStart' o 'befEnd' (desde dentro de los overlays "Desde el último
-// pago" / "Entre fechas"), se sube su z-index por encima del overlay para
-// que no quede tapado; en cualquier otro modo se restaura el z-index
-// original (no se modifica la clase Tailwind base, solo este inline
-// override aislado).
+// 'befStart', 'befEnd' o 'convPeriodo' (desde dentro de los overlays
+// "Desde el último pago" / "Entre fechas" / "Conversor UTM ↔ pesos"), se
+// sube su z-index por encima del overlay para que no quede tapado; en
+// cualquier otro modo se restaura el z-index original (no se modifica la
+// clase Tailwind base, solo este inline override aislado).
 const calModalEl = document.getElementById('calendarModal');
-if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd') ? '100001' : '';
+if (calModalEl) calModalEl.style.zIndex = (m === 'dup' || m === 'befStart' || m === 'befEnd' || m === 'convPeriodo') ? '100001' : '';
 // Resetear botón al abrir
 const btn = document.getElementById('calendarActionBtn');
 btn.textContent = 'Cerrar';
@@ -5752,7 +5752,7 @@ document.getElementById('calendarYearNav').classList.remove('hidden');
 function closeCalendar() {
   const calModalEl = document.getElementById('calendarModal');
   calModalEl.classList.replace('flex', 'hidden');
-  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd')
+  calModalEl.style.zIndex = ''; // restaura el z-index base (se eleva solo mientras calendarMode === 'dup'/'befStart'/'befEnd'/'convPeriodo')
   unlockBody();
 }
 function changeYear(v) {
@@ -5889,7 +5889,7 @@ const outOfRange = calendarMode === 'lav'
 const nowMain = new Date();
 const currentAbsMain = nowMain.getFullYear() * 12 + nowMain.getMonth();
 const cellAbsMain = selectedYear * 12 + i;
-const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd')
+const futureBlocked = (calendarMode === 'start' || calendarMode === 'end' || calendarMode === 'dup' || calendarMode === 'befStart' || calendarMode === 'befEnd' || calendarMode === 'convPeriodo')
 && (idx === -1 || cellAbsMain > currentAbsMain);
 // Para histStart/histEnd: bloquear meses futuros y logica de rango
 const nowH = new Date();
