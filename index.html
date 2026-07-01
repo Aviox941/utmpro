@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0630.0346">
+ <meta name="app-version" content="v2.0701.0130">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2432,8 +2432,12 @@ function cargarUTMLocal() {
 // Los ceros son omitidos por cargarUTMLocal y sobreescritos por fetchUTM.
 // NO reemplazar un 0 por un valor estimado: fetchUTM solo puede actualizar
 // entradas con v===0 o ausentes. Un valor positivo hardcodeado bloquea la API.
-const UTM_2026 = [69751, 69611, 69889, 69889, 70588, 71506, 0, 0, 0, 0, 0, 0];
-todosLosAnios = Object.assign({}, UTM_HISTORICO, { 2026: UTM_2026 }); // FIX Bug A: asigna variable de módulo
+const UTM_2026 = [69751, 69611, 69889, 69889, 70588, 71506, 71649, 0, 0, 0, 0, 0];
+const UTM_2027 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const UTM_2028 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const UTM_2029 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const UTM_2030 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+todosLosAnios = Object.assign({}, UTM_HISTORICO, { 2026: UTM_2026, 2027: UTM_2027, 2028: UTM_2028, 2029: UTM_2029, 2030: UTM_2030 }); // FIX Bug A: asigna variable de módulo
 let fetched = [];
 Object.entries(todosLosAnios).forEach(([anio, valores]) => {
 valores.forEach((valor, mes) => {
@@ -2459,6 +2463,23 @@ setLoadingProgress(90, 'Listo');
 // ── CACHÉ: localStorage primero (instantáneo), luego Supabase, luego API CMF ──
 const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
 
+// ── Invalidación anticipada de caché por publicación UTM mes siguiente ──
+// La CMF publica la UTM del mes siguiente ~día 10. Si el caché local tiene
+// datos pero el mes siguiente aún no está en utmData, lo invalidamos para
+// forzar un re-fetch a CMF — aunque el caché no haya vencido aún.
+// Así, el día que la CMF publica, la próxima apertura de la app lo captura.
+try {
+  if (_diaActual >= 10) {
+    const _proxMesAbs = _anioActual * 12 + _hoyParaFetch.getMonth() + 1; // mes sig (0-based total)
+    const _proxY = Math.floor(_proxMesAbs / 12);
+    const _proxM = _proxMesAbs % 12;
+    const _tieneProxMes = utmData.some(d => d.y === _proxY && d.monthIdx === _proxM && d.v > 0);
+    if (!_tieneProxMes) {
+      localStorage.removeItem(UTM_CACHE_KEY);
+      dbg('UTM[3d] caché invalidado — día ' + _diaActual + ', mes siguiente (' + monthsNames[_proxM] + ' ' + _proxY + ') aún sin dato → forzando CMF');
+    }
+  }
+} catch(e) {}
 // 1. Intentar localStorage (sin latencia de red)
 try {
   const raw = localStorage.getItem(UTM_CACHE_KEY);
@@ -2522,11 +2543,32 @@ if (typeof sbGetUtmCache === 'function') {
 // 3. Sin caché válido → llamar a la API CMF y actualizar Supabase para todos
 const CMF_KEY = 'ab35052100de900ef5d4ee73030e1a56f3a27f13';
 dbg('UTM[8] bloque CMF — todosLosAnios keys=' + Object.keys(todosLosAnios).join(','));
-const aniosAConsultar = [...new Set(
-Object.entries(todosLosAnios)
-.filter(([,vals]) => vals.some(v => v === 0))
-.map(([y]) => parseInt(y))
-)];
+// ── Auto-fetch mes siguiente ─────────────────────────────────────────────
+// La CMF publica la UTM del mes siguiente alrededor del día 10 del mes actual
+// (o el primer día hábil posterior si cae en fin de semana). A partir del
+// día 10, intentamos siempre buscar el año en curso y el siguiente,
+// aunque el hardcode los tenga "completos" — así capturamos el nuevo valor
+// en cuanto la CMF lo publique sin tener que actualizar el hardcode a mano.
+// Si el caché localStorage/Supabase ya tiene el mes siguiente con v>0,
+// el paso 1/2 lo habrá resuelto antes de llegar acá; este código solo corre
+// cuando el caché está vacío o vencido, que es exactamente cuando queremos refrescar.
+const _hoyParaFetch = new Date();
+const _anioActual = _hoyParaFetch.getFullYear();
+const _diaActual = _hoyParaFetch.getDate();
+const _aniosExtra = new Set();
+// Siempre incluir el año actual para capturar meses recién publicados
+_aniosExtra.add(_anioActual);
+// A partir del día 10: incluir el año siguiente por si acaso la UTM de
+// enero del año próximo ya fue publicada (raro, pero gratis pedirlo)
+if (_diaActual >= 10) _aniosExtra.add(_anioActual + 1);
+dbg('UTM[8b] aniosExtra para auto-fetch: ' + [..._aniosExtra].join(','));
+const aniosAConsultar = [...new Set([
+  ...Object.entries(todosLosAnios)
+    .filter(([,vals]) => vals.some(v => v === 0))
+    .map(([y]) => parseInt(y)),
+  ..._aniosExtra
+])];
+
 dbg('UTM[9] aniosAConsultar=' + JSON.stringify(aniosAConsultar));
 if (aniosAConsultar.length === 0) { renderUtmTicker(); dbg('UTM[10] early return sin CMF — _utmReady resuelto'); _utmReadyResolve(); return; }
 dbg('UTM[11] llamando CMF API para ' + aniosAConsultar.length + ' años...');
@@ -4462,7 +4504,32 @@ const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !==
 if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
 const start = Math.min(efectivoStart, efectivoEnd);
 const end = Math.max(efectivoStart, efectivoEnd);
-const slice = utmData.slice(start, end + 1);
+// FIX v255+: NO usar utmData.slice(start, end+1) con índices posicionales.
+// start/endIndex son índices en utmData, pero utmData omite meses con v=0
+// (futuros sin dato oficial). Si el rango incluye esos meses, slice devuelve
+// entradas desplazadas o de meses incorrectos → columna UTM errónea, cálculo
+// de intereses incorrecto. Se itera por mes/año real del rango y se busca la
+// entrada correspondiente; si no existe (mes futuro), se usa la última UTM
+// conocida como proxy (misma lógica de getUtmActualVal).
+const startItem = utmData[start];
+const endItem   = utmData[end];
+if (!startItem || !endItem) return; // datos insuficientes
+const startAbsMonth = startItem.y * 12 + startItem.monthIdx;
+const endAbsMonth   = endItem.y   * 12 + endItem.monthIdx;
+const utmDataByKey = {};
+utmData.forEach(d => { utmDataByKey[d.y * 12 + d.monthIdx] = d; });
+const lastKnownUtm = utmData[utmData.length - 1]; // fallback para meses futuros sin dato
+const slice = [];
+for (let absM = startAbsMonth; absM <= endAbsMonth; absM++) {
+  const y = Math.floor(absM / 12);
+  const monthIdx = absM % 12;
+  if (utmDataByKey[absM]) {
+    slice.push(utmDataByKey[absM]);
+  } else {
+    // Mes sin dato UTM (futuro): usar última UTM conocida como proxy
+    slice.push({ m: monthsNames[monthIdx], y, monthIdx, v: lastKnownUtm?.v || 0, sortKey: new Date(y, monthIdx, 1).getTime(), _proxyUtm: true });
+  }
+}
 slice.forEach((item, idx) => {
 // Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
 const utmMesHistorico = item.v; // UTM del mes de la cuota
