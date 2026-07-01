@@ -411,12 +411,18 @@ doc.setFontSize(9); doc.setFont('helvetica', 'bold');
 doc.text('RESUMEN FINAL DE LIQUIDACION', MARGIN + 3, y + 5.5);
 y += 11;
 const filasDesglose = [];
+// Acumulador en CLP "crudo" (sin formatear) de cada línea ya empujada, con su signo
+// correcto, para poder calcular el reajuste como remanente exacto más abajo —
+// así el desglose siempre cuadra con totalFinalReal sin importar la combinación
+// de LAV/parciales/etc. presente en el caso.
+let _runningCLP = 0;
 // 1 · Total cuotas impagas
 filasDesglose.push([
   'Total cuotas impagas',
   fmt(totalCapPesos),
   totalCapUTM.toFixed(5) + ' UTM'
 ]);
+_runningCLP += totalCapPesos;
 // 2 · Intereses totales
 const totalIntUTMpdf = lastCalculationData.reduce((s,d) => {
   const utm = d.utmVal && d.utmVal > 0 ? d.utmVal : utmHoy;
@@ -427,6 +433,7 @@ filasDesglose.push([
   fmt(totalIntPesos),
   totalIntUTMpdf.toFixed(5) + ' UTM'
 ]);
+_runningCLP += totalIntPesos;
 // 3 · Abono LAV (una sola línea, monto original depositado)
 const lavTotalCLPpdf = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
 const lavIntCubiertoUTMpdf = lastCalculationData.reduce((s,d) => s + (d.lavIntAplicadoUTM || 0), 0);
@@ -441,14 +448,32 @@ if (lavTotalCLPpdf > 0) {
     '-' + fmt(lavTotalCLPpdf),
     '-' + lavTotalUTMpdf.toFixed(5) + ' UTM'
   ]);
+  _runningCLP -= lavTotalCLPpdf;
   if (lavRemanentePDF > 50) {
     filasDesglose.push([
       'LAV remanente sin imputar (saldo a favor)',
       '+' + fmt(Math.round(lavRemanentePDF)),
       ''
     ]);
+    _runningCLP += lavRemanentePDF;
   }
 }
+// 3.5 · Reajuste UTM acumulado — la deuda se mantiene reajustable en UTM (Art. 19
+// Ley 14.908): cada cuota/interés del detalle mensual se mostró al valor histórico
+// de SU mes, pero el monto realmente adeudado se actualiza a la UTM de la fecha de
+// liquidación (utmLiq). Esta línea hace explícita esa diferencia — antes quedaba
+// "escondida" entre la tabla mensual y el total final, generando la apariencia de
+// una inconsistencia. Calculada como remanente exacto (no replica la fórmula a
+// mano) para que el desglose cuadre siempre, con o sin LAV/parciales.
+const reajusteUTMPDF = totalFinalReal - _runningCLP;
+if (Math.abs(reajusteUTMPDF) > 1) {
+  filasDesglose.push([
+    'Reajuste UTM acumulado (a valor UTM del ' + (utmLiqMes?.m || '') + ' ' + (utmLiqMes?.y || '') + ')',
+    (reajusteUTMPDF >= 0 ? '+' : '') + fmt(Math.round(reajusteUTMPDF)),
+    ''
+  ]);
+}
+_runningCLP += reajusteUTMPDF;
 // 4 · Total adeudado
 filasDesglose.push([
   'TOTAL ADEUDADO (saldo neto a la fecha)',

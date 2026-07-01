@@ -2,6 +2,158 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v259 · 2026-07-01]
+index.html, sw.js
+
+Hardcode UTM_2027 a UTM_2030 con ceros (auto-fetch hasta 2030):
+
+  Se agregan UTM_2027, UTM_2028, UTM_2029, UTM_2030 como arrays de 12
+  ceros y se registran en todosLosAnios. Con esto fetchUTM() detecta los
+  ceros y los pide automáticamente a la CMF (mecanismo introducido en
+  v258) — sin necesidad de tocar el código al inicio de cada año nuevo
+  hasta 2030 inclusive.
+
+  sw.js: CACHE_NAME → pension-utm-v259.
+
+
+
+[v258 · 2026-07-01]
+index.html, sw.js
+
+Auto-fetch UTM mes siguiente desde CMF (sin hardcodeo manual):
+
+  Antes: el hardcode UTM_2026 tenía que actualizarse a mano cada mes
+  (lo que no se hizo para julio 2026 → bug v256/v257). A partir de ahora
+  fetchUTM() detecta automáticamente si el mes siguiente ya fue publicado
+  por la CMF y lo incorpora a utmData sin intervención manual.
+
+  Mecanismo (2 piezas):
+
+  1. Invalidación anticipada de caché (antes del paso 1 localStorage):
+     Si hoy >= día 10 y el mes siguiente aún no está en utmData con v>0,
+     se borra el caché de localStorage para forzar que fetchUTM() llegue
+     al paso 3 (CMF API) — aunque el caché de 28 días no haya vencido.
+     Sin esto, el caché bloqueaba el re-fetch aunque la CMF ya tuviera
+     el dato nuevo.
+
+  2. aniosAConsultar ampliado (paso 3 CMF):
+     Además de los años con v=0 en el hardcode, se agregan siempre el año
+     actual y (a partir del día 10) el año siguiente. Así el año en curso
+     se consulta aunque todos sus meses hardcodeados tengan v>0, capturando
+     los meses recién publicados por la CMF.
+
+  Resultado esperado: el día que la CMF publique la UTM de agosto 2026
+  (aprox. 10 de julio o primer día hábil siguiente), la próxima apertura
+  de la app desde el día 10 en adelante la trae automáticamente, la
+  guarda en localStorage+Supabase, y queda disponible para cálculos sin
+  que haya que tocar el código. El log de debug mostrará:
+    "UTM[3d] caché invalidado — día 10, mes siguiente (Ago 2026) aún sin
+     dato → forzando CMF"
+  y luego "UTM[12] _utmReady resuelto via CMF — utmData.length=NNN"
+  con el nuevo mes incluido.
+
+  sw.js: CACHE_NAME → pension-utm-v258.
+
+
+
+[v257 · 2026-07-01]
+index.html, sw.js
+
+Fix — UTM julio 2026 faltante en UTM_2026 hardcode (causa real del bug):
+
+  La causa raíz del bug reportado (416.67 UTM en julio 2026) no era el
+  slice posicional (eso fue v256, que es una mejora defensiva válida pero
+  no atacaba la causa). La causa real: UTM_2026[6] = 0 → cargarUTMLocal()
+  filtra los ceros → julio 2026 no existe en utmData → idx=-1 en el
+  calendario → endIndex no se setea correctamente → el slice o la
+  iteración devuelven datos de otro mes con v incorrecto.
+
+  Fix: UTM_2026[6] actualizado a 71649 (valor oficial SII, julio 2026).
+  Fuente: unidadcreditos.cl / verificado en múltiples fuentes.
+
+  Con esto julio 2026 queda en utmData, el calendario lo muestra
+  seleccionable (botón con onclick), el índice no se desplaza, y el
+  cálculo usa $71.649 como UTM real del mes — cuota de $30.000 da
+  0.419 UTM, consistente con los meses anteriores.
+
+  Nota: el fix de v256 (iteración por mes/año real en lugar de slice
+  posicional) se mantiene como capa defensiva para meses futuros aún
+  sin dato (ago-dic 2026), evitando que el mismo bug se repita el
+  próximo mes si el hardcode no se actualiza a tiempo.
+
+  sw.js: CACHE_NAME → pension-utm-v257.
+
+
+
+[v256 · 2026-07-01]
+index.html, sw.js
+
+Fix CRÍTICO — columna UTM errónea y cálculo de intereses incorrecto cuando
+el rango incluye meses futuros sin dato UTM oficial (ej. Jul 2026 en adelante):
+
+  Síntoma (captura): tabla mostraba Jul 2026 con 416.67 UTM (en vez de ~0.42)
+  y total de intereses de solo $2 para un caso con $30.000/mes durante 7 meses.
+
+  Causa raíz: cargarUTMLocal() omite los meses con v=0 del array utmData
+  (meses futuros sin dato oficial, ej. UTM_2026 = [..., 71506, 0, 0, 0, 0, 0]).
+  calculatePensiones() usaba utmData.slice(start, end+1) con índices posicionales
+  (startIndex/endIndex = posiciones en utmData). Si el rango termina en un mes
+  futuro ausente, el índice correcto no existe en utmData → slice devuelve
+  entradas desplazadas o de meses incorrectos → item.v incorrecto → cuotaUTM
+  = cuotaCLP / item.v da valores absurdos (ej. 30000 / 72 = 416.67) → el
+  cálculo de intereses y la columna UTM de la tabla quedan completamente mal.
+
+  Fix: se reemplaza utmData.slice(start, end+1) por iteración por mes/año real
+  del rango (misma estrategia que ya usa calculateHistoricalDebt). Para cada
+  mes del rango se hace utmDataByKey[absMonth] lookup; si no existe (mes futuro
+  sin dato), se usa la última UTM conocida como proxy (misma lógica de
+  getUtmActualVal). Se agrega guard: si startItem o endItem son undefined, se
+  aborta sin crash. La variable _proxyUtm=true queda en el item para debug.
+
+  Simulación con datos de la captura ($30.000/mes, Abr-Jul 2026):
+    Antes: Jul 2026 → v=72 cuotaUTM=416.67  ← incorrecto
+    Después: Jul 2026 → v=71506 (proxy Jun-26) cuotaUTM=0.420  ← correcto
+
+  sw.js: CACHE_NAME → pension-utm-v256.
+
+
+
+[v255 · 2026-07-01]
+export.js, sw.js
+
+Fix PDF — línea "Reajuste UTM acumulado" faltante en el Resumen Final:
+
+  Síntoma: el PDF mostraba dos cifras de "TOTAL" que no cuadraban en
+  pesos — la tabla mensual sumaba ~$29M y el resumen final mostraba ~$43M
+  — generando la apariencia de un error de cálculo. Los números en UTM
+  sí eran consistentes en todo el documento.
+
+  Causa: la tabla mensual muestra el valor histórico de cada cuota
+  (convertida a pesos con la UTM de su propio mes). El resumen final
+  convierte el total en UTM a la UTM de la fecha de liquidación (Art. 19
+  Ley 14.908 — metodología correcta). La diferencia es el "Reajuste UTM
+  acumulado" — existía como línea en el panel "Detalle de deuda" de la
+  app, pero nunca se había trasladado al PDF.
+
+  Fix: se agrega la línea "Reajuste UTM acumulado (a valor UTM de <mes
+  liquidación>)" al bloque RESUMEN FINAL del PDF, entre "Intereses
+  generados" y "TOTAL ADEUDADO". Se calcula como remanente exacto
+  (totalFinalReal - running acumulado de las filas anteriores) en vez de
+  replicar la fórmula UTM × utmLiq a mano, para que el desglose cuadre
+  en todos los escenarios: con/sin abonos LAV, con/sin remanente LAV.
+  La línea se omite automáticamente si el reajuste es < $1 (caso borde
+  en el que capitalHistórico ≈ capitalActualizado, no genera ruido).
+
+  Simulación con datos del PDF de prueba (29-06-2026):
+    Capital base:          $23.001.445
+    Intereses:              $6.047.571
+    Reajuste UTM acum.:   +$13.808.945   ← nuevo
+    TOTAL ADEUDADO:        $42.857.961 ✓ (cuadra exacto)
+
+  sw.js: CACHE_NAME → pension-utm-v255.
+
+
+
 [v254 · 2026-06-30]
 index.html, sw.js
 
