@@ -2470,8 +2470,8 @@
     padding: 11px 14px 10px !important;
   }
   .dh-card__title {
-    font-size: 9.5px !important;
-    letter-spacing: 0.06em !important;
+    font-size: 10.5px !important;
+    letter-spacing: -0.01em !important;
   }
   .dh-card__subtitle {
     font-size: 8px !important;
@@ -2808,7 +2808,7 @@
   .dh-card__header{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 8px;border-bottom:1px solid var(--dh-border);background:var(--dh-bg);}
   .dh-card__header-left{display:flex;align-items:center;gap:9px;}
   .dh-card__icon{width:30px;height:30px;border-radius:10px;background:rgba(234,88,12,0.10);border:1px solid rgba(234,88,12,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .dh-card__title{font-size:10px;font-weight:700;color:var(--dh-text);text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;}
+  .dh-card__title{font-family:'Geist','DM Sans',sans-serif;font-size:11.5px;font-weight:800;color:var(--dh-text);text-transform:none;letter-spacing:-0.01em;line-height:1.2;}
   .dh-card__subtitle{font-size:8.5px;color:var(--color-text-muted);font-weight:500;margin-top:1px;}
   .dh-card__header-right{display:flex;align-items:center;gap:7px;}
   .dh-mode-toggle{display:flex;align-items:center;background:var(--color-bg-elevated);border:1px solid rgba(0,0,0,0.08);border-radius:var(--radius-full);padding:2px;gap:0;}
@@ -6010,18 +6010,17 @@
   color: #94a3b8 !important;
 }
 
-/* ── Header: título y subtítulo — alineado al mismo patrón visual
-   que .dh-card__header (Deuda Histórica, Abonos, etc.) para que
-   todas las tarjetas plegables se vean iguales: mismo tamaño,
-   misma tipografía uppercase. ─────────────────────────────────── */
+/* ── Header: título y subtítulo — mismo patrón tipográfico que
+   .calc-mode-card__title (dock "¿Cómo deseas calcular?") y el
+   resto de tarjetas plegables: sin mayúsculas, mismo tamaño/peso. ── */
 .dp-header__title {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
   color: #1e293b !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  line-height: 1.1 !important;
+  text-transform: none !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
 }
 .dp-header__sub {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
@@ -6108,8 +6107,9 @@
 /* ── Header: título y subtítulo ─────────────────────────────────────── */
 .lavx-card .lavx-title {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
 }
 .lavx-card .lavx-subtitle {
   font-family: 'Geist', 'DM Sans', sans-serif !important;

@@ -2,6 +2,57 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v266 · 2026-07-07]
+modals.html, sw.js
+
+Fix (round 2): el modal fullscreen "Resumen de Liquidación" seguía
+dejando un espacio en blanco al final, incluso tras quitar el footer
+en v263. Causa real: el overlay #resumenModal conservaba las clases
+Tailwind items-center justify-center; con eso, el panel hijo (aunque
+tenía h-full) podía terminar encogido a la altura de su contenido en
+vez de estirarse a ocupar el 100% del overlay, dejando el hueco
+visible debajo.
+
+  - Se quitaron items-center y justify-center de #resumenModal (ya
+    no tienen sentido en un layout fullscreen de un solo hijo).
+  - El panel pasa de h-full (clase Tailwind) a height:100% inline,
+    dentro de un padre que ahora es un simple flex-column sin
+    centrado, garantizando que ocupe el 100% real del overlay.
+  - Sin cambios de lógica: showResumenModal()/hideResumenModal()
+    en export.js (que hacen classList.replace('hidden','flex'))
+    siguen funcionando igual.
+
+  sw.js: CACHE_NAME → pension-utm-v266.
+
+
+[v265 · 2026-07-07]
+styles.css, sw.js
+
+Unificación tipográfica de los títulos de las 5 tarjetas plegables
+(Datos de la Pensión, Depósitos LAV, Deuda Histórica, Abonos
+Realizados, Pagos Parciales por Mes) para que coincidan con el
+estilo del dock "¿Cómo deseas calcular?" (.calc-mode-card__title):
+misma fuente, mismo tamaño, mismo peso, sin mayúsculas.
+
+  - .dh-card__title (Deuda Histórica / Abonos / Pagos Parciales):
+    text-transform pasa de uppercase a none; font-size 10px→11.5px;
+    letter-spacing 0.08em→-0.01em; font-weight 700→800; se agrega
+    font-family Geist explícito. Mismo ajuste en el override
+    responsive de desktop (min-width:1024px).
+  - .dp-header__title (Datos de la Pensión): mismo tratamiento
+    (ya no queda ni en uppercase de 10px ni en el 15px anterior de
+    v264; ahora 11.5px/800, igual a las demás).
+  - .lavx-title (Depósitos LAV): ajustado a 11.5px/800/-0.01em
+    (antes no tenía font-size ni font-weight explícitos en el
+    override Geist, heredaba 12px/700 del CSS base).
+
+  Sin cambios de texto en el HTML (los títulos ya estaban escritos
+  en formato normal, ej. "Deuda Histórica"; el uppercase venía solo
+  de CSS) ni de estructura/lógica.
+
+  sw.js: CACHE_NAME → pension-utm-v265.
+
+
 [v264 · 2026-07-07]
 index.html, styles.css, sw.js
 
