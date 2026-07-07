@@ -5617,19 +5617,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 9px 14px 8px;
-  border-bottom: 1px solid rgba(59,130,246,0.12);
-  background: rgba(59,130,246,0.04);
+  border-bottom: 1px solid rgba(59,130,246,0.14);
+  background: rgba(59,130,246,0.05);
 }
 .dp-header__left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 .dp-header__icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: rgba(59,130,246,0.11);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(59,130,246,0.10);
   border: 1px solid rgba(59,130,246,0.20);
   display: flex;
   align-items: center;
@@ -6010,20 +6010,26 @@
   color: #94a3b8 !important;
 }
 
-/* ── Header: título y subtítulo ─────────────────────────────────────── */
+/* ── Header: título y subtítulo — alineado al mismo patrón visual
+   que .dh-card__header (Deuda Histórica, Abonos, etc.) para que
+   todas las tarjetas plegables se vean iguales: mismo tamaño,
+   misma tipografía uppercase. ─────────────────────────────────── */
 .dp-header__title {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-size: 15px !important;
+  font-size: 10px !important;
   font-weight: 700 !important;
   color: #1e293b !important;
-  letter-spacing: -0.02em !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  line-height: 1.1 !important;
 }
 .dp-header__sub {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-size: 11px !important;
-  font-weight: 400 !important;
+  font-size: 8.5px !important;
+  font-weight: 500 !important;
   color: #94a3b8 !important;
   letter-spacing: 0 !important;
+  text-transform: none !important;
 }
 
 /* ── Toggle UTM / % Sueldo ──────────────────────────────────────────── */

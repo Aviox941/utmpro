@@ -2,6 +2,60 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v264 · 2026-07-07]
+index.html, styles.css, sw.js
+
+Tarjeta "Datos de la pensión" (dp-card, Paso 1 del onboarding) ahora
+es plegable, con el mismo aspecto visual que el resto de tarjetas
+plegables (Deuda Histórica, Abonos Realizados, Pagos Parciales,
+Depósitos LAV): mismo tamaño de header, misma tipografía, mismo
+chevron.
+
+  - Header: se agregó onclick="toggleSection('dpCardBody',
+    'dpCardChevron')" y un chevron (mismo SVG/comportamiento que
+    dh-card__header). El body se envolvió en
+    <div id="dpCardBody" class="collapsible-body">
+    <div class="collapsible-inner">...</div></div>, igual que el
+    resto de tarjetas dh-card.
+  - Tipografía del header: .dp-header__title y .dp-header__sub
+    dejaron su estilo custom (15px, sin mayúsculas) y ahora replican
+    exactamente el patrón de .dh-card__title (10px, uppercase,
+    bold, letter-spacing 0.08em) y .dh-card__icon (30px, mismo
+    padding), para que todas las tarjetas plegadas se vean idénticas
+    en tamaño y tipografía.
+  - initCollapsibles() ahora incluye 'dpCardBody' en la lista de
+    IDs, por lo que inicia plegada al cargar la app, igual que las
+    demás tarjetas.
+  - Sin cambios de lógica de negocio: todos los inputs y IDs
+    (utmAmount, clpAmount, fechaLiquidacion, etc.) se preservaron
+    intactos; el colapso es puramente visual (grid-template-rows),
+    no oculta el DOM ni afecta getElementById().
+
+  sw.js: CACHE_NAME → pension-utm-v264.
+
+
+[v263 · 2026-07-07]
+modals.html, sw.js
+
+Fix: el modal fullscreen "Resumen de Liquidación" (v261) dejaba un
+espacio en blanco debajo del botón "Cerrar" del footer, cortando la
+pantalla. Causa: el panel usaba height:100dvh dentro de un overlay
+centrado por flex (items-center), y al recalcular el navegador su UI
+(barra de direcciones/gestos), 100dvh podía quedar más chico que el
+overlay fixed inset-0, dejando hueco visible.
+
+  - Se eliminó el footer con el botón "Cerrar" duplicado (ya existe
+    la X en el header para cerrar el modal).
+  - El panel pasa de height:100dvh a h-full (100% del overlay
+    fixed inset-0), evitando el desajuste de altura.
+  - El padding-bottom para el área segura (gesture bar) se movió al
+    contenedor de contenido scrolleable (#resumenContent).
+  - Sin cambios de lógica: hideResumenModal()/showResumenModal() en
+    export.js quedan intactos.
+
+  sw.js: CACHE_NAME → pension-utm-v263.
+
+
 [v262 · 2026-07-07]
 index.html, modals.html, sw.js
 

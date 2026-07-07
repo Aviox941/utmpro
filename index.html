@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v262">
+ <meta name="app-version" content="v264">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1347,8 +1347,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     <option value="salary_percent">% de Sueldo</option>
   </select>
 
-  <!-- Header compacto con ícono + título + badge Paso 1 de 5 -->
-  <div class="dp-header">
+  <!-- Header compacto con ícono + título — plegable, mismo patrón que dh-card__header -->
+  <div class="dp-header" onclick="toggleSection('dpCardBody','dpCardChevron')" style="cursor:pointer">
     <div class="dp-header__left">
       <div class="dp-header__icon">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1360,10 +1360,13 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
         <p class="dp-header__sub">Configura la obligación alimenticia</p>
       </div>
     </div>
-
+    <div class="dh-card__header-right">
+      <svg id="dpCardChevron" class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
   </div>
 
   <!-- Body compacto -->
+  <div id="dpCardBody" class="collapsible-body"><div class="collapsible-inner">
   <div class="dp-body">
 
     <!-- ── SECCIÓN: Monto de la cuota ── -->
@@ -1537,6 +1540,7 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
     </div>
 
   </div><!-- /dp-body -->
+  </div></div><!-- /collapsible-inner --><!-- /dpCardBody collapsible -->
 
  </div><!-- /dh-card pensiones -->
 
@@ -6396,9 +6400,9 @@ function toggleSection(bodyId, chevronId) {
   if (chevron) chevron.classList.toggle('is-collapsed', collapsed);
 }
 function initCollapsibles() {
-  ['dhCardBody','abonosBody','parcialesBody','lavBody'].forEach(id => {
+  ['dpCardBody','dhCardBody','abonosBody','parcialesBody','lavBody'].forEach(id => {
     const body = document.getElementById(id);
-    const chevronId = {dhCardBody:'dhCardChevron', abonosBody:'abonosChevron', parcialesBody:'parcialesChevron', lavBody:'lavChevron'}[id];
+    const chevronId = {dpCardBody:'dpCardChevron', dhCardBody:'dhCardChevron', abonosBody:'abonosChevron', parcialesBody:'parcialesChevron', lavBody:'lavChevron'}[id];
     if (body) body.classList.add('is-collapsed');
     const chevron = document.getElementById(chevronId);
     if (chevron) chevron.classList.add('is-collapsed');
