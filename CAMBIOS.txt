@@ -2,6 +2,50 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v262 · 2026-07-07]
+index.html, modals.html, sw.js
+
+Modal "Detalle de Mora" (detailModal): reordenamiento de jerarquía
+visual y simplificación de la fila de tasa.
+
+  - Header: el mes/año (ej. "Feb 2026") pasa a texto grande (antes
+    era el label pequeño arriba); "Detalle de Mora" pasa a subtítulo
+    pequeño en mayúsculas debajo (antes era el <h3> grande).
+  - Filas de tasa: se eliminó la duplicación "TIC del período" +
+    "Tasa aplicada" (ambas mostraban el mismo % anual cuando no
+    había recargo). Ahora hay una sola fila "Tasa aplicada" con
+    % anual y % diaria (anual / 365).
+  - Cuando aplica el recargo del 50% (Ley 14.908), se agrega una
+    nota aparte debajo de la fila indicando el recargo y la TIC
+    base sin recargo, en vez de mostrar dos tasas anuales lado a
+    lado.
+  - Caso "isConsolidada" (Período Actual): mismo tratamiento,
+    unifica en una fila con anual + diaria.
+  - Sin cambios en el cálculo de intereses ni en los campos que
+    genera calculate() (tasa, tasaBase, tasaHist, etc.); solo se
+    modificó cómo se muestran en el modal.
+
+  sw.js: CACHE_NAME → pension-utm-v262.
+
+
+[v261 · 2026-07-07]
+modals.html, sw.js
+
+Modal "Resumen de Liquidación" (#resumenModal): pasa de tarjeta
+centrada (max-w-lg, rounded-[2rem], con backdrop semitransparente
+detrás) a overlay fullscreen.
+
+  - Overlay: fondo blanco sólido, sin blur ni padding alrededor.
+  - Panel interno: height:100vh/100dvh, ocupa todo el ancho y alto
+    de la pantalla; se quitaron max-width, border-radius y box-shadow.
+  - Header respeta env(safe-area-inset-top) y footer respeta
+    env(safe-area-inset-bottom) para notch / gesture bar.
+  - Sin cambios de lógica: showResumenModal()/hideResumenModal()/
+    buildResumenContent() en export.js quedan intactos.
+
+  sw.js: CACHE_NAME → pension-utm-v261.
+
+
 [v260 · 2026-07-07]
 index.html, styles.css
 
