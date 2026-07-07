@@ -1690,10 +1690,10 @@
     #helpModal > div     { max-width: 34rem !important; }
   }
 
-  /* ── 12. resumenModal max-height responsive ─────────────────── */
-  #resumenContent { max-height: 60vh; }
+  /* ── 12. resumenModal (v261: fullscreen, ya no necesita max-height
+     limitado; #resumenContent es flex-1 dentro del panel h-100% y
+     debe ocupar todo el espacio disponible, no 60vh/70vh) ───────── */
   @media (min-width: 768px) {
-    #resumenContent        { max-height: 70vh; }
     .card-modal__body      { padding: 1.25rem 1.5rem; }
     .card-modal__header    { padding: 1.125rem 1.5rem; }
     .card-modal__footer    { padding: 0.625rem 1.5rem 1.25rem; }

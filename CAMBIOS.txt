@@ -2,6 +2,30 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v267 · 2026-07-07]
+styles.css, sw.js
+
+Fix definitivo del espacio en blanco en el modal fullscreen "Resumen
+de Liquidación" (persistía tras v263 y v266). Causa raíz real,
+encontrada esta vez: una regla suelta fuera de cualquier media query,
+
+  #resumenContent { max-height: 60vh; }
+
+que limitaba el contenido a 60% del alto del viewport (70vh desde
+768px) sin importar que el panel padre ya ocupara height:100%. El
+40% restante del panel quedaba en blanco debajo del contenido,
+independientemente del centrado del overlay (que ya se había
+corregido en v266, ajuste válido pero no era la causa principal).
+
+  - Se eliminó el max-height:60vh/70vh de #resumenContent.
+  - #resumenContent ahora depende únicamente de flex-1 dentro del
+    panel .flex.flex-col con height:100% (definido en modals.html
+    desde v266), llenando correctamente todo el espacio disponible.
+  - Sin cambios de lógica de negocio.
+
+  sw.js: CACHE_NAME → pension-utm-v267.
+
+
 [v266 · 2026-07-07]
 modals.html, sw.js
 
