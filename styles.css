@@ -3195,23 +3195,20 @@
 @keyframes authShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
 /* ══════════════════════════════════════════════════════════════
-   SECCIÓN: "¿Cómo deseas calcular?" — barra FIJA inferior,
-   estilo fintech/Nubank. Bloque 100% nuevo y aislado. No reutiliza
-   ni modifica ninguna clase anterior. Solo presentación visual
-   (sin lógica de negocio). Las 4 tarjetas siempre visibles, sin
-   scroll horizontal, fijas al fondo de la pantalla.
+   SECCIÓN: "¿Cómo deseas calcular?" — en flujo normal, ubicada
+   justo antes de la tarjeta "Datos de la pensión". Grid 2x2 con
+   tarjetas más grandes (antes: barra fija inferior con 4 columnas).
+   Bloque 100% nuevo y aislado. No reutiliza ni modifica ninguna
+   clase anterior. Solo presentación visual (sin lógica de negocio).
    ══════════════════════════════════════════════════════════════ */
 
 .calc-mode-section {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 250;
+  width: 100%;
   background: #fff;
-  border-top: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+  padding: 12px;
 }
 
 .calc-mode-section__inner {
@@ -3243,22 +3240,22 @@
 
 .calc-mode-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
 .calc-mode-card {
   width: 100%;
-  height: 64px;
+  height: 84px;
   border-radius: 16px;
-  padding: 8px 6px;
+  padding: 10px 8px;
   border: none;
   box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   text-align: center;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -3272,9 +3269,9 @@
 }
 
 .calc-mode-card__icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3282,15 +3279,15 @@
 }
 
 .calc-mode-card__icon svg {
-  width: 13px;
-  height: 13px;
+  width: 17px;
+  height: 17px;
 }
 
 .calc-mode-card__title {
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #1e293b;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -3313,15 +3310,6 @@
 .calc-mode-card__icon--purple { background: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%); }
 .calc-mode-card__icon--green  { background: linear-gradient(135deg, #06B6D4 0%, #34D399 100%); }
 .calc-mode-card__icon--pink   { background: linear-gradient(135deg, #D946EF 0%, #EC4899 100%); }
-
-/* Reserva espacio en el flujo normal para que el contenido final
-   (último elemento antes del fondo) no quede tapado por la barra
-   fija. Se suma al padding-bottom existente de #app-container
-   (pb-20 = 80px) un extra para la altura real de la barra
-   (título + tarjetas + paddings + safe-area ≈ 100-120px). */
-#app-container {
-  padding-bottom: 120px !important;
-}
 
 /* ══════════════════════════════════════════════════════════════════
    FULLSCREEN OVERLAY: Desde el último pago (DUP)

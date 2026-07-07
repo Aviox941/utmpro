@@ -2,6 +2,30 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v260 · 2026-07-07]
+index.html, styles.css
+
+Sección "¿Cómo deseas calcular?" (dock de 4 tarjetas): pasa de ser una
+barra fija inferior (position:fixed) a un bloque normal en el flujo del
+documento, ubicado justo antes de la tarjeta "Datos de la pensión".
+
+  - HTML: el <section class="calc-mode-section"> se movió dentro de
+    #mainInputs, antes de .dp-card.
+  - CSS: .calc-mode-section deja de ser position:fixed; ahora se ve
+    como una tarjeta normal (fondo blanco, borde, radius, sombra
+    suave). .calc-mode-row pasa de grid de 4 columnas a grid 2x2
+    (repeat(2, 1fr)). Tarjetas más grandes (64px → 84px de alto,
+    íconos 24px → 32px, texto 9.5px → 11.5px).
+  - Se eliminó el padding-bottom:120px !important de #app-container
+    que compensaba el espacio reservado para la barra fija; ya no es
+    necesario porque el dock ya no flota sobre el contenido.
+
+  Sin cambios de lógica de negocio ni de JS: las tarjetas siguen sin
+  acción funcional conectada más allá de lo ya existente.
+
+  sw.js: CACHE_NAME → pension-utm-v260.
+
+
 [v259 · 2026-07-01]
 index.html, sw.js
 
