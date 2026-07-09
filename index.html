@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v267">
+ <meta name="app-version" content="v268">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -8462,13 +8462,62 @@ function _ayudaAbrirTema(t) {
 
     </div><!-- /dup-form -->
 
+    <!-- Resumen del cálculo — aparece tras presionar "Calcular deuda actual",
+         sin navegar a la pantalla principal. Misma tarjeta que el mockup de
+         referencia, adaptada a la paleta morada del overlay DUP. -->
+    <div id="dupSummarySection" class="dup-summary-section" style="display:none;">
+      <div class="dup-summary-card">
+        <div class="dup-summary-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>
+          Calculado hasta hoy
+        </div>
+
+        <div class="dup-summary-header">
+          <div class="dup-summary-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3c-1 2-2 3-3.5 4C3 8 2 10 2 12c0 5.5 4.5 9 10 9s10-3.5 10-9c0-2-1-4-2.5-5-1.5-1-2.5-2-3.5-4"/>
+              <path d="M9 3h6"/>
+              <path d="M12 12v4"/>
+              <path d="M10 14h4"/>
+            </svg>
+          </div>
+          <div class="dup-summary-content">
+            <span class="dup-summary-title">Total adeudado al día de hoy</span>
+            <div class="dup-summary-total" id="dupSummaryTotal">$0</div>
+            <div class="dup-summary-utm" id="dupSummaryUtm">≈ 0,00 UTM</div>
+          </div>
+        </div>
+
+        <div class="dup-summary-divider"></div>
+
+        <div class="dup-summary-row">
+          <span>Capital</span>
+          <strong id="dupSummaryCapital">$0</strong>
+        </div>
+        <div class="dup-summary-row">
+          <span>Intereses acumulados</span>
+          <strong id="dupSummaryIntereses">$0</strong>
+        </div>
+
+        <button type="button" class="dup-summary-detail-btn" onclick="showResumenModal()">
+          Ver detalle del cálculo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <div class="dup-summary-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.5" fill="currentColor"/></svg>
+        Los valores incluyen actualización hasta el día de hoy en UTM.
+      </div>
+    </div><!-- /dup-summary-section -->
+
     <!-- Espaciado final para que el CTA no tape contenido -->
     <div style="height: 100px;"></div>
   </div><!-- /dup-overlay__body -->
 
   <!-- CTA fijo en el fondo -->
   <div class="dup-overlay__footer">
-    <button type="button" class="dup-cta-btn" onclick="dupCalcularDeuda()">
+    <button type="button" class="dup-cta-btn" id="dupCtaBtn" onclick="dupCalcularDeuda()">
       Calcular deuda actual
     </button>
   </div>
@@ -8501,11 +8550,39 @@ function openDupOverlay(skipSlideIn) {
   document.body.style.overflow = 'hidden';
 }
 
+// Resetea el formulario del DUP y oculta el resumen — se llama al cerrar el
+// overlay (no al calcular) para que los datos recién ingresados/calculados
+// sigan visibles mientras el usuario revisa el resultado, y el formulario
+// quede limpio recién la próxima vez que se abra.
+function dupResetForm() {
+  const montoEl = document.getElementById('dupMontoCuota');
+  const cuotaEl = document.getElementById('dupCuotaMensual');
+  if (montoEl) montoEl.value = '';
+  if (cuotaEl) cuotaEl.value = '';
+  _dupUnidadCuota = 'utm'; _dupUnidadMonto = 'utm';
+  const cuotaLabel = document.getElementById('dupCuotaUnitLabel');
+  const montoLabel = document.getElementById('dupMontoUnitLabel');
+  if (cuotaLabel) cuotaLabel.textContent = 'UTM';
+  if (montoLabel) montoLabel.textContent = 'UTM';
+  const dia = document.getElementById('dupDia');
+  const mes = document.getElementById('dupMes');
+  const anio = document.getElementById('dupAnio');
+  if (dia) dia.value = '';
+  if (mes) mes.value = '';
+  if (anio) anio.value = '';
+  dupSetFechaDisplay(null, null, null);
+  const section = document.getElementById('dupSummarySection');
+  if (section) section.style.display = 'none';
+  const ctaBtn = document.getElementById('dupCtaBtn');
+  if (ctaBtn) ctaBtn.textContent = 'Calcular deuda actual';
+}
+
 function closeDupOverlay() {
   const el = document.getElementById('dupOverlay');
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('dup-overlay--open');
   el.classList.add('dup-overlay--closing');
+  dupResetForm();
   // Fallback: si animationend no dispara (animación interrumpida o no soportada),
   // ocultar el overlay igualmente después de 400ms para evitar que quede residual.
   const _fallbackTimer = setTimeout(() => {
@@ -8741,29 +8818,47 @@ function dupCalcularDeuda() {
   checkBtnLav();
 
   // 3) Registrar el abono LAV con el mismo flujo manual (limpia los campos,
-  //    re-renderiza la lista, recalcula y guarda sesión).
+  //    re-renderiza la lista, recalcula y guarda sesión). calculate() corre
+  //    de forma síncrona dentro de addAbonoLav(), así que al volver de esta
+  //    llamada los elementos totalGrand/totalCap/totalInt/totalGrandUtm de
+  //    la tarjeta principal ya están actualizados y podemos leerlos.
   addAbonoLav();
 
-  // 4) Resetear el formulario del DUP para que la próxima vez que se abra
-  //    no queden datos de un cálculo anterior.
-  document.getElementById('dupMontoCuota').value = '';
-  document.getElementById('dupCuotaMensual').value = '';
-  // Resetear unidades a UTM por defecto
-  _dupUnidadCuota = 'utm'; _dupUnidadMonto = 'utm';
-  document.getElementById('dupCuotaUnitLabel').textContent = 'UTM';
-  document.getElementById('dupMontoUnitLabel').textContent = 'UTM';
-  document.getElementById('dupDia').value  = '';
-  document.getElementById('dupMes').value  = '';
-  document.getElementById('dupAnio').value = '';
-  dupSetFechaDisplay(null, null, null);
+  // 4) Mostrar el resumen DENTRO del overlay (en vez de cerrar y navegar a
+  //    la pantalla principal). El usuario revisa el total sin perder de
+  //    vista los datos que acaba de ingresar; cierra manualmente con el
+  //    botón "volver" cuando esté conforme.
+  dupPopulateSummary();
+}
 
-  // 5) Cerrar el overlay y devolver a la pantalla principal con el cálculo
-  //    ya reflejado en "Total Adeudado". Se fuerza scroll al inicio de la
-  //    página para que el Total quede visible aunque el usuario haya
-  //    hecho scroll hacia abajo antes de abrir el overlay (de lo contrario
-  //    la pantalla principal reaparece donde quedó el scroll anterior).
-  closeDupOverlay();
-  if (typeof scrollToTop === 'function') scrollToTop();
+// Lee los totales ya calculados (recién actualizados por calculate() vía
+// addAbonoLav()) desde la tarjeta principal "Total Adeudado" y los refleja
+// en la tarjeta de resumen del overlay DUP, sin duplicar lógica de cálculo.
+function dupPopulateSummary() {
+  const grandEl = document.getElementById('totalGrand');
+  const capEl   = document.getElementById('totalCap');
+  const intEl   = document.getElementById('totalInt');
+  const utmEl   = document.getElementById('totalGrandUtm');
+  if (!grandEl) return;
+
+  const totalTxt = '$' + (grandEl.innerText || '0').trim();
+  const utmNum = parseFloat((utmEl?.innerText || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+
+  document.getElementById('dupSummaryTotal').textContent = totalTxt;
+  document.getElementById('dupSummaryUtm').textContent = `≈ ${utmNum.toFixed(2).replace('.', ',')} UTM`;
+  document.getElementById('dupSummaryCapital').textContent = capEl?.innerText || '$0';
+  document.getElementById('dupSummaryIntereses').textContent = intEl?.innerText || '$0';
+
+  const section = document.getElementById('dupSummarySection');
+  section.style.display = 'block';
+  const ctaBtn = document.getElementById('dupCtaBtn');
+  if (ctaBtn) ctaBtn.textContent = 'Recalcular';
+
+  // Desplazar el resumen a la vista, dentro del propio overlay (no afecta
+  // el scroll de la pantalla principal que queda detrás).
+  requestAnimationFrame(() => {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 // Conectar la tarjeta "Desde el último pago" al overlay

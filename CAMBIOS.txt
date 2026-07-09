@@ -2,6 +2,45 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v268 · 2026-07-09]
+index.html, styles.css, sw.js
+
+Overlay "Desde el último pago" (dupOverlay): ahora muestra el resultado
+del cálculo al final del propio overlay, en vez de cerrarlo y navegar
+a la pantalla principal al presionar "Calcular deuda actual".
+
+  - Nueva tarjeta #dupSummarySection (clases dup-summary-*), fiel al
+    mockup de referencia: badge "Calculado hasta hoy", total grande +
+    equivalente en UTM, desglose Capital / Intereses acumulados, botón
+    "Ver detalle del cálculo" (abre el modal existente vía
+    showResumenModal(), sin lógica nueva de liquidación) y nota
+    informativa al pie.
+  - dupCalcularDeuda() sigue delegando 100% en el motor de cálculo
+    existente (resetAllExceptPensionData → setCalcMode/utmAmount →
+    addAbonoLav(), que dispara calculate() de forma síncrona). Se quitó
+    únicamente el closeDupOverlay()+scrollToTop() automático al final;
+    en su lugar, nueva función dupPopulateSummary() lee los totales ya
+    actualizados en la tarjeta principal (totalGrand, totalCap,
+    totalInt, totalGrandUtm) y los refleja en la tarjeta de resumen del
+    overlay, sin duplicar cálculos.
+  - El reset de los campos del formulario (monto, cuota, fecha,
+    unidades) y el ocultamiento del resumen, que antes ocurrían justo
+    después de calcular, se movieron a una nueva dupResetForm(),
+    invocada desde closeDupOverlay(). Así los valores ingresados y el
+    resultado quedan visibles mientras el usuario revisa el overlay, y
+    el formulario solo se limpia al cerrarlo (para la próxima vez que
+    se abra desde cero).
+  - Botón del footer (id dupCtaBtn) cambia su texto a "Recalcular"
+    tras el primer cálculo exitoso; vuelve a "Calcular deuda actual"
+    al cerrar el overlay.
+  - Sin cambios en fórmulas, imputación de abonos ni en ningún otro
+    flujo de cálculo.
+
+  styles.css: nuevas reglas .dup-summary-* (namespace propio, no choca
+  con dup-form/dup-hero existentes).
+  sw.js: CACHE_NAME → pension-utm-v268.
+
+
 [v267 · 2026-07-07]
 styles.css, sw.js
 

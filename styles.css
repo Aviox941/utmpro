@@ -3768,6 +3768,170 @@
   box-shadow: 0 2px 8px rgba(91,79,255,0.22);
 }
 
+/* ── Resumen del cálculo (aparece tras "Calcular deuda actual") ───── */
+.dup-summary-section {
+  margin-top: 22px;
+}
+
+.dup-summary-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  border: 1px solid #ececf5;
+  box-shadow: 0 10px 35px rgba(91, 79, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.dup-summary-card::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -60px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(91, 79, 255, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+.dup-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: #e8f9ee;
+  color: #1a9c56;
+  border: 1px solid #bcedd0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  margin-bottom: 16px;
+}
+.dup-summary-badge svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.dup-summary-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  position: relative;
+}
+
+.dup-summary-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f2eeff, #e7e9ff);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  color: #5b4fff;
+}
+.dup-summary-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.dup-summary-content {
+  min-width: 0;
+}
+
+.dup-summary-title {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-summary-total {
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #5b4fff;
+  line-height: 1.1;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  letter-spacing: -0.01em;
+}
+
+.dup-summary-utm {
+  margin-top: 4px;
+  color: #8e97b0;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-summary-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 18px 0;
+}
+
+.dup-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 14.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.dup-summary-row span {
+  color: #6b7280;
+}
+.dup-summary-row strong {
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.dup-summary-detail-btn {
+  margin-top: 16px;
+  width: 100%;
+  height: 48px;
+  border: none;
+  background: #f5f6ff;
+  color: #5b4fff;
+  border-radius: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.14s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.dup-summary-detail-btn:hover {
+  background: #eceeff;
+}
+.dup-summary-detail-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dup-summary-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 0 2px;
+  color: #8e97b0;
+  font-size: 11.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.dup-summary-info svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
 /* ── Responsive: tablet y desktop (centrado) ────────────────────── */
 @media (min-width: 600px) {
   .dup-overlay__header,
