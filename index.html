@@ -6597,7 +6597,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0709.0630</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0709.0644</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8914,28 +8914,36 @@ function dupBuildDetalle() {
   }
 
   const card = document.createElement('div');
-  card.className = 'dup-periodo-card';
+  card.className = 'overlay-card dup-periodo-card';
 
-  // Header de la tarjeta de detalle
+  // Header: título + botón secundario para cerrar el detalle
   const header = document.createElement('div');
   header.className = 'dup-periodo-header';
   header.innerHTML = `
-    <div>
-      <h2>Detalle por período</h2>
-      <span>Liquidación completa</span>
-    </div>`;
+    <h2>Detalle por período</h2>
+    <button type="button" class="dup-periodo-verfechas" onclick="dupToggleDetalle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Cerrar
+    </button>`;
   card.appendChild(header);
 
-  // Tabla: fila de encabezados
-  const table = document.createElement('div');
+  // Tabla HTML real: <table>/<thead>/<tbody>/<tfoot> — misma estructura de
+  // columnas que tablaFilas en export.js, sin acordeones ni cards por fila.
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'dup-periodo-tablewrap';
+
+  const table = document.createElement('table');
   table.className = 'dup-periodo-table';
-  const thead = document.createElement('div');
-  thead.className = 'dup-periodo-thead';
-  thead.innerHTML = `<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span>Tasa</span><span>Interés $</span><span>Subtotal $</span><span></span>`;
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `<tr>
+    <th>Período</th><th>UTM</th><th>Capital $</th><th>Días</th><th>Tasa</th><th>Interés $</th><th>Subtotal $</th>
+  </tr>`;
   table.appendChild(thead);
 
+  const tbody = document.createElement('tbody');
   let totCap = 0, totInt = 0, totUTM = 0;
-  datos.forEach((d, i) => {
+  datos.forEach((d) => {
     const cap0 = d.cap;
     const int0 = d.inte;
     const subtotal = cap0 + int0;
@@ -8943,61 +8951,40 @@ function dupBuildDetalle() {
     totCap += cap0; totInt += int0; totUTM += capUTM;
     const periodoClean = d.periodo.replace(/^HIST /,'').replace(/^CONS /,'');
 
-    const det = document.createElement('details');
-    det.className = 'dup-periodo-row';
-    if (i === 0) det.open = true;
-
-    const summary = document.createElement('summary');
-    summary.innerHTML = `
-      <div class="dup-periodo-left">
-        <div class="dup-periodo-icon">📅</div>
-        <div>
-          <h3>${periodoClean}</h3>
-          <span>${capUTM.toFixed(2)} UTM</span>
-        </div>
-      </div>
-      <div class="dup-periodo-right">
-        <small>Total</small>
-        <strong>${fmt(subtotal)}</strong>
-      </div>`;
-
-    const body = document.createElement('div');
-    body.className = 'dup-periodo-detalle';
-    body.innerHTML = `
-      <div><span>Capital</span><b>${fmt(cap0)}</b></div>
-      <div><span>Días</span><b>${d.mora}</b></div>
-      <div><span>Tasa</span><b>${fmtPct(d.tasa)}</b></div>
-      <div><span>Interés</span><b>${fmt(int0)}</b></div>`;
-
-    det.appendChild(summary);
-    det.appendChild(body);
-    table.appendChild(det);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="dup-periodo-td--periodo">${periodoClean}</td>
+      <td class="dup-periodo-td--utm">${capUTM.toFixed(2)}</td>
+      <td>${fmt(cap0)}</td>
+      <td>${d.mora}</td>
+      <td>${fmtPct(d.tasa)}</td>
+      <td>${fmt(int0)}</td>
+      <td class="dup-periodo-td--subtotal">${fmt(subtotal)}</td>`;
+    tbody.appendChild(tr);
   });
-  card.appendChild(table);
+  table.appendChild(tbody);
 
-  // Totales de la tabla
-  const totalBlock = document.createElement('div');
-  totalBlock.className = 'dup-periodo-total';
-  totalBlock.innerHTML = `
-    <div>
-      <span>Total Capital</span>
-      <b>${fmt(totCap)}</b>
-    </div>
-    <div>
-      <span>Total Intereses</span>
-      <b>${fmt(totInt)}</b>
-    </div>
-    <div class="dup-periodo-total__final">
-      <span>Total Liquidación</span>
-      <strong>${fmt(totCap + totInt)}</strong>
-    </div>`;
-  card.appendChild(totalBlock);
+  // Fila TOTAL — <tfoot>, sigue siendo parte de la misma tabla
+  const tfoot = document.createElement('tfoot');
+  tfoot.innerHTML = `<tr>
+    <td>TOTAL</td>
+    <td class="dup-periodo-td--utm">${totUTM.toFixed(2)}</td>
+    <td>${fmt(totCap)}</td>
+    <td>—</td>
+    <td>—</td>
+    <td>${fmt(totInt)}</td>
+    <td class="dup-periodo-td--subtotal">${fmt(totCap + totInt)}</td>
+  </tr>`;
+  table.appendChild(tfoot);
 
+  tableWrap.appendChild(table);
+  card.appendChild(tableWrap);
   wrap.appendChild(card);
 }
 
 (function() {
   const card = document.querySelector('.calc-mode-card--blue');
+
   if (card) card.addEventListener('click', function() {
     openDupOverlay();
     dupPrefillFromPensionData();
