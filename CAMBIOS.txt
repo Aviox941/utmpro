@@ -3,36 +3,38 @@ INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
 [v271 · 2026-07-09]
-export.js, styles.css, sw.js
+index.html, styles.css
 
-Overlay "Resumen de Liquidación" — sección "Detalle por período":
-reemplazado el diseño de tabla en grid (filas PERÍODO/UTM/CAPITAL/
-DÍAS/TASA/INTERÉS/SUBTOTAL) por un acordeón de tarjetas expandibles
-(<details>/<summary>), sin tocar ningún cálculo.
+Overlay "Desde el último pago" (dupOverlay) — sección "Ver detalle del
+cálculo": ahora se DESPLIEGA inline dentro del propio dupSummarySection
+(toggle), en vez de abrir el modal general de Resumen de Liquidación
+(showResumenModal). El modal general y export.js quedan sin cambios.
 
-  - tablaFilas() (export.js, dentro de buildResumenContent) ahora
-    genera un <details class="periodo-liq"> por cuota: summary con
-    ícono circular 📅, nombre del período + UTM equivalente a la
-    izquierda, subtotal + chevron a la derecha; cuerpo expandible con
-    grid 2 columnas (Capital / Días / Tasa / Interés) y botón "Ver
-    detalle completo →" que reemplaza el antiguo row.onclick (abre
-    openDetailModal(d.id) igual que antes).
+  - Botón "Ver detalle del cálculo" cambia onclick de showResumenModal()
+    a dupToggleDetalle(). Al expandir, construye una tarjeta de detalle
+    por período con la estética de referencia entregada por el usuario:
+    tarjeta blanca redondeada, filas <details> con ícono circular 📅,
+    nombre de período + UTM a la izquierda, subtotal a la derecha, y
+    cuerpo expandible con grid 2x2 (Capital / Días / Tasa / Interés).
+    Al pie, bloque de totales (Total Capital, Total Intereses, Total
+    Liquidación destacado en píldora indigo #5B5CEB).
 
-  - Separadores de año conservados igual que en la versión de tabla.
-    Sub-chips de remanente (pago parcial) y excedente arrastrado se
-    mantienen, ahora como filas propias dentro del cuerpo expandido.
+  - dupBuildDetalle() (index.html) lee directamente lastCalculationData
+    (misma fuente que tablaFilas en export.js) — no se duplica ni
+    recalcula nada, solo se renderiza.
 
-  - Footer de cada bloque (Período Actual / Deuda Histórica) rediseñado
-    como resumen de 3 líneas (Total Capital con UTM, Total Intereses,
-    Subtotal período destacado en píldora de color), en vez de la fila
-    grid "TOTAL" anterior.
+  - dupToggleDetalle() alterna visibilidad + rota el ícono chevron;
+    dupPopulateSummary() resetea el detalle (lo cierra y limpia) cada
+    vez que el usuario recalcula, para que no quede desactualizado.
 
-  - styles.css: reglas .periodo-liq para ocultar el marcador nativo de
-    <summary> y rotar el chevron al abrir (atributo [open]).
+  - styles.css: nuevas reglas .dup-periodo-* (namespace propio, no
+    interfiere con .dup-summary-* existente ni con nada de export.js).
 
-  - Sin cambios de lógica de cálculo: mismos datos (d.cap, d.inte,
-    d.mora, d.tasa, d.utmVal, capParcialRemanente, excedenteParcial-
-    Aplicado) solo con nueva presentación visual.
+  - Sin cambios en showResumenModal / buildResumenContent / tablaFilas:
+    el modal general de "Resumen de Liquidación" permanece exactamente
+    como en v270. Los otros botones "Ver detalle"/"Ver PDF" que abren
+    ese modal (icono del header y overlay "Entre fechas") tampoco se
+    tocaron.
 
 [v270 · 2026-07-09]
 index.html, styles.css, sw.js

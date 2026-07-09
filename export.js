@@ -1746,15 +1746,23 @@ function buildResumenContent(targetContainer, inlineMode) {
     container.appendChild(div);
   }
 
-  // ── Helper: acordeón de cuotas (con separadores por año) ──
+  // ── Helper: tabla de cuotas (con separadores por año) ──
   function tablaFilas(datos, colorHeader) {
     if (datos.length === 0) return;
+    const COLS = '2.2fr 1.2fr 2fr 1.2fr 1.8fr 2fr 2fr';
     const wrap = document.createElement('div');
-    wrap.className = 'rounded-2xl overflow-hidden';
-    wrap.style.cssText = 'border:1px solid #eceef5;background:#ffffff;box-shadow:0 8px 24px rgba(15,23,42,0.04)';
+    wrap.className = 'rounded-xl overflow-hidden';
+    wrap.style.border = '1px solid #e2e8f0';
+    wrap.style.background = '#ffffff';
+
+    // Header único, neutro (estilo fintech minimalista)
+    const head = document.createElement('div');
+    head.className = 'grid px-3 py-2 text-[8px] font-bold uppercase tracking-wide';
+    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#94a3b8;border-bottom:1px solid #f1f5f9`;
+    head.innerHTML = '<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>';
+    wrap.appendChild(head);
 
     let lastYear = null;
-    let isFirstRow = true;
     datos.forEach((d) => {
       // Capital $ muestra el valor POST-LAV (lo que realmente se adeuda: 0 si cubierto)
       const cap0 = d.cap;
@@ -1764,26 +1772,30 @@ function buildResumenContent(targetContainer, inlineMode) {
       const yearMatch = periodoClean.match(/\d{4}/);
       const rowYear = yearMatch ? parseInt(yearMatch[0]) : null;
 
-      // Separador de año: etiqueta simple entre acordeones
+      // Separador de año: solo una etiqueta simple, sin repetir cabecera
       if (rowYear && rowYear !== lastYear) {
         lastYear = rowYear;
         const sep = document.createElement('div');
-        sep.style.cssText = `padding:10px 14px 4px;background:#ffffff;${isFirstRow ? '' : 'border-top:1px solid #eceef5'}`;
-        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:${colorHeader};letter-spacing:0.02em">${rowYear}</span>`;
+        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #f1f5f9';
+        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:${colorHeader}">${rowYear}</span>`;
         wrap.appendChild(sep);
       }
 
-      const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:8px;margin-left:2px">~aprox.</span>` : '';
+      const row = document.createElement('div');
+      row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-slate-50 active:opacity-70 transition-colors';
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #f1f5f9`;
+      const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
-      const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:8px;font-weight:900"> *</span>` : '';
-      const subtotal = capMostrado + int0;
-
+      const lavTag = '';
+      const parcialTag = d.hayParcialConRemanente ? `<span style="color:#a855f7;font-size:7.5px;font-weight:900"> *</span>` : '';
+      // Sub-chip LAV interés (excedente Art. 1595)
+      const lavIntChip = '';
       // Sub-chip de remanente para cuotas con pago parcial manual
       const _capRemDisplay = d.capParcialRemanente !== undefined ? d.capParcialRemanente : d.cap;
       const _capRemUTM = (d.utmVal && d.utmVal > 0) ? (_capRemDisplay / d.utmVal).toFixed(4) : '—';
       const remChip = d.hayParcialConRemanente && d.capOriginal > 0
-        ? `<div style="grid-column:1/-1;font-size:9px;color:#a855f7;font-weight:700;padding-top:2px">↳ Rem: ${fmt(_capRemDisplay)} <span style="opacity:0.75">(${_capRemUTM} UTM)</span> de ${fmt(d.capOriginal)}</div>`
+        ? `<div style="font-size:7.5px;color:#a855f7;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">↳ Rem: ${fmt(_capRemDisplay)} <span style="opacity:0.75">(${_capRemUTM} UTM)</span> de ${fmt(d.capOriginal)}</div>`
         : '';
       // Sub-chip de excedente de pago parcial arrastrado al total
       const _excCLP = (d.excedenteParcialAplicado || 0) > 0
@@ -1791,69 +1803,33 @@ function buildResumenContent(targetContainer, inlineMode) {
       const _excUTM = (d.excedenteParcialAplicado || 0) > 0 && d.utmVal > 0
         ? d.excedenteParcialAplicado.toFixed(4) : '—';
       const excedenteChip = _excCLP > 0
-        ? `<div style="grid-column:1/-1;font-size:9px;color:#16a34a;font-weight:700;padding-top:2px">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
+        ? `<div style="font-size:7.5px;color:#16a34a;font-weight:700;margin-top:1px;white-space:normal;word-break:break-word">↪ Exc: ${fmt(_excCLP)} <span style="opacity:0.75">(${_excUTM} UTM)</span> → descuenta total</div>`
         : '';
-
-      const det = document.createElement('details');
-      det.className = 'periodo-liq';
-      det.style.cssText = `border-top:1px solid #eceef5;${isFirstRow ? 'border-top:none' : ''}`;
-      isFirstRow = false;
-
-      const summary = document.createElement('summary');
-      summary.style.cssText = 'list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;cursor:pointer;';
-      summary.innerHTML = `
-        <div style="display:flex;align-items:center;gap:12px;min-width:0">
-          <div style="width:38px;height:38px;border-radius:50%;background:${colorHeader}14;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${colorHeader};font-size:15px">📅</div>
-          <div style="min-width:0">
-            <h3 style="margin:0;font-size:12px;font-weight:800;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:8px;font-weight:900"> H</span>':''}${parcialTag}</h3>
-            <span style="font-size:10px;font-weight:700;color:${colorHeader}">${capUTM} UTM</span>
-          </div>
+      // Sub-chip LAV: eliminado (no mostrar texto verde en celdas)
+      const _cubiertaLavChip = '';
+      const _lavParcialChip = '';
+      row.innerHTML = `
+        <div style="min-width:0">
+          <span class="truncate" style="display:block;color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}</span>
+          ${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}
         </div>
-        <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:8px">
-          <div>
-            <small style="display:block;font-size:8.5px;color:#94a3b8;font-weight:600;text-transform:uppercase">Subtotal</small>
-            <strong style="display:block;font-size:13.5px;color:#0f172a;font-weight:900">${fmt(subtotal)}</strong>
-          </div>
-          <svg class="periodo-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s ease;flex-shrink:0"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </div>`;
-
-      const body = document.createElement('div');
-      body.style.cssText = 'padding:4px 14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;border-top:1px solid #f1f5f9';
-      body.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="color:#94a3b8;font-size:10px;font-weight:600">Capital</span><b style="color:#334155;font-size:11.5px">${fmt(capMostrado)}</b></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="color:#94a3b8;font-size:10px;font-weight:600">Días</span><b style="color:#334155;font-size:11.5px">${d.mora}</b></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="color:#94a3b8;font-size:10px;font-weight:600">Tasa</span><b style="color:#0284c7;font-size:11.5px">${fmtPct(d.tasa)}${aproxTag}</b></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="color:#94a3b8;font-size:10px;font-weight:600">Interés</span><b style="color:#0369a1;font-size:11.5px">${fmt(int0)}</b></div>
-        ${remChip}${excedenteChip}
-        <button type="button" class="ver-detalle-cuota" style="grid-column:1/-1;margin-top:4px;padding:8px;border-radius:12px;border:1px solid ${colorHeader}30;background:${colorHeader}0d;color:${colorHeader};font-size:10px;font-weight:800;cursor:pointer">Ver detalle completo →</button>`;
-      body.querySelector('.ver-detalle-cuota').onclick = (e) => {
-        e.preventDefault(); e.stopPropagation();
-        hideResumenModal(); openDetailModal(d.id);
-      };
-
-      det.appendChild(summary);
-      det.appendChild(body);
-      wrap.appendChild(det);
+        <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
+        <span style="color:#334155">${fmt(capMostrado)}</span>
+        <span style="color:#64748b">${d.mora}</span>
+        <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
+        <span class="text-right" style="color:#0369a1">${fmt(int0)}</span>
+        <span class="text-right font-black" style="color:#0f172a">${fmt(capMostrado+int0)}</span>`;
+      row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
+      wrap.appendChild(row);
     });
-    // Footer totales — franja resumen al pie del acordeón
+    // Footer totales — única franja resaltada de toda la tabla
     const totCap = datos.reduce((s,d) => s+d.cap,0);
     const totInt = datos.reduce((s,d) => s+d.inte,0);
-    const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
     const foot = document.createElement('div');
-    foot.style.cssText = `padding:14px;border-top:1px solid #eceef5;background:${colorHeader}08`;
-    foot.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:10.5px">
-        <span style="color:#64748b;font-weight:600">Total Capital <span style="color:${colorHeader};font-weight:700">(${totUTM.toFixed(2)} UTM)</span></span>
-        <b style="color:#334155;font-size:11.5px">${fmt(totCap)}</b>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:10.5px">
-        <span style="color:#64748b;font-weight:600">Total Intereses</span>
-        <b style="color:#0369a1;font-size:11.5px">${fmt(totInt)}</b>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding:12px 14px;background:${colorHeader};color:#ffffff;border-radius:14px">
-        <span style="font-size:11px;font-weight:700">Subtotal período</span>
-        <strong style="font-size:15px;font-weight:900">${fmt(totCap+totInt)}</strong>
-      </div>`;
+    foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
+    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}12;border-top:1px solid ${colorHeader}30;color:${colorHeader}`;
+    const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
+    foot.innerHTML = `<span>TOTAL</span><span style="color:${colorHeader}">${totUTM.toFixed(2)}</span><span style="color:#0f172a">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totInt)}</span><span class="text-right" style="color:#0f172a">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
     container.appendChild(wrap);
   }
