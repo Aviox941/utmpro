@@ -2,6 +2,38 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v271 · 2026-07-09]
+export.js, styles.css, sw.js
+
+Overlay "Resumen de Liquidación" — sección "Detalle por período":
+reemplazado el diseño de tabla en grid (filas PERÍODO/UTM/CAPITAL/
+DÍAS/TASA/INTERÉS/SUBTOTAL) por un acordeón de tarjetas expandibles
+(<details>/<summary>), sin tocar ningún cálculo.
+
+  - tablaFilas() (export.js, dentro de buildResumenContent) ahora
+    genera un <details class="periodo-liq"> por cuota: summary con
+    ícono circular 📅, nombre del período + UTM equivalente a la
+    izquierda, subtotal + chevron a la derecha; cuerpo expandible con
+    grid 2 columnas (Capital / Días / Tasa / Interés) y botón "Ver
+    detalle completo →" que reemplaza el antiguo row.onclick (abre
+    openDetailModal(d.id) igual que antes).
+
+  - Separadores de año conservados igual que en la versión de tabla.
+    Sub-chips de remanente (pago parcial) y excedente arrastrado se
+    mantienen, ahora como filas propias dentro del cuerpo expandido.
+
+  - Footer de cada bloque (Período Actual / Deuda Histórica) rediseñado
+    como resumen de 3 líneas (Total Capital con UTM, Total Intereses,
+    Subtotal período destacado en píldora de color), en vez de la fila
+    grid "TOTAL" anterior.
+
+  - styles.css: reglas .periodo-liq para ocultar el marcador nativo de
+    <summary> y rotar el chevron al abrir (atributo [open]).
+
+  - Sin cambios de lógica de cálculo: mismos datos (d.cap, d.inte,
+    d.mora, d.tasa, d.utmVal, capParcialRemanente, excedenteParcial-
+    Aplicado) solo con nueva presentación visual.
+
 [v270 · 2026-07-09]
 index.html, styles.css, sw.js
 

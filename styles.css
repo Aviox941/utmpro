@@ -6470,3 +6470,19 @@
   font-weight: 600 !important;
   letter-spacing: -0.01em !important;
 }
+
+/* ── Acordeón "Detalle por período" (buildResumenContent / tablaFilas) ── */
+.periodo-liq > summary {
+  list-style: none;
+}
+.periodo-liq > summary::-webkit-details-marker,
+.periodo-liq > summary::marker {
+  display: none;
+  content: "";
+}
+.periodo-liq > summary:active {
+  background: #f8fafc;
+}
+.periodo-liq[open] > summary .periodo-chevron {
+  transform: rotate(180deg);
+}
