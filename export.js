@@ -1606,11 +1606,21 @@ function showResumenModal() {
     return;
   }
   buildResumenContent(); // siempre regenera en #resumenContent
+  // resumenModal vive con z-index 120 (clase Tailwind base). Cuando se abre
+  // desde dentro de un overlay fullscreen (DUP "Desde el último pago" o BEF
+  // "Entre fechas", ambos z-index 100000), hay que subirlo por encima o
+  // queda tapado detrás — mismo patrón ya usado para calendarModal en
+  // openCalendar(). En cualquier otro caso se deja el z-index base.
+  const resumenEl = document.getElementById('resumenModal');
+  const dupOpen = document.getElementById('dupOverlay')?.classList.contains('dup-overlay--open');
+  const befOpen = document.getElementById('befOverlay')?.classList.contains('bef-overlay--open');
+  if (resumenEl) resumenEl.style.zIndex = (dupOpen || befOpen) ? '100001' : '';
   document.getElementById('resumenModal').classList.replace('hidden','flex');
   lockBody();
 }
 function hideResumenModal() {
   document.getElementById('resumenModal').classList.replace('flex','hidden');
+  document.getElementById('resumenModal').style.zIndex = ''; // restaura el z-index base
   unlockBody();
 }
 function buildResumenContent(targetContainer, inlineMode) {

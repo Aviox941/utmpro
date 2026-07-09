@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v268">
+ <meta name="app-version" content="v270">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5650,9 +5650,8 @@ closeCalendar();
 closeCalendar();
 } else if (calendarMode === 'befStart' || calendarMode === 'befEnd') {
 // Igual criterio que start/end del período principal: el mes/año ya quedó
-// guardado en el onclick del mes (renderCalendar). Este botón solo cierra
-// el modal; el cálculo real ocurre al presionar "Calcular deuda actual"
-// del overlay "Entre fechas" → befCalcularDeuda().
+// guardado (y el resumen ya se recalculó en tiempo real) en el onclick del
+// mes dentro de renderCalendar(). Este botón solo cierra el modal.
 closeCalendar();
 } else if (calendarMode === 'histStart' || calendarMode === 'histEnd') {
 const modoActual = calendarMode;
@@ -6105,6 +6104,8 @@ updateCalendarActionBtn();
 renderCalendar();
 // Actualizar chip de equivalencia UTM si hay monto CLP ingresado
 if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
+// Recalcular en tiempo real (sin esperar a que se cierre el calendario)
+if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'befEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6115,6 +6116,8 @@ document.getElementById('befEndAnio').value = String(selectedYear);
 befSetFechaDisplay('end', i + 1, selectedYear);
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (sin esperar a que se cierre el calendario)
+if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
 document.getElementById('histStartAnio').value = String(selectedYear);
@@ -8475,10 +8478,8 @@ function _ayudaAbrirTema(t) {
         <div class="dup-summary-header">
           <div class="dup-summary-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 3c-1 2-2 3-3.5 4C3 8 2 10 2 12c0 5.5 4.5 9 10 9s10-3.5 10-9c0-2-1-4-2.5-5-1.5-1-2.5-2-3.5-4"/>
-              <path d="M9 3h6"/>
-              <path d="M12 12v4"/>
-              <path d="M10 14h4"/>
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
             </svg>
           </div>
           <div class="dup-summary-content">
@@ -8948,7 +8949,7 @@ function dupPopulateSummary() {
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la cuota mensual"
-            oninput="befFormatMontoInput(this); befUpdateEquivChip();"
+            oninput="befFormatMontoInput(this); befUpdateEquivChip(); befActualizarResumen();"
           >
         </div>
         <!-- Chip de equivalencia: visible solo en modo CLP cuando hay monto y fecha de inicio -->
@@ -9023,14 +9024,63 @@ function dupPopulateSummary() {
 
     </div><!-- /bef-form -->
 
+    <!-- Resumen del cálculo — se actualiza en tiempo real a medida que se
+         completan unidad/monto/fecha de inicio/fecha de fin, sin necesidad
+         de un botón "Calcular". Misma tarjeta que dupSummarySection, con
+         namespace propio (bef-summary-*) y paleta azul del overlay BEF. -->
+    <div id="befSummarySection" class="bef-summary-section" style="display:none;">
+      <div class="bef-summary-card">
+        <div class="bef-summary-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>
+          Calculado en tiempo real
+        </div>
+
+        <div class="bef-summary-header">
+          <div class="bef-summary-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="bef-summary-content">
+            <span class="bef-summary-title">Total adeudado del período</span>
+            <div class="bef-summary-total" id="befSummaryTotal">$0</div>
+            <div class="bef-summary-utm" id="befSummaryUtm">≈ 0,00 UTM</div>
+          </div>
+        </div>
+
+        <div class="bef-summary-divider"></div>
+
+        <div class="bef-summary-row">
+          <span>Capital</span>
+          <strong id="befSummaryCapital">$0</strong>
+        </div>
+        <div class="bef-summary-row">
+          <span>Intereses acumulados</span>
+          <strong id="befSummaryIntereses">$0</strong>
+        </div>
+
+        <button type="button" class="bef-summary-detail-btn" onclick="showResumenModal()">
+          Ver detalle del cálculo
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <div class="bef-summary-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="10.5" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.5" fill="currentColor"/></svg>
+        Los valores se recalculan automáticamente al completar cada dato.
+      </div>
+    </div><!-- /bef-summary-section -->
+
     <!-- Espaciado final para que el CTA no tape contenido -->
     <div style="height: 100px;"></div>
   </div><!-- /bef-overlay__body -->
 
-  <!-- CTA fijo en el fondo -->
+  <!-- CTA fijo en el fondo — ya no "calcula": el cálculo ocurre en tiempo
+       real a medida que se completan los datos. Solo cierra el overlay. -->
   <div class="bef-overlay__footer">
-    <button type="button" class="bef-cta-btn" onclick="befCalcularDeuda()">
-      Calcular deuda actual
+    <button type="button" class="bef-cta-btn" onclick="closeBefOverlay()">
+      Listo
     </button>
   </div>
 
@@ -9332,6 +9382,8 @@ function befSelectUnidad(val) {
   btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
   // Al cambiar a UTM ocultar el chip; al cambiar a CLP limpiar y esperar input
   befUpdateEquivChip();
+  // El monto se limpió arriba: ocultar el resumen hasta que se reingrese
+  if (typeof befActualizarResumen === 'function') befActualizarResumen();
 }
 
 // Actualiza el chip de equivalencia UTM bajo el campo de monto.
@@ -9444,33 +9496,28 @@ function befGetFechaISO(which) {
 // las mismas variables/campos que usa calculate() — y se dispara el cálculo
 // real. Así el resultado queda igual que si el usuario hubiera elegido esas
 // fechas/monto directamente en "Período Actual".
-function befCalcularDeuda() {
-  const unidad = _befUnidad; // 'utm' | 'clp'
-  const monto  = befGetMontoValue();
-  const inicio = befGetFechaISO('start');
-  const fin    = befGetFechaISO('end');
+//
+// A diferencia de la versión anterior (botón "Calcular deuda actual"), esta
+// función se llama en TIEMPO REAL cada vez que cambia la unidad, el monto o
+// alguna de las dos fechas (ver oninput de befMontoCuota, befSelectUnidad()
+// y el manejador de clic de mes para calendarMode 'befStart'/'befEnd'). Por
+// eso es silenciosa: si falta algún dato o es inválido, simplemente oculta
+// el resumen en vez de mostrar alert() — el usuario puede estar a mitad de
+// completar el formulario.
+function befActualizarResumen() {
+  const section = document.getElementById('befSummarySection');
+  const unidad  = _befUnidad; // 'utm' | 'clp'
+  const monto   = befGetMontoValue();
+  const inicio  = befGetFechaISO('start');
+  const fin     = befGetFechaISO('end');
 
-  if (!monto || monto <= 0) {
-    alert('Ingresa un monto de cuota válido.');
-    return;
-  }
-  if (!inicio) {
-    alert('Selecciona la fecha de inicio del período.');
-    return;
-  }
-  if (!fin) {
-    alert('Selecciona la fecha de fin del período.');
-    return;
-  }
-  if (new Date(fin) < new Date(inicio)) {
-    alert('La fecha de fin debe ser posterior a la fecha de inicio.');
+  if (!monto || monto <= 0 || !inicio || !fin || new Date(fin) < new Date(inicio)) {
+    if (section) section.style.display = 'none';
     return;
   }
 
   // Traducir mes/año de befStart/befEnd al índice real sobre utmData —
   // misma fuente que usan los calendarios 'start'/'end' de "Período Actual".
-  // Se calcula ANTES de resetAllExceptPensionData() porque esa función
-  // limpia todos los inputs no protegidos, incluidos estos hidden.
   const befStartMes  = parseInt(document.getElementById('befStartMes').value, 10);
   const befStartAnio = parseInt(document.getElementById('befStartAnio').value, 10);
   const befEndMes    = parseInt(document.getElementById('befEndMes').value, 10);
@@ -9478,7 +9525,7 @@ function befCalcularDeuda() {
   const newStartIndex = utmData.findIndex(d => d.y === befStartAnio && d.monthIdx === (befStartMes - 1));
   const newEndIndex   = utmData.findIndex(d => d.y === befEndAnio   && d.monthIdx === (befEndMes - 1));
   if (newStartIndex === -1 || newEndIndex === -1) {
-    alert('No hay datos UTM disponibles para las fechas seleccionadas.');
+    if (section) section.style.display = 'none';
     return;
   }
 
@@ -9487,7 +9534,7 @@ function befCalcularDeuda() {
   // evita que un abono LAV (u otro dato) de un cálculo anterior quede
   // "pegado" y se sume al nuevo cálculo "Entre fechas". La tarjeta "Datos
   // de Pensión" (cuota UTM/CLP, % sueldo, IMM, día de vencimiento) se
-  // preserva intacta. Mismo patrón que usa dupCalcularDeuda().
+  // preserva intacta.
   if (typeof resetAllExceptPensionData === 'function') resetAllExceptPensionData();
 
   startIndex = newStartIndex;
@@ -9495,8 +9542,8 @@ function befCalcularDeuda() {
 
   // Escribir el monto en "Datos de Pensión".
   // Si el usuario ingresó CLP: convertir a UTM usando la UTM del mes de
-  // INICIO del período — mismo criterio que dupCalcularDeuda(). El cálculo
-  // siempre opera en UTM reajustable; los pesos se convierten solo para mostrar.
+  // INICIO del período. El cálculo siempre opera en UTM reajustable; los
+  // pesos se convierten solo para mostrar.
   if (unidad === 'clp') {
     const _utmInicio = (() => {
       const entry = utmData.find(d => d.y === befStartAnio && d.monthIdx === befStartMes - 1);
@@ -9504,7 +9551,7 @@ function befCalcularDeuda() {
     })();
     const montoEnUTM = _utmInicio > 0 ? monto / _utmInicio : 0;
     if (montoEnUTM <= 0) {
-      alert('No se pudo obtener el valor UTM del mes de inicio para convertir la cuota.');
+      if (section) section.style.display = 'none';
       return;
     }
     setCalcMode('utm');
@@ -9514,12 +9561,33 @@ function befCalcularDeuda() {
     document.getElementById('utmAmount').value = monto.toFixed(2).replace('.', ',');
   }
 
-  closeBefOverlay();
-  updateLabels();   // refresca labels/chips de "Período Actual" y dispara calculate()
+  updateLabels();  // refresca labels/chips de "Período Actual" y dispara calculate() de forma síncrona
   saveSession();
-  // Forzar scroll al inicio para que el Total Adeudado quede visible —
-  // mismo patrón que dupCalcularDeuda().
-  if (typeof scrollToTop === 'function') scrollToTop();
+
+  befPopulateSummary();
+}
+
+// Lee los totales ya calculados (recién actualizados por calculate() vía
+// updateLabels()) desde la tarjeta principal "Total Adeudado" y los refleja
+// en la tarjeta de resumen del overlay BEF, sin duplicar lógica de cálculo.
+// Mismo patrón que dupPopulateSummary().
+function befPopulateSummary() {
+  const grandEl = document.getElementById('totalGrand');
+  const capEl   = document.getElementById('totalCap');
+  const intEl   = document.getElementById('totalInt');
+  const utmEl   = document.getElementById('totalGrandUtm');
+  const section = document.getElementById('befSummarySection');
+  if (!grandEl || !section) return;
+
+  const totalTxt = '$' + (grandEl.innerText || '0').trim();
+  const utmNum = parseFloat((utmEl?.innerText || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+
+  document.getElementById('befSummaryTotal').textContent = totalTxt;
+  document.getElementById('befSummaryUtm').textContent = `≈ ${utmNum.toFixed(2).replace('.', ',')} UTM`;
+  document.getElementById('befSummaryCapital').textContent = capEl?.innerText || '$0';
+  document.getElementById('befSummaryIntereses').textContent = intEl?.innerText || '$0';
+
+  section.style.display = 'block';
 }
 
 // ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────
@@ -9578,6 +9646,13 @@ function befPrefillFromPensionData() {
   }
   fillFromUtmDataIndex('start', startIndex);
   fillFromUtmDataIndex('end', endIndex);
+  // NOTA: a propósito NO se dispara befActualizarResumen() aquí. Esa función
+  // llama a resetAllExceptPensionData() (limpia abonos LAV/pagos parciales)
+  // antes de aplicar el nuevo período — correcto cuando el usuario decide
+  // activamente editar algo dentro de "Entre fechas", pero destructivo si
+  // ocurriera solo por abrir el overlay a mirar, sin haber tocado nada
+  // todavía. El resumen se muestra recién con la primera interacción real
+  // (cambiar unidad, escribir el monto, o elegir una fecha).
 }
 
 // Conectar la tarjeta "Entre fechas" al overlay

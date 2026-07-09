@@ -2,6 +2,86 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v270 · 2026-07-09]
+index.html, styles.css, sw.js
+
+Overlay "Entre fechas" (befOverlay): mismo patrón de tarjeta de resumen
+integrado en v268/v269 para el DUP, ahora aplicado acá — y en TIEMPO
+REAL, sin botón "Calcular deuda actual".
+
+  - Nueva tarjeta #befSummarySection (clases bef-summary-*, paleta azul
+    del overlay BEF), misma estructura que dupSummarySection: badge,
+    total + UTM equivalente, Capital / Intereses acumulados, botón
+    "Ver detalle del cálculo" (showResumenModal(), ya con el fix de
+    z-index de v269) y nota informativa.
+
+  - Reemplazado befCalcularDeuda() (validaba con alert() y solo
+    calculaba al presionar el botón) por befActualizarResumen(), que
+    hace exactamente el mismo trabajo (resetAllExceptPensionData →
+    startIndex/endIndex → setCalcMode/utmAmount → updateLabels(), que
+    dispara calculate()) pero de forma SILENCIOSA: si falta algún dato
+    o es inválido, solo oculta el resumen (sin alert, el usuario puede
+    estar a mitad de completar el formulario) en vez de bloquear.
+
+  - befActualizarResumen() se dispara automáticamente desde:
+      · oninput del campo de monto (befMontoCuota),
+      · befSelectUnidad() al alternar UTM/CLP,
+      · el clic de mes en el calendario para calendarMode 'befStart' y
+        'befEnd' (antes solo guardaba el mes/año y esperaba a que se
+        cerrara el calendario).
+    Apenas unidad + monto + ambas fechas quedan completos y válidos, el
+    resumen aparece sin ninguna acción adicional del usuario.
+
+  - Cuidado explícito para no disparar el recálculo (y por lo tanto
+    resetAllExceptPensionData(), que limpia abonos LAV/pagos parciales)
+    con solo abrir el overlay: befPrefillFromPensionData() precarga los
+    campos desde "Datos de Pensión" pero NO llama a
+    befActualizarResumen(); dentro de befSelectUnidad() el campo de
+    monto se limpia ANTES del llamado, por lo que la guarda de "falta
+    monto" lo neutraliza cuando la unidad se fija programáticamente
+    desde el prefill. El resumen solo se calcula (y solo entonces se
+    limpian abonos previos) ante una interacción real del usuario
+    dentro del formulario.
+
+  - Botón del footer (bef-cta-btn): cambia de "Calcular deuda actual"
+    a "Listo" — ya no dispara ningún cálculo, solo cierra el overlay
+    (closeBefOverlay()), porque el cálculo ya ocurrió en tiempo real.
+
+  - befPopulateSummary() lee los mismos totales ya actualizados en la
+    tarjeta principal (totalGrand, totalCap, totalInt, totalGrandUtm),
+    igual que dupPopulateSummary(): sin duplicar lógica de cálculo.
+
+  - Sin cambios en fórmulas, imputación de abonos ni en el resto de
+    flujos de cálculo.
+
+  styles.css: nuevas reglas .bef-summary-* (namespace propio, paleta
+  azul #1f5fff en vez del morado usado en .dup-summary-*).
+  sw.js: CACHE_NAME → pension-utm-v270.
+
+
+[v269 · 2026-07-09]
+index.html, export.js, sw.js
+
+Fix de dos problemas reportados en la tarjeta de resumen del overlay
+DUP (añadida en v268):
+
+  1. Ícono deforme: el path SVG artesanal de "bolsa de dinero" se veía
+     mal. Reemplazado por el ícono estándar "dollar-sign" (mismo estilo
+     stroke/round que el resto de la app), limpio y legible dentro del
+     círculo de 60px.
+
+  2. Botón "Ver detalle del cálculo" abría showResumenModal() pero el
+     modal quedaba tapado detrás del overlay: #resumenModal usa
+     z-index:120 (clase Tailwind base) mientras que dupOverlay/
+     befOverlay usan z-index:100000. showResumenModal() ahora sube
+     dinámicamente el z-index de #resumenModal a 100001 cuando detecta
+     que dupOverlay o befOverlay están abiertos (mismo patrón ya usado
+     para calendarModal en openCalendar()); hideResumenModal() restaura
+     el z-index base al cerrar. Sin cambios en ningún otro flujo.
+
+  sw.js: CACHE_NAME → pension-utm-v269.
+
+
 [v268 · 2026-07-09]
 index.html, styles.css, sw.js
 
