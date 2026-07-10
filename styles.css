@@ -1690,10 +1690,10 @@
     #helpModal > div     { max-width: 34rem !important; }
   }
 
-  /* ── 12. resumenModal max-height responsive ─────────────────── */
-  #resumenContent { max-height: 60vh; }
+  /* ── 12. resumenModal (v261: fullscreen, ya no necesita max-height
+     limitado; #resumenContent es flex-1 dentro del panel h-100% y
+     debe ocupar todo el espacio disponible, no 60vh/70vh) ───────── */
   @media (min-width: 768px) {
-    #resumenContent        { max-height: 70vh; }
     .card-modal__body      { padding: 1.25rem 1.5rem; }
     .card-modal__header    { padding: 1.125rem 1.5rem; }
     .card-modal__footer    { padding: 0.625rem 1.5rem 1.25rem; }
@@ -2470,8 +2470,8 @@
     padding: 11px 14px 10px !important;
   }
   .dh-card__title {
-    font-size: 9.5px !important;
-    letter-spacing: 0.06em !important;
+    font-size: 10.5px !important;
+    letter-spacing: -0.01em !important;
   }
   .dh-card__subtitle {
     font-size: 8px !important;
@@ -2808,7 +2808,7 @@
   .dh-card__header{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 8px;border-bottom:1px solid var(--dh-border);background:var(--dh-bg);}
   .dh-card__header-left{display:flex;align-items:center;gap:9px;}
   .dh-card__icon{width:30px;height:30px;border-radius:10px;background:rgba(234,88,12,0.10);border:1px solid rgba(234,88,12,0.20);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .dh-card__title{font-size:10px;font-weight:700;color:var(--dh-text);text-transform:uppercase;letter-spacing:0.08em;line-height:1.1;}
+  .dh-card__title{font-family:'Geist','DM Sans',sans-serif;font-size:11.5px;font-weight:800;color:var(--dh-text);text-transform:none;letter-spacing:-0.01em;line-height:1.2;}
   .dh-card__subtitle{font-size:8.5px;color:var(--color-text-muted);font-weight:500;margin-top:1px;}
   .dh-card__header-right{display:flex;align-items:center;gap:7px;}
   .dh-mode-toggle{display:flex;align-items:center;background:var(--color-bg-elevated);border:1px solid rgba(0,0,0,0.08);border-radius:var(--radius-full);padding:2px;gap:0;}
@@ -3195,23 +3195,20 @@
 @keyframes authShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
 
 /* ══════════════════════════════════════════════════════════════
-   SECCIÓN: "¿Cómo deseas calcular?" — barra FIJA inferior,
-   estilo fintech/Nubank. Bloque 100% nuevo y aislado. No reutiliza
-   ni modifica ninguna clase anterior. Solo presentación visual
-   (sin lógica de negocio). Las 4 tarjetas siempre visibles, sin
-   scroll horizontal, fijas al fondo de la pantalla.
+   SECCIÓN: "¿Cómo deseas calcular?" — en flujo normal, ubicada
+   justo antes de la tarjeta "Datos de la pensión". Grid 2x2 con
+   tarjetas más grandes (antes: barra fija inferior con 4 columnas).
+   Bloque 100% nuevo y aislado. No reutiliza ni modifica ninguna
+   clase anterior. Solo presentación visual (sin lógica de negocio).
    ══════════════════════════════════════════════════════════════ */
 
 .calc-mode-section {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 250;
+  width: 100%;
   background: #fff;
-  border-top: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+  padding: 12px;
 }
 
 .calc-mode-section__inner {
@@ -3243,22 +3240,22 @@
 
 .calc-mode-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
 .calc-mode-card {
   width: 100%;
-  height: 64px;
+  height: 84px;
   border-radius: 16px;
-  padding: 8px 6px;
+  padding: 10px 8px;
   border: none;
   box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   text-align: center;
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -3272,9 +3269,9 @@
 }
 
 .calc-mode-card__icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3282,15 +3279,15 @@
 }
 
 .calc-mode-card__icon svg {
-  width: 13px;
-  height: 13px;
+  width: 17px;
+  height: 17px;
 }
 
 .calc-mode-card__title {
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #1e293b;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
@@ -3313,15 +3310,6 @@
 .calc-mode-card__icon--purple { background: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%); }
 .calc-mode-card__icon--green  { background: linear-gradient(135deg, #06B6D4 0%, #34D399 100%); }
 .calc-mode-card__icon--pink   { background: linear-gradient(135deg, #D946EF 0%, #EC4899 100%); }
-
-/* Reserva espacio en el flujo normal para que el contenido final
-   (último elemento antes del fondo) no quede tapado por la barra
-   fija. Se suma al padding-bottom existente de #app-container
-   (pb-20 = 80px) un extra para la altura real de la barra
-   (título + tarjetas + paddings + safe-area ≈ 100-120px). */
-#app-container {
-  padding-bottom: 120px !important;
-}
 
 /* ══════════════════════════════════════════════════════════════════
    FULLSCREEN OVERLAY: Desde el último pago (DUP)
@@ -3779,6 +3767,310 @@
   transform: scale(0.98);
   box-shadow: 0 2px 8px rgba(91,79,255,0.22);
 }
+
+/* ── Resumen del cálculo (aparece tras "Calcular deuda actual") ───── */
+.dup-summary-section {
+  margin-top: 22px;
+}
+
+.dup-summary-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  border: 1px solid #ececf5;
+  box-shadow: 0 10px 35px rgba(91, 79, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.dup-summary-card::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -60px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(91, 79, 255, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+.dup-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: #e8f9ee;
+  color: #1a9c56;
+  border: 1px solid #bcedd0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  margin-bottom: 16px;
+}
+.dup-summary-badge svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.dup-summary-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  position: relative;
+}
+
+.dup-summary-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f2eeff, #e7e9ff);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  color: #5b4fff;
+}
+.dup-summary-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.dup-summary-content {
+  min-width: 0;
+}
+
+.dup-summary-title {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-summary-total {
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #5b4fff;
+  line-height: 1.1;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  letter-spacing: -0.01em;
+}
+
+.dup-summary-utm {
+  margin-top: 4px;
+  color: #8e97b0;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.dup-summary-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 18px 0;
+}
+
+.dup-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 14.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.dup-summary-row span {
+  color: #6b7280;
+}
+.dup-summary-row strong {
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.dup-summary-detail-btn {
+  margin-top: 16px;
+  width: 100%;
+  height: 48px;
+  border: none;
+  background: #f5f6ff;
+  color: #5b4fff;
+  border-radius: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.14s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.dup-summary-detail-btn:hover {
+  background: #eceeff;
+}
+.dup-summary-detail-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dup-summary-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 0 2px;
+  color: #8e97b0;
+  font-size: 11.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.dup-summary-info svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* ── Detalle por período (dentro de dupSummarySection) ───────────────────
+   Se integra DIRECTO dentro de .dup-summary-card (que ya aporta fondo,
+   borde, radio y sombra) — sin card/borde/padding propio anidado, para
+   no perder ancho útil con un "doble recuadro". Márgenes negativos
+   laterales compensan el padding:20px del contenedor padre para que la
+   tabla use el ancho completo disponible. 6 columnas: Período (con UTM
+   en morado debajo) / Capital / Días / Tasa / Interés / Subtotal + fila
+   TOTAL. NO acordeón, NO cards por período, NO columnas de info
+   eliminadas — Período y UTM solo se fusionan visualmente en una celda.
+   Prefijo dup-periodo- (namespace propio, no toca tablaFilas/export.js
+   ni .dup-summary-*). */
+.dup-periodo-block {
+  margin: 16px -20px -20px;
+  border-top: 1px solid #ECEFF5;
+  padding-top: 4px;
+}
+
+.dup-periodo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 20px 8px;
+}
+.dup-periodo-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #14161f;
+}
+.dup-periodo-verfechas {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #dcdff4;
+  background: #ffffff;
+  color: #5B5CEB;
+  border-radius: 12px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  font-family: inherit;
+}
+.dup-periodo-verfechas svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.dup-periodo-tablewrap {
+  width: 100%;
+  padding: 0 6px 10px;
+}
+.dup-periodo-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: var(--font-main, "Inter", "DM Sans", system-ui, sans-serif);
+}
+
+/* Header tabla */
+.dup-periodo-table thead th {
+  background: #fff;
+  color: #9095A1;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  text-align: left;
+  padding: 7px 3px;
+  border-bottom: 1px solid #ECEEF5;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.1;
+}
+
+/* Filas */
+.dup-periodo-table tbody td {
+  padding: 10px 3px;
+  border-bottom: 1px solid #F3F4F7;
+  font-size: 9.8px;
+  font-weight: 600;
+  color: #333645;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+.dup-periodo-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.dup-periodo-td--periodo {
+  font-weight: 700;
+  color: #14161f;
+}
+.dup-periodo-utm {
+  display: block;
+  color: var(--primary, #5B5CEB);
+  font-weight: 700;
+  font-size: 10px;
+  margin-top: 1px;
+}
+.dup-periodo-table tbody td.dup-periodo-td--tasa {
+  color: #38BDF8;
+  font-weight: 700;
+}
+.dup-periodo-table tbody td.dup-periodo-td--interes {
+  color: #38BDF8;
+  font-weight: 700;
+}
+.dup-periodo-table tbody td.dup-periodo-td--subtotal {
+  font-weight: 700;
+  color: #14161f;
+}
+
+/* Total */
+.dup-periodo-table tfoot tr {
+  background: #FAFAFD;
+  font-weight: 700;
+}
+.dup-periodo-table tfoot td {
+  padding: 11px 5px;
+  font-size: 11px;
+  color: #14161f;
+  white-space: normal;
+  word-break: break-word;
+}
+.dup-periodo-table tfoot .dup-periodo-td--subtotal {
+  color: var(--primary, #5B5CEB);
+}
+.dup-periodo-table tfoot .dup-periodo-utm {
+  color: var(--primary, #5B5CEB);
+}
+
 
 /* ── Responsive: tablet y desktop (centrado) ────────────────────── */
 @media (min-width: 600px) {
@@ -4240,6 +4532,170 @@
 .bef-cta-btn:active {
   transform: scale(0.98);
   box-shadow: 0 2px 8px rgba(31,95,255,0.22);
+}
+
+/* ── Resumen del cálculo (tiempo real, sin botón "Calcular") ──────── */
+.bef-summary-section {
+  margin-top: 22px;
+}
+
+.bef-summary-card {
+  background: #fff;
+  border-radius: 22px;
+  padding: 20px;
+  border: 1px solid #e2e9fb;
+  box-shadow: 0 10px 35px rgba(31, 95, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+
+.bef-summary-card::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -60px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(31, 95, 255, 0.08), transparent 70%);
+  pointer-events: none;
+}
+
+.bef-summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: #e8f9ee;
+  color: #1a9c56;
+  border: 1px solid #bcedd0;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  margin-bottom: 16px;
+}
+.bef-summary-badge svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.bef-summary-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  position: relative;
+}
+
+.bef-summary-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #eaf1ff, #e2ecff);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  color: #1f5fff;
+}
+.bef-summary-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.bef-summary-content {
+  min-width: 0;
+}
+
+.bef-summary-title {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.bef-summary-total {
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #1f5fff;
+  line-height: 1.1;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  letter-spacing: -0.01em;
+}
+
+.bef-summary-utm {
+  margin-top: 4px;
+  color: #8e97b0;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+
+.bef-summary-divider {
+  height: 1px;
+  background: #ececec;
+  margin: 18px 0;
+}
+
+.bef-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 14.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.bef-summary-row span {
+  color: #6b7280;
+}
+.bef-summary-row strong {
+  color: #1a1d2e;
+  font-weight: 700;
+}
+
+.bef-summary-detail-btn {
+  margin-top: 16px;
+  width: 100%;
+  height: 48px;
+  border: none;
+  background: #eff4ff;
+  color: #1f5fff;
+  border-radius: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+  cursor: pointer;
+  transition: background 0.14s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.bef-summary-detail-btn:hover {
+  background: #e3ebff;
+}
+.bef-summary-detail-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.bef-summary-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 0 2px;
+  color: #8e97b0;
+  font-size: 11.5px;
+  font-family: var(--font-main, "DM Sans", system-ui, sans-serif);
+}
+.bef-summary-info svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 /* ── Responsive: tablet y desktop (centrado) ────────────────────── */
@@ -5629,19 +6085,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 9px 14px 8px;
-  border-bottom: 1px solid rgba(59,130,246,0.12);
-  background: rgba(59,130,246,0.04);
+  border-bottom: 1px solid rgba(59,130,246,0.14);
+  background: rgba(59,130,246,0.05);
 }
 .dp-header__left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 .dp-header__icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 9px;
-  background: rgba(59,130,246,0.11);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: rgba(59,130,246,0.10);
   border: 1px solid rgba(59,130,246,0.20);
   display: flex;
   align-items: center;
@@ -6022,20 +6478,25 @@
   color: #94a3b8 !important;
 }
 
-/* ── Header: título y subtítulo ─────────────────────────────────────── */
+/* ── Header: título y subtítulo — mismo patrón tipográfico que
+   .calc-mode-card__title (dock "¿Cómo deseas calcular?") y el
+   resto de tarjetas plegables: sin mayúsculas, mismo tamaño/peso. ── */
 .dp-header__title {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
   color: #1e293b !important;
-  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.2 !important;
 }
 .dp-header__sub {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-size: 11px !important;
-  font-weight: 400 !important;
+  font-size: 8.5px !important;
+  font-weight: 500 !important;
   color: #94a3b8 !important;
   letter-spacing: 0 !important;
+  text-transform: none !important;
 }
 
 /* ── Toggle UTM / % Sueldo ──────────────────────────────────────────── */
@@ -6114,8 +6575,9 @@
 /* ── Header: título y subtítulo ─────────────────────────────────────── */
 .lavx-card .lavx-title {
   font-family: 'Geist', 'DM Sans', sans-serif !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.01em !important;
 }
 .lavx-card .lavx-subtitle {
   font-family: 'Geist', 'DM Sans', sans-serif !important;

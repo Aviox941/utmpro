@@ -2,6 +2,402 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v271 · 2026-07-09] (fix 2026-07-10, tercera pasada)
+index.html, styles.css
+
+Fix 1 — Tasa e Interés no se veían azules: el selector genérico
+.dup-periodo-table tbody td (una clase de contexto) tenía más
+especificidad que .dup-periodo-td--tasa/--interes (una sola clase),
+así que pisaba el color #38BDF8. Se subió la especificidad calificando
+esas reglas como .dup-periodo-table tbody td.dup-periodo-td--tasa /
+--interes / --subtotal.
+
+Fix 2 — Texto seguía colapsando en 2 líneas (Capital/Subtotal, ej.
+"$161.387" cortándose en "$161.38" + "7"): se redistribuyeron los
+anchos de columna (Días y Tasa más angostas, ya que solo necesitan 2-3
+caracteres; Capital y Subtotal más anchas), se bajó la fuente a 9.8px
+en celdas / 8px en header, se redujo el padding lateral (3px en vez de
+5px, y el padding del tablewrap de 12px a 6px), y se agregó un espacio
+irrompible entre el número de tasa y el símbolo % para que no se
+partan en líneas distintas.
+
+
+
+Fix de "doble recuadro": la tabla de detalle vivía dentro de una card
+propia (.dup-periodo-card, con su propio borde/padding) anidada dentro
+de .dup-summary-card (que ya tiene padding:20px + borde + sombra),
+perdiendo ancho útil en dos capas de margen. Se eliminó la card
+anidada — ahora .dup-periodo-block se integra directo dentro de
+.dup-summary-card con márgenes negativos (-20px laterales) que
+compensan el padding del contenedor padre, usando el ancho completo.
+
+También se pasó de 7 a 6 columnas: Período y UTM se fusionaron en una
+sola celda (nombre del período arriba, UTM equivalente debajo en morado
+#5B5CEB, igual que la referencia de diseño: "Jun 2026" / "2,33 UTM").
+Tasa e Interés ahora en azul claro (#38BDF8) para diferenciarse
+visualmente de Capital/Subtotal (negro) y UTM (morado).
+
+
+
+Fix sobre la tabla de detalle del overlay "Desde el último pago"
+(dupBuildDetalle): las 7 columnas (Período/UTM/Capital/Días/Tasa/
+Interés/Subtotal) se cortaban por scroll horizontal forzado y
+white-space:nowrap. Se quitó el min-width/overflow-x de
+.dup-periodo-tablewrap, se pasó la tabla a table-layout:fixed con
+colgroup de anchos proporcionales (16/11/16/10/11/15/21%), se
+redujo tipografía (10px celdas, 8.5px header) y padding (10px/4px),
+y se permite word-break para que todo el contenido quepa sin scroll
+en una pantalla de mobile, igual que la referencia de diseño.
+
+
+cálculo": ahora se DESPLIEGA inline dentro del propio dupSummarySection
+(toggle), en vez de abrir el modal general de Resumen de Liquidación
+(showResumenModal). El modal general y export.js quedan sin cambios.
+
+El detalle se implementó como TABLA HTML REAL (<table>/<thead>/<tbody>/
+<tfoot>) — no acordeón, no cards por período, no columnas eliminadas —
+según especificación de diseño exacta entregada por el usuario:
+
+  - dupBuildDetalle() (index.html) renderiza .overlay-card (radio 28px,
+    borde #ECEFF5, sombra 0 12px 30px rgba(0,0,0,.05)) con header "Detalle
+    por período" + botón "Cerrar", y una <table> con <thead> (columnas
+    Período/UTM/Capital $/Días/Tasa/Interés $/Subtotal $, texto gris
+    uppercase 12px/600), <tbody> (filas padding 18px/14px, borde inferior
+    #F3F4F7) y <tfoot> (fila TOTAL, fondo #FAFAFD, peso 700). Acento
+    #5B5CEB (var --primary con fallback) solo en UTM, subtotal y totales.
+
+  - Lee directamente lastCalculationData (misma fuente que tablaFilas en
+    export.js) — no se duplica ni recalcula nada, solo se renderiza.
+
+  - dupToggleDetalle() alterna visibilidad + rota el ícono chevron del
+    botón externo; dupPopulateSummary() resetea el detalle (lo cierra y
+    limpia) cada vez que el usuario recalcula.
+
+  - styles.css: reglas .dup-periodo-* (grid CSS de 7 columnas con scroll
+    horizontal en mobile si el ancho no alcanza), namespace propio que no
+    interfiere con .dup-summary-* existente ni con nada de export.js.
+
+  - Sin cambios en showResumenModal / buildResumenContent / tablaFilas:
+    el modal general de "Resumen de Liquidación" permanece exactamente
+    como en v270. Los otros botones que abren ese modal (icono "Ver PDF"
+    del header y overlay "Entre fechas") tampoco se tocaron.
+
+[v270 · 2026-07-09]
+index.html, styles.css, sw.js
+
+Overlay "Entre fechas" (befOverlay): mismo patrón de tarjeta de resumen
+integrado en v268/v269 para el DUP, ahora aplicado acá — y en TIEMPO
+REAL, sin botón "Calcular deuda actual".
+
+  - Nueva tarjeta #befSummarySection (clases bef-summary-*, paleta azul
+    del overlay BEF), misma estructura que dupSummarySection: badge,
+    total + UTM equivalente, Capital / Intereses acumulados, botón
+    "Ver detalle del cálculo" (showResumenModal(), ya con el fix de
+    z-index de v269) y nota informativa.
+
+  - Reemplazado befCalcularDeuda() (validaba con alert() y solo
+    calculaba al presionar el botón) por befActualizarResumen(), que
+    hace exactamente el mismo trabajo (resetAllExceptPensionData →
+    startIndex/endIndex → setCalcMode/utmAmount → updateLabels(), que
+    dispara calculate()) pero de forma SILENCIOSA: si falta algún dato
+    o es inválido, solo oculta el resumen (sin alert, el usuario puede
+    estar a mitad de completar el formulario) en vez de bloquear.
+
+  - befActualizarResumen() se dispara automáticamente desde:
+      · oninput del campo de monto (befMontoCuota),
+      · befSelectUnidad() al alternar UTM/CLP,
+      · el clic de mes en el calendario para calendarMode 'befStart' y
+        'befEnd' (antes solo guardaba el mes/año y esperaba a que se
+        cerrara el calendario).
+    Apenas unidad + monto + ambas fechas quedan completos y válidos, el
+    resumen aparece sin ninguna acción adicional del usuario.
+
+  - Cuidado explícito para no disparar el recálculo (y por lo tanto
+    resetAllExceptPensionData(), que limpia abonos LAV/pagos parciales)
+    con solo abrir el overlay: befPrefillFromPensionData() precarga los
+    campos desde "Datos de Pensión" pero NO llama a
+    befActualizarResumen(); dentro de befSelectUnidad() el campo de
+    monto se limpia ANTES del llamado, por lo que la guarda de "falta
+    monto" lo neutraliza cuando la unidad se fija programáticamente
+    desde el prefill. El resumen solo se calcula (y solo entonces se
+    limpian abonos previos) ante una interacción real del usuario
+    dentro del formulario.
+
+  - Botón del footer (bef-cta-btn): cambia de "Calcular deuda actual"
+    a "Listo" — ya no dispara ningún cálculo, solo cierra el overlay
+    (closeBefOverlay()), porque el cálculo ya ocurrió en tiempo real.
+
+  - befPopulateSummary() lee los mismos totales ya actualizados en la
+    tarjeta principal (totalGrand, totalCap, totalInt, totalGrandUtm),
+    igual que dupPopulateSummary(): sin duplicar lógica de cálculo.
+
+  - Sin cambios en fórmulas, imputación de abonos ni en el resto de
+    flujos de cálculo.
+
+  styles.css: nuevas reglas .bef-summary-* (namespace propio, paleta
+  azul #1f5fff en vez del morado usado en .dup-summary-*).
+  sw.js: CACHE_NAME → pension-utm-v270.
+
+
+[v269 · 2026-07-09]
+index.html, export.js, sw.js
+
+Fix de dos problemas reportados en la tarjeta de resumen del overlay
+DUP (añadida en v268):
+
+  1. Ícono deforme: el path SVG artesanal de "bolsa de dinero" se veía
+     mal. Reemplazado por el ícono estándar "dollar-sign" (mismo estilo
+     stroke/round que el resto de la app), limpio y legible dentro del
+     círculo de 60px.
+
+  2. Botón "Ver detalle del cálculo" abría showResumenModal() pero el
+     modal quedaba tapado detrás del overlay: #resumenModal usa
+     z-index:120 (clase Tailwind base) mientras que dupOverlay/
+     befOverlay usan z-index:100000. showResumenModal() ahora sube
+     dinámicamente el z-index de #resumenModal a 100001 cuando detecta
+     que dupOverlay o befOverlay están abiertos (mismo patrón ya usado
+     para calendarModal en openCalendar()); hideResumenModal() restaura
+     el z-index base al cerrar. Sin cambios en ningún otro flujo.
+
+  sw.js: CACHE_NAME → pension-utm-v269.
+
+
+[v268 · 2026-07-09]
+index.html, styles.css, sw.js
+
+Overlay "Desde el último pago" (dupOverlay): ahora muestra el resultado
+del cálculo al final del propio overlay, en vez de cerrarlo y navegar
+a la pantalla principal al presionar "Calcular deuda actual".
+
+  - Nueva tarjeta #dupSummarySection (clases dup-summary-*), fiel al
+    mockup de referencia: badge "Calculado hasta hoy", total grande +
+    equivalente en UTM, desglose Capital / Intereses acumulados, botón
+    "Ver detalle del cálculo" (abre el modal existente vía
+    showResumenModal(), sin lógica nueva de liquidación) y nota
+    informativa al pie.
+  - dupCalcularDeuda() sigue delegando 100% en el motor de cálculo
+    existente (resetAllExceptPensionData → setCalcMode/utmAmount →
+    addAbonoLav(), que dispara calculate() de forma síncrona). Se quitó
+    únicamente el closeDupOverlay()+scrollToTop() automático al final;
+    en su lugar, nueva función dupPopulateSummary() lee los totales ya
+    actualizados en la tarjeta principal (totalGrand, totalCap,
+    totalInt, totalGrandUtm) y los refleja en la tarjeta de resumen del
+    overlay, sin duplicar cálculos.
+  - El reset de los campos del formulario (monto, cuota, fecha,
+    unidades) y el ocultamiento del resumen, que antes ocurrían justo
+    después de calcular, se movieron a una nueva dupResetForm(),
+    invocada desde closeDupOverlay(). Así los valores ingresados y el
+    resultado quedan visibles mientras el usuario revisa el overlay, y
+    el formulario solo se limpia al cerrarlo (para la próxima vez que
+    se abra desde cero).
+  - Botón del footer (id dupCtaBtn) cambia su texto a "Recalcular"
+    tras el primer cálculo exitoso; vuelve a "Calcular deuda actual"
+    al cerrar el overlay.
+  - Sin cambios en fórmulas, imputación de abonos ni en ningún otro
+    flujo de cálculo.
+
+  styles.css: nuevas reglas .dup-summary-* (namespace propio, no choca
+  con dup-form/dup-hero existentes).
+  sw.js: CACHE_NAME → pension-utm-v268.
+
+
+[v267 · 2026-07-07]
+styles.css, sw.js
+
+Fix definitivo del espacio en blanco en el modal fullscreen "Resumen
+de Liquidación" (persistía tras v263 y v266). Causa raíz real,
+encontrada esta vez: una regla suelta fuera de cualquier media query,
+
+  #resumenContent { max-height: 60vh; }
+
+que limitaba el contenido a 60% del alto del viewport (70vh desde
+768px) sin importar que el panel padre ya ocupara height:100%. El
+40% restante del panel quedaba en blanco debajo del contenido,
+independientemente del centrado del overlay (que ya se había
+corregido en v266, ajuste válido pero no era la causa principal).
+
+  - Se eliminó el max-height:60vh/70vh de #resumenContent.
+  - #resumenContent ahora depende únicamente de flex-1 dentro del
+    panel .flex.flex-col con height:100% (definido en modals.html
+    desde v266), llenando correctamente todo el espacio disponible.
+  - Sin cambios de lógica de negocio.
+
+  sw.js: CACHE_NAME → pension-utm-v267.
+
+
+[v266 · 2026-07-07]
+modals.html, sw.js
+
+Fix (round 2): el modal fullscreen "Resumen de Liquidación" seguía
+dejando un espacio en blanco al final, incluso tras quitar el footer
+en v263. Causa real: el overlay #resumenModal conservaba las clases
+Tailwind items-center justify-center; con eso, el panel hijo (aunque
+tenía h-full) podía terminar encogido a la altura de su contenido en
+vez de estirarse a ocupar el 100% del overlay, dejando el hueco
+visible debajo.
+
+  - Se quitaron items-center y justify-center de #resumenModal (ya
+    no tienen sentido en un layout fullscreen de un solo hijo).
+  - El panel pasa de h-full (clase Tailwind) a height:100% inline,
+    dentro de un padre que ahora es un simple flex-column sin
+    centrado, garantizando que ocupe el 100% real del overlay.
+  - Sin cambios de lógica: showResumenModal()/hideResumenModal()
+    en export.js (que hacen classList.replace('hidden','flex'))
+    siguen funcionando igual.
+
+  sw.js: CACHE_NAME → pension-utm-v266.
+
+
+[v265 · 2026-07-07]
+styles.css, sw.js
+
+Unificación tipográfica de los títulos de las 5 tarjetas plegables
+(Datos de la Pensión, Depósitos LAV, Deuda Histórica, Abonos
+Realizados, Pagos Parciales por Mes) para que coincidan con el
+estilo del dock "¿Cómo deseas calcular?" (.calc-mode-card__title):
+misma fuente, mismo tamaño, mismo peso, sin mayúsculas.
+
+  - .dh-card__title (Deuda Histórica / Abonos / Pagos Parciales):
+    text-transform pasa de uppercase a none; font-size 10px→11.5px;
+    letter-spacing 0.08em→-0.01em; font-weight 700→800; se agrega
+    font-family Geist explícito. Mismo ajuste en el override
+    responsive de desktop (min-width:1024px).
+  - .dp-header__title (Datos de la Pensión): mismo tratamiento
+    (ya no queda ni en uppercase de 10px ni en el 15px anterior de
+    v264; ahora 11.5px/800, igual a las demás).
+  - .lavx-title (Depósitos LAV): ajustado a 11.5px/800/-0.01em
+    (antes no tenía font-size ni font-weight explícitos en el
+    override Geist, heredaba 12px/700 del CSS base).
+
+  Sin cambios de texto en el HTML (los títulos ya estaban escritos
+  en formato normal, ej. "Deuda Histórica"; el uppercase venía solo
+  de CSS) ni de estructura/lógica.
+
+  sw.js: CACHE_NAME → pension-utm-v265.
+
+
+[v264 · 2026-07-07]
+index.html, styles.css, sw.js
+
+Tarjeta "Datos de la pensión" (dp-card, Paso 1 del onboarding) ahora
+es plegable, con el mismo aspecto visual que el resto de tarjetas
+plegables (Deuda Histórica, Abonos Realizados, Pagos Parciales,
+Depósitos LAV): mismo tamaño de header, misma tipografía, mismo
+chevron.
+
+  - Header: se agregó onclick="toggleSection('dpCardBody',
+    'dpCardChevron')" y un chevron (mismo SVG/comportamiento que
+    dh-card__header). El body se envolvió en
+    <div id="dpCardBody" class="collapsible-body">
+    <div class="collapsible-inner">...</div></div>, igual que el
+    resto de tarjetas dh-card.
+  - Tipografía del header: .dp-header__title y .dp-header__sub
+    dejaron su estilo custom (15px, sin mayúsculas) y ahora replican
+    exactamente el patrón de .dh-card__title (10px, uppercase,
+    bold, letter-spacing 0.08em) y .dh-card__icon (30px, mismo
+    padding), para que todas las tarjetas plegadas se vean idénticas
+    en tamaño y tipografía.
+  - initCollapsibles() ahora incluye 'dpCardBody' en la lista de
+    IDs, por lo que inicia plegada al cargar la app, igual que las
+    demás tarjetas.
+  - Sin cambios de lógica de negocio: todos los inputs y IDs
+    (utmAmount, clpAmount, fechaLiquidacion, etc.) se preservaron
+    intactos; el colapso es puramente visual (grid-template-rows),
+    no oculta el DOM ni afecta getElementById().
+
+  sw.js: CACHE_NAME → pension-utm-v264.
+
+
+[v263 · 2026-07-07]
+modals.html, sw.js
+
+Fix: el modal fullscreen "Resumen de Liquidación" (v261) dejaba un
+espacio en blanco debajo del botón "Cerrar" del footer, cortando la
+pantalla. Causa: el panel usaba height:100dvh dentro de un overlay
+centrado por flex (items-center), y al recalcular el navegador su UI
+(barra de direcciones/gestos), 100dvh podía quedar más chico que el
+overlay fixed inset-0, dejando hueco visible.
+
+  - Se eliminó el footer con el botón "Cerrar" duplicado (ya existe
+    la X en el header para cerrar el modal).
+  - El panel pasa de height:100dvh a h-full (100% del overlay
+    fixed inset-0), evitando el desajuste de altura.
+  - El padding-bottom para el área segura (gesture bar) se movió al
+    contenedor de contenido scrolleable (#resumenContent).
+  - Sin cambios de lógica: hideResumenModal()/showResumenModal() en
+    export.js quedan intactos.
+
+  sw.js: CACHE_NAME → pension-utm-v263.
+
+
+[v262 · 2026-07-07]
+index.html, modals.html, sw.js
+
+Modal "Detalle de Mora" (detailModal): reordenamiento de jerarquía
+visual y simplificación de la fila de tasa.
+
+  - Header: el mes/año (ej. "Feb 2026") pasa a texto grande (antes
+    era el label pequeño arriba); "Detalle de Mora" pasa a subtítulo
+    pequeño en mayúsculas debajo (antes era el <h3> grande).
+  - Filas de tasa: se eliminó la duplicación "TIC del período" +
+    "Tasa aplicada" (ambas mostraban el mismo % anual cuando no
+    había recargo). Ahora hay una sola fila "Tasa aplicada" con
+    % anual y % diaria (anual / 365).
+  - Cuando aplica el recargo del 50% (Ley 14.908), se agrega una
+    nota aparte debajo de la fila indicando el recargo y la TIC
+    base sin recargo, en vez de mostrar dos tasas anuales lado a
+    lado.
+  - Caso "isConsolidada" (Período Actual): mismo tratamiento,
+    unifica en una fila con anual + diaria.
+  - Sin cambios en el cálculo de intereses ni en los campos que
+    genera calculate() (tasa, tasaBase, tasaHist, etc.); solo se
+    modificó cómo se muestran en el modal.
+
+  sw.js: CACHE_NAME → pension-utm-v262.
+
+
+[v261 · 2026-07-07]
+modals.html, sw.js
+
+Modal "Resumen de Liquidación" (#resumenModal): pasa de tarjeta
+centrada (max-w-lg, rounded-[2rem], con backdrop semitransparente
+detrás) a overlay fullscreen.
+
+  - Overlay: fondo blanco sólido, sin blur ni padding alrededor.
+  - Panel interno: height:100vh/100dvh, ocupa todo el ancho y alto
+    de la pantalla; se quitaron max-width, border-radius y box-shadow.
+  - Header respeta env(safe-area-inset-top) y footer respeta
+    env(safe-area-inset-bottom) para notch / gesture bar.
+  - Sin cambios de lógica: showResumenModal()/hideResumenModal()/
+    buildResumenContent() en export.js quedan intactos.
+
+  sw.js: CACHE_NAME → pension-utm-v261.
+
+
+[v260 · 2026-07-07]
+index.html, styles.css
+
+Sección "¿Cómo deseas calcular?" (dock de 4 tarjetas): pasa de ser una
+barra fija inferior (position:fixed) a un bloque normal en el flujo del
+documento, ubicado justo antes de la tarjeta "Datos de la pensión".
+
+  - HTML: el <section class="calc-mode-section"> se movió dentro de
+    #mainInputs, antes de .dp-card.
+  - CSS: .calc-mode-section deja de ser position:fixed; ahora se ve
+    como una tarjeta normal (fondo blanco, borde, radius, sombra
+    suave). .calc-mode-row pasa de grid de 4 columnas a grid 2x2
+    (repeat(2, 1fr)). Tarjetas más grandes (64px → 84px de alto,
+    íconos 24px → 32px, texto 9.5px → 11.5px).
+  - Se eliminó el padding-bottom:120px !important de #app-container
+    que compensaba el espacio reservado para la barra fija; ya no es
+    necesario porque el dock ya no flota sobre el contenido.
+
+  Sin cambios de lógica de negocio ni de JS: las tarjetas siguen sin
+  acción funcional conectada más allá de lo ya existente.
+
+  sw.js: CACHE_NAME → pension-utm-v260.
+
+
 [v259 · 2026-07-01]
 index.html, sw.js
 
