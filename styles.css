@@ -3951,25 +3951,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 20px 20px 14px;
+  gap: 10px;
+  padding: 14px 10px 10px;
 }
 .dup-periodo-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #14161f;
 }
 .dup-periodo-verfechas {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: 1px solid #dcdff4;
   background: #ffffff;
   color: #5B5CEB;
-  border-radius: 14px;
-  padding: 8px 14px;
-  font-size: 12.5px;
+  border-radius: 12px;
+  padding: 6px 11px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -3977,18 +3977,17 @@
   font-family: inherit;
 }
 .dup-periodo-verfechas svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
 }
 
 .dup-periodo-tablewrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 .dup-periodo-table {
   width: 100%;
-  min-width: 560px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-family: inherit;
 }
@@ -3997,23 +3996,28 @@
 .dup-periodo-table thead th {
   background: #fff;
   color: #9095A1;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 8.5px;
+  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.01em;
   text-align: left;
-  padding: 12px 14px;
+  padding: 8px 4px;
   border-bottom: 1px solid #ECEEF5;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.15;
 }
 
 /* Filas */
 .dup-periodo-table tbody td {
-  padding: 18px 14px;
+  padding: 10px 4px;
   border-bottom: 1px solid #F3F4F7;
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 600;
   color: #333645;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
 }
 .dup-periodo-table tbody tr:last-child td {
   border-bottom: none;
@@ -4037,10 +4041,11 @@
   font-weight: 700;
 }
 .dup-periodo-table tfoot td {
-  padding: 18px 14px;
-  font-size: 13px;
+  padding: 10px 4px;
+  font-size: 10px;
   color: #14161f;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
 }
 .dup-periodo-table tfoot .dup-periodo-td--utm,
 .dup-periodo-table tfoot .dup-periodo-td--subtotal {

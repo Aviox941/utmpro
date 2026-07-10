@@ -6597,7 +6597,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0709.0644</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0710.0258</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8935,9 +8935,20 @@ function dupBuildDetalle() {
   const table = document.createElement('table');
   table.className = 'dup-periodo-table';
 
+  const colgroup = document.createElement('colgroup');
+  colgroup.innerHTML = `
+    <col style="width:16%">
+    <col style="width:11%">
+    <col style="width:16%">
+    <col style="width:10%">
+    <col style="width:11%">
+    <col style="width:15%">
+    <col style="width:21%">`;
+  table.appendChild(colgroup);
+
   const thead = document.createElement('thead');
   thead.innerHTML = `<tr>
-    <th>Período</th><th>UTM</th><th>Capital $</th><th>Días</th><th>Tasa</th><th>Interés $</th><th>Subtotal $</th>
+    <th>Período</th><th>UTM</th><th>Capital</th><th>Días</th><th>Tasa</th><th>Interés</th><th>Subtotal</th>
   </tr>`;
   table.appendChild(thead);
 

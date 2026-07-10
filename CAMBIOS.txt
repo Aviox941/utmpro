@@ -2,10 +2,20 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v271 · 2026-07-09]
+[v271 · 2026-07-09] (fix 2026-07-10)
 index.html, styles.css
 
-Overlay "Desde el último pago" (dupOverlay) — botón "Ver detalle del
+Fix sobre la tabla de detalle del overlay "Desde el último pago"
+(dupBuildDetalle): las 7 columnas (Período/UTM/Capital/Días/Tasa/
+Interés/Subtotal) se cortaban por scroll horizontal forzado y
+white-space:nowrap. Se quitó el min-width/overflow-x de
+.dup-periodo-tablewrap, se pasó la tabla a table-layout:fixed con
+colgroup de anchos proporcionales (16/11/16/10/11/15/21%), se
+redujo tipografía (10px celdas, 8.5px header) y padding (10px/4px),
+y se permite word-break para que todo el contenido quepa sin scroll
+en una pantalla de mobile, igual que la referencia de diseño.
+
+
 cálculo": ahora se DESPLIEGA inline dentro del propio dupSummarySection
 (toggle), en vez de abrir el modal general de Resumen de Liquidación
 (showResumenModal). El modal general y export.js quedan sin cambios.
