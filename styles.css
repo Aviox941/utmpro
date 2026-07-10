@@ -3933,18 +3933,20 @@
 }
 
 /* ── Detalle por período (dentro de dupSummarySection) ───────────────────
-   Especificación exacta entregada: tabla HTML real (<table>/<thead>/
-   <tbody>/<tfoot>) con columnas Período/UTM/Capital/Días/Tasa/Interés/
-   Subtotal + fila TOTAL. NO acordeón, NO cards por período, NO columnas
-   eliminadas. Prefijo dup-periodo- + clase overlay-card (namespace propio,
-   no interfiere con tablaFilas de export.js ni con .dup-summary-*). */
-.dup-periodo-card.overlay-card {
-  background: #fff;
-  border: 1px solid #ECEFF5;
-  border-radius: 28px;
-  box-shadow: 0 12px 30px rgba(0,0,0,.05);
-  overflow: hidden;
-  font-family: var(--font-main, "Inter", "DM Sans", system-ui, sans-serif);
+   Se integra DIRECTO dentro de .dup-summary-card (que ya aporta fondo,
+   borde, radio y sombra) — sin card/borde/padding propio anidado, para
+   no perder ancho útil con un "doble recuadro". Márgenes negativos
+   laterales compensan el padding:20px del contenedor padre para que la
+   tabla use el ancho completo disponible. 6 columnas: Período (con UTM
+   en morado debajo) / Capital / Días / Tasa / Interés / Subtotal + fila
+   TOTAL. NO acordeón, NO cards por período, NO columnas de info
+   eliminadas — Período y UTM solo se fusionan visualmente en una celda.
+   Prefijo dup-periodo- (namespace propio, no toca tablaFilas/export.js
+   ni .dup-summary-*). */
+.dup-periodo-block {
+  margin: 16px -20px -20px;
+  border-top: 1px solid #ECEFF5;
+  padding-top: 4px;
 }
 
 .dup-periodo-header {
@@ -3952,7 +3954,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 14px 10px 10px;
+  padding: 14px 20px 8px;
 }
 .dup-periodo-header h2 {
   margin: 0;
@@ -3984,24 +3986,25 @@
 
 .dup-periodo-tablewrap {
   width: 100%;
+  padding: 0 12px 12px;
 }
 .dup-periodo-table {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-family: inherit;
+  font-family: var(--font-main, "Inter", "DM Sans", system-ui, sans-serif);
 }
 
 /* Header tabla */
 .dup-periodo-table thead th {
   background: #fff;
   color: #9095A1;
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.01em;
   text-align: left;
-  padding: 8px 4px;
+  padding: 8px 5px;
   border-bottom: 1px solid #ECEEF5;
   white-space: normal;
   word-break: break-word;
@@ -4010,14 +4013,15 @@
 
 /* Filas */
 .dup-periodo-table tbody td {
-  padding: 10px 4px;
+  padding: 11px 5px;
   border-bottom: 1px solid #F3F4F7;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #333645;
   white-space: normal;
   word-break: break-word;
-  line-height: 1.2;
+  line-height: 1.25;
+  vertical-align: middle;
 }
 .dup-periodo-table tbody tr:last-child td {
   border-bottom: none;
@@ -4026,8 +4030,19 @@
   font-weight: 700;
   color: #14161f;
 }
-.dup-periodo-td--utm {
+.dup-periodo-utm {
+  display: block;
   color: var(--primary, #5B5CEB);
+  font-weight: 700;
+  font-size: 10px;
+  margin-top: 1px;
+}
+.dup-periodo-td--tasa {
+  color: #38BDF8;
+  font-weight: 700;
+}
+.dup-periodo-td--interes {
+  color: #38BDF8;
   font-weight: 700;
 }
 .dup-periodo-td--subtotal {
@@ -4041,16 +4056,19 @@
   font-weight: 700;
 }
 .dup-periodo-table tfoot td {
-  padding: 10px 4px;
-  font-size: 10px;
+  padding: 11px 5px;
+  font-size: 11px;
   color: #14161f;
   white-space: normal;
   word-break: break-word;
 }
-.dup-periodo-table tfoot .dup-periodo-td--utm,
 .dup-periodo-table tfoot .dup-periodo-td--subtotal {
   color: var(--primary, #5B5CEB);
 }
+.dup-periodo-table tfoot .dup-periodo-utm {
+  color: var(--primary, #5B5CEB);
+}
+
 
 /* ── Responsive: tablet y desktop (centrado) ────────────────────── */
 @media (min-width: 600px) {

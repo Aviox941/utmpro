@@ -2,8 +2,24 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v271 · 2026-07-09] (fix 2026-07-10)
+[v271 · 2026-07-09] (fix 2026-07-10, segunda pasada)
 index.html, styles.css
+
+Fix de "doble recuadro": la tabla de detalle vivía dentro de una card
+propia (.dup-periodo-card, con su propio borde/padding) anidada dentro
+de .dup-summary-card (que ya tiene padding:20px + borde + sombra),
+perdiendo ancho útil en dos capas de margen. Se eliminó la card
+anidada — ahora .dup-periodo-block se integra directo dentro de
+.dup-summary-card con márgenes negativos (-20px laterales) que
+compensan el padding del contenedor padre, usando el ancho completo.
+
+También se pasó de 7 a 6 columnas: Período y UTM se fusionaron en una
+sola celda (nombre del período arriba, UTM equivalente debajo en morado
+#5B5CEB, igual que la referencia de diseño: "Jun 2026" / "2,33 UTM").
+Tasa e Interés ahora en azul claro (#38BDF8) para diferenciarse
+visualmente de Capital/Subtotal (negro) y UTM (morado).
+
+
 
 Fix sobre la tabla de detalle del overlay "Desde el último pago"
 (dupBuildDetalle): las 7 columnas (Período/UTM/Capital/Días/Tasa/
