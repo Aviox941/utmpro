@@ -6597,7 +6597,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0710.0334</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0710.0346</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -8906,7 +8906,7 @@ function dupBuildDetalle() {
   wrap.innerHTML = '';
 
   const fmt = n => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(n);
-  const fmtPct = v => (v * 100).toFixed(2) + '%';
+  const fmtPct = v => (v * 100).toFixed(2) + '\u00A0%';
   const datos = (typeof lastCalculationData !== 'undefined' ? lastCalculationData : []).slice();
   if (datos.length === 0) {
     wrap.innerHTML = '<p style="font-size:12.5px;color:#8e97b0;text-align:center;padding:16px 0;">Sin datos de período para mostrar.</p>';
@@ -8940,12 +8940,12 @@ function dupBuildDetalle() {
 
   const colgroup = document.createElement('colgroup');
   colgroup.innerHTML = `
-    <col style="width:22%">
+    <col style="width:21%">
+    <col style="width:20%">
+    <col style="width:9%">
+    <col style="width:12%">
     <col style="width:17%">
-    <col style="width:11%">
-    <col style="width:14%">
-    <col style="width:17%">
-    <col style="width:19%">`;
+    <col style="width:21%">`;
   table.appendChild(colgroup);
 
   const thead = document.createElement('thead');

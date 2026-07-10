@@ -3986,7 +3986,7 @@
 
 .dup-periodo-tablewrap {
   width: 100%;
-  padding: 0 12px 12px;
+  padding: 0 6px 10px;
 }
 .dup-periodo-table {
   width: 100%;
@@ -3999,28 +3999,30 @@
 .dup-periodo-table thead th {
   background: #fff;
   color: #9095A1;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
   text-align: left;
-  padding: 8px 5px;
+  padding: 7px 3px;
   border-bottom: 1px solid #ECEEF5;
   white-space: normal;
-  word-break: break-word;
-  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.1;
 }
 
 /* Filas */
 .dup-periodo-table tbody td {
-  padding: 11px 5px;
+  padding: 10px 3px;
   border-bottom: 1px solid #F3F4F7;
-  font-size: 11px;
+  font-size: 9.8px;
   font-weight: 600;
   color: #333645;
   white-space: normal;
-  word-break: break-word;
-  line-height: 1.25;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.2;
   vertical-align: middle;
 }
 .dup-periodo-table tbody tr:last-child td {
@@ -4037,15 +4039,15 @@
   font-size: 10px;
   margin-top: 1px;
 }
-.dup-periodo-td--tasa {
+.dup-periodo-table tbody td.dup-periodo-td--tasa {
   color: #38BDF8;
   font-weight: 700;
 }
-.dup-periodo-td--interes {
+.dup-periodo-table tbody td.dup-periodo-td--interes {
   color: #38BDF8;
   font-weight: 700;
 }
-.dup-periodo-td--subtotal {
+.dup-periodo-table tbody td.dup-periodo-td--subtotal {
   font-weight: 700;
   color: #14161f;
 }

@@ -2,8 +2,26 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v271 · 2026-07-09] (fix 2026-07-10, segunda pasada)
+[v271 · 2026-07-09] (fix 2026-07-10, tercera pasada)
 index.html, styles.css
+
+Fix 1 — Tasa e Interés no se veían azules: el selector genérico
+.dup-periodo-table tbody td (una clase de contexto) tenía más
+especificidad que .dup-periodo-td--tasa/--interes (una sola clase),
+así que pisaba el color #38BDF8. Se subió la especificidad calificando
+esas reglas como .dup-periodo-table tbody td.dup-periodo-td--tasa /
+--interes / --subtotal.
+
+Fix 2 — Texto seguía colapsando en 2 líneas (Capital/Subtotal, ej.
+"$161.387" cortándose en "$161.38" + "7"): se redistribuyeron los
+anchos de columna (Días y Tasa más angostas, ya que solo necesitan 2-3
+caracteres; Capital y Subtotal más anchas), se bajó la fuente a 9.8px
+en celdas / 8px en header, se redujo el padding lateral (3px en vez de
+5px, y el padding del tablewrap de 12px a 6px), y se agregó un espacio
+irrompible entre el número de tasa y el símbolo % para que no se
+partan en líneas distintas.
+
+
 
 Fix de "doble recuadro": la tabla de detalle vivía dentro de una card
 propia (.dup-periodo-card, con su propio borde/padding) anidada dentro
