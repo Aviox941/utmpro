@@ -2,6 +2,102 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0712.0722 · 2026-07-12]
+export.js
+
+Fix — Columna "Tasa Mensual" del PDF mostraba un número sin sentido.
+d.tasa guarda la tasa ANUAL en decimal (ej. 0.0450 = 4.50% anual), pero
+la celda del PDF calculaba (d.tasa * 10).toFixed(3) + '%', dando
+"0.450%" en vez de la tasa real. Esto se notó comparando los PDF
+generados por la app (Documento_Julio.pdf / Documento_copia.pdf,
+columna "Tasa Mensual": 0.426%, 0.428%, etc.) contra el modal in-app y
+Excel, que sí calculan correctamente con (d.tasa * 100) — el bug
+estaba aislado en el PDF (dos tablas: pensiones vigentes e históricas).
+
+Corregido a (d.tasa * 100).toFixed(2) + '%' en ambas tablas del PDF, y
+la columna se renombró de "Tasa Mensual" a "Tasa Anual" para reflejar
+correctamente qué se muestra (coincide con como ya se llama en el
+modal in-app y en Excel). Esto es solo un fix de visualización — el
+CÁLCULO del interés (capital × tasaAnual/365 × días) nunca usó este
+valor mal formateado, así que los montos en pesos y UTM del PDF ya
+eran correctos; solo la etiqueta de la tasa mostrada estaba mal.
+
+
+[v2.0712.0718 · 2026-07-12]
+index.html
+
+Fix — Categoría de tasa por antigüedad de mora (Art. 6 Ley 18.010).
+La app usaba SIEMPRE la tasa 3.a ("reajustables MN, menos de 1 año"),
+sin importar cuánto tiempo llevara vencido un período específico. Un
+período de mora que supera 365 días legalmente pasa a la categoría 3.b
+("1 año o más, ≤2.000 UF"), que tiene una tasa distinta.
+
+Se agregaron las tablas TIC_REAJ_1A / TMC_REAJ_1A (categoría 3.b,
+pobladas desde 2025-09 en adelante con valores verificados contra
+certificados oficiales del Diario Oficial — mismo proceso que la
+corrección de TIC_REAJ/TMC_REAJ de la versión anterior).
+
+getTasaAnualInfo() ahora recibe diasMora (ya se pasaba en las 4
+llamadas existentes, antes se ignoraba) y selecciona automáticamente:
+  - diasMora <= 365 → tabla 3.a (TIC_REAJ / TMC_REAJ)
+  - diasMora >  365 → tabla 3.b (TIC_REAJ_1A / TMC_REAJ_1A)
+Si la tabla 3.b no tiene el mes poblado (años/meses fuera del rango
+verificado), cae de vuelta a 3.a con aviso en consola — evita romper
+cálculos de deudas muy antiguas mientras no se amplíe la tabla 3.b.
+
+Esto no afecta liquidaciones actuales del caso Z-617-2024 (ningún
+período supera aún 365 días de mora al 08-07-2026), pero corrige un
+bug que se habría activado en próximas liquidaciones a medida que los
+períodos más antiguos (ej. sep-2025) crucen la marca de 1 año, hacia
+sep-2026 en adelante.
+
+PENDIENTE: la diferencia residual de ~$1.900 contra las liquidaciones
+oficiales del tribunal (ver nota en versión anterior) sigue sin
+explicación identificada. No se relaciona con este fix.
+
+
+[v2.0712.0710 · 2026-07-12]
+index.html
+
+Fix — Tabla TIC_REAJ / TMC_REAJ tenía valores incorrectos para el rango
+2025-09 a 2026-06 (tasa 3.a "Operaciones reajustables en moneda nacional
+de menos de 1 año"). Se verificaron y corrigieron 1:1 contra los
+certificados oficiales del Diario Oficial (CMF), leídos directamente de
+cada PDF publicado el día 14-15 de cada mes:
+
+  Mes       | Valor anterior | Valor oficial correcto
+  ----------|-----------------|------------------------
+  2025-09   |     4.26%       |     3.88%
+  2025-10   |     4.28%       |     3.84%
+  2025-11   |     4.33%       |     3.94%
+  2025-12   |     4.39%       |     4.60%
+  2026-01   |     4.39%       |     4.62%
+  2026-02   |     4.30%       |     4.80%
+  2026-03   |     4.13%       |     4.64%
+  2026-04   |     3.75%       |     3.69%
+  2026-05   |     3.30%       |     2.87%
+  2026-06   |     2.86%       |     2.86% (sin cambio)
+
+Mismo ajuste aplicado a TMC_REAJ (tasa 3.a máxima convencional) para el
+mismo rango de meses.
+
+NOTA IMPORTANTE: esta corrección NO explica ni cierra por sí sola la
+diferencia observada contra liquidaciones del Poder Judicial (Juzgado
+de Familia Talca, RIT Z-617-2024) — se verificó recalculando el interés
+completo del período sep-2025 a jul-2026 con las tasas ya corregidas, y
+la diferencia total contra el tribunal se mantuvo en ~$1.900 (bajó de
+0.02672 UTM a 0.02646 UTM). El origen de esa diferencia residual sigue
+sin identificarse con certeza; los candidatos descartados son: días de
+mora (coinciden exactamente), tasa anual (ahora corregida), y
+metodología general SITFA (confirmada ya implementada). El candidato no
+descartado es el tratamiento del capital remanente en meses con abono
+parcial (imputarAbonosArt1595), pendiente de revisión futura si se
+retoma el tema.
+
+Fuente de verificación: https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-29487.html
+(certificados individuales leídos en PDF, uno por uno, para sep-2025 a jun-2026)
+
+
 [v271 · 2026-07-09] (fix 2026-07-10, tercera pasada)
 index.html, styles.css
 

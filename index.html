@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v271">
+ <meta name="app-version" content="v2.0712.0722">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2083,8 +2083,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 //
 // METODOLOGÍA CONFIRMADA por ingeniería inversa sobre liquidación
 // oficial del Poder Judicial (RIT Z-617-2024, Juzgado de Familia Talca):
-//   - Una sola tasa: TIC reajustable, sin distinción de plazo.
-//   - Sin categorías CAT 1A, 3A, 3B ni escalonamiento por mora.
+//   - TIC reajustable, categoría según antigüedad de cada período de mora:
+//     3.a ("menos de 1 año") por defecto; 3.b ("1 año o más, ≤2.000 UF")
+//     cuando diasMora > 365 (ver TIC_REAJ_1A más abajo, agregado 2026-07).
 //   - Interés simple diario: Capital_UTM × (TIC_anual / 365) × días_mora.
 //   - Vencimiento: día D del MISMO mes del período (no del siguiente).
 // ============================================================
@@ -2106,9 +2107,14 @@ const TIC_REAJ = {
 2022:[0.024,0.0253,0.0301,0.0268,0.0232,0.0253,0.0257,0.0255,0.0275,0.0298,0.04,0.0442],
 2023:[0.051,0.0676,0.0694,0.0722,0.0718,0.0936,0.0962,0.0972,0.0792,0.074,0.0698,0.0828],
 2024:[0.0758,0.0846,0.0634,0.0524,0.0532,0.0534,0.053,0.0472,0.0384,0.0381,0.0387,0.0361],
-2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0426,0.0428,0.0433,0.0439],
-2026:[0.0439,0.043,0.0413,0.0375,0.033,null,null,null,null,null,null,null],
+2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0388,0.0384,0.0394,0.0460],
+2026:[0.0462,0.0480,0.0464,0.0369,0.0287,0.0286,null,null,null,null,null,null],
 };
+// CORRECCIÓN 2026-07: valores sep-2025 a jun-2026 verificados 1:1 contra los
+// certificados oficiales del Diario Oficial (Comisión para el Mercado Financiero,
+// tasa 3.a "Operaciones reajustables en moneda nacional de menos de 1 año").
+// Antes tenían valores que no correspondían a ningún certificado real de ese período.
+// Fuente: https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-29487.html
 
 // TMC reajustable (disponible como referencia; el recargo Art. 14 Ley 14.908 multiplica la TIC × 1.5)
 const TMC_REAJ = {
@@ -2127,8 +2133,31 @@ const TMC_REAJ = {
 2022:[0.044,0.0453,0.0501,0.0468,0.0432,0.0453,0.0457,0.0455,0.0475,0.0498,0.06,0.0663],
 2023:[0.0765,0.1014,0.1041,0.1083,0.1077,0.1404,0.1443,0.1458,0.1188,0.111,0.1047,0.1242],
 2024:[0.1137,0.1269,0.0951,0.0786,0.0798,0.0801,0.0795,0.0708,0.0584,0.0581,0.0587,0.0561],
-2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.064,0.0642,0.0647,0.0653],
-2026:[0.0653,0.0644,0.0627,0.0589,0.0544,null,null,null,null,null,null,null],
+2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.0588,0.0584,0.0594,0.0690],
+2026:[0.0693,0.0720,0.0696,0.0569,0.0544,0.0486,null,null,null,null,null,null],
+};
+// CORRECCIÓN 2026-07: mismos ajustes que TIC_REAJ, verificados contra certificados
+// oficiales CMF (tasa 3.a máxima convencional). Mayo-2026 mantiene valor previo (0.0544)
+// ya que no se verificó explícitamente esa cifra en esta pasada.
+
+// ============================================================
+// TIC_REAJ_1A — Tasa de Interés Corriente, categoría 3.b:
+// "Operaciones reajustables en moneda nacional de 1 año o más,
+// inferiores o iguales al equivalente de 2.000 UF".
+// Se usa quando un PERÍODO INDIVIDUAL de mora supera 365 días,
+// según Art. 6 Ley 18.010 (la categoría de plazo se determina por
+// la antigüedad de la mora, no por la fecha de liquidación).
+// Solo poblada desde 2025-09 en adelante (rango relevante detectado);
+// para años/meses no poblados, getTasaAnualInfo hace fallback a 3.a.
+// Fuente: certificados oficiales Diario Oficial, mismos PDFs que TIC_REAJ.
+// ============================================================
+const TIC_REAJ_1A = {
+2025:[null,null,null,null,null,null,null,null,0.0450,0.0444,0.0444,0.0442],
+2026:[0.0444,0.0446,0.0438,0.0426,0.0420,0.0420,null,null,null,null,null,null],
+};
+const TMC_REAJ_1A = {
+2025:[null,null,null,null,null,null,null,null,0.0675,0.0666,0.0666,0.0663],
+2026:[0.0666,0.0669,0.0657,0.0639,0.0630,0.0630,null,null,null,null,null,null],
 };
 
 // ============================================================
@@ -2177,9 +2206,15 @@ async function _fetchTicCMF(year, monthBase1) {
 })();
 
 // ============================================================
-// getTasaAnualInfo — tasa única reajustable (sin categorías)
-// Firma compatible con código existente; parámetros modoEsPesos/
-// capitalCLP/utmPeriodo/diasMora se ignoran en la lógica nueva.
+// getTasaAnualInfo — tasa reajustable con selección automática de
+// categoría por antigüedad (Art. 6 Ley 18.010):
+//   - diasMora <= 365 → categoría 3.a (TIC_REAJ / TMC_REAJ)
+//   - diasMora >  365 → categoría 3.b (TIC_REAJ_1A / TMC_REAJ_1A),
+//     ya que la deuda pasa a "1 año o más". Si la tabla 3.b no tiene
+//     el mes poblado, hace fallback a 3.a con aviso en consola.
+// Firma compatible con código existente; capitalCLP/utmPeriodo se
+// ignoran (no se distingue por monto, solo aplica el tramo ≤2.000 UF
+// que es el único relevante para montos de pensión alimenticia).
 // ============================================================
 function _normalizarMes(month) {
   if (month === undefined || month === null) return 11;
@@ -2188,32 +2223,43 @@ function _normalizarMes(month) {
 
 function getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
   const m = _normalizarMes(month);
-  const tabla = usarMaxima ? TMC_REAJ : TIC_REAJ;
-  const label = 'TIC Reaj.';
+  const esUnAnioOMas = (typeof diasMora === 'number' && diasMora > 365);
+  const tabla = esUnAnioOMas
+    ? (usarMaxima ? TMC_REAJ_1A : TIC_REAJ_1A)
+    : (usarMaxima ? TMC_REAJ : TIC_REAJ);
+  const label = esUnAnioOMas ? 'TIC Reaj. ≥1 año' : 'TIC Reaj.';
 
   // Disparar fetch asíncrono para tener datos frescos en próximos cálculos
+  // (solo aplica a la tabla <1 año; la API pública no distingue categoría 3.b)
   _fetchTicCMF(year, m + 1);
 
   // Buscar valor en tabla (puede haber sido actualizado por _fetchTicCMF)
   if (tabla[year]) {
     const exacta = tabla[year][m];
     if (exacta !== null && exacta !== undefined) {
-      return { valor: exacta, esAproximada: false, categoria: 'reaj', categoriaLabel: label };
+      return { valor: exacta, esAproximada: false, categoria: esUnAnioOMas ? 'reaj_1a' : 'reaj', categoriaLabel: label };
     }
     // Fallback mes anterior del mismo año
     for (let i = m - 1; i >= 0; i--) {
       const v = tabla[year][i];
       if (v !== null && v !== undefined) {
-        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1));
-        return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
+        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1) + (esUnAnioOMas ? ' (cat. 1A)' : ''));
+        return { valor: v, esAproximada: true, categoria: esUnAnioOMas ? 'reaj_1a' : 'reaj', categoriaLabel: label };
       }
     }
   }
+  // Si la tabla 3.b no tiene datos para este año/mes, cae a la tabla 3.a
+  // (mejor una aproximación con la tasa "menos de 1 año" que un valor nulo)
+  if (esUnAnioOMas) {
+    console.warn('[TIC] ' + year + '/' + (m+1) + ' sin datos en tabla ≥1 año → fallback a tabla <1 año');
+    return getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, 0);
+  }
+  const tablaBase = usarMaxima ? TMC_REAJ : TIC_REAJ;
   // Fallback año anterior
-  const allYears = Object.keys(tabla).map(Number).sort((a,b) => b - a);
+  const allYears = Object.keys(tablaBase).map(Number).sort((a,b) => b - a);
   for (const py of allYears.filter(y => y < year)) {
     for (let i = 11; i >= 0; i--) {
-      const v = tabla[py][i];
+      const v = tablaBase[py][i];
       if (v !== null && v !== undefined) {
         console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + py + '/' + (i+1));
         return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
@@ -6597,7 +6643,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0710.0346</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0712.0722</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
