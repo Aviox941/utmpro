@@ -2,55 +2,159 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v2.0713.0407 · 2026-07-13]
-index.html, tests/test_imputacion_art1595.js (nuevo)
+[v2.0713.2345 · 2026-07-13]
+index.html, export.js, sw.js, tests/test_auditoria_deuda_historica.js (nuevo)
 
-Fix — Imputación de abonos (Art. 1595 CC) no priorizaba la deuda
-histórica/consolidada. lastCalculationData se construye concatenando
-primero las cuotas mensuales normales (resPensiones.detalles) y
-después la deuda histórica (resHistorical.detalles) — ver línea ~4999.
-imputarAbonosArt1595() recorría ese array en su orden literal, así que
-los abonos LAV / pagos parciales se imputaban primero a las cuotas
-mensuales y solo tocaban la deuda histórica con el remanente, aunque
-esta sea cronológicamente la más antigua y deba imputarse primero
-según el Art. 1595 CC (primero intereses, luego capital, empezando
-por la obligación más antigua).
+Fix CRÍTICO — Fusión de dos ramas de desarrollo divergentes que causaban
+resultados inconsistentes según qué ZIP se usara.
 
-Caso real que expuso el bug: liquidación con deuda consolidada a
-Nov-2022 ($1.889.283) más 4 abonos LAV entre may-ago 2023 (total
-$230.200). La app imputaba esos abonos contra Dic-2022 en adelante,
-dejando la deuda de Nov-2022 sin tocar pese a ser la más antigua.
+CONTEXTO: durante esta sesión de auditoría de Deuda Histórica, se trabajó
+sobre una base derivada del ZIP subido al inicio de la conversación
+(equivalente a v2.0713.1530), que NO incluía la mejora de interés
+segmentado (calcularInteresSegmentado(), agregada en v2.0713.0757, una
+rama de desarrollo posterior y en paralelo hecha directamente por Pablo).
+Como resultado:
+  - El ZIP v2.0713.1700 (auditoría deuda histórica) tenía los 4 fixes de
+    Deuda Histórica, pero SEGUÍA usando calcularInteres() con tasa fija
+    (motor de interés menos preciso, margen ~$1.900-1.000 según el caso).
+  - El ZIP v2.0713.0757 (mejora de interés segmentado, hecha por Pablo)
+    tenía el motor de interés correcto (margen ~$600-1.000), pero NINGUNO
+    de los 4 fixes de Deuda Histórica de esta auditoría.
+Al alternar entre ambos ZIPs para distintas pruebas, el margen de error
+parecía saltar de ~$600-1.000 a ~$7.000-9.000 de forma errática — no por
+una regresión real en ningún fix individual, sino por estar comparando
+resultados de dos bases de código distintas sin que ninguna tuviera
+AMBOS conjuntos de correcciones a la vez.
 
-Corrección: dentro de imputarAbonosArt1595(), se ordena una copia
-local del array de cuotas (variable `cuotas`, no se toca
-lastCalculationData) poniendo primero las filas con isDebt=true
-(deuda histórica/consolidada) y preservando el orden relativo del
-resto (sort estable). No se cambia el orden de construcción de
-lastCalculationData para no afectar tabs por año, tarjetas del modal
-ni exportación, que dependen de su orden original. Sin deuda
-histórica el comportamiento no cambia (ya era cronológico). El path
-sin abonos (recalculo de interés a hoy) tampoco se ve afectado, ya
-que no depende del orden del array.
+FIX: se tomó v2.0713.0757 (con calcularInteresSegmentado() ya integrado
+en los 7 sitios reales de cálculo de interés) como base, y se reaplicaron
+sobre ella los 4 fixes de la auditoría de Deuda Histórica:
+  - Bug A: calendario "histStart" no guardaba el mes, sin recálculo en
+    tiempo real al hacer clic (index.html, handler de clic de celda).
+  - Bug B: applySession() reseteaba las etiquetas del calendario "Cuotas"
+    en modo consolidada; además, causa raíz real encontrada después:
+    applySession() no restauraba el modo UTM/CLP ni el campo de monto
+    correcto al recargar una deuda consolidada guardada en modo UTM
+    (export.js, applySession()).
+  - Bug C: fechaLiquidacion.value se restauraba pero el label visible no
+    se sincronizaba (export.js, applySession(), falta de llamada a
+    dpUpdateFechaLiqLabel()).
+  - Punto 5: doble cobro cuando "Período Actual" se solapa con la fecha
+    de corte de la Deuda Histórica consolidada — corregido con exclusión
+    automática de SOLO el mes de corte puntual (no todo el rango
+    corte→hoy, error de una primera versión de este mismo fix ya
+    corregido en v2.0713.1650) en calculatePensiones().
 
-Con el fix, el caso de prueba real ahora imputa los $230.200 en
-abonos LAV íntegramente contra el interés devengado de la deuda de
-Nov-2022 (que a esas fechas ya supera cada abono individual), sin
-tocar las cuotas mensuales de Dic-2022 en adelante — correcto según
-Art. 1595 CC.
+Ninguno de estos 4 fixes toca calcularInteresSegmentado(),
+imputarAbonosArt1595(), el pool LAV (PASO 1/PASO 2), ni
+calculateHistoricalDebt()/calculateConsolidada() — son ortogonales al
+motor de interés. Por lo tanto, un caso SIN Deuda Histórica configurada
+(como el caso real RIT Z-617-2024 usado para validar el margen de error)
+debe seguir arrojando el mismo resultado que ya daba v2.0713.0757 por sí
+solo: $1.707.070 (margen ~$859 contra la liquidación oficial del
+tribunal, dentro del rango histórico esperado de $600-1.000).
 
-Se agregó tests/test_imputacion_art1595.js: extrae en cada ejecución
-las funciones reales (calcularInteres, getDiaVencimiento,
-getFechaLiquidacion, imputarAbonosArt1595) directamente de
-index.html — no las reimplementa — y valida 4 escenarios (13
-aserciones): deuda histórica se agota primero vía interés+capital;
-abono grande que satura la deuda histórica y pasa el excedente a
-mensuales; comportamiento sin deuda histórica permanece cronológico
-sin cambios; path sin abonos no se rompe. Verificado con control
-negativo (revirtiendo el fix) que el test detecta el bug original:
-4 de 13 aserciones fallan sin el fix, las 13 pasan con él. Correr con
-`node tests/test_imputacion_art1595.js` tras cualquier cambio a
-imputarAbonosArt1595 o a la construcción de lastCalculationData.
+Se portó tests/test_auditoria_deuda_historica.js a esta base, adaptando
+los Test E/F (que ejecutan calculatePensiones() real) para inyectar
+calcularInteresSegmentado() y sus dependencias (getTasaAnualInfo,
+_normalizarMes, tablas TIC_REAJ/TMC_REAJ, _fetchTicCMF stub) en el
+sandbox de prueba, ya que esta base las requiere donde antes solo se
+usaba calcularInteres(). Suite completa: 31/31 (Test A–G).
 
+NOTA: el test tests/test_imputacion_art1595.js (de la base anterior,
+v2.0713.1530 en adelante) NO se portó a esta base — su lógica de
+aserciones fue escrita contra el comportamiento de calcularInteres()
+con tasa fija, y el bloque real "PASO 1: pool LAV" de esta base
+(v2.0713.0757) ya usa una lógica de acumulación de interés por tramo
+sustancialmente distinta (calcularInteresSegmentado con fecha de
+depósito LAV como corte, no calcularInteres con tasa fija hasta hoy).
+Forzar esas aserciones antiguas contra el comportamiento nuevo no
+detectaría regresiones reales, solo diferencias de magnitud esperadas
+por el cambio de motor de interés — que es un cambio legítimo y
+verificado por Pablo contra el caso real del tribunal, no un bug.
+Se recomienda escribir una nueva suite de tests para el pool LAV /
+Art. 1595 CC específica para calcularInteresSegmentado() en una
+próxima sesión, si se desea cobertura de regresión para esa lógica.
+
+Validado: node --check sobre export.js y sobre el JS inline extraído de
+index.html (sin errores de sintaxis). tests/test_auditoria_deuda_historica.js
+en 31/31.
+
+PENDIENTE: Pablo debe confirmar que, cargando el caso real completo (19
+abonos LAV, Mar-2024 a Jul-2026, sin Deuda Histórica configurada) con
+este ZIP, el resultado siga siendo $1.707.070 (o muy cercano, dentro del
+margen esperado), y que los 4 fixes de Deuda Histórica (calendario,
+persistencia al reiniciar, fecha de liquidación, doble cobro) sigan
+funcionando correctamente en esta base fusionada.
+
+
+[v2.0713.0757 · 2026-07-13]
+index.html
+
+Fix — Cálculo de interés usaba tasa CMF fija (la del mes de origen de la
+cuota) aplicada sobre TODOS los días de mora, en vez de segmentar por
+tramos mensuales con la tasa vigente de cada mes calendario transcurrido.
+
+Fundamento legal: Art. 17 Ley 14.908 remite al interés corriente del
+Art. 6 Ley 18.010, cuya tasa "se publicará... para tener vigencia hasta
+el día anterior a la próxima publicación" — es decir, la tasa CAMBIA
+mes a mes y solo rige durante su ventana. Aplicar una tasa única fija
+sobre todo el período de mora se aparta de la ley cuando la mora cruza
+más de un mes calendario con tasas distintas.
+
+Detectado auditando la liquidación de la app contra una liquidación
+oficial real del tribunal (RIT Z-617-2024, Juzgado de Familia Talca,
+11 cuotas sep-2025 a jul-2026, liquidación 08-07-2026): diferencia de
+~$1.900 pesos / 0.027 UTM contra el total oficial. Se descartaron como
+causa la tabla TIC_REAJ (verificada 1:1 contra la API oficial CMF
+/recursos_api/tip/{año}?tipoindicador=21), el capital por cuota y los
+días de mora (idénticos en ambos documentos). La causa real era
+calcularInteres(capital, tasaFija, diasMoraTotal).
+
+Se agregó calcularInteresSegmentado(capital, fechaVenc, fechaCorte,
+usarMaxima, aplicarRecargo) junto a calcularInteres() (que se conserva
+sin uso activo, solo como referencia). La nueva función recorre tramo
+a tramo (mes calendario por mes calendario) entre fechaVenc y
+fechaCorte, resolviendo en cada tramo la tasa CMF vigente vía
+getTasaAnualInfo() y aplicando interés simple diario base 365 con esa
+tasa, sumando todos los tramos. El recargo Art. 14 Ley 14.908 (×1.5)
+se aplica por tramo. La categoría de tasa por antigüedad (3.a/3.b,
+umbral 365 días) usa el acumulado de días transcurridos hasta el
+inicio de cada tramo, igual criterio que ya usaba
+calcularInteresConsolidadaMensual() (función preexistente que ya
+implementaba esta misma lógica, pero solo para el flujo "Consolidada
+Mensual" — no para el flujo principal de cuotas históricas).
+
+Reemplazadas las 7 llamadas reales a calcularInteres() en el archivo:
+cálculo de cuotas del período histórico principal, calculateHistoricalDebt
+(deuda histórica en UTM), imputarAbonosArt1595 (recálculo sin abonos,
+recálculo al momento de cada abono — Art. 1595 CC, recálculo de saldo
+final a hoy), buildModoLibreLAVData (modo libre LAV), y el cálculo de
+interés devengado hasta la fecha del primer depósito LAV. En todos los
+sitios ya existían fechaVenc/hoy (o fechas equivalentes) en scope, así
+que no fue necesario reconstruir fechas adicionales.
+
+d.tasa en el detalle de cada cuota ahora almacena la tasa PROMEDIO
+PONDERADA por días de cada tramo (informativo/visualización), no una
+tasa única aplicada al cálculo real — el cálculo real ya no depende de
+un solo valor de tasa. Esto es compatible con export.js (PDF/Excel),
+que solo usa d.tasa para mostrar el porcentaje (d.tasa*100), sin
+recalcular con él.
+
+Validado contra RIT Z-617-2024: el residuo bajó de ~$1.900 a ~$1.000
+(patrón consistente y pequeño, atribuible probablemente al criterio
+exacto de corte del día de vencimiento — "5 primeros días" según el
+documento del tribunal — a seguir refinando en una próxima iteración
+si se detectan más casos de prueba). Antes el patrón de diferencia por
+período era errático (entre +$871 y -$389 según el mes); ahora es
+monótono y decreciente con la antigüedad del tramo.
+
+PENDIENTE para próxima sesión: revisar si el residuo remanente de
+~$1.000 se explica por el día exacto de corte de cada tramo mensual
+(actualmente cada tramo corta el día 1 de cada mes calendario; podría
+ser que el tribunal corte en el día de vencimiento de la cuota, ej.
+"día 5" en vez de "día 1"). Confirmar con un segundo caso real de
+liquidación oficial si es posible.
 
 [v2.0712.0722 · 2026-07-12]
 export.js
