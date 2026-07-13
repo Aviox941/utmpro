@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.1600">
+ <meta name="app-version" content="v2.0713.1630">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1934,9 +1934,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
          deuda consolidada. No bloquea ni modifica el cálculo — solo advierte,
          para no alterar el algoritmo de cuotas normales sin evidencia de bug. -->
     <div id="dhSolapeWarn" class="dh-utm-warn hidden" style="margin:10px 16px 0;">
-      <span style="font-size:13px">⚠️</span>
+      <span style="font-size:13px">ℹ️</span>
       <p class="dh-utm-warn__text">
-        Posible doble cobro: el "Período Actual" incluye meses ya cubiertos por la Deuda Histórica consolidada. Revisa que las fechas no se solapen.
+        Algunos meses del "Período Actual" ya están cubiertos por la Deuda Histórica y fueron excluidos automáticamente de las cuotas mensuales para evitar doble cobro.
       </p>
     </div>
 
@@ -4544,6 +4544,31 @@ errorEl.classList.add('hidden');
 return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
+// FIX AUDITORÍA (punto 5, causa raíz real): calcula el conjunto de meses
+// (absMonth = año*12+monthIdx) ya cubiertos por la Deuda Histórica, en
+// cualquiera de sus dos modos, para excluirlos de las cuotas mensuales
+// normales más abajo y evitar el doble cobro (ej. "Nov 2022" apareciendo
+// tanto como fila de deuda histórica como cuota mensual independiente).
+function _mesesCubiertosPorDeudaHistorica() {
+  const set = new Set();
+  if (histMode === 'consolidada' && consolidadaData) {
+    // Modo "Monto fijo": cubre desde su fecha de corte hasta el mes actual
+    // (es una deuda consolidada que reemplaza todas las cuotas mensuales
+    // anteriores a la fecha de liquidación/hoy dentro de ese rango).
+    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+    const hoyAbs = hoy.getFullYear() * 12 + hoy.getMonth();
+    for (let m = corteAbs; m <= hoyAbs; m++) set.add(m);
+  } else if (historicalDebts && historicalDebts.length > 0) {
+    // Modo "Cuotas": cada tramo cubre exactamente sus totalMonths meses
+    // desde startAnio/startMes — mismo cálculo que calculateHistoricalDebt().
+    historicalDebts.forEach(debt => {
+      const startAbs = debt.startAnio * 12 + debt.startMes - 1;
+      for (let i = 0; i < debt.totalMonths; i++) set.add(startAbs + i);
+    });
+  }
+  return set;
+}
+const _mesesCubiertosHist = _mesesCubiertosPorDeudaHistorica();
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
 // Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
 let excedenteParcialTotalUTM = 0;
@@ -4561,25 +4586,24 @@ const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
 const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
 const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
 const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
-// FIX AUDITORÍA (punto 5): advertencia no bloqueante de posible doble cobro
-// cuando el rango de "Período Actual" (cuotas mensuales) se solapa con la
-// fecha de corte de la deuda histórica consolidada (modo "Monto fijo").
-// Solo advierte — no excluye meses ni altera ningún cálculo existente.
+// FIX AUDITORÍA (punto 5): la exclusión real de meses duplicados ya ocurre
+// más abajo (_mesesCubiertosHist, dentro de slice.forEach) — cubre ambos
+// modos (Cuotas y Monto fijo). Este indicador informativo (#dhSolapeWarn)
+// se mantiene solo para que el usuario vea explícitamente cuándo hubo una
+// exclusión automática, no como advertencia de un problema sin resolver.
 (function checkSolapeConsolidada() {
   const warnEl = document.getElementById('dhSolapeWarn');
   if (!warnEl) return;
-  if (histMode === 'consolidada' && consolidadaData && efectivoStart !== -1 && efectivoEnd !== -1 &&
-      utmData[efectivoStart] && utmData[efectivoEnd]) {
-    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
-    const rStart = Math.min(efectivoStart, efectivoEnd);
-    const rEnd   = Math.max(efectivoStart, efectivoEnd);
-    const rangoStartAbs = utmData[rStart].y * 12 + utmData[rStart].monthIdx;
-    const rangoEndAbs   = utmData[rEnd].y   * 12 + utmData[rEnd].monthIdx;
-    const haySolape = corteAbs >= rangoStartAbs && corteAbs <= rangoEndAbs;
-    warnEl.classList.toggle('hidden', !haySolape);
-  } else {
-    warnEl.classList.add('hidden');
-  }
+  const haySolape = _mesesCubiertosHist.size > 0 && efectivoStart !== -1 && efectivoEnd !== -1 &&
+    utmData[efectivoStart] && utmData[efectivoEnd] && (() => {
+      const rStart = Math.min(efectivoStart, efectivoEnd);
+      const rEnd   = Math.max(efectivoStart, efectivoEnd);
+      const rangoStartAbs = utmData[rStart].y * 12 + utmData[rStart].monthIdx;
+      const rangoEndAbs   = utmData[rEnd].y   * 12 + utmData[rEnd].monthIdx;
+      for (let m = rangoStartAbs; m <= rangoEndAbs; m++) if (_mesesCubiertosHist.has(m)) return true;
+      return false;
+    })();
+  warnEl.classList.toggle('hidden', !haySolape);
 })();
 if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
 const start = Math.min(efectivoStart, efectivoEnd);
@@ -4611,6 +4635,11 @@ for (let absM = startAbsMonth; absM <= endAbsMonth; absM++) {
   }
 }
 slice.forEach((item, idx) => {
+// FIX AUDITORÍA (punto 5): saltar meses ya cubiertos por Deuda Histórica —
+// evita que, por ejemplo, Nov-2022 aparezca a la vez como fila de deuda
+// histórica consolidada Y como cuota mensual independiente.
+const _absMonthItem = item.y * 12 + item.monthIdx;
+if (_mesesCubiertosHist.has(_absMonthItem)) return;
 // Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
 const utmMesHistorico = item.v; // UTM del mes de la cuota
 // ── Períodos variables: sobreescribir cuota si hay un período registrado ──
@@ -5006,7 +5035,16 @@ if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _hayLav = abonosLav && abonosLav.length > 0;
 const _hayParciales = pagosParciales && pagosParciales.length > 0;
-const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales;
+// FIX AUDITORÍA (causa raíz real del bug de calendario): este guard no
+// consideraba historicalDebts ni consolidadaData. Si el usuario solo
+// registra "Deuda Histórica" (modo Cuotas o Monto fijo) sin definir un
+// "Período Actual" (startIndex/endIndex en -1), calculate() salía acá
+// ANTES de llegar a calculateHistoricalDebt()/calculateConsolidada() más
+// abajo — el mes/año quedaban guardados en el calendario mediante
+// tryRegisterHistorical(), pero el total nunca se calculaba ni aparecía
+// en la tarjeta ni en el hero, porque la función completa abortaba antes.
+const _hayHistorica = (historicalDebts && historicalDebts.length > 0) || (histMode === 'consolidada' && !!consolidadaData);
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales && !_hayHistorica;
 if (_noRange) {
   // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
@@ -6741,7 +6779,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0713.1600"></script>
+<script src="export.js?v=2.0713.1630"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──

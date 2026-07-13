@@ -2,6 +2,76 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0713.1630 · 2026-07-13]
+index.html, sw.js, tests/test_auditoria_deuda_historica.js
+
+Fix CRÍTICO — Corrección real del doble cobro (punto 5 del prompt de
+auditoría), reemplazando la versión anterior que SOLO advertía sin
+corregir. Confirmado con PDF real aportado por Pablo (caso Nov-2022,
+deuda consolidada $1.889.283 + 4 LAV may-ago 2023): Nov-2022 aparecía a
+la vez en "PENSIONES MENSUALES IMPAGAS" ($120.000) y en "DEUDA HISTORICA
+CONSOLIDADA" (CONS Nov 2022) — doble cobro real, no solo un riesgo
+teórico.
+
+NOTA IMPORTANTE: la entrega v2.0713.1600 (ZIP presentado anteriormente)
+contenía únicamente la primera versión de este fix, que solo mostraba
+una advertencia (#dhSolapeWarn) sin excluir los meses duplicados del
+cálculo — el bug de fondo seguía sin corregirse en ese ZIP. Esta versión
+(v2.0713.1630) es la que corrige el cálculo de verdad.
+
+Causa raíz: calculatePensiones() (index.html) generaba la tabla de
+cuotas mensuales para todo el rango del "Período Actual" sin excluir los
+meses que ya estuvieran cubiertos por la Deuda Histórica (en cualquiera
+de sus dos modos: "Cuotas" con historicalDebts[], o "Monto fijo" con
+consolidadaData). export.js separa correctamente ambas tablas del PDF
+por d.isDebt, así que no hay solape en la exportación — el problema es
+que el mismo mes terminaba generándose en AMBOS arrays (resPensiones.
+detalles Y resHistorical.detalles) dentro de calculate().
+
+Fix: se agrega la función interna _mesesCubiertosPorDeudaHistorica()
+dentro de calculatePensiones(), que calcula el conjunto de meses
+(absMonth = año*12+monthIdx) cubiertos por la deuda histórica activa:
+  - Modo "Monto fijo" (histMode==='consolidada'): cubre desde
+    consolidadaData.fechaMes/fechaAnio (fecha de corte) hasta el mes de
+    "hoy" (fecha de liquidación) — la deuda consolidada reemplaza
+    íntegramente las cuotas mensuales de ese rango.
+  - Modo "Cuotas" (historicalDebts[]): cada tramo cubre exactamente sus
+    totalMonths meses desde startAnio/startMes — mismo cálculo que ya
+    usa calculateHistoricalDebt() para generar sus propias filas.
+Dentro del loop principal (slice.forEach), se agrega un guard temprano
+que salta (return) cualquier mes presente en ese conjunto, antes de
+calcular su capital/interés — el mes simplemente no se agrega a
+`detalles`, por lo que nunca llega a lastCalculationData como cuota
+mensual duplicada.
+
+El indicador visual #dhSolapeWarn (agregado en la versión anterior) se
+mantiene, pero se reescribió su texto y su lógica para reflejar que la
+exclusión YA ocurrió automáticamente (antes decía "revisa que no se
+solapen", ahora informa que los meses "fueron excluidos automáticamente
+de las cuotas mensuales para evitar doble cobro").
+
+Se agregó Test F a tests/test_auditoria_deuda_historica.js: reproduce
+el caso EXACTO del PDF real aportado (modo consolidada, corte Nov-2022,
+período Nov-2022 a Feb-2024, misma fecha de liquidación 09-02-2024) y
+confirma que ninguna cuota mensual se genera para ese rango — el total
+de $3.876.210 en "cuotas impagas" que mostraba el PDF con bug pasa a
+$0 en cuotas mensuales (toda la deuda queda correctamente representada
+una sola vez, en la fila de Deuda Histórica Consolidada). Suite
+completa: 24/24 aserciones (sumando Test A–F).
+
+Validado: node --check sobre export.js y sobre el JS inline extraído de
+index.html. Se re-ejecutaron ambas suites de test tras el fix:
+tests/test_imputacion_art1595.js sigue en 28/28 (ningún cambio a la
+imputación de abonos ni al pool LAV) y
+tests/test_auditoria_deuda_historica.js en 24/24.
+
+PENDIENTE: no se validó con navegador real ni regenerando el PDF desde
+la app — se recomienda que Pablo regenere el PDF del caso real (deuda
+consolidada Nov-2022 + LAV) con este ZIP y confirme que Nov-2022 ya NO
+aparece en la tabla "PENSIONES MENSUALES IMPAGAS", solo en "DEUDA
+HISTORICA CONSOLIDADA".
+
+
 [v2.0713.1600 · 2026-07-13]
 index.html, export.js, sw.js, tests/test_auditoria_deuda_historica.js (nuevo)
 
