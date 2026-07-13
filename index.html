@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.1630">
+ <meta name="app-version" content="v2.0713.1650">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4552,12 +4552,15 @@ function calculatePensiones(aplicarRecargo, hoy) {
 function _mesesCubiertosPorDeudaHistorica() {
   const set = new Set();
   if (histMode === 'consolidada' && consolidadaData) {
-    // Modo "Monto fijo": cubre desde su fecha de corte hasta el mes actual
-    // (es una deuda consolidada que reemplaza todas las cuotas mensuales
-    // anteriores a la fecha de liquidación/hoy dentro de ese rango).
+    // Modo "Monto fijo": la deuda consolidada es un monto YA CERRADO a la
+    // fecha de corte — reemplaza únicamente la cuota de ESE mes puntual,
+    // no todos los meses desde el corte hasta hoy. Los meses siguientes al
+    // corte deben seguir generándose como cuotas mensuales normales.
+    // CORRECCIÓN: la versión anterior asumía (incorrectamente) que la
+    // deuda consolidada cubría desde el corte hasta "hoy", lo que borraba
+    // por error todas las cuotas mensuales legítimas posteriores al corte.
     const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
-    const hoyAbs = hoy.getFullYear() * 12 + hoy.getMonth();
-    for (let m = corteAbs; m <= hoyAbs; m++) set.add(m);
+    set.add(corteAbs);
   } else if (historicalDebts && historicalDebts.length > 0) {
     // Modo "Cuotas": cada tramo cubre exactamente sus totalMonths meses
     // desde startAnio/startMes — mismo cálculo que calculateHistoricalDebt().
@@ -6779,7 +6782,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0713.1630"></script>
+<script src="export.js?v=2.0713.1650"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──

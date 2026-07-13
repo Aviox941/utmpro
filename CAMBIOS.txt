@@ -2,6 +2,56 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0713.1650 · 2026-07-13]
+index.html, sw.js, tests/test_auditoria_deuda_historica.js
+
+Fix — Corrección de sobre-corrección introducida en v2.0713.1630. Ese fix
+resolvió el doble cobro de Nov-2022 pero partió de un supuesto incorrecto
+sobre el modo "consolidada" (Monto fijo): asumía que la deuda consolidada
+cubre desde su fecha de corte hasta "hoy" (fecha de liquidación),
+excluyendo por error TODOS los meses posteriores al corte de las cuotas
+mensuales normales. Confirmado con PDF real aportado por Pablo: tras
+v2.0713.1630, la tabla "PENSIONES MENSUALES IMPAGAS" desapareció por
+completo (0 filas) en vez de mostrar Dic-2022 a Feb-2024 como cuotas
+normales — el "Total cuotas impagas" del resumen cayó a $1.889.283
+(idéntico al monto de la deuda consolidada), perdiendo ~$1.986.927 en
+cuotas mensuales legítimas.
+
+Causa raíz real: la deuda consolidada de modo "Monto fijo" es un saldo YA
+CERRADO a una fecha de corte puntual (ej. "$1.889.283 al corte de
+Nov-2022") — reemplaza únicamente la cuota de ESE mes específico. No es
+una declaración de que todos los meses posteriores también están
+cubiertos; esos meses siguen devengando pensión mes a mes de forma
+independiente y deben seguir apareciendo como cuotas mensuales normales,
+tal como ya se veía correctamente en el PDF anterior al fix del doble
+cobro (antes de v2.0713.1630).
+
+Fix: dentro de _mesesCubiertosPorDeudaHistorica() (index.html,
+calculatePensiones()), la rama de modo "consolidada" ahora agrega
+ÚNICAMENTE el mes de corte (consolidadaData.fechaAnio/fechaMes) al
+conjunto de meses excluidos, en vez de todo el rango corte→hoy. La rama
+de modo "Cuotas" (historicalDebts[]) no cambia — ese modo sí declara
+explícitamente cuántos meses cubre (totalMonths) y ese dato se sigue
+respetando tal cual.
+
+Se corrigió Test F en tests/test_auditoria_deuda_historica.js: sus
+aserciones anteriores (que esperaban 0 cuotas mensuales generadas)
+codificaban el supuesto incorrecto como "correcto". Ahora verifica el
+balance real: Nov-2022 excluido, pero Dic-2022 a Feb-2024 (15 meses)
+SÍ se generan como cuotas mensuales normales. Suite completa: 26/26
+(sumando Test A–F).
+
+Validado: node --check sobre export.js y sobre el JS inline extraído de
+index.html. tests/test_imputacion_art1595.js sigue en 28/28.
+
+PENDIENTE: Pablo debe regenerar el PDF del caso real (deuda consolidada
+Nov-2022 + LAV, período hasta Feb-2024) con este ZIP y confirmar que: (1)
+Nov-2022 solo aparece en "DEUDA HISTORICA CONSOLIDADA", NO en "PENSIONES
+MENSUALES IMPAGAS"; (2) Dic-2022 a Feb-2024 SÍ aparecen íntegramente en
+"PENSIONES MENSUALES IMPAGAS", igual que en el PDF previo al fix del
+doble cobro.
+
+
 [v2.0713.1630 · 2026-07-13]
 index.html, sw.js, tests/test_auditoria_deuda_historica.js
 
