@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.0757">
+ <meta name="app-version" content="v2.0713.0812">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2308,11 +2308,15 @@ function calcularInteresSegmentado(capital, fechaVenc, fechaCorte, usarMaxima, a
   let diasMoraTotal = 0;
   let sumaPonderada = 0;
   let hayTasaAproximada = false;
+  const diaCorte = fechaVenc.getDate(); // día de vencimiento (ej. 5) — cada tramo corta ese mismo día, no el día 1
   let cur = new Date(fechaVenc.getFullYear(), fechaVenc.getMonth(), fechaVenc.getDate());
   while (cur < fechaCorte) {
     const curAnio = cur.getFullYear();
     const curMes = cur.getMonth(); // 0-based
-    const finMes = new Date(curAnio, curMes + 1, 1);
+    // Tramo va de diaCorte del mes actual a diaCorte del mes siguiente (no día 1),
+    // para que la tasa vigente de cada mes se aplique sobre la ventana real de
+    // vigencia de la cuota, consistente con el día de vencimiento judicial.
+    const finMes = new Date(curAnio, curMes + 1, diaCorte);
     const finTramo = finMes < fechaCorte ? finMes : fechaCorte;
     const diasTramo = Math.floor((finTramo - cur) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {

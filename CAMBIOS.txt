@@ -2,6 +2,32 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0713.0812 · 2026-07-13]
+index.html
+
+Fix — calcularInteresSegmentado() (agregada en v2.0713.0757) cortaba cada
+tramo mensual el DÍA 1 de cada mes calendario, ignorando el día de
+vencimiento real de la cuota (parámetro fechaVenc, ej. día 5). Esto
+desalineaba en ~4 días cada tramo respecto a la ventana real de mora,
+moviendo una porción de interés de una tasa a otra en cada tramo.
+
+Corregido: cada tramo ahora corta el mismo día-del-mes que fechaVenc
+(diaCorte = fechaVenc.getDate()), no el día 1. Ej.: cuota que vence el
+05-10-2025 genera tramos 05-oct→05-nov, 05-nov→05-dic, etc., en vez de
+05-oct→01-nov, 01-nov→01-dic. La tasa de cada tramo sigue siendo la
+del mes en que EMPIEZA el tramo (se probó también la variante "tasa
+del mes en que termina el tramo" y dio peor resultado — descartada).
+
+Validado contra RIT Z-617-2024 (mismo caso de prueba que v2.0713.0757):
+el residuo contra el total oficial del tribunal bajó de ~$1.045 a
+~$857, y el patrón de diferencia por período pasó de un rango
+-$0,08/-$2,21 a un rango más uniforme de -$0,16/-$1,76. Mejora
+adicional pero no definitiva — el residuo remanente puede deberse a
+redondeos menores propios del cálculo del tribunal, no necesariamente
+a un error estructural del método. Si aparece un segundo caso real de
+liquidación oficial, conviene validar contra él antes de seguir
+ajustando este detalle fino.
+
 [v2.0713.0757 · 2026-07-13]
 index.html
 
