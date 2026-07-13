@@ -158,7 +158,7 @@ const pensSub    = pensCap + pensInt;
 const pensCapUTM = pensiones.reduce((s,d) => s + (d.utmVal > 0 ? d.cap / d.utmVal : 0), 0);
 doc.autoTable({
 startY: y,
-head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Interés UTM','Subtotal ($)','Subtotal UTM']],
+head: [['Periodo','Capital ($)','UTM','Días','Tasa Anual','Interes ($)','Interés UTM','Subtotal ($)','Subtotal UTM']],
 body: pensiones.map(d => {
   // Valores netos: 0 si cubierto por LAV, remanente si parcial, completo si adeudado
   const capMostrado = d.cap;
@@ -186,7 +186,7 @@ body: pensiones.map(d => {
   }
   const subUtm = d.utmVal > 0 ? ((capMostrado + intMostrado) / d.utmVal).toFixed(5) : '0.00000';
   return [periodoLabel, fmt(capMostrado), capUTMMostrado.toFixed(3), d.mora,
-    ((d.tasa * 10).toFixed(3) + (d.tasaEsAproximada ? '~' : '')) + '%',
+    ((d.tasa * 100).toFixed(2) + (d.tasaEsAproximada ? '~' : '')) + '%',
     fmt(intMostrado), intUtm, fmt(capMostrado + intMostrado), subUtm];
 }),
 foot: [['TOTAL', fmt(pensCap), pensCapUTM.toFixed(3)+' UTM', '', '', fmt(pensInt), (pensiones.reduce((s,d)=>s+(d.utmVal>0?d.inte/d.utmVal:0),0)).toFixed(5)+' UTM', fmt(pensSub), (pensiones.reduce((s,d)=>s+(d.utmVal>0?(d.cap+d.inte)/d.utmVal:0),0)).toFixed(5)+' UTM']],
@@ -230,14 +230,39 @@ y += 4;
 }
 if (historicas.length > 0) {
 seccion('DEUDA HISTORICA CONSOLIDADA', [245,158,11]);
+// Igual criterio que la tabla de pensiones mensuales: columnas Capital e Interes
+// muestran los montos BRUTOS originales (pre-imputación de abonos), consistente
+// con "estilo tribunal" (CARGOS sin descontar abonos). El abono aplicado, si lo
+// hay, se anota en una sub-línea bajo el período — mismo patrón e indicadores
+// que usa la tabla de pensiones mensuales para LAV (ver líneas ~172-186):
+// d.esLav / d.lavAplicadoCLP / d.lavIntAplicadoCLP, seteados por el bloque
+// "PASO 1: pool LAV" de index.html. NO se usa d.capImputado/d.intImputado
+// (seteados por imputarAbonosArt1595, PASO 2 "abonos ordinarios") porque esos
+// comparan contra el interés de build vs. el interés recalculado A HOY sobre
+// el capital remanente — dos momentos distintos — y pueden dar valores
+// negativos o engañosos que no reflejan el monto realmente abonado.
 const histCap = historicas.reduce((s,d) => s + (d.capOriginal??d.capOriginalBruto??d.cap), 0);
-const histInt = historicas.reduce((s,d) => s + d.inte, 0);
+const histInt = historicas.reduce((s,d) => s + (d.intOriginal ?? d.inte), 0);
 const histSub = histCap + histInt;
 const histCapUTM = historicas.reduce((s,d) => s + (d.capUTM||(d.capOriginal??d.capOriginalBruto??d.cap)/d.utmVal), 0);
 doc.autoTable({
 startY: y,
-head: [['Periodo','Capital ($)','UTM','Días','Tasa Mensual','Interes ($)','Subtotal ($)']],
-body: historicas.map(d => { const cap0=d.capOriginal??d.capOriginalBruto??d.cap; const int0=d.inte; return [d.periodo, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*10).toFixed(3)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)]; }),
+head: [['Periodo','Capital ($)','UTM','Días','Tasa Anual','Interes ($)','Subtotal ($)']],
+body: historicas.map(d => {
+  const cap0 = d.capOriginal ?? d.capOriginalBruto ?? d.cap;
+  const int0 = d.intOriginal ?? d.inte;
+  let periodoLabel = d.periodo;
+  if (d.esLav && ((d.lavAplicadoCLP || 0) > 0 || (d.lavIntAplicadoCLP || 0) > 0)) {
+    periodoLabel += '‡';
+    if (d.cap <= 0.01 && d.inte <= 0.01) {
+      periodoLabel += '\nCubierto LAV';
+    } else {
+      const _remUTM = d.utmVal > 0 ? (d.cap / d.utmVal).toFixed(4) : '—';
+      periodoLabel += '\nLAV parcial · Rem: ' + fmt(d.cap) + ' (' + _remUTM + ' UTM)';
+    }
+  }
+  return [periodoLabel, fmt(cap0), (d.capUTM||cap0/d.utmVal).toFixed(3), d.mora, d.isConsolidada ? 'Monto al corte' : (((d.tasa*100).toFixed(2)+(d.tasaEsAproximada?'~':''))+'%'), fmt(int0), fmt(cap0+int0)];
+}),
 foot: [['TOTAL', fmt(histCap), histCapUTM.toFixed(3)+' UTM', '', '', fmt(histInt), fmt(histSub)]],
 showFoot: 'lastPage',
 theme:'grid',
@@ -245,9 +270,21 @@ headStyles:{fillColor:[245,158,11],textColor:[255,255,255],fontSize:6.5,fontStyl
 footStyles:{fillColor:[245,158,11],textColor:[255,255,255],fontSize:6.5,fontStyle:'bold',halign:'right'},
 styles:{fontSize:6.5,cellPadding:1.5,textColor:[15,23,42]},
 columnStyles:{0:{cellWidth:22},1:{halign:'right'},2:{halign:'right'},3:{halign:'center',cellWidth:12},4:{halign:'center',cellWidth:14},5:{halign:'right'},6:{halign:'right'}},
-margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
+margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W,
+didParseCell: function(data) {
+  if (data.section === 'body' && data.column.index === 0) {
+    const text = (data.cell.raw || '').toString();
+    if (text.includes('\n')) data.cell.styles.fontSize = 5.5;
+  }
+},
 });
-y = doc.lastAutoTable.finalY + 8;
+y = doc.lastAutoTable.finalY + 4;
+if (historicas.some(d => d.esLav && ((d.lavAplicadoCLP || 0) > 0 || (d.lavIntAplicadoCLP || 0) > 0))) {
+  doc.setFontSize(6); doc.setTextColor(5,150,105);
+  doc.text('‡ Depósito(s) LAV aplicados a la deuda histórica (Art. 1595 CC): primero intereses, luego capital, por ser la obligación más antigua.', MARGIN, y);
+  y += 5;
+}
+y += 4;
 }
 // Reutilizar imputación ya calculada en calculate() — NO recalcular sobre datos mutados
 const imputacionPDF = lastImputacion;
@@ -944,6 +981,11 @@ document.getElementById('recargoLey').checked = s.recargoLey || false;
 if (document.getElementById('ticActual')) document.getElementById('ticActual').checked = s.ticActual || false;
 if (document.getElementById('diaVencimiento')) document.getElementById('diaVencimiento').value = s.diaVencimiento || '5';
 if (document.getElementById('fechaLiquidacion')) document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion || '';
+// FIX AUDITORÍA (Bug C): el input real (oculto, opacity:0) quedaba con la
+// fecha correcta, pero el <span> visible (fechaLiquidacionLabel) nunca se
+// sincronizaba tras restaurar sesión — se quedaba con el valor que dejó el
+// prellenado "hoy" de window.onload antes de que applySession() corriera.
+if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 // Restaurar indices de periodo: usar startPeriod/endPeriod (anio+mes) si existen,
 // con fallback a startIndex/endIndex legacy para sesiones guardadas anteriormente.
 if (s.startPeriod) {
@@ -995,6 +1037,12 @@ if (histMode === 'consolidada' && consolidadaData) {
   setHistMode('recalculable');
 }
 // Restaurar pickers deuda histórica
+// FIX AUDITORÍA (Bug B): historicalDebts siempre está vacío en modo
+// "consolidada" (por diseño — ver setHistMode()), así que este bloque caía
+// siempre al else y reseteaba las etiquetas del calendario "Cuotas" aunque
+// el modo activo fuera "Monto fijo" (que ya se restauró arriba con sus
+// propios datos). Se acota este reset a histMode==='recalculable'.
+if (histMode === 'recalculable') {
 if (historicalDebts.length > 0) {
 const d = historicalDebts[0];
 if (d.startMes && d.startAnio) {
@@ -1009,6 +1057,7 @@ const lblS = document.getElementById('histStartLabel');
 if (lblS) { lblS.innerText = 'Mes / Año'; lblS.className = 'input-date__value'; }
 const lblE = document.getElementById('histEndLabel');
 if (lblE) { lblE.innerText = 'Mes actual'; lblE.className = 'input-date__value'; }
+}
 }
 // Reset picker labels
 const lblA = document.getElementById('tempAbonoLabel');

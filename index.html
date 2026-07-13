@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v271">
+ <meta name="app-version" content="v2.0713.1650">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1929,6 +1929,17 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 
     </div><!-- /panelModoConsolidada -->
 
+    <!-- FIX AUDITORÍA (punto 5 del PDF): alerta de posible doble cobro cuando
+         el rango de "Período Actual" se solapa con la fecha de corte de la
+         deuda consolidada. No bloquea ni modifica el cálculo — solo advierte,
+         para no alterar el algoritmo de cuotas normales sin evidencia de bug. -->
+    <div id="dhSolapeWarn" class="dh-utm-warn hidden" style="margin:10px 16px 0;">
+      <span style="font-size:13px">ℹ️</span>
+      <p class="dh-utm-warn__text">
+        Algunos meses del "Período Actual" ya están cubiertos por la Deuda Histórica y fueron excluidos automáticamente de las cuotas mensuales para evitar doble cobro.
+      </p>
+    </div>
+
   </div><!-- /dh-body -->
   </div></div><!-- /collapsible-inner --><!-- /dhCardBody collapsible -->
 </div><!-- /dh-card -->
@@ -2083,8 +2094,9 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
 //
 // METODOLOGÍA CONFIRMADA por ingeniería inversa sobre liquidación
 // oficial del Poder Judicial (RIT Z-617-2024, Juzgado de Familia Talca):
-//   - Una sola tasa: TIC reajustable, sin distinción de plazo.
-//   - Sin categorías CAT 1A, 3A, 3B ni escalonamiento por mora.
+//   - TIC reajustable, categoría según antigüedad de cada período de mora:
+//     3.a ("menos de 1 año") por defecto; 3.b ("1 año o más, ≤2.000 UF")
+//     cuando diasMora > 365 (ver TIC_REAJ_1A más abajo, agregado 2026-07).
 //   - Interés simple diario: Capital_UTM × (TIC_anual / 365) × días_mora.
 //   - Vencimiento: día D del MISMO mes del período (no del siguiente).
 // ============================================================
@@ -2106,9 +2118,14 @@ const TIC_REAJ = {
 2022:[0.024,0.0253,0.0301,0.0268,0.0232,0.0253,0.0257,0.0255,0.0275,0.0298,0.04,0.0442],
 2023:[0.051,0.0676,0.0694,0.0722,0.0718,0.0936,0.0962,0.0972,0.0792,0.074,0.0698,0.0828],
 2024:[0.0758,0.0846,0.0634,0.0524,0.0532,0.0534,0.053,0.0472,0.0384,0.0381,0.0387,0.0361],
-2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0426,0.0428,0.0433,0.0439],
-2026:[0.0439,0.043,0.0413,0.0375,0.033,null,null,null,null,null,null,null],
+2025:[0.0416,0.0342,0.0297,0.038,0.0406,0.0472,0.048,0.045,0.0388,0.0384,0.0394,0.0460],
+2026:[0.0462,0.0480,0.0464,0.0369,0.0287,0.0286,null,null,null,null,null,null],
 };
+// CORRECCIÓN 2026-07: valores sep-2025 a jun-2026 verificados 1:1 contra los
+// certificados oficiales del Diario Oficial (Comisión para el Mercado Financiero,
+// tasa 3.a "Operaciones reajustables en moneda nacional de menos de 1 año").
+// Antes tenían valores que no correspondían a ningún certificado real de ese período.
+// Fuente: https://www.cmfchile.cl/portal/estadisticas/626/w4-propertyvalue-29487.html
 
 // TMC reajustable (disponible como referencia; el recargo Art. 14 Ley 14.908 multiplica la TIC × 1.5)
 const TMC_REAJ = {
@@ -2127,8 +2144,31 @@ const TMC_REAJ = {
 2022:[0.044,0.0453,0.0501,0.0468,0.0432,0.0453,0.0457,0.0455,0.0475,0.0498,0.06,0.0663],
 2023:[0.0765,0.1014,0.1041,0.1083,0.1077,0.1404,0.1443,0.1458,0.1188,0.111,0.1047,0.1242],
 2024:[0.1137,0.1269,0.0951,0.0786,0.0798,0.0801,0.0795,0.0708,0.0584,0.0581,0.0587,0.0561],
-2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.064,0.0642,0.0647,0.0653],
-2026:[0.0653,0.0644,0.0627,0.0589,0.0544,null,null,null,null,null,null,null],
+2025:[0.0624,0.0542,0.0497,0.058,0.0609,0.0708,0.072,0.0675,0.0588,0.0584,0.0594,0.0690],
+2026:[0.0693,0.0720,0.0696,0.0569,0.0544,0.0486,null,null,null,null,null,null],
+};
+// CORRECCIÓN 2026-07: mismos ajustes que TIC_REAJ, verificados contra certificados
+// oficiales CMF (tasa 3.a máxima convencional). Mayo-2026 mantiene valor previo (0.0544)
+// ya que no se verificó explícitamente esa cifra en esta pasada.
+
+// ============================================================
+// TIC_REAJ_1A — Tasa de Interés Corriente, categoría 3.b:
+// "Operaciones reajustables en moneda nacional de 1 año o más,
+// inferiores o iguales al equivalente de 2.000 UF".
+// Se usa quando un PERÍODO INDIVIDUAL de mora supera 365 días,
+// según Art. 6 Ley 18.010 (la categoría de plazo se determina por
+// la antigüedad de la mora, no por la fecha de liquidación).
+// Solo poblada desde 2025-09 en adelante (rango relevante detectado);
+// para años/meses no poblados, getTasaAnualInfo hace fallback a 3.a.
+// Fuente: certificados oficiales Diario Oficial, mismos PDFs que TIC_REAJ.
+// ============================================================
+const TIC_REAJ_1A = {
+2025:[null,null,null,null,null,null,null,null,0.0450,0.0444,0.0444,0.0442],
+2026:[0.0444,0.0446,0.0438,0.0426,0.0420,0.0420,null,null,null,null,null,null],
+};
+const TMC_REAJ_1A = {
+2025:[null,null,null,null,null,null,null,null,0.0675,0.0666,0.0666,0.0663],
+2026:[0.0666,0.0669,0.0657,0.0639,0.0630,0.0630,null,null,null,null,null,null],
 };
 
 // ============================================================
@@ -2177,9 +2217,15 @@ async function _fetchTicCMF(year, monthBase1) {
 })();
 
 // ============================================================
-// getTasaAnualInfo — tasa única reajustable (sin categorías)
-// Firma compatible con código existente; parámetros modoEsPesos/
-// capitalCLP/utmPeriodo/diasMora se ignoran en la lógica nueva.
+// getTasaAnualInfo — tasa reajustable con selección automática de
+// categoría por antigüedad (Art. 6 Ley 18.010):
+//   - diasMora <= 365 → categoría 3.a (TIC_REAJ / TMC_REAJ)
+//   - diasMora >  365 → categoría 3.b (TIC_REAJ_1A / TMC_REAJ_1A),
+//     ya que la deuda pasa a "1 año o más". Si la tabla 3.b no tiene
+//     el mes poblado, hace fallback a 3.a con aviso en consola.
+// Firma compatible con código existente; capitalCLP/utmPeriodo se
+// ignoran (no se distingue por monto, solo aplica el tramo ≤2.000 UF
+// que es el único relevante para montos de pensión alimenticia).
 // ============================================================
 function _normalizarMes(month) {
   if (month === undefined || month === null) return 11;
@@ -2188,32 +2234,43 @@ function _normalizarMes(month) {
 
 function getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, diasMora) {
   const m = _normalizarMes(month);
-  const tabla = usarMaxima ? TMC_REAJ : TIC_REAJ;
-  const label = 'TIC Reaj.';
+  const esUnAnioOMas = (typeof diasMora === 'number' && diasMora > 365);
+  const tabla = esUnAnioOMas
+    ? (usarMaxima ? TMC_REAJ_1A : TIC_REAJ_1A)
+    : (usarMaxima ? TMC_REAJ : TIC_REAJ);
+  const label = esUnAnioOMas ? 'TIC Reaj. ≥1 año' : 'TIC Reaj.';
 
   // Disparar fetch asíncrono para tener datos frescos en próximos cálculos
+  // (solo aplica a la tabla <1 año; la API pública no distingue categoría 3.b)
   _fetchTicCMF(year, m + 1);
 
   // Buscar valor en tabla (puede haber sido actualizado por _fetchTicCMF)
   if (tabla[year]) {
     const exacta = tabla[year][m];
     if (exacta !== null && exacta !== undefined) {
-      return { valor: exacta, esAproximada: false, categoria: 'reaj', categoriaLabel: label };
+      return { valor: exacta, esAproximada: false, categoria: esUnAnioOMas ? 'reaj_1a' : 'reaj', categoriaLabel: label };
     }
     // Fallback mes anterior del mismo año
     for (let i = m - 1; i >= 0; i--) {
       const v = tabla[year][i];
       if (v !== null && v !== undefined) {
-        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1));
-        return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
+        console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + year + '/' + (i+1) + (esUnAnioOMas ? ' (cat. 1A)' : ''));
+        return { valor: v, esAproximada: true, categoria: esUnAnioOMas ? 'reaj_1a' : 'reaj', categoriaLabel: label };
       }
     }
   }
+  // Si la tabla 3.b no tiene datos para este año/mes, cae a la tabla 3.a
+  // (mejor una aproximación con la tasa "menos de 1 año" que un valor nulo)
+  if (esUnAnioOMas) {
+    console.warn('[TIC] ' + year + '/' + (m+1) + ' sin datos en tabla ≥1 año → fallback a tabla <1 año');
+    return getTasaAnualInfo(year, month, usarMaxima, modoEsPesos, capitalCLP, utmPeriodo, 0);
+  }
+  const tablaBase = usarMaxima ? TMC_REAJ : TIC_REAJ;
   // Fallback año anterior
-  const allYears = Object.keys(tabla).map(Number).sort((a,b) => b - a);
+  const allYears = Object.keys(tablaBase).map(Number).sort((a,b) => b - a);
   for (const py of allYears.filter(y => y < year)) {
     for (let i = 11; i >= 0; i--) {
-      const v = tabla[py][i];
+      const v = tablaBase[py][i];
       if (v !== null && v !== undefined) {
         console.warn('[TIC] ' + year + '/' + (m+1) + ' → fallback ' + py + '/' + (i+1));
         return { valor: v, esAproximada: true, categoria: 'reaj', categoriaLabel: label };
@@ -4487,6 +4544,34 @@ errorEl.classList.add('hidden');
 return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
+// FIX AUDITORÍA (punto 5, causa raíz real): calcula el conjunto de meses
+// (absMonth = año*12+monthIdx) ya cubiertos por la Deuda Histórica, en
+// cualquiera de sus dos modos, para excluirlos de las cuotas mensuales
+// normales más abajo y evitar el doble cobro (ej. "Nov 2022" apareciendo
+// tanto como fila de deuda histórica como cuota mensual independiente).
+function _mesesCubiertosPorDeudaHistorica() {
+  const set = new Set();
+  if (histMode === 'consolidada' && consolidadaData) {
+    // Modo "Monto fijo": la deuda consolidada es un monto YA CERRADO a la
+    // fecha de corte — reemplaza únicamente la cuota de ESE mes puntual,
+    // no todos los meses desde el corte hasta hoy. Los meses siguientes al
+    // corte deben seguir generándose como cuotas mensuales normales.
+    // CORRECCIÓN: la versión anterior asumía (incorrectamente) que la
+    // deuda consolidada cubría desde el corte hasta "hoy", lo que borraba
+    // por error todas las cuotas mensuales legítimas posteriores al corte.
+    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+    set.add(corteAbs);
+  } else if (historicalDebts && historicalDebts.length > 0) {
+    // Modo "Cuotas": cada tramo cubre exactamente sus totalMonths meses
+    // desde startAnio/startMes — mismo cálculo que calculateHistoricalDebt().
+    historicalDebts.forEach(debt => {
+      const startAbs = debt.startAnio * 12 + debt.startMes - 1;
+      for (let i = 0; i < debt.totalMonths; i++) set.add(startAbs + i);
+    });
+  }
+  return set;
+}
+const _mesesCubiertosHist = _mesesCubiertosPorDeudaHistorica();
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
 // Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
 let excedenteParcialTotalUTM = 0;
@@ -4504,6 +4589,25 @@ const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
 const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
 const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
 const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
+// FIX AUDITORÍA (punto 5): la exclusión real de meses duplicados ya ocurre
+// más abajo (_mesesCubiertosHist, dentro de slice.forEach) — cubre ambos
+// modos (Cuotas y Monto fijo). Este indicador informativo (#dhSolapeWarn)
+// se mantiene solo para que el usuario vea explícitamente cuándo hubo una
+// exclusión automática, no como advertencia de un problema sin resolver.
+(function checkSolapeConsolidada() {
+  const warnEl = document.getElementById('dhSolapeWarn');
+  if (!warnEl) return;
+  const haySolape = _mesesCubiertosHist.size > 0 && efectivoStart !== -1 && efectivoEnd !== -1 &&
+    utmData[efectivoStart] && utmData[efectivoEnd] && (() => {
+      const rStart = Math.min(efectivoStart, efectivoEnd);
+      const rEnd   = Math.max(efectivoStart, efectivoEnd);
+      const rangoStartAbs = utmData[rStart].y * 12 + utmData[rStart].monthIdx;
+      const rangoEndAbs   = utmData[rEnd].y   * 12 + utmData[rEnd].monthIdx;
+      for (let m = rangoStartAbs; m <= rangoEndAbs; m++) if (_mesesCubiertosHist.has(m)) return true;
+      return false;
+    })();
+  warnEl.classList.toggle('hidden', !haySolape);
+})();
 if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
 const start = Math.min(efectivoStart, efectivoEnd);
 const end = Math.max(efectivoStart, efectivoEnd);
@@ -4534,6 +4638,11 @@ for (let absM = startAbsMonth; absM <= endAbsMonth; absM++) {
   }
 }
 slice.forEach((item, idx) => {
+// FIX AUDITORÍA (punto 5): saltar meses ya cubiertos por Deuda Histórica —
+// evita que, por ejemplo, Nov-2022 aparezca a la vez como fila de deuda
+// histórica consolidada Y como cuota mensual independiente.
+const _absMonthItem = item.y * 12 + item.monthIdx;
+if (_mesesCubiertosHist.has(_absMonthItem)) return;
 // Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
 const utmMesHistorico = item.v; // UTM del mes de la cuota
 // ── Períodos variables: sobreescribir cuota si hay un período registrado ──
@@ -4743,6 +4852,30 @@ function imputarAbonosArt1595(detalles, abonos) {
     capPendiente: d.cap,
     intPendiente: d.inte, // valor inicial; se recalcula por abono abajo
   }));
+  // CORRECCIÓN Art. 1595 CC: cuando existe deuda histórica (isDebt), esta debe
+  // imputarse PRIMERO —es la más antigua cronológicamente y el corte consolidado
+  // representa el saldo devengado hasta esa fecha— y solo después las cuotas
+  // mensuales normales. Sin deuda histórica, el orden no cambia (ya es cronológico).
+  //
+  // IMPORTANTE: `cuotas` (el array) NO se reordena, porque se retorna como
+  // `cuotasResultado` y el llamador (index.html ~línea 5126) lo empareja por
+  // ÍNDICE POSICIONAL con lastCalculationData para actualizar d.cap/d.inte:
+  //   imputacion.cuotasResultado.forEach((cuotaImputada, i) => {
+  //     const d = lastCalculationData[i]; d.cap = cuotaImputada.capPendiente; ... })
+  // Reordenar `cuotas` desalinearía esos índices y asignaría los saldos
+  // post-imputación a la cuota equivocada (bug detectado en export.js: el PDF
+  // seguía mostrando "Monto al corte" sin intereses en la deuda histórica
+  // porque tomaba d.capOriginal/d.inte de un objeto que nunca fue actualizado).
+  //
+  // En su lugar, se itera sobre `ordenImputacion`: mismas referencias de objeto
+  // que `cuotas`, solo reordenadas para decidir el ORDEN en que se aplican los
+  // abonos. Como los dos loops de abajo mutan `cuota.capPendiente`/`intPendiente`
+  // por referencia, el efecto es idéntico a imputar en ese orden, pero `cuotas`
+  // (y por ende `cuotasResultado`) conserva el orden de entrada.
+  const ordenImputacion = [...cuotas].sort((a, b) => {
+    if (!!a.isDebt !== !!b.isDebt) return a.isDebt ? -1 : 1;
+    return 0; // dentro de cada grupo se preserva el orden cronológico original
+  });
   let totalAbonado = 0;
   let interesesPagados = 0;
   let capitalPagado = 0;
@@ -4756,7 +4889,7 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diaAbono = partesDate[2] || 1; // día exacto si existe (parciales), 1 para abonos legacy
     const fechaAbono = new Date(anioAbono, mesAbono - 1, diaAbono);
     const imputThis = { fecha: abono.date, monto: abono.amount, porCuota: [], esParcial: abono.esParcial || false };
-    for (const cuota of cuotas) {
+    for (const cuota of ordenImputacion) {
       if (remanente <= 0) break;
       // Solo imputar a cuotas vencidas antes o en el mes del abono
       let cuotaAnio, cuotaMes;
@@ -4807,7 +4940,7 @@ function imputarAbonosArt1595(detalles, abonos) {
     // NOTA: los depósitos LAV se procesan en calculate() (PASO 1) antes de llegar
     // aquí. imputarAbonosArt1595 opera sobre el capital remanente post-LAV.
     if (remanente > 0) {
-      for (const cuota of cuotas) {
+      for (const cuota of ordenImputacion) {
         if (remanente <= 0) break;
         // El remanente solo se aplica al capital de cuotas futuras
         if (cuota.capPendiente > 0) {
@@ -4905,7 +5038,16 @@ if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _hayLav = abonosLav && abonosLav.length > 0;
 const _hayParciales = pagosParciales && pagosParciales.length > 0;
-const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales;
+// FIX AUDITORÍA (causa raíz real del bug de calendario): este guard no
+// consideraba historicalDebts ni consolidadaData. Si el usuario solo
+// registra "Deuda Histórica" (modo Cuotas o Monto fijo) sin definir un
+// "Período Actual" (startIndex/endIndex en -1), calculate() salía acá
+// ANTES de llegar a calculateHistoricalDebt()/calculateConsolidada() más
+// abajo — el mes/año quedaban guardados en el calendario mediante
+// tryRegisterHistorical(), pero el total nunca se calculaba ni aparecía
+// en la tarjeta ni en el hero, porque la función completa abortaba antes.
+const _hayHistorica = (historicalDebts && historicalDebts.length > 0) || (histMode === 'consolidada' && !!consolidadaData);
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales && !_hayHistorica;
 if (_noRange) {
   // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
@@ -4988,19 +5130,31 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
-  // CORRECCIÓN: el interés que el pool LAV debe cubrir (Art. 1595 CC) es el devengado
-  // hasta la fecha del depósito, NO hasta la fecha de liquidación (hoy).
-  // Un depósito del 02-09-2025 no puede imputarse a intereses que se devengarán
-  // en los 8 meses siguientes. Usamos la fecha del primer depósito LAV (orden cron.)
-  // como referencia, ya que el pool se suma y aplica cuota a cuota desde la más antigua.
-  const _lavsSorted = abonosLav.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const _fechaPrimerLav = (function() {
-    const p = _lavsSorted[0].date.split('-').map(Number);
-    return new Date(p[0], p[1] - 1, p[2]);
-  })();
-  const _diaVencLav = getDiaVencimiento();
+  // METODOLOGÍA SITFA/PJUD (confirmada con Pablo, caso RIT Z-3764-2023): el pool LAV
+  // se imputa contra el interés YA CALCULADO por calculatePensiones()/calculateConsolidada()
+  // hasta la fecha de liquidación (d.inte) — el mismo criterio que usa el tribunal, que
+  // primero determina el interés adeudado a la fecha de corte y luego aplica los abonos
+  // sobre ese saldo. Se abandona el criterio anterior (interés recalculado solo hasta la
+  // fecha del depósito, con tasa/días propios) porque no reproducía el resultado oficial:
+  // en el caso de prueba (deuda histórica Nov-2022 $1.889.283, interés a corte $180.687,
+  // 4 LAV may-ago 2023 por 3.63896 UTM) el criterio anterior solo imputaba 1.2771 UTM a
+  // interés (recalculado a la fecha del primer LAV) dejando capital residual de 28.68 UTM,
+  // mientras SITFA aplica el pool íntegro contra el saldo ya calculado a la fecha de corte,
+  // dejando 27.40771 UTM — la cifra oficial de la liquidación del tribunal.
   let poolRestante = poolLavUTM;
-  for (const d of lastCalculationData) {
+  // CORRECCIÓN Art. 1595 CC: cuando existe deuda histórica (isDebt), el pool LAV
+  // debe consumirse PRIMERO contra ella —es la obligación más antigua— y solo
+  // después contra las cuotas mensuales normales. Se itera sobre una copia
+  // ordenada de REFERENCIAS (mismos objetos que lastCalculationData), no sobre
+  // una copia de valores: la mutación de `d` dentro del loop sigue afectando
+  // directamente a lastCalculationData en su posición original, así que no hay
+  // riesgo de desalineación posicional (a diferencia de imputarAbonosArt1595,
+  // donde el resultado se reasigna después vía forEach por índice).
+  const _ordenLav = [...lastCalculationData].sort((a, b) => {
+    if (!!a.isDebt !== !!b.isDebt) return a.isDebt ? -1 : 1;
+    return 0; // dentro de cada grupo se preserva el orden cronológico original
+  });
+  for (const d of _ordenLav) {
     // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
     // del pool también inicialicen capOriginalBruto/intOriginal y marquen esLav=false.
     // El break previo dejaba esos meses sin inicializar, causando valores incorrectos en
@@ -5024,28 +5178,39 @@ if (abonosLav && abonosLav.length > 0) {
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
     const parcialUTMMes = parcialCLPMes / utmMes;
     const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
-    // CORRECCIÓN Art. 1595: calcular interés devengado solo hasta la fecha del primer
-    // depósito LAV, no hasta hoy. Esto evita que el pool "consuma" intereses futuros
-    // aún no devengados al momento del depósito.
-    const _periodoPartes = (d.periodo || '').replace('HIST ', '').replace('CONS ', '').split(' ');
-    const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
-    const _cMesLav  = _mesesMap[_periodoPartes[0]] ?? 0;
-    const _cAnioLav = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
-    const _fechaVencLav = new Date(_cAnioLav, _cMesLav, _diaVencLav);
-    const _diasMoraAlLav = Math.max(0, Math.floor((_fechaPrimerLav - _fechaVencLav) / (1000*60*60*24)));
-    const _capParaInteBase = d.capParaInteres !== undefined ? d.capParaInteres : (d.capOriginalBruto > 0 ? d.capOriginalBruto : d.cap);
-    const _inteAlLav = (_diasMoraAlLav > 0 && _capParaInteBase > 0) ? calcularInteres(_capParaInteBase, d.tasa, _diasMoraAlLav) : 0;
-    const inteUTM = _inteAlLav / utmMes; // interés devengado hasta fecha del depósito LAV
+    // METODOLOGÍA SITFA (confirmada con Pablo, caso RIT Z-3764-2023): en la fila de
+    // deuda histórica/arrastre (isDebt=true), SITFA imputa el pool LAV 100% a CAPITAL
+    // primero — Adeudado = Total mes − Abonado — y el interés se calcula por separado
+    // sobre el capital ya neto, sumándose al final (no se descuenta del pool). Verificado
+    // con la fórmula exacta del PDF oficial: 31.04667 − 3.63896 = 27.40771 (Adeudado),
+    // + 2.49163 (Intereses) = 29.89934 (Total). Las cuotas mensuales normales (isDebt
+    // false) mantienen el criterio Art. 1595 CC (interés devengado primero, luego
+    // capital) — no hay evidencia en la liquidación de SITFA de que ese criterio deba
+    // cambiar para pensiones mensuales individuales, solo se confirmó para la fila de
+    // arrastre consolidado.
+    const inteUTM = (d.intOriginal || 0) / utmMes;
     let intAplicadoUTM  = 0;
     let capAplicadoUTM  = 0;
-    // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
-    if (inteUTM > 0.0001 && poolRestante > 0) {
-      intAplicadoUTM = Math.min(poolRestante, inteUTM);
-      poolRestante  -= intAplicadoUTM;
-    }
-    if (capDisponUTM > 0.0001 && poolRestante > 0) {
-      capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
-      poolRestante  -= capAplicadoUTM;
+    if (d.isDebt) {
+      // Deuda histórica: capital primero (criterio SITFA)
+      if (capDisponUTM > 0.0001 && poolRestante > 0) {
+        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+        poolRestante  -= capAplicadoUTM;
+      }
+      if (inteUTM > 0.0001 && poolRestante > 0) {
+        intAplicadoUTM = Math.min(poolRestante, inteUTM);
+        poolRestante  -= intAplicadoUTM;
+      }
+    } else {
+      // Cuotas mensuales: interés primero (Art. 1595 CC, criterio sin cambios)
+      if (inteUTM > 0.0001 && poolRestante > 0) {
+        intAplicadoUTM = Math.min(poolRestante, inteUTM);
+        poolRestante  -= intAplicadoUTM;
+      }
+      if (capDisponUTM > 0.0001 && poolRestante > 0) {
+        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+        poolRestante  -= capAplicadoUTM;
+      }
     }
     // Aplicar al mes: lo que quedó sin cubrir
     const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
@@ -6120,12 +6285,19 @@ renderCalendar();
 if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
+// FIX AUDITORÍA (Bug A): faltaba escribir histStartMes — solo se guardaba
+// el año, por lo que tryRegisterHistorical() (que exige mes Y año) nunca
+// registraba la cuota aunque el usuario confirmara la fecha.
+const mesValHS = String(i + 1).padStart(2, '0');
+document.getElementById('histStartMes').value = mesValHS;
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
 lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd) si ya hay monto UTM cargado
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'histEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6136,6 +6308,8 @@ lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd)
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'consolidadaFecha') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6597,7 +6771,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0710.0346</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.0427</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6608,7 +6782,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0622.0200"></script>
+<script src="export.js?v=2.0713.1650"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
