@@ -2,427 +2,73 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v2.0713.1650 · 2026-07-13]
-index.html, sw.js, tests/test_auditoria_deuda_historica.js
+[v2.0713.0757 · 2026-07-13]
+index.html
 
-Fix — Corrección de sobre-corrección introducida en v2.0713.1630. Ese fix
-resolvió el doble cobro de Nov-2022 pero partió de un supuesto incorrecto
-sobre el modo "consolidada" (Monto fijo): asumía que la deuda consolidada
-cubre desde su fecha de corte hasta "hoy" (fecha de liquidación),
-excluyendo por error TODOS los meses posteriores al corte de las cuotas
-mensuales normales. Confirmado con PDF real aportado por Pablo: tras
-v2.0713.1630, la tabla "PENSIONES MENSUALES IMPAGAS" desapareció por
-completo (0 filas) en vez de mostrar Dic-2022 a Feb-2024 como cuotas
-normales — el "Total cuotas impagas" del resumen cayó a $1.889.283
-(idéntico al monto de la deuda consolidada), perdiendo ~$1.986.927 en
-cuotas mensuales legítimas.
+Fix — Cálculo de interés usaba tasa CMF fija (la del mes de origen de la
+cuota) aplicada sobre TODOS los días de mora, en vez de segmentar por
+tramos mensuales con la tasa vigente de cada mes calendario transcurrido.
 
-Causa raíz real: la deuda consolidada de modo "Monto fijo" es un saldo YA
-CERRADO a una fecha de corte puntual (ej. "$1.889.283 al corte de
-Nov-2022") — reemplaza únicamente la cuota de ESE mes específico. No es
-una declaración de que todos los meses posteriores también están
-cubiertos; esos meses siguen devengando pensión mes a mes de forma
-independiente y deben seguir apareciendo como cuotas mensuales normales,
-tal como ya se veía correctamente en el PDF anterior al fix del doble
-cobro (antes de v2.0713.1630).
+Fundamento legal: Art. 17 Ley 14.908 remite al interés corriente del
+Art. 6 Ley 18.010, cuya tasa "se publicará... para tener vigencia hasta
+el día anterior a la próxima publicación" — es decir, la tasa CAMBIA
+mes a mes y solo rige durante su ventana. Aplicar una tasa única fija
+sobre todo el período de mora se aparta de la ley cuando la mora cruza
+más de un mes calendario con tasas distintas.
 
-Fix: dentro de _mesesCubiertosPorDeudaHistorica() (index.html,
-calculatePensiones()), la rama de modo "consolidada" ahora agrega
-ÚNICAMENTE el mes de corte (consolidadaData.fechaAnio/fechaMes) al
-conjunto de meses excluidos, en vez de todo el rango corte→hoy. La rama
-de modo "Cuotas" (historicalDebts[]) no cambia — ese modo sí declara
-explícitamente cuántos meses cubre (totalMonths) y ese dato se sigue
-respetando tal cual.
+Detectado auditando la liquidación de la app contra una liquidación
+oficial real del tribunal (RIT Z-617-2024, Juzgado de Familia Talca,
+11 cuotas sep-2025 a jul-2026, liquidación 08-07-2026): diferencia de
+~$1.900 pesos / 0.027 UTM contra el total oficial. Se descartaron como
+causa la tabla TIC_REAJ (verificada 1:1 contra la API oficial CMF
+/recursos_api/tip/{año}?tipoindicador=21), el capital por cuota y los
+días de mora (idénticos en ambos documentos). La causa real era
+calcularInteres(capital, tasaFija, diasMoraTotal).
 
-Se corrigió Test F en tests/test_auditoria_deuda_historica.js: sus
-aserciones anteriores (que esperaban 0 cuotas mensuales generadas)
-codificaban el supuesto incorrecto como "correcto". Ahora verifica el
-balance real: Nov-2022 excluido, pero Dic-2022 a Feb-2024 (15 meses)
-SÍ se generan como cuotas mensuales normales. Suite completa: 26/26
-(sumando Test A–F).
+Se agregó calcularInteresSegmentado(capital, fechaVenc, fechaCorte,
+usarMaxima, aplicarRecargo) junto a calcularInteres() (que se conserva
+sin uso activo, solo como referencia). La nueva función recorre tramo
+a tramo (mes calendario por mes calendario) entre fechaVenc y
+fechaCorte, resolviendo en cada tramo la tasa CMF vigente vía
+getTasaAnualInfo() y aplicando interés simple diario base 365 con esa
+tasa, sumando todos los tramos. El recargo Art. 14 Ley 14.908 (×1.5)
+se aplica por tramo. La categoría de tasa por antigüedad (3.a/3.b,
+umbral 365 días) usa el acumulado de días transcurridos hasta el
+inicio de cada tramo, igual criterio que ya usaba
+calcularInteresConsolidadaMensual() (función preexistente que ya
+implementaba esta misma lógica, pero solo para el flujo "Consolidada
+Mensual" — no para el flujo principal de cuotas históricas).
 
-Validado: node --check sobre export.js y sobre el JS inline extraído de
-index.html. tests/test_imputacion_art1595.js sigue en 28/28.
+Reemplazadas las 7 llamadas reales a calcularInteres() en el archivo:
+cálculo de cuotas del período histórico principal, calculateHistoricalDebt
+(deuda histórica en UTM), imputarAbonosArt1595 (recálculo sin abonos,
+recálculo al momento de cada abono — Art. 1595 CC, recálculo de saldo
+final a hoy), buildModoLibreLAVData (modo libre LAV), y el cálculo de
+interés devengado hasta la fecha del primer depósito LAV. En todos los
+sitios ya existían fechaVenc/hoy (o fechas equivalentes) en scope, así
+que no fue necesario reconstruir fechas adicionales.
 
-PENDIENTE: Pablo debe regenerar el PDF del caso real (deuda consolidada
-Nov-2022 + LAV, período hasta Feb-2024) con este ZIP y confirmar que: (1)
-Nov-2022 solo aparece en "DEUDA HISTORICA CONSOLIDADA", NO en "PENSIONES
-MENSUALES IMPAGAS"; (2) Dic-2022 a Feb-2024 SÍ aparecen íntegramente en
-"PENSIONES MENSUALES IMPAGAS", igual que en el PDF previo al fix del
-doble cobro.
+d.tasa en el detalle de cada cuota ahora almacena la tasa PROMEDIO
+PONDERADA por días de cada tramo (informativo/visualización), no una
+tasa única aplicada al cálculo real — el cálculo real ya no depende de
+un solo valor de tasa. Esto es compatible con export.js (PDF/Excel),
+que solo usa d.tasa para mostrar el porcentaje (d.tasa*100), sin
+recalcular con él.
 
+Validado contra RIT Z-617-2024: el residuo bajó de ~$1.900 a ~$1.000
+(patrón consistente y pequeño, atribuible probablemente al criterio
+exacto de corte del día de vencimiento — "5 primeros días" según el
+documento del tribunal — a seguir refinando en una próxima iteración
+si se detectan más casos de prueba). Antes el patrón de diferencia por
+período era errático (entre +$871 y -$389 según el mes); ahora es
+monótono y decreciente con la antigüedad del tramo.
 
-[v2.0713.1630 · 2026-07-13]
-index.html, sw.js, tests/test_auditoria_deuda_historica.js
-
-Fix CRÍTICO — Corrección real del doble cobro (punto 5 del prompt de
-auditoría), reemplazando la versión anterior que SOLO advertía sin
-corregir. Confirmado con PDF real aportado por Pablo (caso Nov-2022,
-deuda consolidada $1.889.283 + 4 LAV may-ago 2023): Nov-2022 aparecía a
-la vez en "PENSIONES MENSUALES IMPAGAS" ($120.000) y en "DEUDA HISTORICA
-CONSOLIDADA" (CONS Nov 2022) — doble cobro real, no solo un riesgo
-teórico.
-
-NOTA IMPORTANTE: la entrega v2.0713.1600 (ZIP presentado anteriormente)
-contenía únicamente la primera versión de este fix, que solo mostraba
-una advertencia (#dhSolapeWarn) sin excluir los meses duplicados del
-cálculo — el bug de fondo seguía sin corregirse en ese ZIP. Esta versión
-(v2.0713.1630) es la que corrige el cálculo de verdad.
-
-Causa raíz: calculatePensiones() (index.html) generaba la tabla de
-cuotas mensuales para todo el rango del "Período Actual" sin excluir los
-meses que ya estuvieran cubiertos por la Deuda Histórica (en cualquiera
-de sus dos modos: "Cuotas" con historicalDebts[], o "Monto fijo" con
-consolidadaData). export.js separa correctamente ambas tablas del PDF
-por d.isDebt, así que no hay solape en la exportación — el problema es
-que el mismo mes terminaba generándose en AMBOS arrays (resPensiones.
-detalles Y resHistorical.detalles) dentro de calculate().
-
-Fix: se agrega la función interna _mesesCubiertosPorDeudaHistorica()
-dentro de calculatePensiones(), que calcula el conjunto de meses
-(absMonth = año*12+monthIdx) cubiertos por la deuda histórica activa:
-  - Modo "Monto fijo" (histMode==='consolidada'): cubre desde
-    consolidadaData.fechaMes/fechaAnio (fecha de corte) hasta el mes de
-    "hoy" (fecha de liquidación) — la deuda consolidada reemplaza
-    íntegramente las cuotas mensuales de ese rango.
-  - Modo "Cuotas" (historicalDebts[]): cada tramo cubre exactamente sus
-    totalMonths meses desde startAnio/startMes — mismo cálculo que ya
-    usa calculateHistoricalDebt() para generar sus propias filas.
-Dentro del loop principal (slice.forEach), se agrega un guard temprano
-que salta (return) cualquier mes presente en ese conjunto, antes de
-calcular su capital/interés — el mes simplemente no se agrega a
-`detalles`, por lo que nunca llega a lastCalculationData como cuota
-mensual duplicada.
-
-El indicador visual #dhSolapeWarn (agregado en la versión anterior) se
-mantiene, pero se reescribió su texto y su lógica para reflejar que la
-exclusión YA ocurrió automáticamente (antes decía "revisa que no se
-solapen", ahora informa que los meses "fueron excluidos automáticamente
-de las cuotas mensuales para evitar doble cobro").
-
-Se agregó Test F a tests/test_auditoria_deuda_historica.js: reproduce
-el caso EXACTO del PDF real aportado (modo consolidada, corte Nov-2022,
-período Nov-2022 a Feb-2024, misma fecha de liquidación 09-02-2024) y
-confirma que ninguna cuota mensual se genera para ese rango — el total
-de $3.876.210 en "cuotas impagas" que mostraba el PDF con bug pasa a
-$0 en cuotas mensuales (toda la deuda queda correctamente representada
-una sola vez, en la fila de Deuda Histórica Consolidada). Suite
-completa: 24/24 aserciones (sumando Test A–F).
-
-Validado: node --check sobre export.js y sobre el JS inline extraído de
-index.html. Se re-ejecutaron ambas suites de test tras el fix:
-tests/test_imputacion_art1595.js sigue en 28/28 (ningún cambio a la
-imputación de abonos ni al pool LAV) y
-tests/test_auditoria_deuda_historica.js en 24/24.
-
-PENDIENTE: no se validó con navegador real ni regenerando el PDF desde
-la app — se recomienda que Pablo regenere el PDF del caso real (deuda
-consolidada Nov-2022 + LAV) con este ZIP y confirme que Nov-2022 ya NO
-aparece en la tabla "PENSIONES MENSUALES IMPAGAS", solo en "DEUDA
-HISTORICA CONSOLIDADA".
-
-
-[v2.0713.1600 · 2026-07-13]
-index.html, export.js, sw.js, tests/test_auditoria_deuda_historica.js (nuevo)
-
-Fix — Auditoría Integral Deuda Histórica (4 bugs de la sección 7 del prompt
-de auditoría + advertencia del punto 5). El modelo conceptual de deuda
-histórica ya existía correctamente (consolidadaData/historicalDebts,
-isDebt:true, separado de cuotas mensuales — ver v2.0713.1530 y anteriores);
-esta entrega corrige exclusivamente los 4 bugs concretos reportados, sin
-tocar el algoritmo de cuotas normales ni la imputación de abonos (Art. 1595 /
-pool LAV), que quedan intactos y siguen validados por
-tests/test_imputacion_art1595.js (28/28).
-
-BUG A — Calendario no permite seleccionar correctamente la fecha en "Cuotas
-de deuda histórica" (index.html, handler de clic de celda ~línea 6246):
-  Causa raíz: la rama `calendarMode === 'histStart'` solo escribía
-  histStartAnio.value — nunca histStartMes.value (a diferencia de la rama
-  histEnd, algunas líneas más abajo, que sí escribía ambos). Con
-  histStartMes siempre vacío, tryRegisterHistorical() abortaba en su guard
-  `if (utm <= 0 || !startMes || !startAnio) return;` sin importar que el
-  usuario confirmara la fecha en el calendario.
-  Fix: se agrega la escritura de histStartMes.value (mismo patrón que
-  histEnd) y se invoca tryRegisterHistorical() directamente al hacer clic en
-  el mes, tanto en histStart como en histEnd — mismo criterio de "recálculo
-  en tiempo real" que ya usa el overlay befEnd, en vez de depender de que el
-  usuario presione el botón "Confirmar" del modal (que sí llamaba a
-  tryRegisterHistorical() vía calendarAction(), pero solo en ese punto).
-
-BUG B — Tarjeta de deuda histórica queda vacía tras reiniciar la app (aunque
-el cálculo sigue siendo correcto) (export.js, applySession() ~línea 1034):
-  Causa raíz: el bloque que restaura/resetea las etiquetas del calendario
-  "Cuotas" (histStartLabel/histEndLabel) solo comprobaba
-  `if (historicalDebts.length > 0)`. En modo "consolidada" (Monto fijo),
-  historicalDebts está SIEMPRE vacío por diseño (se limpia intencionalmente
-  en setHistMode()), así que ese bloque caía siempre al `else` y reseteaba
-  las etiquetas a "Mes / Año" / "Mes actual", sin importar que el panel de
-  "Monto fijo" (consolidadaData) ya se hubiera restaurado correctamente unas
-  líneas antes con sus propios valores.
-  Fix: el bloque completo de reset/restauración de labels de "Cuotas" ahora
-  está condicionado a `histMode === 'recalculable'`. En modo consolidada no
-  se toca ningún label de la sección "Cuotas".
-
-BUG C — Fecha de liquidación muestra la fecha de hoy al reiniciar; el
-calendario nativo sí tiene la fecha guardada (sincronización UI/modelo)
-(export.js, applySession() ~línea 983):
-  Causa raíz: applySession() restauraba correctamente
-  document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion,
-  pero nunca llamaba a dpUpdateFechaLiqLabel() — la única función que
-  actualiza el <span id="fechaLiquidacionLabel"> visible en pantalla (el
-  <input type="date"> real está oculto con opacity:0 detrás de un botón).
-  El input interno quedaba con la fecha correcta (por eso el date picker
-  nativo la mostraba al abrirlo), pero el label visible se quedaba con lo
-  que dejó el prellenado de "hoy" de window.onload, ejecutado antes de que
-  applySession() corriera.
-  Fix: se agrega la llamada a dpUpdateFechaLiqLabel() inmediatamente después
-  de restaurar fechaLiquidacion.value dentro de applySession().
-
-PUNTO 5 — Riesgo de doble cobro en el PDF si "Deuda Histórica consolidada"
-y "Período Actual" (cuotas mensuales) se solapan en fechas (index.html,
-calculatePensiones() ~línea 4535):
-  Diagnóstico: export.js ya separa correctamente pensiones (!isDebt) de
-  históricas (isDebt) al construir el PDF — no hay solape estructural en la
-  exportación. El riesgo real está antes: calculatePensiones() no excluye
-  del rango de cuotas mensuales los meses ya cubiertos por
-  consolidadaData.fechaMes/fechaAnio. Si el usuario configura, por ejemplo,
-  la deuda consolidada con corte en Nov-2022 y también deja el "Período
-  Actual" arrancando en Nov-2022, ambas filas se calculan y se suman.
-  Decisión: NO se excluyen meses automáticamente ni se altera el cálculo de
-  cuotas normales (el prompt de auditoría pide explícitamente no modificar
-  ese algoritmo salvo bug demostrable, y aquí no hay un bug de cálculo sino
-  una posible combinación de configuración del usuario). En su lugar se
-  agrega una advertencia visual no bloqueante: nuevo bloque
-  #dhSolapeWarn (index.html, dentro de la tarjeta Deuda Histórica), que se
-  muestra/oculta desde calculatePensiones() mediante la función interna
-  checkSolapeConsolidada() cuando el rango efectivo de "Período Actual" se
-  solapa con la fecha de corte de la deuda consolidada. No modifica
-  ninguna variable de cálculo (capital, intereses, totales) — es
-  estrictamente informativa.
-
-Se agregó tests/test_auditoria_deuda_historica.js (nuevo): extrae el código
-real de las 3 funciones modificadas (rama histStart del handler de clic,
-applySession(), calculatePensiones()) directamente de index.html/export.js
-— no reimplementa la lógica — y valida los 4 fixes con 17 aserciones:
-  - Test A: la rama histStart escribe histStartMes.value y dispara
-    tryRegisterHistorical() al hacer clic (3 aserciones).
-  - Test A2: simulación end-to-end del flujo de clic del calendario
-    corregido → historicalDebts queda registrado con mes/año/UTM correctos
-    y calculate() se invoca (5 aserciones).
-  - Test B: applySession() contiene el guard histMode==='recalculable'
-    envolviendo el bloque de reset de labels (2 aserciones).
-  - Test C: applySession() llama dpUpdateFechaLiqLabel() tras restaurar el
-    valor, y una simulación funcional confirma que el label queda
-    sincronizado con la fecha restaurada y no con "hoy" (3 aserciones).
-  - Test D: calculatePensiones() invoca la verificación de solape, y la
-    fórmula de detección de solape se valida contra un caso con solape y
-    uno sin solape (4 aserciones).
-Suite completa: 17/17 aserciones. Correr con
-`node tests/test_auditoria_deuda_historica.js` tras cualquier cambio a
-estas 3 funciones.
-
-Validado: node --check sobre export.js y sobre el JS inline extraído de
-index.html (sin errores de sintaxis). Se re-ejecutó
-tests/test_imputacion_art1595.js tras los 4 fixes: sigue en 28/28 — ninguno
-de los cambios de esta entrega toca imputarAbonosArt1595(), el bloque del
-pool LAV, calculateHistoricalDebt() ni calculateConsolidada().
-
-PENDIENTE: no se validó con navegador real (mobile Android) — los fixes A,
-B y C se verificaron por extracción y ejecución del código real en Node
-(sin DOM completo, con stub mínimo) y por lectura de código; se recomienda
-probar manualmente en la app: (1) registrar deuda histórica "Cuotas" solo
-con clic en calendario, sin tocar el botón Confirmar; (2) configurar modo
-"Monto fijo", recargar la app, confirmar que ningún label de "Cuotas" se
-resetea; (3) fijar fecha de liquidación pasada, recargar, confirmar que el
-label visible (no el input oculto) muestra la fecha correcta sin abrir el
-calendario; (4) configurar deuda consolidada y período actual con fechas
-solapadas, confirmar que aparece la advertencia #dhSolapeWarn y que el
-total no cambia respecto a antes del fix (es puramente informativa).
-
-
-[v2.0713.1530 · 2026-07-13]
-index.html, tests/test_imputacion_art1595.js
-
-Fix CRÍTICO — Metodología del pool LAV sobre deuda histórica no coincidía
-con la liquidación oficial de SITFA/PJUD (RIT Z-3764-2023, Juzgado de
-Familia San Miguel). Confirmado con el PDF oficial del tribunal y
-verificado con Pablo antes de aplicar: SITFA imputa el pool LAV 100% a
-CAPITAL primero en la fila de deuda histórica/arrastre — fórmula exacta
-del PDF: Adeudado = Total mes (31,04667 UTM) − Abonado (3,63896 UTM) =
-27,40771 UTM — y el interés (2,49163 UTM) se calcula por separado sobre
-el capital ya neto, sumándose al final del período (no se descuenta del
-pool). Esto es lo opuesto al criterio Art. 1595 CC ("interés devengado
-primero, luego capital") que el bloque "PASO 1: pool LAV" aplicaba de
-forma general desde v2.0713.0427.
-
-Dos bugs encadenados producían el desajuste, diagnosticados con la app
-real corriendo en navegador (no solo con los tests, que no cubrían el
-caso con interés pre-calculado vía el toggle "Intereses" de la tarjeta
-Deuda Histórica):
-
-  1. El pool recalculaba su propio interés interno (variable _inteAlLav,
-     usando d.tasa y los días de mora hasta la fecha del primer depósito
-     LAV) en vez de usar el interés YA CALCULADO por calculateConsolidada()
-     hasta la fecha de liquidación (d.intOriginal). Con el caso real
-     (deuda Nov-2022 $1.889.283, interés a corte $180.687, activado con
-     el toggle "Intereses" de la tarjeta), el recálculo interno solo daba
-     $77.716 (con tasa/días propios) en vez de los $180.687 reales.
-
-  2. Aun corrigiendo (1) para usar d.intOriginal, el criterio "interés
-     primero" seguía sin coincidir con SITFA: con $180.687 de interés
-     consumiendo primero el pool (2.9692 UTM a la UTM de nov-2022), solo
-     quedaban 0.6697 UTM para capital → resultado 30.37695 UTM, lejos de
-     los 27.40771 UTM oficiales.
-
-Fix: dentro del loop del PASO 1 (index.html, bloque "PASO 1: pool LAV"),
-se bifurca el orden de imputación según d.isDebt:
-  - d.isDebt === true (deuda histórica/consolidada): CAPITAL primero,
-    interés después — criterio SITFA, confirmado con la fórmula exacta
-    del PDF oficial.
-  - d.isDebt === false (cuotas mensuales normales): sin cambios, se
-    mantiene interés primero (Art. 1595 CC) — no hay evidencia en la
-    liquidación de SITFA de que ese criterio deba cambiar para pensiones
-    mensuales individuales; el único caso con abono visible en el PDF del
-    tribunal cae sobre la fila de arrastre consolidado, no sobre una
-    cuota mensual, así que el cambio se acota estrictamente a isDebt.
-Además, el interés a cubrir ahora se lee de d.intOriginal (el ya
-calculado hasta la fecha de liquidación) en vez de recalcularse con
-tasa/días propios hasta la fecha del depósito — mismo fix para ambas
-ramas (isDebt true/false), ya que el criterio "recalcular hasta la fecha
-del depósito" nunca coincidía con lo que se ve en pantalla ni en el PDF.
-
-Verificado con simulación aislada del bloque real (extraído como texto,
-no reimplementado) contra el caso exacto del PDF: resultado 27.40771 UTM
-de capital post-LAV, interés $180.687 conservado íntegro (no descontado
-del pool) — coincide exacto con la cifra oficial de SITFA.
-
-Se agregó tests/test_imputacion_art1595.js → Test 7, que reproduce el
-caso real completo (deuda histórica con interés pre-calculado + los 4
-LAV may-ago 2023) y verifica capUTM ≈ 27.40771 (tolerancia 0.001),
-interés conservado íntegro, y que el pool se aplica 100% a capital en la
-deuda histórica. Suite completa: 28/28 aserciones. Correr con
-`node tests/test_imputacion_art1595.js` tras cualquier cambio al bloque
-del pool LAV.
-
-PENDIENTE: no se validó si el criterio "capital primero" de SITFA
-también aplicaría a un abono que caiga sobre una cuota MENSUAL individual
-(isDebt=false) en vez de la fila de arrastre — no hay ningún ejemplo de
-esa situación en la liquidación oficial disponible. Si en el futuro
-aparece un caso así, revisar si el criterio debe extenderse más allá de
-isDebt=true. También queda pendiente confirmar visualmente en un PDF
-generado con esta versión que la fila "DEUDA HISTORICA CONSOLIDADA"
-refleja correctamente $180.687 de interés + $1.667.841 de capital
-remanente (27.40771 UTM), ya que export.js no se modificó en este fix —
-solo se verificó por lectura de código que ya lee d.inte/d.capUTM
-actualizados correctamente por el pool.
-
-
-[v2.0713.0427 · 2026-07-13]
-index.html, export.js, tests/test_imputacion_art1595.js
-
-Fix — El fix anterior (v2.0713.0407) corrigió imputarAbonosArt1595()
-pero resultó INCOMPLETO: esa función es el PASO 2 ("abonos
-ordinarios"), y los depósitos LAV reales (categoría "LAV" del PDF)
-se procesan en un bloque ANTERIOR e independiente dentro de
-calculate() — el "PASO 1: pool LAV" — que seguía iterando
-`for (const d of lastCalculationData)` en el orden de entrada
-(cuotas mensuales primero, deuda histórica al final), sin el
-isDebt-primero que sí tiene imputarAbonosArt1595. Un PDF de prueba
-generado tras v2.0713.0407 seguía mostrando la deuda histórica con
-"Interes ($) $0 / Monto al corte" mientras Dic-2022 en adelante
-mostraba "LAV parcial · Rem: ...", confirmando que el pool LAV real
-seguía sin priorizar la deuda histórica.
-
-Corrección en index.html: mismo patrón que el fix anterior — se
-itera sobre `_ordenLav`, una copia de REFERENCIAS a los mismos
-objetos de lastCalculationData, ordenada con isDebt primero. Como el
-bloque muta `d` directamente dentro del loop (no hay reasignación
-posicional externa como en imputarAbonosArt1595), no hay riesgo de
-desalineación de índices — cada objeto se actualiza en su propia
-posición original en lastCalculationData.
-
-Corrección en export.js: la tabla "DEUDA HISTORICA CONSOLIDADA" del
-PDF no tenía forma de anotar un abono aplicado (a diferencia de la
-tabla de pensiones mensuales, que sí anota LAV/parciales con
-sub-línea bajo el período). Se agregó el mismo mecanismo, usando los
-indicadores d.esLav / d.lavAplicadoCLP / d.lavIntAplicadoCLP (los
-mismos que ya usa la tabla mensual) — NO d.capImputado/d.intImputado
-(seteados por imputarAbonosArt1595), que se descartaron por no ser
-confiables: comparan el interés de build contra el interés
-recalculado A HOY sobre el capital remanente — dos momentos
-distintos — y pueden dar valores negativos o engañosos.
-
-Se agregó tests/test_imputacion_art1595.js → Test 6, que extrae el
-bloque real "PASO 1: pool LAV" (código inline dentro de calculate(),
-no una función aislada — se extrae como texto delimitado por
-marcadores) y lo ejecuta con el caso real del PDF (deuda histórica
-Nov-2022 + 4 abonos LAV mayo-agosto 2023). Verificado con control
-negativo (revirtiendo el fix) que el test reproduce exactamente el
-patrón del PDF reportado: sin el fix, el pool cubre íntegro Dic-2022
-y Ene-2023 dejando la deuda histórica casi intacta; con el fix, la
-deuda histórica se cubre primero ($157.572 capital + $71.952 interés
-del pool de $230.200) sin tocar las cuotas mensuales. Suite completa:
-23/23 aserciones. Correr con
-`node tests/test_imputacion_art1595.js` tras cualquier cambio a
-calculate(), imputarAbonosArt1595, o al bloque del pool LAV.
-
-PENDIENTE: no se validó con navegador real (jsPDF/autoTable no
-corren en Node) — la corrección de export.js se verificó por lectura
-de código y consistencia con el patrón ya probado de la tabla
-mensual, no con un PDF generado end-to-end. Recomendado que Maria
-genere un PDF de prueba con este caso (deuda histórica + abonos LAV)
-antes de dar por cerrado el fix visualmente.
-
-
-[v2.0713.0407 · 2026-07-13]
-index.html, tests/test_imputacion_art1595.js (nuevo)
-
-Fix — Imputación de abonos (Art. 1595 CC) no priorizaba la deuda
-histórica/consolidada. lastCalculationData se construye concatenando
-primero las cuotas mensuales normales (resPensiones.detalles) y
-después la deuda histórica (resHistorical.detalles) — ver línea ~4999.
-imputarAbonosArt1595() recorría ese array en su orden literal, así que
-los abonos LAV / pagos parciales se imputaban primero a las cuotas
-mensuales y solo tocaban la deuda histórica con el remanente, aunque
-esta sea cronológicamente la más antigua y deba imputarse primero
-según el Art. 1595 CC (primero intereses, luego capital, empezando
-por la obligación más antigua).
-
-Caso real que expuso el bug: liquidación con deuda consolidada a
-Nov-2022 ($1.889.283) más 4 abonos LAV entre may-ago 2023 (total
-$230.200). La app imputaba esos abonos contra Dic-2022 en adelante,
-dejando la deuda de Nov-2022 sin tocar pese a ser la más antigua.
-
-Corrección: dentro de imputarAbonosArt1595(), se ordena una copia
-local del array de cuotas (variable `cuotas`, no se toca
-lastCalculationData) poniendo primero las filas con isDebt=true
-(deuda histórica/consolidada) y preservando el orden relativo del
-resto (sort estable). No se cambia el orden de construcción de
-lastCalculationData para no afectar tabs por año, tarjetas del modal
-ni exportación, que dependen de su orden original. Sin deuda
-histórica el comportamiento no cambia (ya era cronológico). El path
-sin abonos (recalculo de interés a hoy) tampoco se ve afectado, ya
-que no depende del orden del array.
-
-Con el fix, el caso de prueba real ahora imputa los $230.200 en
-abonos LAV íntegramente contra el interés devengado de la deuda de
-Nov-2022 (que a esas fechas ya supera cada abono individual), sin
-tocar las cuotas mensuales de Dic-2022 en adelante — correcto según
-Art. 1595 CC.
-
-Se agregó tests/test_imputacion_art1595.js: extrae en cada ejecución
-las funciones reales (calcularInteres, getDiaVencimiento,
-getFechaLiquidacion, imputarAbonosArt1595) directamente de
-index.html — no las reimplementa — y valida 4 escenarios (13
-aserciones): deuda histórica se agota primero vía interés+capital;
-abono grande que satura la deuda histórica y pasa el excedente a
-mensuales; comportamiento sin deuda histórica permanece cronológico
-sin cambios; path sin abonos no se rompe. Verificado con control
-negativo (revirtiendo el fix) que el test detecta el bug original:
-4 de 13 aserciones fallan sin el fix, las 13 pasan con él. Correr con
-`node tests/test_imputacion_art1595.js` tras cualquier cambio a
-imputarAbonosArt1595 o a la construcción de lastCalculationData.
-
+PENDIENTE para próxima sesión: revisar si el residuo remanente de
+~$1.000 se explica por el día exacto de corte de cada tramo mensual
+(actualmente cada tramo corta el día 1 de cada mes calendario; podría
+ser que el tribunal corte en el día de vencimiento de la cuota, ej.
+"día 5" en vez de "día 1"). Confirmar con un segundo caso real de
+liquidación oficial si es posible.
 
 [v2.0712.0722 · 2026-07-12]
 export.js
