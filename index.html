@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.1530">
+ <meta name="app-version" content="v2.0713.1600">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1928,6 +1928,17 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
       </div>
 
     </div><!-- /panelModoConsolidada -->
+
+    <!-- FIX AUDITORÍA (punto 5 del PDF): alerta de posible doble cobro cuando
+         el rango de "Período Actual" se solapa con la fecha de corte de la
+         deuda consolidada. No bloquea ni modifica el cálculo — solo advierte,
+         para no alterar el algoritmo de cuotas normales sin evidencia de bug. -->
+    <div id="dhSolapeWarn" class="dh-utm-warn hidden" style="margin:10px 16px 0;">
+      <span style="font-size:13px">⚠️</span>
+      <p class="dh-utm-warn__text">
+        Posible doble cobro: el "Período Actual" incluye meses ya cubiertos por la Deuda Histórica consolidada. Revisa que las fechas no se solapen.
+      </p>
+    </div>
 
   </div><!-- /dh-body -->
   </div></div><!-- /collapsible-inner --><!-- /dhCardBody collapsible -->
@@ -4550,6 +4561,26 @@ const _cS = calcStartIndex !== -1 ? calcStartIndex : _fS;
 const _cE = calcEndIndex   !== -1 ? calcEndIndex   : _fE;
 const efectivoStart = (_fS !== -1 && _cS !== -1) ? Math.min(_fS, _cS) : (_fS !== -1 ? _fS : _cS);
 const efectivoEnd   = (_fE !== -1 && _cE !== -1) ? Math.max(_fE, _cE) : (_fE !== -1 ? _fE : _cE);
+// FIX AUDITORÍA (punto 5): advertencia no bloqueante de posible doble cobro
+// cuando el rango de "Período Actual" (cuotas mensuales) se solapa con la
+// fecha de corte de la deuda histórica consolidada (modo "Monto fijo").
+// Solo advierte — no excluye meses ni altera ningún cálculo existente.
+(function checkSolapeConsolidada() {
+  const warnEl = document.getElementById('dhSolapeWarn');
+  if (!warnEl) return;
+  if (histMode === 'consolidada' && consolidadaData && efectivoStart !== -1 && efectivoEnd !== -1 &&
+      utmData[efectivoStart] && utmData[efectivoEnd]) {
+    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+    const rStart = Math.min(efectivoStart, efectivoEnd);
+    const rEnd   = Math.max(efectivoStart, efectivoEnd);
+    const rangoStartAbs = utmData[rStart].y * 12 + utmData[rStart].monthIdx;
+    const rangoEndAbs   = utmData[rEnd].y   * 12 + utmData[rEnd].monthIdx;
+    const haySolape = corteAbs >= rangoStartAbs && corteAbs <= rangoEndAbs;
+    warnEl.classList.toggle('hidden', !haySolape);
+  } else {
+    warnEl.classList.add('hidden');
+  }
+})();
 if (efectivoStart !== -1 && efectivoEnd !== -1 && (cuotaMensualUTM > 0 || (modoEsPesos && cuotaMensualCLP > 0) || hayPeriodos)) {
 const start = Math.min(efectivoStart, efectivoEnd);
 const end = Math.max(efectivoStart, efectivoEnd);
@@ -6213,12 +6244,19 @@ renderCalendar();
 if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
+// FIX AUDITORÍA (Bug A): faltaba escribir histStartMes — solo se guardaba
+// el año, por lo que tryRegisterHistorical() (que exige mes Y año) nunca
+// registraba la cuota aunque el usuario confirmara la fecha.
+const mesValHS = String(i + 1).padStart(2, '0');
+document.getElementById('histStartMes').value = mesValHS;
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
 lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd) si ya hay monto UTM cargado
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'histEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6229,6 +6267,8 @@ lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd)
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'consolidadaFecha') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6701,7 +6741,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0622.0200"></script>
+<script src="export.js?v=2.0713.1600"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──

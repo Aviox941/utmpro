@@ -981,6 +981,11 @@ document.getElementById('recargoLey').checked = s.recargoLey || false;
 if (document.getElementById('ticActual')) document.getElementById('ticActual').checked = s.ticActual || false;
 if (document.getElementById('diaVencimiento')) document.getElementById('diaVencimiento').value = s.diaVencimiento || '5';
 if (document.getElementById('fechaLiquidacion')) document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion || '';
+// FIX AUDITORÍA (Bug C): el input real (oculto, opacity:0) quedaba con la
+// fecha correcta, pero el <span> visible (fechaLiquidacionLabel) nunca se
+// sincronizaba tras restaurar sesión — se quedaba con el valor que dejó el
+// prellenado "hoy" de window.onload antes de que applySession() corriera.
+if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 // Restaurar indices de periodo: usar startPeriod/endPeriod (anio+mes) si existen,
 // con fallback a startIndex/endIndex legacy para sesiones guardadas anteriormente.
 if (s.startPeriod) {
@@ -1032,6 +1037,12 @@ if (histMode === 'consolidada' && consolidadaData) {
   setHistMode('recalculable');
 }
 // Restaurar pickers deuda histórica
+// FIX AUDITORÍA (Bug B): historicalDebts siempre está vacío en modo
+// "consolidada" (por diseño — ver setHistMode()), así que este bloque caía
+// siempre al else y reseteaba las etiquetas del calendario "Cuotas" aunque
+// el modo activo fuera "Monto fijo" (que ya se restauró arriba con sus
+// propios datos). Se acota este reset a histMode==='recalculable'.
+if (histMode === 'recalculable') {
 if (historicalDebts.length > 0) {
 const d = historicalDebts[0];
 if (d.startMes && d.startAnio) {
@@ -1046,6 +1057,7 @@ const lblS = document.getElementById('histStartLabel');
 if (lblS) { lblS.innerText = 'Mes / Año'; lblS.className = 'input-date__value'; }
 const lblE = document.getElementById('histEndLabel');
 if (lblE) { lblE.innerText = 'Mes actual'; lblE.className = 'input-date__value'; }
+}
 }
 // Reset picker labels
 const lblA = document.getElementById('tempAbonoLabel');
