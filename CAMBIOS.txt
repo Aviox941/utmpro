@@ -56,6 +56,67 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0714.0646 · 2026-07-14]
+index.html
+
+Bugfix — card "Deuda Histórica" (modo Monto Fijo / consolidada): el toggle
+"Intereses" (id consolidadaAplicaIntereses) no producía ningún cambio en
+el hero total ("Total Adeudado") al activarlo/desactivarlo.
+
+Causa raíz (dos partes):
+
+1. Inconsistencia metodológica: la Deuda Histórica Consolidada calculaba
+su interés mensualizado (calcularInteresConsolidadaMensual) cortando cada
+tramo mensual el día 1 de cada mes, mientras que TODO el resto de la app
+(pensiones mensuales, Deuda Histórica modo "Cuotas", imputación de abonos
+Art. 1595, pool LAV) corta los tramos el día de vencimiento configurado
+(getDiaVencimiento(), por defecto día 5) vía calcularInteresSegmentado().
+Dos criterios de corte distintos para el mismo concepto de "mes de mora"
+podían aplicar la tasa TIC/TMC de un mes distinto y producir un interés
+total ligeramente distinto sin motivo legal, y además hacían que el
+"parche" natural para el bug del toggle (usar el interés ya calculado
+por la card) introdujera una diferencia de varios miles de pesos respecto
+al valor que ya se usaba con el toggle activado.
+
+2. Bug del toggle en sí: imputarAbonosArt1595() — que corre siempre
+dentro de calculate() y cuyo resultado (cuotasResultado) alimenta
+directamente el hero total — recalculaba el interés de TODAS las cuotas,
+incluida la de Deuda Histórica Consolidada, con su propia lógica
+(calcularInteresSegmentado sobre capPendiente), en vez de respetar el
+interés que calculateConsolidada() ya había calculado correctamente
+considerando consolidadaData.aplicaIntereses (0 si el switch está
+apagado) y consolidadaData.usaMaxima. Este recálculo paralelo ignoraba
+por completo el estado del toggle, por lo que el hero total mostraba
+siempre el mismo interés sin importar el switch.
+
+Fix aplicado (en ese orden, ambos necesarios):
+a) calcularInteresConsolidadaMensual() ahora corta los tramos mensuales
+   en el día de vencimiento configurado (getDiaVencimiento()) en lugar
+   del día 1 fijo — mismo criterio que el resto de la app. Con esto, el
+   interés calculado para la consolidada con el toggle activado coincide
+   exactamente con el que ya calculaba imputarAbonosArt1595 por su cuenta,
+   eliminando la discrepancia entre ambos métodos.
+b) En imputarAbonosArt1595() (los dos puntos donde se recalcula interés:
+   el path sin abonos ordinarios, y el cálculo de saldoFinal en el path
+   con abonos), si la cuota es la Deuda Histórica Consolidada
+   (d.isConsolidada) y su capital no fue tocado por ningún abono
+   (capPendiente === cap original), se usa directamente el interés ya
+   calculado (d.inte) en vez de recalcularlo. Esto no afecta pensiones
+   normales, Deuda Histórica modo Cuotas, ni la imputación de abonos —
+   solo evita que se pise el resultado ya correcto de la consolidada.
+
+Verificado: con el fix, el total del hero con el toggle "Intereses"
+activado es idéntico al valor que ya se mostraba antes de este cambio
+(no varía ni un peso); con el toggle desactivado, el hero ahora sí baja
+al reflejar interés = 0; al reactivar el toggle, vuelve exactamente al
+mismo valor original. No se modificó calculatePensiones,
+calcularInteresSegmentado, el pool LAV, ni ningún otro cálculo de
+pensiones/abonos ordinarios.
+
+Pendiente: confirmar en un caso real con período de pensión activo +
+Deuda Histórica Consolidada simultáneos que el hero y el resumen de
+liquidación coinciden en ambos estados del toggle.
+
 [v2.0714.0035 · 2026-07-14]
 index.html
 
