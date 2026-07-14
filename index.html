@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.2338">
+ <meta name="app-version" content="v2.0714.0035">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1816,8 +1816,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
          consolidadaFechaAnio, consolidadaFechaPickerBtn, consolidadaFechaLabel,
          consolidadaAplicaIntereses, consolidadaUsaMaxima,
          tasaIndicador, tasaIndicadorText,
-         consolidadaPreview, consolidadaDiasMoraLabel,
-         consolidadaCapLabel, consolidadaIntLabel, consolidadaTotalLabel
+         consolidadaPreview,
+         consolidadaCapLabel, consolidadaTotalLabel, consolidadaTotalUtmLabel
     ══════════════════════════════════════════════════════════════ -->
     <div id="panelModoConsolidada" class="hidden space-y-0">
 
@@ -1903,23 +1903,14 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
               <p id="consolidadaCapLabel" style="font-size:12px;font-weight:700;color:#2a2f45;letter-spacing:-0.02em;line-height:1;">$0</p>
             </div>
 
-            <!-- símbolo + -->
-            <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">+</div>
-
-            <!-- Interés acumulado -->
-            <div style="text-align:center;flex:1;min-width:0;">
-              <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(90,99,128,0.50);margin-bottom:3px;white-space:nowrap;">Interés acum.</p>
-              <p id="consolidadaIntLabel" style="font-size:12px;font-weight:700;color:#c2410c;letter-spacing:-0.02em;line-height:1;">$0</p>
-              <span id="consolidadaDiasMoraLabel" style="font-size:6.5px;font-weight:700;color:rgba(194,65,12,0.50);">0 días</span>
-            </div>
-
             <!-- símbolo = -->
             <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">=</div>
 
-            <!-- Total deuda — protagonista -->
-            <div style="text-align:center;flex:1.4;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
+            <!-- Total deuda — protagonista (UTM + CLP) -->
+            <div style="text-align:center;flex:1.6;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
               <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(194,65,12,0.55);margin-bottom:3px;white-space:nowrap;">Total deuda</p>
               <p id="consolidadaTotalLabel" style="font-family:'DM Sans',system-ui,sans-serif;font-size:clamp(16px,4.5vw,26px);font-weight:800;color:#c2410c;letter-spacing:-0.04em;line-height:1;word-break:break-all;">$0</p>
+              <p id="consolidadaTotalUtmLabel" style="font-size:8px;font-weight:700;color:rgba(194,65,12,0.55);letter-spacing:-0.01em;line-height:1;margin-top:2px;">0 UTM</p>
             </div>
 
           </div>
@@ -3319,9 +3310,9 @@ function tryRegisterConsolidada() {
   } else {
     document.getElementById('consolidadaCapLabel').textContent = fmt(capitalClpPreview);
   }
-  document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
-  document.getElementById('consolidadaDiasMoraLabel').textContent = diasMora + ' días de interés';
+  const _utmParaTotal = getUtmActualVal() || 1;
+  document.getElementById('consolidadaTotalUtmLabel').textContent = (total / _utmParaTotal).toFixed(3) + ' UTM';
   document.getElementById('consolidadaPreview').classList.remove('hidden');
   calculate();
   saveSession();
@@ -6853,7 +6844,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.2338</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0035</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

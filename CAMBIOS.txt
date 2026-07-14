@@ -56,41 +56,46 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
-[v2.0713.2338 · 2026-07-13]
-index.html, export.js
+[v2.0714.0035 · 2026-07-14]
+index.html
 
-Fix — 3 problemas reportados en la card "Deuda Histórica" (modo Monto Fijo
-/ consolidada):
+Cambio de UI — card "Deuda Histórica" (modo Monto Fijo / consolidada):
 
-1. Los días de interés no calzaban entre el resumen de liquidación y la
-card de Deuda Histórica. Causa: tryRegisterConsolidada() (index.html),
-que calcula la preview de la card, usaba `const hoy = new Date();` (fecha
-real del sistema) en vez de la fecha de liquidación configurada por el
-usuario. El resumen de liquidación sí usaba correctamente
-getFechaLiquidacion(). Corregido: tryRegisterConsolidada() ahora usa
-`const hoy = getFechaLiquidacion();`, igual que el resumen.
+1. Se detectó que la card y el "Detalle del cálculo" (resumen) podían
+mostrar montos de interés distintos para la misma deuda histórica,
+aunque coincidieran en capital y días de mora. Causa raíz identificada:
+la card calcula su propio interés UNA VEZ (dentro de
+tryRegisterConsolidada(), al editar los campos de Deuda Histórica) y
+queda como snapshot fijo en pantalla, mientras que el resumen recalcula
+el interés cada vez que corre calculate() (por cualquier cambio en la
+app) — incluyendo tasas TIC/TMC que pueden actualizarse en segundo plano
+vía _fetchTicCMF(). Si el usuario cambiaba algo después de registrar la
+deuda histórica, la card quedaba con un valor de interés desactualizado
+respecto del resumen (que siempre es el correcto/vigente).
 
-2. Cambiar la fecha de liquidación no actualizaba el interés mostrado en
-la card de Deuda Histórica. Misma causa que el punto 1: al estar la
-preview fijada a la fecha real de hoy, era insensible a cualquier cambio
-en la fecha de liquidación. Corregido por el mismo cambio del punto 1.
+2. Decisión (a pedido de Aviox): en vez de sincronizar el cálculo de
+interés de la card con el del resumen, se eliminó por completo la
+visualización de "Interés acum." y "días de interés" de la card. La
+card ahora muestra solo Capital y Total, y el Total se muestra tanto en
+UTM como en CLP (antes solo en CLP). El resumen de liquidación sigue
+siendo la única fuente de verdad para el detalle de interés/días de la
+deuda histórica.
 
-3. El registro de Deuda Histórica (modo consolidada) no se renderizaba
-en la card al reabrir la app / volver a iniciar sesión, y visualmente
-parecía "borrado" (aunque el dato seguía guardado). Causa: la
-restauración de sesión en export.js (applySession) rellenaba los campos
-del formulario y la variable consolidadaData directamente, pero nunca
-invocaba tryRegisterConsolidada() — la única función que calcula los
-labels de la card (capital/interés/total/días) y le quita la clase
-'hidden' al panel consolidadaPreview. Corregido: se agregó una llamada a
-tryRegisterConsolidada() al final del bloque de restauración de modo
-'consolidada' en export.js, para que la card se recalcule y se muestre
-automáticamente al restaurar la sesión.
+Detalle técnico:
+- HTML: se quitó el bloque "Interés acum." (id consolidadaIntLabel) y su
+  días (id consolidadaDiasMoraLabel) de la card. El bloque "Total deuda"
+  ahora incluye una segunda línea con el total en UTM (nuevo id
+  consolidadaTotalUtmLabel).
+- JS (tryRegisterConsolidada): ya no escribe consolidadaIntLabel ni
+  consolidadaDiasMoraLabel (elementos eliminados del DOM). Se agregó el
+  cálculo del total en UTM (total CLP / UTM vigente) para
+  consolidadaTotalUtmLabel.
 
-No se modificó calcularInteresConsolidadaMensual, calcularInteresSegmentado,
-calculatePensiones, imputarAbonosArt1595, el pool LAV, ni ningún otro
-cálculo. Pendiente: confirmar en un caso real que (a) los días de interés
-de la card coinciden con los del resumen, (b) cambiar la fecha de
-liquidación actualiza el interés de la card, y (c) la card de Deuda
-Histórica aparece con sus datos correctos al cerrar sesión y volver a
-entrar.
+No se modificó ningún cálculo (calcularInteresConsolidadaMensual,
+calcularInteresSegmentado, calculatePensiones, imputarAbonosArt1595, el
+pool LAV): el interés de la deuda histórica se sigue calculando igual
+internamente para el Total y para el resumen — solo se dejó de
+desglosar/mostrar por separado en la card. Pendiente: confirmar que la
+card muestra Capital + Total (UTM y CLP) sin el bloque de interés, y que
+el Total de la card coincide con el subtotal de Deuda Histórica del
+resumen al momento de registrar el dato.
