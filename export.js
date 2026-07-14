@@ -1015,6 +1015,10 @@ if (histMode === 'consolidada' && consolidadaData) {
   if (chkInt) chkInt.checked = consolidadaData.aplicaIntereses !== false;
   const chkMax = document.getElementById('consolidadaUsaMaxima');
   if (chkMax) chkMax.checked = consolidadaData.usaMaxima || false;
+  // FIX: tryRegisterConsolidada() recalcula los labels de la card (capital/
+  // interés/total/días) y le quita la clase 'hidden' al panel. Sin esta
+  // llamada, la card quedaba oculta y sin datos al recargar sesión.
+  if (typeof tryRegisterConsolidada === 'function') tryRegisterConsolidada();
 } else {
   setHistMode('recalculable');
 }

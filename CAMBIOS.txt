@@ -56,65 +56,41 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
-[v2.0713.1015 · 2026-07-13]
-index.html
+[v2.0713.2338 · 2026-07-13]
+index.html, export.js
 
-Fix — 3 problemas reportados en la tarjeta de Deuda Histórica y el
-calendario de fecha de liquidación:
+Fix — 3 problemas reportados en la card "Deuda Histórica" (modo Monto Fijo
+/ consolidada):
 
-1. Calendario de fecha de liquidación no se refrescaba visualmente al
-resetear el cálculo. resetFechaLiquidacion() actualizaba el input oculto
-(fechaLiquidacion) pero nunca llamaba a dpUpdateFechaLiqLabel(), por lo
-que el label visible del calendario seguía mostrando la fecha anterior
-aunque el valor real ya había cambiado. Corregido: se llama a
-dpUpdateFechaLiqLabel() inmediatamente después de actualizar el input.
+1. Los días de interés no calzaban entre el resumen de liquidación y la
+card de Deuda Histórica. Causa: tryRegisterConsolidada() (index.html),
+que calcula la preview de la card, usaba `const hoy = new Date();` (fecha
+real del sistema) en vez de la fecha de liquidación configurada por el
+usuario. El resumen de liquidación sí usaba correctamente
+getFechaLiquidacion(). Corregido: tryRegisterConsolidada() ahora usa
+`const hoy = getFechaLiquidacion();`, igual que el resumen.
 
-2. El registro de Deuda Histórica (ej. 31,04667 UTM en modo Monto Fijo)
-podía perderse al cerrar la app o cambiar de pestaña. Causa: tanto el
-listener de beforeunload como el de visibilitychange('hidden') solo
-forzaban un guardado síncrono inmediato cuando había un "caso" activo
-(activeCasoId). En modo suelto (sin caso seleccionado), el único
-guardado era el debounce de 2 segundos de saveSession() — si el usuario
-cerraba o minimizaba la app antes de que ese temporizador corriera, el
-dato nunca llegaba a localStorage. Corregido: se agregó
-saveLegacySessionNow(), que guarda de forma síncrona e inmediata la
-sesión sin caso (SESSION_KEY), y se conectó a ambos listeners como
-fallback cuando no hay activeCasoId.
+2. Cambiar la fecha de liquidación no actualizaba el interés mostrado en
+la card de Deuda Histórica. Misma causa que el punto 1: al estar la
+preview fijada a la fecha real de hoy, era insensible a cualquier cambio
+en la fecha de liquidación. Corregido por el mismo cambio del punto 1.
 
-3. Cambiar de modo en la tarjeta de Deuda Histórica eliminaba el
-registro, en dos variantes distintas:
-   a) UTM ↔ CLP dentro de "Monto Fijo": setConsModoMonto() solo cambiaba
-      la visibilidad de los campos sin convertir el valor ya ingresado.
-      Si el usuario había escrito el monto en un modo y cambiaba al
-      otro, el campo nuevo quedaba vacío, tryRegisterConsolidada() veía
-      monto<=0 y BORRABA todo el registro (consolidadaData = null).
-      Corregido: ahora se convierte el valor ingresado al modo nuevo
-      (usando la UTM de la fecha de corte, o la UTM actual si no hay
-      fecha) y se rellena el campo automáticamente.
-   b) "Cuotas" ↔ "Monto fijo": setHistMode() ya guardaba historicalDebts
-      en una variable de respaldo (_savedHistoricalDebts) antes de
-      limpiarlo al pasar a "Monto fijo", pero NO hacía lo mismo con
-      consolidadaData al pasar de "Monto fijo" a "Cuotas" — simplemente
-      lo ponía en null sin respaldo. Corregido: se agregó
-      _savedConsolidadaData, simétrica a _savedHistoricalDebts, que
-      guarda consolidadaData (monto, fecha, modo UTM/CLP, checkboxes de
-      intereses/tasa máxima) al salir de "Monto fijo" y lo restaura
-      —incluyendo todos los campos e indicadores visuales— al volver a
-      entrar a "Monto fijo".
-
-Nota sobre el 4to problema reportado ("la tarjeta no agrega deuda al
-cálculo si no existe un período previo seleccionado"): este es el mismo
-bug ya corregido en v2.0713.0930 (guard _noRange de calculate() sin
-considerar _hayDeudaHistorica). Se verificó que ese fix sigue vigente en
-este archivo; si el problema persiste tras actualizar a esta versión,
-probablemente la versión anterior (v2.0713.0812 o previa, sin ese fix)
-seguía en uso al momento de la prueba.
+3. El registro de Deuda Histórica (modo consolidada) no se renderizaba
+en la card al reabrir la app / volver a iniciar sesión, y visualmente
+parecía "borrado" (aunque el dato seguía guardado). Causa: la
+restauración de sesión en export.js (applySession) rellenaba los campos
+del formulario y la variable consolidadaData directamente, pero nunca
+invocaba tryRegisterConsolidada() — la única función que calcula los
+labels de la card (capital/interés/total/días) y le quita la clase
+'hidden' al panel consolidadaPreview. Corregido: se agregó una llamada a
+tryRegisterConsolidada() al final del bloque de restauración de modo
+'consolidada' en export.js, para que la card se recalcule y se muestre
+automáticamente al restaurar la sesión.
 
 No se modificó calcularInteresConsolidadaMensual, calcularInteresSegmentado,
 calculatePensiones, imputarAbonosArt1595, el pool LAV, ni ningún otro
-cálculo. Pendiente: confirmar en un caso real que (a) el calendario de
-liquidación refleja el reset visualmente, (b) la deuda histórica persiste
-tras cerrar y reabrir la app sin tener un caso activo, (c) alternar
-UTM/CLP y Cuotas/Monto fijo ya no borra el registro, y (d) la deuda
-histórica se suma al total incluso sin período de pensión actual
-seleccionado.
+cálculo. Pendiente: confirmar en un caso real que (a) los días de interés
+de la card coinciden con los del resumen, (b) cambiar la fecha de
+liquidación actualiza el interés de la card, y (c) la card de Deuda
+Histórica aparece con sus datos correctos al cerrar sesión y volver a
+entrar.

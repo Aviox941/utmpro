@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.1015">
+ <meta name="app-version" content="v2.0713.2338">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3289,7 +3289,7 @@ function tryRegisterConsolidada() {
     usaMaxima
   };
   // Preview: convertir a CLP al vuelo solo para mostrar
-  const hoy = new Date();
+  const hoy = getFechaLiquidacion();
   const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
@@ -6853,7 +6853,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.1015</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.2338</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
