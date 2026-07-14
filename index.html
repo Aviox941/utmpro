@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0700">
+ <meta name="app-version" content="v2.0714.0730">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3393,6 +3393,8 @@ function calcularInteresConsolidadaAmortizada(capitalUTMInicial, fechaVenc, hoy,
   let hayTasaAproximada = false;
   let saldoAFavorUTM = 0;
   let lavsConsumidosUTM = 0;
+  let lavIntConsumidoUTM = 0;
+  let lavCapConsumidoUTM = 0;
   let cur = fechaVenc;
 
   for (const lav of lavsDelPeriodo) {
@@ -3415,12 +3417,14 @@ function calcularInteresConsolidadaAmortizada(capitalUTMInicial, fechaVenc, hoy,
       interesAcumUTM -= aInteres;
       montoLav -= aInteres;
       lavsConsumidosUTM += aInteres;
+      lavIntConsumidoUTM += aInteres;
     }
     if (montoLav > 0.0001 && capUTM > 0.0001) {
       const aCapital = Math.min(montoLav, capUTM);
       capUTM -= aCapital;
       montoLav -= aCapital;
       lavsConsumidosUTM += aCapital;
+      lavCapConsumidoUTM += aCapital;
     }
     if (montoLav > 0.0001 && capUTM <= 0.0001 && interesAcumUTM <= 0.0001) {
       saldoAFavorUTM += montoLav;
@@ -3444,7 +3448,9 @@ function calcularInteresConsolidadaAmortizada(capitalUTMInicial, fechaVenc, hoy,
     hayTasaAproximada,
     capitalUTMRestante: capUTM,
     saldoAFavorUTM,
-    lavsConsumidosUTM
+    lavsConsumidosUTM,
+    lavIntConsumidoUTM,
+    lavCapConsumidoUTM
   };
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
@@ -3517,6 +3523,11 @@ function calculateConsolidada(hoy, aplicarRecargo) {
 
   const capUTMParaDetalle = _resAmortizada ? _resAmortizada.capitalUTMRestante : capitalUTM;
   const capClpParaDetalle = _resAmortizada ? Math.round(capUTMParaDetalle * utmCorte) : capitalClpCorte;
+  // Interés bruto devengado (antes de que los LAV cubrieran parte de él) — para
+  // consistencia con el resto de las filas, donde intOriginal es siempre el bruto.
+  const interesBruto = _resAmortizada ? interes + (_resAmortizada.lavIntConsumidoUTM * utmCorte) : interes;
+  const lavAplicadoUTM    = _resAmortizada ? _resAmortizada.lavCapConsumidoUTM : 0;
+  const lavIntAplicadoUTM = _resAmortizada ? _resAmortizada.lavIntConsumidoUTM : 0;
 
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const periodoLabel = `CONS ${mNames[fechaMes-1]} ${fechaAnio}`;
@@ -3534,7 +3545,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     isConsolidadaTasaPromedio: true,
     mora: diasMora,
     inte: interes,
-    intOriginal: interes,
+    intOriginal: interesBruto,
     sub: capClpParaDetalle + interes,
     year: fechaAnio,
     isDebt: true,
@@ -3542,6 +3553,14 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     consolidadaYaAmortizada: !!_resAmortizada,
     lavIdsConsumidosPorConsolidada: _resAmortizada ? _lavsDelPeriodoConsolidada.map(l => l.date + '|' + l.periodo) : [],
     saldoAFavorUTM: _resAmortizada ? _resAmortizada.saldoAFavorUTM : 0,
+    // Para que export.js (PDF y modal de resumen) sume correctamente el LAV
+    // aplicado a la consolidada junto con el resto de las cuotas, sin
+    // necesitar lógica especial: mismos nombres de campo que usa el PASO 1.
+    esLav: (lavAplicadoUTM > 0.0001 || lavIntAplicadoUTM > 0.0001),
+    lavAplicadoUTM,
+    lavAplicadoCLP: Math.round(lavAplicadoUTM * utmCorte),
+    lavIntAplicadoUTM,
+    lavIntAplicadoCLP: Math.round(lavIntAplicadoUTM * utmCorte),
     capUTM: capUTMParaDetalle,
     usarMaxima: usaMaxima
   };
@@ -6994,7 +7013,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0700</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0730</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

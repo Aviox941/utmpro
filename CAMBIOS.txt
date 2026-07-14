@@ -56,6 +56,62 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0714.0730 · 2026-07-14]
+index.html
+
+Fix — bug crítico detectado en PDF real (caso "Test", 09-02-2024): el
+Resumen Final anulaba por completo el efecto de los abonos LAV cuando
+estos caían dentro del período de la Deuda Histórica Consolidada.
+
+Causa raíz: export.js calcula "LAV remanente sin imputar (saldo a
+favor)" restando de lavTotalCLPmodal (todos los LAV) lo que suma desde
+d.lavIntAplicadoUTM / d.lavAplicadoUTM en lastCalculationData — pero el
+fix anterior (v2.0714.0700) hizo que la fila isConsolidada resolviera
+sus LAV en calculateConsolidada() sin poblar esos dos campos (el PASO 1
+la salta con "continue" por consolidadaYaAmortizada). Resultado: los
+LAV que caían dentro del período de la consolidada quedaban restados
+del subtotal, pero export.js los contaba como "no imputados" y los
+sumaba de vuelta íntegros como saldo a favor. Efecto neto: el pago se
+diluía en $0, como si nunca hubiera existido, en vez de reducir el
+capital de la consolidada. En el caso "Test" (PDF adjunto), esto
+generó un saldo a favor falso de $230.200 que además era imposible por
+otra razón: la deuda consolidada (28,981 UTM) es muchísimo mayor que
+el pool LAV total (3,639 UTM), por lo que la deuda jamás pudo agotarse
+y no puede existir saldo a favor mientras exista deuda pendiente (Art.
+1595 CC / criterio SITFA-PJUD).
+
+Cambios en calcularInteresConsolidadaAmortizada() y calculateConsolidada():
+
+1. La función de amortización ahora separa y devuelve por separado
+lavIntConsumidoUTM y lavCapConsumidoUTM (antes solo devolvía la suma
+combinada lavsConsumidosUTM).
+
+2. El detalle de la consolidada ahora puebla esLav, lavAplicadoUTM,
+lavAplicadoCLP, lavIntAplicadoUTM y lavIntAplicadoCLP — los mismos
+nombres de campo que usa el PASO 1 para las cuotas mensuales — para
+que export.js (PDF y modal de resumen) los sume automáticamente sin
+necesitar lógica especial ni tocar export.js.
+
+3. intOriginal del detalle de la consolidada ahora refleja el interés
+bruto devengado (antes de que los LAV cubrieran parte de él), no el
+neto post-amortización, consistente con el significado de ese campo en
+el resto de las filas.
+
+Verificado con Python: replicando el caso del PDF, el fix hace que los
+4 depósitos LAV (may-ago 2023, total 3.63897 UTM) se apliquen como
+capital real de la consolidada en vez de generar un saldo a favor
+inexistente, ya que el capital de 28.981 UTM nunca se agota con un
+pool de solo 3.639 UTM.
+
+Pendiente: aún no se ha regenerado el PDF del caso "Test" con esta
+versión para confirmar visualmente que la línea "LAV remanente sin
+imputar" desaparece y que el capital de la consolidada baja en ~3.6
+UTM. Recomendado antes de dar por cerrado el fix.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0714.0700 · 2026-07-14]
 index.html
 
