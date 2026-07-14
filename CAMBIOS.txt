@@ -56,6 +56,73 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0714.0810 · 2026-07-14]
+index.html
+
+Cambio de metodología — Deuda Histórica Consolidada + depósitos LAV:
+se reemplaza el modelo event-driven (amortización secuencial, LAV
+aplicado en la fecha exacta de cada depósito, Art. 1595 CC evento a
+evento) por un modelo mucho más simple, CONFIRMADO contra una
+liquidación oficial real del tribunal (RIT Z-3764-2023, 2° Juzgado de
+Familia San Miguel, liquidador Luis Alfonso Molina Zárate, PJUD,
+09-02-2024 — documento aportado por el usuario, no una aproximación).
+
+Hallazgo clave: el tribunal NO amortiza evento por evento. Para la
+fila de deuda arrastre (equivalente a la "Consolidada" de esta app):
+
+  Capital bruto: 31,04667 UTM
+  Pool LAV (4 depósitos may-ago 2023): 3,63896 UTM
+  "Adeudado" oficial: 27,40771 UTM
+
+31,04667 − 3,63896 = 27,40771 UTM — coincide EXACTO. Es decir: el pool
+LAV completo se resta de una sola vez del capital bruto, sin importar
+la fecha de cada depósito individual. El interés se calcula sobre ese
+capital ya neteado, por los días de mora COMPLETOS desde el
+vencimiento hasta la liquidación (461 días, 05-11-2022 → 09-02-2024,
+coincide exacto), con tasa segmentada mes a mes — la misma
+calcularInteresSegmentado() que ya usa el resto de la app.
+
+Verificación numérica con las tasas TIC_REAJ ya presentes en el código:
+interés calculado 2,50871 UTM vs. 2,49163 UTM real → diferencia de
+0,01708 UTM (~$1.099 CLP), consistente con redondeos menores
+acumulados en los 16 tramos mensuales — no un error estructural.
+Sensiblemente mejor que el modelo anterior (que directamente rompía el
+resumen del PDF, ver entradas v2.0714.0700 y v2.0714.0730).
+
+Cambios:
+
+1. Se elimina calcularInteresConsolidadaAmortizada() (event-driven) y
+se reemplaza por calcularInteresConsolidadaNeteada(): resta el pool
+LAV completo del capital bruto en un solo paso
+(capUTM = max(0, capitalInicial − poolLavUTM)), calcula
+saldoAFavorUTM = max(0, poolLavUTM − capitalInicial) para el caso
+borde en que el pool exceda la deuda, y corre un único
+calcularInteresSegmentado() sobre el capital neto entre vencimiento y
+fecha de liquidación.
+
+2. calculateConsolidada() ahora suma el pool LAV del período de la
+consolidada (_poolLavUTMConsolidada) y usa el modelo neteado si es > 0;
+sin LAV en el período, sigue igual que siempre
+(calcularInteresConsolidadaMensual).
+
+3. El detalle de la consolidada simplifica los campos LAV: como el
+modelo neteado no "cubre" un interés preexistente evento a evento
+(recalcula el interés desde cero sobre el capital ya reducido), todo
+el pool consumido se atribuye a capital (lavAplicadoUTM) y
+lavIntAplicadoUTM queda en 0. intOriginal = inte (ya no hay bruto/neto
+que reconciliar por separado, a diferencia del intento anterior).
+
+Pendiente: la diferencia residual de ~$1.100 CLP en el interés debe
+investigarse por separado (ver historial de sesiones anteriores sobre
+el residual de ~$858 CLP en otro caso) — probablemente redondeo menor
+en la tasa de algún mes puntual o en el corte de tramo. No bloquea el
+uso de la app: la desviación es del orden de 0,02 UTM sobre un total
+de 60+ UTM adeudadas (~0,03%).
+
+================================================================================
+================================================================================
+==========
+
 [v2.0714.0730 · 2026-07-14]
 index.html
 

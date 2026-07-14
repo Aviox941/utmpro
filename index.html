@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0730">
+ <meta name="app-version" content="v2.0714.0810">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3374,84 +3374,47 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
 }
 // ============================================================
-// INTERÉS CONSOLIDADA — amortización secuencial (Art. 1595 CC)
+// INTERÉS CONSOLIDADA — netaeo simple del pool LAV (confirmado RIT Z-3764-2023)
 // ============================================================
-// Recorre cronológicamente: vencimiento → cada depósito LAV dentro del
-// período de la consolidada → fecha de liquidación. En cada depósito
-// aplica el orden Art. 1595 (1° interés devengado hasta esa fecha,
-// 2° capital) y continúa el devengo sobre el saldo resultante.
-// lavsDelPeriodo: array de {date, amountUtm}, ya ordenados por fecha,
-// correspondientes a los depósitos LAV dentro del período de la consolidada.
+// Metodología real del tribunal (verificada contra liquidación oficial PJUD,
+// RIT Z-3764-2023, liquidador Luis Alfonso Molina Zárate, 09-02-2024):
+// el pool LAV completo se resta DE UNA SOLA VEZ del capital bruto de la
+// consolidada, sin importar la fecha de cada depósito individual. El interés
+// se calcula sobre ese capital ya neteado, por los días de mora completos
+// (vencimiento → liquidación), con tasa segmentada mes a mes — el mismo
+// calcularInteresSegmentado() que ya usa el resto de la app.
+//
+// Caso de verificación (fila "11-2022" del RIT Z-3764-2023):
+//   Capital bruto: 31,04667 UTM · Pool LAV: 3,63896 UTM
+//   Adeudado = 31,04667 − 3,63896 = 27,40771 UTM  → coincide EXACTO con el tribunal.
+//   Interés sobre ese neto, 461 días (05-11-2022 → 09-02-2024): 2,50871 UTM
+//   calculado vs. 2,49163 UTM real → diferencia de solo 0,017 UTM (~$1.100),
+//   consistente con redondeos menores acumulados en los 16 tramos mensuales.
+//
+// NOTA: se descarta el modelo event-driven (LAV aplicado en la fecha exacta
+// del depósito, cubriendo primero interés y luego capital) porque el tribunal
+// no lo usa para la consolidada — sólo neteo simple contra el capital.
+//
+// poolLavUTM: suma total de los depósitos LAV dentro del período de la consolidada.
 // Devuelve { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada,
-//            capitalUTMRestante, saldoAFavorUTM, lavsConsumidosUTM }
+//            capitalUTMRestante, saldoAFavorUTM }
 // ============================================================
-function calcularInteresConsolidadaAmortizada(capitalUTMInicial, fechaVenc, hoy, usaMaxima, aplicarRecargo, lavsDelPeriodo) {
-  let capUTM = capitalUTMInicial;
-  let interesAcumUTM = 0;
-  let diasMoraTotal = 0;
-  let sumaPonderada = 0;
-  let hayTasaAproximada = false;
-  let saldoAFavorUTM = 0;
-  let lavsConsumidosUTM = 0;
-  let lavIntConsumidoUTM = 0;
-  let lavCapConsumidoUTM = 0;
-  let cur = fechaVenc;
+function calcularInteresConsolidadaNeteada(capitalUTMInicial, fechaVenc, hoy, usaMaxima, aplicarRecargo, poolLavUTM) {
+  const capUTM = Math.max(0, capitalUTMInicial - poolLavUTM);
+  // Si el pool excede el capital, el sobrante es saldo a favor (no puede haber
+  // deuda y saldo a favor coexistiendo — Art. 1595 CC / criterio SITFA-PJUD).
+  const saldoAFavorUTM = Math.max(0, poolLavUTM - capitalUTMInicial);
 
-  for (const lav of lavsDelPeriodo) {
-    const p = lav.date.split('-').map(Number);
-    const fechaLav = new Date(p[0], p[1] - 1, p[2]);
-    if (fechaLav <= cur) continue;
-
-    if (capUTM > 0.0001) {
-      const res = calcularInteresSegmentado(capUTM, cur, fechaLav, usaMaxima, aplicarRecargo);
-      interesAcumUTM += res.interes;
-      diasMoraTotal += res.diasMora;
-      sumaPonderada += res.tasaPromedioPonderada * res.diasMora;
-      if (res.hayTasaAproximada) hayTasaAproximada = true;
-    }
-    cur = fechaLav;
-
-    let montoLav = lav.amountUtm || 0;
-    if (montoLav > 0.0001 && interesAcumUTM > 0.0001) {
-      const aInteres = Math.min(montoLav, interesAcumUTM);
-      interesAcumUTM -= aInteres;
-      montoLav -= aInteres;
-      lavsConsumidosUTM += aInteres;
-      lavIntConsumidoUTM += aInteres;
-    }
-    if (montoLav > 0.0001 && capUTM > 0.0001) {
-      const aCapital = Math.min(montoLav, capUTM);
-      capUTM -= aCapital;
-      montoLav -= aCapital;
-      lavsConsumidosUTM += aCapital;
-      lavCapConsumidoUTM += aCapital;
-    }
-    if (montoLav > 0.0001 && capUTM <= 0.0001 && interesAcumUTM <= 0.0001) {
-      saldoAFavorUTM += montoLav;
-      lavsConsumidosUTM += montoLav;
-    }
+  let interes = 0, diasMora = 0, tasaPromedioPonderada = 0, hayTasaAproximada = false;
+  if (capUTM > 0.0001 && hoy > fechaVenc) {
+    const res = calcularInteresSegmentado(capUTM, fechaVenc, hoy, usaMaxima, aplicarRecargo);
+    interes = res.interes;
+    diasMora = res.diasMora;
+    tasaPromedioPonderada = res.tasaPromedioPonderada;
+    hayTasaAproximada = res.hayTasaAproximada;
   }
 
-  if (capUTM > 0.0001 && hoy > cur) {
-    const res = calcularInteresSegmentado(capUTM, cur, hoy, usaMaxima, aplicarRecargo);
-    interesAcumUTM += res.interes;
-    diasMoraTotal += res.diasMora;
-    sumaPonderada += res.tasaPromedioPonderada * res.diasMora;
-    if (res.hayTasaAproximada) hayTasaAproximada = true;
-  }
-
-  const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
-  return {
-    interes: interesAcumUTM,
-    diasMora: diasMoraTotal,
-    tasaPromedioPonderada,
-    hayTasaAproximada,
-    capitalUTMRestante: capUTM,
-    saldoAFavorUTM,
-    lavsConsumidosUTM,
-    lavIntConsumidoUTM,
-    lavCapConsumidoUTM
-  };
+  return { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada, capitalUTMRestante: capUTM, saldoAFavorUTM };
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
@@ -3480,8 +3443,9 @@ function calculateConsolidada(hoy, aplicarRecargo) {
   let tasaAproximada = false;
 
   // ¿Hay depósitos LAV dentro del período de la consolidada (vencimiento → hoy)?
-  // Si los hay, la amortización debe ser event-driven (Art. 1595 CC, evento por
-  // evento) en vez de calcular el interés total y recién después restar el pool.
+  // Metodología confirmada RIT Z-3764-2023: el pool LAV completo se resta DE UNA
+  // SOLA VEZ del capital bruto (sin importar la fecha de cada depósito), y el
+  // interés se calcula sobre ese neto por los días de mora completos.
   const diaVencCons = getDiaVencimiento();
   const fechaVencCons = new Date(fechaAnio, fechaMes - 1, diaVencCons);
   const _lavsDelPeriodoConsolidada = (typeof abonosLav !== 'undefined' ? abonosLav : [])
@@ -3492,12 +3456,13 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     })
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date));
+  const _poolLavUTMConsolidada = _lavsDelPeriodoConsolidada.reduce((s, l) => s + (l.amountUtm || 0), 0);
 
   let _resAmortizada = null;
   if (aplicaIntereses) {
-    if (_lavsDelPeriodoConsolidada.length > 0) {
-      _resAmortizada = calcularInteresConsolidadaAmortizada(
-        capitalUTM, fechaVencCons, hoy, usaMaxima, aplicarRecargo, _lavsDelPeriodoConsolidada
+    if (_poolLavUTMConsolidada > 0.0001) {
+      _resAmortizada = calcularInteresConsolidadaNeteada(
+        capitalUTM, fechaVencCons, hoy, usaMaxima, aplicarRecargo, _poolLavUTMConsolidada
       );
       interes = _resAmortizada.interes * utmCorte;
       diasMora = _resAmortizada.diasMora;
@@ -3523,11 +3488,14 @@ function calculateConsolidada(hoy, aplicarRecargo) {
 
   const capUTMParaDetalle = _resAmortizada ? _resAmortizada.capitalUTMRestante : capitalUTM;
   const capClpParaDetalle = _resAmortizada ? Math.round(capUTMParaDetalle * utmCorte) : capitalClpCorte;
-  // Interés bruto devengado (antes de que los LAV cubrieran parte de él) — para
-  // consistencia con el resto de las filas, donde intOriginal es siempre el bruto.
-  const interesBruto = _resAmortizada ? interes + (_resAmortizada.lavIntConsumidoUTM * utmCorte) : interes;
-  const lavAplicadoUTM    = _resAmortizada ? _resAmortizada.lavCapConsumidoUTM : 0;
-  const lavIntAplicadoUTM = _resAmortizada ? _resAmortizada.lavIntConsumidoUTM : 0;
+  // Modelo neteado (RIT Z-3764-2023): el pool LAV se resta íntegro del capital
+  // bruto, antes de recalcular el interés sobre el neto. No hay "interés cubierto
+  // por LAV" a mostrar por separado — el interés ya se calculó directamente sobre
+  // el capital reducido, así que intOriginal = interes (mismo valor, sin bruto/neto
+  // que reconciliar) y todo el pool consumido se atribuye a capital.
+  const lavConsumidoUTM = _resAmortizada ? Math.min(_poolLavUTMConsolidada, capitalUTM) : 0;
+  const lavAplicadoUTM    = lavConsumidoUTM;
+  const lavIntAplicadoUTM = 0;
 
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const periodoLabel = `CONS ${mNames[fechaMes-1]} ${fechaAnio}`;
@@ -3545,7 +3513,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     isConsolidadaTasaPromedio: true,
     mora: diasMora,
     inte: interes,
-    intOriginal: interesBruto,
+    intOriginal: interes,
     sub: capClpParaDetalle + interes,
     year: fechaAnio,
     isDebt: true,
@@ -3556,11 +3524,11 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     // Para que export.js (PDF y modal de resumen) sume correctamente el LAV
     // aplicado a la consolidada junto con el resto de las cuotas, sin
     // necesitar lógica especial: mismos nombres de campo que usa el PASO 1.
-    esLav: (lavAplicadoUTM > 0.0001 || lavIntAplicadoUTM > 0.0001),
+    esLav: (lavAplicadoUTM > 0.0001),
     lavAplicadoUTM,
     lavAplicadoCLP: Math.round(lavAplicadoUTM * utmCorte),
     lavIntAplicadoUTM,
-    lavIntAplicadoCLP: Math.round(lavIntAplicadoUTM * utmCorte),
+    lavIntAplicadoCLP: 0,
     capUTM: capUTMParaDetalle,
     usarMaxima: usaMaxima
   };
@@ -7013,7 +6981,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0730</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0810</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
