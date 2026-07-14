@@ -2,91 +2,31 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
-[v2.0713.2345 · 2026-07-13]
-index.html, export.js, sw.js, tests/test_auditoria_deuda_historica.js (nuevo)
+[v2.0713.0812 · 2026-07-13]
+index.html
 
-Fix CRÍTICO — Fusión de dos ramas de desarrollo divergentes que causaban
-resultados inconsistentes según qué ZIP se usara.
+Fix — calcularInteresSegmentado() (agregada en v2.0713.0757) cortaba cada
+tramo mensual el DÍA 1 de cada mes calendario, ignorando el día de
+vencimiento real de la cuota (parámetro fechaVenc, ej. día 5). Esto
+desalineaba en ~4 días cada tramo respecto a la ventana real de mora,
+moviendo una porción de interés de una tasa a otra en cada tramo.
 
-CONTEXTO: durante esta sesión de auditoría de Deuda Histórica, se trabajó
-sobre una base derivada del ZIP subido al inicio de la conversación
-(equivalente a v2.0713.1530), que NO incluía la mejora de interés
-segmentado (calcularInteresSegmentado(), agregada en v2.0713.0757, una
-rama de desarrollo posterior y en paralelo hecha directamente por Pablo).
-Como resultado:
-  - El ZIP v2.0713.1700 (auditoría deuda histórica) tenía los 4 fixes de
-    Deuda Histórica, pero SEGUÍA usando calcularInteres() con tasa fija
-    (motor de interés menos preciso, margen ~$1.900-1.000 según el caso).
-  - El ZIP v2.0713.0757 (mejora de interés segmentado, hecha por Pablo)
-    tenía el motor de interés correcto (margen ~$600-1.000), pero NINGUNO
-    de los 4 fixes de Deuda Histórica de esta auditoría.
-Al alternar entre ambos ZIPs para distintas pruebas, el margen de error
-parecía saltar de ~$600-1.000 a ~$7.000-9.000 de forma errática — no por
-una regresión real en ningún fix individual, sino por estar comparando
-resultados de dos bases de código distintas sin que ninguna tuviera
-AMBOS conjuntos de correcciones a la vez.
+Corregido: cada tramo ahora corta el mismo día-del-mes que fechaVenc
+(diaCorte = fechaVenc.getDate()), no el día 1. Ej.: cuota que vence el
+05-10-2025 genera tramos 05-oct→05-nov, 05-nov→05-dic, etc., en vez de
+05-oct→01-nov, 01-nov→01-dic. La tasa de cada tramo sigue siendo la
+del mes en que EMPIEZA el tramo (se probó también la variante "tasa
+del mes en que termina el tramo" y dio peor resultado — descartada).
 
-FIX: se tomó v2.0713.0757 (con calcularInteresSegmentado() ya integrado
-en los 7 sitios reales de cálculo de interés) como base, y se reaplicaron
-sobre ella los 4 fixes de la auditoría de Deuda Histórica:
-  - Bug A: calendario "histStart" no guardaba el mes, sin recálculo en
-    tiempo real al hacer clic (index.html, handler de clic de celda).
-  - Bug B: applySession() reseteaba las etiquetas del calendario "Cuotas"
-    en modo consolidada; además, causa raíz real encontrada después:
-    applySession() no restauraba el modo UTM/CLP ni el campo de monto
-    correcto al recargar una deuda consolidada guardada en modo UTM
-    (export.js, applySession()).
-  - Bug C: fechaLiquidacion.value se restauraba pero el label visible no
-    se sincronizaba (export.js, applySession(), falta de llamada a
-    dpUpdateFechaLiqLabel()).
-  - Punto 5: doble cobro cuando "Período Actual" se solapa con la fecha
-    de corte de la Deuda Histórica consolidada — corregido con exclusión
-    automática de SOLO el mes de corte puntual (no todo el rango
-    corte→hoy, error de una primera versión de este mismo fix ya
-    corregido en v2.0713.1650) en calculatePensiones().
-
-Ninguno de estos 4 fixes toca calcularInteresSegmentado(),
-imputarAbonosArt1595(), el pool LAV (PASO 1/PASO 2), ni
-calculateHistoricalDebt()/calculateConsolidada() — son ortogonales al
-motor de interés. Por lo tanto, un caso SIN Deuda Histórica configurada
-(como el caso real RIT Z-617-2024 usado para validar el margen de error)
-debe seguir arrojando el mismo resultado que ya daba v2.0713.0757 por sí
-solo: $1.707.070 (margen ~$859 contra la liquidación oficial del
-tribunal, dentro del rango histórico esperado de $600-1.000).
-
-Se portó tests/test_auditoria_deuda_historica.js a esta base, adaptando
-los Test E/F (que ejecutan calculatePensiones() real) para inyectar
-calcularInteresSegmentado() y sus dependencias (getTasaAnualInfo,
-_normalizarMes, tablas TIC_REAJ/TMC_REAJ, _fetchTicCMF stub) en el
-sandbox de prueba, ya que esta base las requiere donde antes solo se
-usaba calcularInteres(). Suite completa: 31/31 (Test A–G).
-
-NOTA: el test tests/test_imputacion_art1595.js (de la base anterior,
-v2.0713.1530 en adelante) NO se portó a esta base — su lógica de
-aserciones fue escrita contra el comportamiento de calcularInteres()
-con tasa fija, y el bloque real "PASO 1: pool LAV" de esta base
-(v2.0713.0757) ya usa una lógica de acumulación de interés por tramo
-sustancialmente distinta (calcularInteresSegmentado con fecha de
-depósito LAV como corte, no calcularInteres con tasa fija hasta hoy).
-Forzar esas aserciones antiguas contra el comportamiento nuevo no
-detectaría regresiones reales, solo diferencias de magnitud esperadas
-por el cambio de motor de interés — que es un cambio legítimo y
-verificado por Pablo contra el caso real del tribunal, no un bug.
-Se recomienda escribir una nueva suite de tests para el pool LAV /
-Art. 1595 CC específica para calcularInteresSegmentado() en una
-próxima sesión, si se desea cobertura de regresión para esa lógica.
-
-Validado: node --check sobre export.js y sobre el JS inline extraído de
-index.html (sin errores de sintaxis). tests/test_auditoria_deuda_historica.js
-en 31/31.
-
-PENDIENTE: Pablo debe confirmar que, cargando el caso real completo (19
-abonos LAV, Mar-2024 a Jul-2026, sin Deuda Histórica configurada) con
-este ZIP, el resultado siga siendo $1.707.070 (o muy cercano, dentro del
-margen esperado), y que los 4 fixes de Deuda Histórica (calendario,
-persistencia al reiniciar, fecha de liquidación, doble cobro) sigan
-funcionando correctamente en esta base fusionada.
-
+Validado contra RIT Z-617-2024 (mismo caso de prueba que v2.0713.0757):
+el residuo contra el total oficial del tribunal bajó de ~$1.045 a
+~$857, y el patrón de diferencia por período pasó de un rango
+-$0,08/-$2,21 a un rango más uniforme de -$0,16/-$1,76. Mejora
+adicional pero no definitiva — el residuo remanente puede deberse a
+redondeos menores propios del cálculo del tribunal, no necesariamente
+a un error estructural del método. Si aparece un segundo caso real de
+liquidación oficial, conviene validar contra él antes de seguir
+ajustando este detalle fino.
 
 [v2.0713.0757 · 2026-07-13]
 index.html
