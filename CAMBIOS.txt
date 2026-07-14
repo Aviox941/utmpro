@@ -56,57 +56,6 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
-[v2.0714.0509 · 2026-07-14]
-index.html
-
-Bugfix — card "Deuda Histórica" (modo Monto Fijo / consolidada): el toggle
-"Intereses" (id consolidadaAplicaIntereses) no producía ningún cambio en
-el hero total ("Total Adeudado") al activarlo/desactivarlo, incluso
-después de restaurar una sesión/caso guardado.
-
-Causa raíz: tryRegisterConsolidada() y calculateConsolidada() calculaban
-correctamente el interés de la deuda consolidada respetando
-consolidadaData.aplicaIntereses (0 si el switch está apagado) y
-consolidadaData.usaMaxima. Ese resultado se guardaba bien en
-d.inte/d.cap dentro de resHistorical.detalles. Sin embargo,
-imputarAbonosArt1595() — que se ejecuta siempre dentro de calculate() y
-cuyo resultado (cuotasResultado) alimenta directamente el hero total —
-IGNORABA ese valor y volvía a calcular el interés de TODAS las cuotas
-(incluida la de Deuda Histórica Consolidada) desde cero usando
-calcularInteresSegmentado(cap, fechaVenc, hoy, usarMaxima=false, ...),
-con usarMaxima hardcodeado en false y sin mirar aplicaIntereses en
-absoluto. Esto ocurría en dos puntos de imputarAbonosArt1595:
-1. En el path sin abonos ordinarios (todosAbonos.length === 0), que es
-   el caso típico cuando solo hay una Deuda Histórica Consolidada
-   registrada.
-2. En el cálculo de saldoFinal al final de la función (path con abonos),
-   que recorre TODAS las cuotas para recalcular su interés a hoy.
-Resultado: el switch de intereses cambiaba el valor mostrado dentro de
-la propia card (consolidadaTotalLabel), pero el hero total ("Total
-Adeudado") seguía mostrando siempre el interés calculado con intereses
-aplicados y tasa TIC (nunca máxima), sin importar el estado real del
-toggle.
-
-Fix: en ambos puntos, si la cuota es la Deuda Histórica Consolidada
-(d.isConsolidada) y su capital no fue tocado por ningún abono
-(capPendiente === cap original), se usa directamente el interés ya
-calculado (d.inte) en vez de recalcularlo con calcularInteresSegmentado().
-No se tocó calcularInteresConsolidadaMensual, calculateConsolidada,
-calculatePensiones, calcularInteresSegmentado ni el pool LAV — el fix es
-local a imputarAbonosArt1595, que ahora respeta el pre-cálculo de la
-deuda consolidada en vez de sobrescribirlo.
-
-Pendiente: verificar que, con una Deuda Histórica Consolidada registrada
-y el toggle "Intereses" apagado, el hero total ("Total Adeudado") y el
-"Detalle del cálculo" muestren el mismo monto que la card (solo
-capital, sin interés), y que al reactivar el toggle el hero vuelva a
-sumar el interés correspondiente — tanto recién ingresado como después
-de recargar la sesión guardada.
-
-================================================================================
-================================================================================
-==========
-
 [v2.0714.0035 · 2026-07-14]
 index.html
 
