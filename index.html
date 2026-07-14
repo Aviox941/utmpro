@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0035">
+ <meta name="app-version" content="v2.0714.0509">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4938,6 +4938,17 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diaVencD = getDiaVencimiento();
     const mesesD = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
     const cuotasD = detalles.map(d => {
+      // FIX BUG (toggle "Intereses" en Deuda Histórica Consolidada sin efecto
+      // en el hero total): las cuotas de Deuda Histórica Consolidada (d.isConsolidada)
+      // ya traen su interés correcto pre-calculado por calculateConsolidada(), que sí
+      // respeta consolidadaData.aplicaIntereses (puede ser 0 si el toggle está apagado),
+      // consolidadaData.usaMaxima (tasa máxima convencional vs TIC) y el reajuste mes a
+      // mes en modo UTM. Recalcularlo aquí vía calcularInteresSegmentado() ignoraba los
+      // tres, forzando siempre usarMaxima=false y un interés > 0 aunque el switch de
+      // intereses estuviera desactivado — el hero total nunca reflejaba el toggle.
+      if (d.isConsolidada) {
+        return { ...d, capPendiente: d.cap, intPendiente: d.inte };
+      }
       const partesD = (d.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
       const cMesD   = mesesD[partesD[0]] ?? 0;
       const cAnioD  = parseInt(partesD[1]) || (d.year||2000);
@@ -5056,7 +5067,16 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
     // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
     const _aplicarRecargoFinal = document.getElementById('recargoLey')?.checked || false;
-    const intHoy = (diasMoraHoy > 0 && c.capPendiente > 0) ? calcularInteresSegmentado(c.capPendiente, fechaVencC, hoy, false, _aplicarRecargoFinal).interes : 0;
+    // FIX BUG (toggle "Intereses" en Deuda Histórica Consolidada sin efecto en el
+    // hero total): si esta cuota es la Deuda Histórica Consolidada (c.isConsolidada)
+    // y ningún abono tocó su capital (capPendiente === cap original), su interés ya
+    // fue calculado correctamente por calculateConsolidada() respetando
+    // consolidadaData.aplicaIntereses/usaMaxima. Recalcularlo aquí con
+    // calcularInteresSegmentado(..., false, ...) ignoraba ambos, forzando siempre
+    // usarMaxima=false y un interés > 0 aunque el switch estuviera apagado.
+    const intHoy = (c.isConsolidada && c.capPendiente === c.cap)
+      ? c.inte
+      : ((diasMoraHoy > 0 && c.capPendiente > 0) ? calcularInteresSegmentado(c.capPendiente, fechaVencC, hoy, false, _aplicarRecargoFinal).interes : 0);
     c.intPendiente = intHoy;
     saldoFinal += c.capPendiente + c.intPendiente;
   });
@@ -6844,7 +6864,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0035</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0509</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
