@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.0930">
+ <meta name="app-version" content="v2.0713.1015">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2371,6 +2371,10 @@ function resetFechaLiquidacion() {
   const mm = String(nuevaFecha.getMonth() + 1).padStart(2, '0');
   const dd = String(nuevaFecha.getDate()).padStart(2, '0');
   input.value = `${yyyy}-${mm}-${dd}`;
+  // FIX AUDITORÍA: el input oculto se actualizaba pero el label visible del
+  // calendario (fechaLiquidacionLabel) no se refrescaba, dejando en pantalla
+  // la fecha anterior aunque el valor real ya había cambiado.
+  if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -2472,6 +2476,23 @@ return false;
 }
 function showSaveToast() {
 // Toast desactivado — notificación de guardado silenciosa
+}
+// FIX AUDITORÍA (persistencia de Deuda Histórica): guardado inmediato y
+// síncrono de la sesión legacy (sin caso activo, SESSION_KEY). El debounce
+// de 2s de saveSession() se perdía si el usuario cerraba/minimizaba la app
+// antes de que corriera, borrando registros recién ingresados (ej. deuda
+// histórica en UTM). saveCurrentCasoNow() ya resolvía esto para casos con
+// activeCasoId; esta función replica el mismo patrón para el modo sin caso.
+function saveLegacySessionNow() {
+if (activeCasoId) return; // los casos con id ya se guardan vía saveCurrentCasoNow()
+try {
+clearTimeout(saveTimeout);
+const session = buildSession();
+const now = new Date().toISOString();
+session.saved_at = now;
+session.updated_at = now;
+localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+} catch(e) { console.warn('No se pudo guardar sesión (legacy, inmediato)', e); }
 }
 function updateSaveIndicator(isoDate) {
 if (!isoDate) return;
@@ -3063,6 +3084,7 @@ function addHistoricalDebt() { /* legacy - no-op */ }
 let histMode = 'recalculable'; // 'recalculable' | 'consolidada'
 let consolidadaData = null; // { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima }
 let _savedHistoricalDebts = []; // guarda datos recalculable al cambiar a consolidada
+let _savedConsolidadaData = null; // guarda datos consolidada al cambiar a recalculable (FIX AUDITORÍA)
 function setHistMode(mode) {
   histMode = mode;
   const btnR = document.getElementById('btnModoRecalculable');
@@ -3077,6 +3099,10 @@ function setHistMode(mode) {
     btnR.classList.add('is-active'); btnC.classList.remove('is-active');
     panelR.classList.remove('hidden');
     panelC.classList.add('hidden');
+    // FIX AUDITORÍA: guardar consolidadaData antes de limpiar (igual que ya
+    // se hacía con historicalDebts en la rama contraria), para no perder el
+    // registro si el usuario vuelve a "Monto fijo" más tarde.
+    if (consolidadaData) _savedConsolidadaData = { ...consolidadaData };
     consolidadaData = null;
     document.getElementById('consolidadaPreview').classList.add('hidden');
     // Restaurar datos recalculable guardados
@@ -3110,17 +3136,99 @@ function setHistMode(mode) {
     historicalDebts = [];
     renderHistoricalList();
     document.getElementById('debtSummary').classList.add('hidden');
+    // FIX AUDITORÍA: restaurar consolidadaData guardado (monto, fecha, modo
+    // UTM/CLP, checkboxes) si el usuario había registrado uno antes de pasar
+    // a "Cuotas" y ahora vuelve a "Monto fijo".
+    if (_savedConsolidadaData) {
+      consolidadaData = { ..._savedConsolidadaData };
+      _savedConsolidadaData = null;
+      consModoMonto = consolidadaData.esUTM ? 'utm' : 'clp';
+      if (consolidadaData.esUTM) {
+        const utmEl = document.getElementById('consolidadaMontoUTM');
+        if (utmEl) utmEl.value = String(consolidadaData.montoUTM || '').replace('.', ',');
+      } else {
+        const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const clpEl = document.getElementById('consolidadaMontoCLP');
+        if (clpEl) clpEl.value = fmt(consolidadaData.montoCLP);
+      }
+      const btnCLPr = document.getElementById('btnConsCLP');
+      const btnUTMr = document.getElementById('btnConsUTM');
+      const wCLPr   = document.getElementById('wrapConsCLP');
+      const wUTMr   = document.getElementById('wrapConsUTM');
+      if (btnCLPr && btnUTMr && wCLPr && wUTMr) {
+        if (consolidadaData.esUTM) {
+          btnCLPr.style.background = 'transparent'; btnCLPr.style.color = 'rgba(234,88,12,0.70)';
+          btnUTMr.style.background = 'rgba(234,88,12,0.90)'; btnUTMr.style.color = '#fff';
+          wCLPr.style.display = 'none'; wUTMr.style.display = '';
+        } else {
+          btnCLPr.style.background = 'rgba(234,88,12,0.90)'; btnCLPr.style.color = '#fff';
+          btnUTMr.style.background = 'transparent'; btnUTMr.style.color = 'rgba(234,88,12,0.70)';
+          wCLPr.style.display = ''; wUTMr.style.display = 'none';
+        }
+      }
+      const mNamesC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const lblC = document.getElementById('consolidadaFechaLabel');
+      if (lblC && consolidadaData.fechaMes && consolidadaData.fechaAnio) {
+        lblC.innerText = `${mNamesC[consolidadaData.fechaMes-1]} ${consolidadaData.fechaAnio}`;
+        lblC.className = 'input-date__value text-[#fb923c]';
+        document.getElementById('consolidadaFechaMes').value = String(consolidadaData.fechaMes).padStart(2,'0');
+        document.getElementById('consolidadaFechaAnio').value = String(consolidadaData.fechaAnio);
+      }
+      const chkIntR = document.getElementById('consolidadaAplicaIntereses');
+      if (chkIntR) chkIntR.checked = consolidadaData.aplicaIntereses !== false;
+      const chkMaxR = document.getElementById('consolidadaUsaMaxima');
+      if (chkMaxR) chkMaxR.checked = consolidadaData.usaMaxima || false;
+      document.getElementById('consolidadaPreview').classList.remove('hidden');
+    }
   }
   calculate();
   saveSession();
 }
 let consModoMonto = 'clp'; // 'clp' | 'utm'
 function setConsModoMonto(modo) {
+  const modoAnterior = consModoMonto;
   consModoMonto = modo;
   const btnCLP = document.getElementById('btnConsCLP');
   const btnUTM = document.getElementById('btnConsUTM');
   const wCLP   = document.getElementById('wrapConsCLP');
   const wUTM   = document.getElementById('wrapConsUTM');
+  // FIX AUDITORÍA: al cambiar de modo (UTM↔CLP), el campo recién activado
+  // solía quedar vacío si el usuario nunca había escrito en él, lo que
+  // hacía que tryRegisterConsolidada() viera monto<=0 y BORRARA todo el
+  // registro (consolidadaData = null). Ahora se convierte el valor ya
+  // ingresado en el modo anterior y se rellena el campo nuevo, usando la
+  // UTM de la fecha de corte si ya está seleccionada (o la UTM actual).
+  if (modoAnterior !== modo) {
+    const utmParaConversion = (() => {
+      const fechaMes = document.getElementById('consolidadaFechaMes')?.value;
+      const fechaAnio = document.getElementById('consolidadaFechaAnio')?.value;
+      if (fechaMes && fechaAnio) {
+        let entry = utmData.find(d => d.y === parseInt(fechaAnio) && d.monthIdx === parseInt(fechaMes) - 1);
+        if (!entry || !entry.v) {
+          const targetAbs = parseInt(fechaAnio) * 12 + (parseInt(fechaMes) - 1);
+          const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+          entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+        }
+        if (entry && entry.v > 0) return entry.v;
+      }
+      return getUtmActualVal();
+    })();
+    if (modo === 'utm') {
+      const clpEl = document.getElementById('consolidadaMontoCLP');
+      const utmEl = document.getElementById('consolidadaMontoUTM');
+      const rawCLP = parseInt((clpEl?.value || '').replace(/\./g, '')) || 0;
+      if (rawCLP > 0 && utmEl && !utmEl.value && utmParaConversion > 0) {
+        utmEl.value = (rawCLP / utmParaConversion).toFixed(3).replace('.', ',');
+      }
+    } else {
+      const utmEl = document.getElementById('consolidadaMontoUTM');
+      const clpEl = document.getElementById('consolidadaMontoCLP');
+      const rawUTM = parseFloat((utmEl?.value || '').replace(',', '.')) || 0;
+      if (rawUTM > 0 && clpEl && !clpEl.value && utmParaConversion > 0) {
+        clpEl.value = String(Math.round(rawUTM * utmParaConversion)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      }
+    }
+  }
   if (modo === 'utm') {
     btnCLP.style.background = 'transparent';
     btnCLP.style.color = 'rgba(234,88,12,0.70)';
@@ -6586,7 +6694,7 @@ if (window.innerWidth >= 1024) renderCasosList();
 };
 // Guardar el caso activo al salir/cerrar
 window.addEventListener('beforeunload', () => {
-if (!activeCasoId) return;
+if (!activeCasoId) { saveLegacySessionNow(); return; }
 if (typeof saveCurrentCasoNow === 'function') saveCurrentCasoNow();
 localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // La cola (queueSave) maneja la sincronización con Supabase.
@@ -6629,7 +6737,8 @@ document.addEventListener('visibilitychange', async () => {
     return;
   }
   if (document.visibilityState !== 'hidden') return;
-  if (!activeCasoId || !sbCurrentUser) return;
+  if (!activeCasoId) { saveLegacySessionNow(); return; }
+  if (!sbCurrentUser) return;
   if (_deletedCasoIds.has(activeCasoId)) {
     dbg('VISIBILITY: caso ' + activeCasoId.slice(0,8) + ' eliminado — skip save');
     return;
@@ -6744,7 +6853,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.0930</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.1015</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
