@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0646">
+ <meta name="app-version" content="v2.0713.0812">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1816,8 +1816,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
          consolidadaFechaAnio, consolidadaFechaPickerBtn, consolidadaFechaLabel,
          consolidadaAplicaIntereses, consolidadaUsaMaxima,
          tasaIndicador, tasaIndicadorText,
-         consolidadaPreview,
-         consolidadaCapLabel, consolidadaTotalLabel, consolidadaTotalUtmLabel
+         consolidadaPreview, consolidadaDiasMoraLabel,
+         consolidadaCapLabel, consolidadaIntLabel, consolidadaTotalLabel
     ══════════════════════════════════════════════════════════════ -->
     <div id="panelModoConsolidada" class="hidden space-y-0">
 
@@ -1903,14 +1903,23 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
               <p id="consolidadaCapLabel" style="font-size:12px;font-weight:700;color:#2a2f45;letter-spacing:-0.02em;line-height:1;">$0</p>
             </div>
 
+            <!-- símbolo + -->
+            <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">+</div>
+
+            <!-- Interés acumulado -->
+            <div style="text-align:center;flex:1;min-width:0;">
+              <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(90,99,128,0.50);margin-bottom:3px;white-space:nowrap;">Interés acum.</p>
+              <p id="consolidadaIntLabel" style="font-size:12px;font-weight:700;color:#c2410c;letter-spacing:-0.02em;line-height:1;">$0</p>
+              <span id="consolidadaDiasMoraLabel" style="font-size:6.5px;font-weight:700;color:rgba(194,65,12,0.50);">0 días</span>
+            </div>
+
             <!-- símbolo = -->
             <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">=</div>
 
-            <!-- Total deuda — protagonista (UTM + CLP) -->
-            <div style="text-align:center;flex:1.6;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
+            <!-- Total deuda — protagonista -->
+            <div style="text-align:center;flex:1.4;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
               <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(194,65,12,0.55);margin-bottom:3px;white-space:nowrap;">Total deuda</p>
               <p id="consolidadaTotalLabel" style="font-family:'DM Sans',system-ui,sans-serif;font-size:clamp(16px,4.5vw,26px);font-weight:800;color:#c2410c;letter-spacing:-0.04em;line-height:1;word-break:break-all;">$0</p>
-              <p id="consolidadaTotalUtmLabel" style="font-size:8px;font-weight:700;color:rgba(194,65,12,0.55);letter-spacing:-0.01em;line-height:1;margin-top:2px;">0 UTM</p>
             </div>
 
           </div>
@@ -2362,10 +2371,6 @@ function resetFechaLiquidacion() {
   const mm = String(nuevaFecha.getMonth() + 1).padStart(2, '0');
   const dd = String(nuevaFecha.getDate()).padStart(2, '0');
   input.value = `${yyyy}-${mm}-${dd}`;
-  // FIX AUDITORÍA: el input oculto se actualizaba pero el label visible del
-  // calendario (fechaLiquidacionLabel) no se refrescaba, dejando en pantalla
-  // la fecha anterior aunque el valor real ya había cambiado.
-  if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -2467,23 +2472,6 @@ return false;
 }
 function showSaveToast() {
 // Toast desactivado — notificación de guardado silenciosa
-}
-// FIX AUDITORÍA (persistencia de Deuda Histórica): guardado inmediato y
-// síncrono de la sesión legacy (sin caso activo, SESSION_KEY). El debounce
-// de 2s de saveSession() se perdía si el usuario cerraba/minimizaba la app
-// antes de que corriera, borrando registros recién ingresados (ej. deuda
-// histórica en UTM). saveCurrentCasoNow() ya resolvía esto para casos con
-// activeCasoId; esta función replica el mismo patrón para el modo sin caso.
-function saveLegacySessionNow() {
-if (activeCasoId) return; // los casos con id ya se guardan vía saveCurrentCasoNow()
-try {
-clearTimeout(saveTimeout);
-const session = buildSession();
-const now = new Date().toISOString();
-session.saved_at = now;
-session.updated_at = now;
-localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-} catch(e) { console.warn('No se pudo guardar sesión (legacy, inmediato)', e); }
 }
 function updateSaveIndicator(isoDate) {
 if (!isoDate) return;
@@ -3075,7 +3063,6 @@ function addHistoricalDebt() { /* legacy - no-op */ }
 let histMode = 'recalculable'; // 'recalculable' | 'consolidada'
 let consolidadaData = null; // { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima }
 let _savedHistoricalDebts = []; // guarda datos recalculable al cambiar a consolidada
-let _savedConsolidadaData = null; // guarda datos consolidada al cambiar a recalculable (FIX AUDITORÍA)
 function setHistMode(mode) {
   histMode = mode;
   const btnR = document.getElementById('btnModoRecalculable');
@@ -3090,10 +3077,6 @@ function setHistMode(mode) {
     btnR.classList.add('is-active'); btnC.classList.remove('is-active');
     panelR.classList.remove('hidden');
     panelC.classList.add('hidden');
-    // FIX AUDITORÍA: guardar consolidadaData antes de limpiar (igual que ya
-    // se hacía con historicalDebts en la rama contraria), para no perder el
-    // registro si el usuario vuelve a "Monto fijo" más tarde.
-    if (consolidadaData) _savedConsolidadaData = { ...consolidadaData };
     consolidadaData = null;
     document.getElementById('consolidadaPreview').classList.add('hidden');
     // Restaurar datos recalculable guardados
@@ -3127,99 +3110,17 @@ function setHistMode(mode) {
     historicalDebts = [];
     renderHistoricalList();
     document.getElementById('debtSummary').classList.add('hidden');
-    // FIX AUDITORÍA: restaurar consolidadaData guardado (monto, fecha, modo
-    // UTM/CLP, checkboxes) si el usuario había registrado uno antes de pasar
-    // a "Cuotas" y ahora vuelve a "Monto fijo".
-    if (_savedConsolidadaData) {
-      consolidadaData = { ..._savedConsolidadaData };
-      _savedConsolidadaData = null;
-      consModoMonto = consolidadaData.esUTM ? 'utm' : 'clp';
-      if (consolidadaData.esUTM) {
-        const utmEl = document.getElementById('consolidadaMontoUTM');
-        if (utmEl) utmEl.value = String(consolidadaData.montoUTM || '').replace('.', ',');
-      } else {
-        const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        const clpEl = document.getElementById('consolidadaMontoCLP');
-        if (clpEl) clpEl.value = fmt(consolidadaData.montoCLP);
-      }
-      const btnCLPr = document.getElementById('btnConsCLP');
-      const btnUTMr = document.getElementById('btnConsUTM');
-      const wCLPr   = document.getElementById('wrapConsCLP');
-      const wUTMr   = document.getElementById('wrapConsUTM');
-      if (btnCLPr && btnUTMr && wCLPr && wUTMr) {
-        if (consolidadaData.esUTM) {
-          btnCLPr.style.background = 'transparent'; btnCLPr.style.color = 'rgba(234,88,12,0.70)';
-          btnUTMr.style.background = 'rgba(234,88,12,0.90)'; btnUTMr.style.color = '#fff';
-          wCLPr.style.display = 'none'; wUTMr.style.display = '';
-        } else {
-          btnCLPr.style.background = 'rgba(234,88,12,0.90)'; btnCLPr.style.color = '#fff';
-          btnUTMr.style.background = 'transparent'; btnUTMr.style.color = 'rgba(234,88,12,0.70)';
-          wCLPr.style.display = ''; wUTMr.style.display = 'none';
-        }
-      }
-      const mNamesC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-      const lblC = document.getElementById('consolidadaFechaLabel');
-      if (lblC && consolidadaData.fechaMes && consolidadaData.fechaAnio) {
-        lblC.innerText = `${mNamesC[consolidadaData.fechaMes-1]} ${consolidadaData.fechaAnio}`;
-        lblC.className = 'input-date__value text-[#fb923c]';
-        document.getElementById('consolidadaFechaMes').value = String(consolidadaData.fechaMes).padStart(2,'0');
-        document.getElementById('consolidadaFechaAnio').value = String(consolidadaData.fechaAnio);
-      }
-      const chkIntR = document.getElementById('consolidadaAplicaIntereses');
-      if (chkIntR) chkIntR.checked = consolidadaData.aplicaIntereses !== false;
-      const chkMaxR = document.getElementById('consolidadaUsaMaxima');
-      if (chkMaxR) chkMaxR.checked = consolidadaData.usaMaxima || false;
-      document.getElementById('consolidadaPreview').classList.remove('hidden');
-    }
   }
   calculate();
   saveSession();
 }
 let consModoMonto = 'clp'; // 'clp' | 'utm'
 function setConsModoMonto(modo) {
-  const modoAnterior = consModoMonto;
   consModoMonto = modo;
   const btnCLP = document.getElementById('btnConsCLP');
   const btnUTM = document.getElementById('btnConsUTM');
   const wCLP   = document.getElementById('wrapConsCLP');
   const wUTM   = document.getElementById('wrapConsUTM');
-  // FIX AUDITORÍA: al cambiar de modo (UTM↔CLP), el campo recién activado
-  // solía quedar vacío si el usuario nunca había escrito en él, lo que
-  // hacía que tryRegisterConsolidada() viera monto<=0 y BORRARA todo el
-  // registro (consolidadaData = null). Ahora se convierte el valor ya
-  // ingresado en el modo anterior y se rellena el campo nuevo, usando la
-  // UTM de la fecha de corte si ya está seleccionada (o la UTM actual).
-  if (modoAnterior !== modo) {
-    const utmParaConversion = (() => {
-      const fechaMes = document.getElementById('consolidadaFechaMes')?.value;
-      const fechaAnio = document.getElementById('consolidadaFechaAnio')?.value;
-      if (fechaMes && fechaAnio) {
-        let entry = utmData.find(d => d.y === parseInt(fechaAnio) && d.monthIdx === parseInt(fechaMes) - 1);
-        if (!entry || !entry.v) {
-          const targetAbs = parseInt(fechaAnio) * 12 + (parseInt(fechaMes) - 1);
-          const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
-          entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
-        }
-        if (entry && entry.v > 0) return entry.v;
-      }
-      return getUtmActualVal();
-    })();
-    if (modo === 'utm') {
-      const clpEl = document.getElementById('consolidadaMontoCLP');
-      const utmEl = document.getElementById('consolidadaMontoUTM');
-      const rawCLP = parseInt((clpEl?.value || '').replace(/\./g, '')) || 0;
-      if (rawCLP > 0 && utmEl && !utmEl.value && utmParaConversion > 0) {
-        utmEl.value = (rawCLP / utmParaConversion).toFixed(3).replace('.', ',');
-      }
-    } else {
-      const utmEl = document.getElementById('consolidadaMontoUTM');
-      const clpEl = document.getElementById('consolidadaMontoCLP');
-      const rawUTM = parseFloat((utmEl?.value || '').replace(',', '.')) || 0;
-      if (rawUTM > 0 && clpEl && !clpEl.value && utmParaConversion > 0) {
-        clpEl.value = String(Math.round(rawUTM * utmParaConversion)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      }
-    }
-  }
   if (modo === 'utm') {
     btnCLP.style.background = 'transparent';
     btnCLP.style.color = 'rgba(234,88,12,0.70)';
@@ -3280,7 +3181,7 @@ function tryRegisterConsolidada() {
     usaMaxima
   };
   // Preview: convertir a CLP al vuelo solo para mostrar
-  const hoy = getFechaLiquidacion();
+  const hoy = new Date();
   const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
@@ -3310,9 +3211,9 @@ function tryRegisterConsolidada() {
   } else {
     document.getElementById('consolidadaCapLabel').textContent = fmt(capitalClpPreview);
   }
+  document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
-  const _utmParaTotal = getUtmActualVal() || 1;
-  document.getElementById('consolidadaTotalUtmLabel').textContent = (total / _utmParaTotal).toFixed(3) + ' UTM';
+  document.getElementById('consolidadaDiasMoraLabel').textContent = diasMora + ' días de interés';
   document.getElementById('consolidadaPreview').classList.remove('hidden');
   calculate();
   saveSession();
@@ -3331,24 +3232,14 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   let sumaPonderada = 0;
   let hayTasaAproximada = false;
   const esUTM = montoUTM != null && montoUTM > 0;
-  // CORRECCIÓN CONSISTENCIA: usar el mismo día de vencimiento configurado
-  // (getDiaVencimiento(), por defecto día 5) que usan calculatePensiones()
-  // y calculateHistoricalDebt() (modo Cuotas) vía calcularInteresSegmentado(),
-  // en vez del día 1 fijo que tenía esta función. Antes, la Deuda Histórica
-  // Consolidada (modo Monto Fijo) cortaba sus tramos mensuales el día 1 de
-  // cada mes, mientras el resto de la app corta el día D configurado —
-  // dos criterios de corte distintos para el mismo concepto de "mes de mora",
-  // que podían aplicar la tasa TIC/TMC de un mes distinto al del resto del
-  // cálculo y producir un interés total ligeramente distinto sin motivo legal.
-  const diaVenc = getDiaVencimiento();
-  const fechaCorte = new Date(fechaAnio, fechaMes - 1, diaVenc);
+  const fechaCorte = new Date(fechaAnio, fechaMes - 1, 1);
   if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
   let curAnio = fechaAnio;
   let curMes = fechaMes - 1;
   while (true) {
-    const inicioTramo = new Date(curAnio, curMes, diaVenc);
+    const inicioTramo = new Date(curAnio, curMes, 1);
     if (inicioTramo >= hoy) break;
-    const finTramo = new Date(curAnio, curMes + 1, diaVenc);
+    const finTramo = new Date(curAnio, curMes + 1, 1);
     const finEfectivo = finTramo < hoy ? finTramo : hoy;
     const diasTramo = Math.floor((finEfectivo - inicioTramo) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {
@@ -4688,20 +4579,6 @@ errorEl.classList.add('hidden');
 return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
-function _mesesCubiertosPorDeudaHistorica() {
-  const set = new Set();
-  if (histMode === 'consolidada' && consolidadaData) {
-    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
-    set.add(corteAbs);
-  } else if (historicalDebts && historicalDebts.length > 0) {
-    historicalDebts.forEach(debt => {
-      const startAbs = debt.startAnio * 12 + debt.startMes - 1;
-      for (let i = 0; i < debt.totalMonths; i++) set.add(startAbs + i);
-    });
-  }
-  return set;
-}
-const _mesesCubiertosHist = _mesesCubiertosPorDeudaHistorica();
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
 // Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
 let excedenteParcialTotalUTM = 0;
@@ -4749,8 +4626,6 @@ for (let absM = startAbsMonth; absM <= endAbsMonth; absM++) {
   }
 }
 slice.forEach((item, idx) => {
-const _absMonthItem = item.y * 12 + item.monthIdx;
-if (_mesesCubiertosHist.has(_absMonthItem)) return;
 // Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
 const utmMesHistorico = item.v; // UTM del mes de la cuota
 // ── Períodos variables: sobreescribir cuota si hay un período registrado ──
@@ -4948,15 +4823,6 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diaVencD = getDiaVencimiento();
     const mesesD = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
     const cuotasD = detalles.map(d => {
-      // La cuota de Deuda Histórica Consolidada ya trae su interés correcto,
-      // calculado por calculateConsolidada() respetando el toggle "Intereses"
-      // (consolidadaData.aplicaIntereses) y "Tasa máxima". No se recalcula
-      // aquí: este recálculo existe para reflejar abonos parciales sobre
-      // pensiones normales, escenario que no aplica a la consolidada (un
-      // único capital, sin cuotas mensuales independientes).
-      if (d.isConsolidada) {
-        return { ...d, capPendiente: d.cap, intPendiente: d.inte };
-      }
       const partesD = (d.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
       const cMesD   = mesesD[partesD[0]] ?? 0;
       const cAnioD  = parseInt(partesD[1]) || (d.year||2000);
@@ -5075,12 +4941,7 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
     // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
     const _aplicarRecargoFinal = document.getElementById('recargoLey')?.checked || false;
-    // Igual que en el path sin abonos: si es la Deuda Histórica Consolidada y
-    // ningún abono tocó su capital (capPendiente === cap original), se respeta
-    // su interés ya calculado por calculateConsolidada() en vez de recalcularlo.
-    const intHoy = (c.isConsolidada && c.capPendiente === c.cap)
-      ? c.inte
-      : ((diasMoraHoy > 0 && c.capPendiente > 0) ? calcularInteresSegmentado(c.capPendiente, fechaVencC, hoy, false, _aplicarRecargoFinal).interes : 0);
+    const intHoy = (diasMoraHoy > 0 && c.capPendiente > 0) ? calcularInteresSegmentado(c.capPendiente, fechaVencC, hoy, false, _aplicarRecargoFinal).interes : 0;
     c.intPendiente = intHoy;
     saldoFinal += c.capPendiente + c.intPendiente;
   });
@@ -5155,16 +5016,7 @@ if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _hayLav = abonosLav && abonosLav.length > 0;
 const _hayParciales = pagosParciales && pagosParciales.length > 0;
-// FIX AUDITORÍA: faltaba considerar la Deuda Histórica (consolidada o recalculable)
-// como razón válida para seguir calculando. Sin esto, si el usuario solo tenía
-// una deuda histórica registrada (sin período de pensión "actual" activo), esta
-// función salía aquí sin llegar a calculateConsolidada()/calculateHistoricalDebt(),
-// dejando lastCalculationData (y por tanto el resumen "Detalle del cálculo") con
-// datos de un cálculo anterior, mientras la tarjeta de Deuda Histórica sí se
-// actualizaba de forma independiente vía tryRegisterConsolidada() → desfase
-// visible entre el interés de la tarjeta y el interés del resumen.
-const _hayDeudaHistorica = (histMode === 'consolidada' && consolidadaData) || (historicalDebts && historicalDebts.length > 0);
-const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales && !_hayDeudaHistorica;
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales;
 if (_noRange) {
   // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
@@ -6381,19 +6233,12 @@ renderCalendar();
 if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
-// FIX AUDITORÍA (Bug A): faltaba escribir histStartMes — solo se guardaba
-// el año, por lo que tryRegisterHistorical() (que exige mes Y año) nunca
-// registraba la cuota aunque el usuario confirmara la fecha.
-const mesValHS = String(i + 1).padStart(2, '0');
-document.getElementById('histStartMes').value = mesValHS;
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
 lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
-// Recalcular en tiempo real (mismo patrón que befEnd) si ya hay monto UTM cargado
-tryRegisterHistorical();
 return;
 } else if (calendarMode === 'histEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6404,8 +6249,6 @@ lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
-// Recalcular en tiempo real (mismo patrón que befEnd)
-tryRegisterHistorical();
 return;
 } else if (calendarMode === 'consolidadaFecha') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6709,7 +6552,7 @@ if (window.innerWidth >= 1024) renderCasosList();
 };
 // Guardar el caso activo al salir/cerrar
 window.addEventListener('beforeunload', () => {
-if (!activeCasoId) { saveLegacySessionNow(); return; }
+if (!activeCasoId) return;
 if (typeof saveCurrentCasoNow === 'function') saveCurrentCasoNow();
 localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // La cola (queueSave) maneja la sincronización con Supabase.
@@ -6752,8 +6595,7 @@ document.addEventListener('visibilitychange', async () => {
     return;
   }
   if (document.visibilityState !== 'hidden') return;
-  if (!activeCasoId) { saveLegacySessionNow(); return; }
-  if (!sbCurrentUser) return;
+  if (!activeCasoId || !sbCurrentUser) return;
   if (_deletedCasoIds.has(activeCasoId)) {
     dbg('VISIBILITY: caso ' + activeCasoId.slice(0,8) + ' eliminado — skip save');
     return;
@@ -6868,7 +6710,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0646</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0712.0722</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

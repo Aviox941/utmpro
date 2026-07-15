@@ -944,7 +944,6 @@ document.getElementById('recargoLey').checked = s.recargoLey || false;
 if (document.getElementById('ticActual')) document.getElementById('ticActual').checked = s.ticActual || false;
 if (document.getElementById('diaVencimiento')) document.getElementById('diaVencimiento').value = s.diaVencimiento || '5';
 if (document.getElementById('fechaLiquidacion')) document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion || '';
-if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 // Restaurar indices de periodo: usar startPeriod/endPeriod (anio+mes) si existen,
 // con fallback a startIndex/endIndex legacy para sesiones guardadas anteriormente.
 if (s.startPeriod) {
@@ -979,30 +978,7 @@ consolidadaData = s.consolidadaData || null;
 if (histMode === 'consolidada' && consolidadaData) {
   setHistMode('consolidada');
   const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  if (typeof consModoMonto !== 'undefined') consModoMonto = consolidadaData.esUTM ? 'utm' : 'clp';
-  if (consolidadaData.esUTM) {
-    const utmEl = document.getElementById('consolidadaMontoUTM');
-    if (utmEl) utmEl.value = String(consolidadaData.montoUTM || '').replace('.', ',');
-  } else {
-    document.getElementById('consolidadaMontoCLP').value = fmt(consolidadaData.montoCLP);
-  }
-  {
-    const btnCLP = document.getElementById('btnConsCLP');
-    const btnUTM = document.getElementById('btnConsUTM');
-    const wCLP   = document.getElementById('wrapConsCLP');
-    const wUTM   = document.getElementById('wrapConsUTM');
-    if (btnCLP && btnUTM && wCLP && wUTM) {
-      if (consolidadaData.esUTM) {
-        btnCLP.style.background = 'transparent'; btnCLP.style.color = 'rgba(234,88,12,0.70)';
-        btnUTM.style.background = 'rgba(234,88,12,0.90)'; btnUTM.style.color = '#fff';
-        wCLP.style.display = 'none'; wUTM.style.display = '';
-      } else {
-        btnCLP.style.background = 'rgba(234,88,12,0.90)'; btnCLP.style.color = '#fff';
-        btnUTM.style.background = 'transparent'; btnUTM.style.color = 'rgba(234,88,12,0.70)';
-        wCLP.style.display = ''; wUTM.style.display = 'none';
-      }
-    }
-  }
+  document.getElementById('consolidadaMontoCLP').value = fmt(consolidadaData.montoCLP);
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const lbl = document.getElementById('consolidadaFechaLabel');
   if (lbl && consolidadaData.fechaMes && consolidadaData.fechaAnio) {
@@ -1015,15 +991,10 @@ if (histMode === 'consolidada' && consolidadaData) {
   if (chkInt) chkInt.checked = consolidadaData.aplicaIntereses !== false;
   const chkMax = document.getElementById('consolidadaUsaMaxima');
   if (chkMax) chkMax.checked = consolidadaData.usaMaxima || false;
-  // FIX: tryRegisterConsolidada() recalcula los labels de la card (capital/
-  // interés/total/días) y le quita la clase 'hidden' al panel. Sin esta
-  // llamada, la card quedaba oculta y sin datos al recargar sesión.
-  if (typeof tryRegisterConsolidada === 'function') tryRegisterConsolidada();
 } else {
   setHistMode('recalculable');
 }
 // Restaurar pickers deuda histórica
-if (histMode === 'recalculable') {
 if (historicalDebts.length > 0) {
 const d = historicalDebts[0];
 if (d.startMes && d.startAnio) {
@@ -1038,7 +1009,6 @@ const lblS = document.getElementById('histStartLabel');
 if (lblS) { lblS.innerText = 'Mes / Año'; lblS.className = 'input-date__value'; }
 const lblE = document.getElementById('histEndLabel');
 if (lblE) { lblE.innerText = 'Mes actual'; lblE.className = 'input-date__value'; }
-}
 }
 // Reset picker labels
 const lblA = document.getElementById('tempAbonoLabel');
