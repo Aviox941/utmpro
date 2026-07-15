@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0810">
+ <meta name="app-version" content="v2.0714.0955">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5354,85 +5354,122 @@ const abonosLavParaPool = (abonosLav || []).filter(lav =>
 );
 
 if (abonosLavParaPool && abonosLavParaPool.length > 0) {
-  const poolLavUTM = abonosLavParaPool.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
-  // CORRECCIÓN: el interés que el pool LAV debe cubrir (Art. 1595 CC) es el devengado
-  // hasta la fecha del depósito, NO hasta la fecha de liquidación (hoy).
-  // Un depósito del 02-09-2025 no puede imputarse a intereses que se devengarán
-  // en los 8 meses siguientes. Usamos la fecha del primer depósito LAV (orden cron.)
-  // como referencia, ya que el pool se suma y aplica cuota a cuota desde la más antigua.
-  const _lavsSorted = abonosLavParaPool.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const _fechaPrimerLav = (function() {
-    const p = _lavsSorted[0].date.split('-').map(Number);
-    return new Date(p[0], p[1] - 1, p[2]);
-  })();
+  // FIX v2.0714.xxxx — bug crítico detectado contra liquidación oficial PJUD
+  // (RIT Z-617-2024, 2do Juzgado Familia Talca): el modelo anterior calculaba
+  // el interés a cubrir de TODAS las cuotas usando una única fecha fija (la
+  // del PRIMER depósito LAV cronológico), en vez de la fecha del depósito que
+  // realmente alcanza a cubrir cada cuota. Esto sub-computaba el interés
+  // devengado en cuotas más recientes (ej. Sep-2025 quedaba con capital
+  // remanente de $22.932 en vez de los $12.822/$13.246 que calcula el PJUD),
+  // generando una diferencia de ~0,138 UTM (~$9.900) en el total final.
+  //
+  // Corrección: se reemplaza el pool monolítico por CONSUMO DEPÓSITO A
+  // DEPÓSITO en orden cronológico (igual metodología que ya usa
+  // imputarAbonosArt1595() en el PASO 2 para abonos ordinarios). Cada
+  // depósito LAV recorre las cuotas pendientes en orden y, para cada una,
+  // recalcula el interés devengado HASTA LA FECHA DE ESE DEPÓSITO —no hasta
+  // la fecha del primer depósito ni hasta hoy—, aplicando siempre el orden
+  // Art. 1595 CC: 1° intereses devengados, 2° capital pendiente. El
+  // remanente de un depósito que no alcanza a cubrir una cuota completa
+  // fluye al siguiente depósito cronológico sobre la misma cuota.
+  const _lavsOrdenados = abonosLavParaPool.slice().sort((a, b) => a.date.localeCompare(b.date));
   const _diaVencLav = getDiaVencimiento();
-  let poolRestante = poolLavUTM;
-  for (const d of lastCalculationData) {
-    // La consolidada ya amortizada resuelve sus propios LAV en calculateConsolidada();
-    // no debe volver a tocarse aquí con el pool general.
-    if (d.isConsolidada && d.consolidadaYaAmortizada) {
-      continue;
-    }
-    // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
-    // del pool también inicialicen capOriginalBruto/intOriginal y marquen esLav=false.
-    // El break previo dejaba esos meses sin inicializar, causando valores incorrectos en
-    // el hero y el PDF. Con continue, simplemente no se aplica LAV pero sí se inicializa.
-    if (poolRestante <= 0) {
-      d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
-      d.intOriginal      = d.intOriginal ?? d.inte;
-      d.esLav = false;
-      d.lavAplicadoUTM = 0; d.lavAplicadoCLP = 0;
-      d.lavIntAplicadoUTM = 0; d.lavIntAplicadoCLP = 0;
-      continue;
-    }
+  const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
+  const _aplicarRecargoLav = document.getElementById('recargoLey')?.checked || false;
+
+  // Cuotas elegibles al pool, en orden cronológico, con su estado inicial.
+  const _cuotasPool = lastCalculationData.filter(d => !(d.isConsolidada && d.consolidadaYaAmortizada));
+  for (const d of _cuotasPool) {
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
-    // Guardar originales ANTES de mutar (el PDF los necesita para mostrar cargos brutos)
     d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
     d.intOriginal      = d.intOriginal      ?? d.inte;
     if (d.hayParcialConRemanente && d.capParcialRemanente === undefined) {
-      d.capParcialRemanente = d.cap; // remanente = cap ya reducido por pago parcial
+      d.capParcialRemanente = d.cap;
     }
-    const capBrutoUTM   = d.capOriginalBruto / utmMes; // cuota completa del mes en UTM
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
-    const parcialUTMMes = parcialCLPMes / utmMes;
-    const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
-    // CORRECCIÓN Art. 1595: calcular interés devengado solo hasta la fecha del primer
-    // depósito LAV, no hasta hoy. Esto evita que el pool "consuma" intereses futuros
-    // aún no devengados al momento del depósito.
+    d._capBrutoUTM    = d.capOriginalBruto / utmMes;      // cuota completa del mes en UTM
+    d._parcialUTMMes  = parcialCLPMes / utmMes;            // ya cubierto por pago parcial directo
+    d._capDisponUTM   = Math.max(0, d._capBrutoUTM - d._parcialUTMMes); // capital aún pendiente de LAV
+    d._intPendUTM     = null; // se calcula perezosamente por depósito (depende de la fecha)
+    d._capAplicadoUTM = 0;
+    d._intAplicadoUTM = 0;
     const _periodoPartes = (d.periodo || '').replace('HIST ', '').replace('CONS ', '').split(' ');
-    const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
-    const _cMesLav  = _mesesMap[_periodoPartes[0]] ?? 0;
-    const _cAnioLav = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
-    const _fechaVencLav = new Date(_cAnioLav, _cMesLav, _diaVencLav);
-    const _diasMoraAlLav = Math.max(0, Math.floor((_fechaPrimerLav - _fechaVencLav) / (1000*60*60*24)));
-    const _capParaInteBase = d.capParaInteres !== undefined ? d.capParaInteres : (d.capOriginalBruto > 0 ? d.capOriginalBruto : d.cap);
-    // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
-    const _aplicarRecargoLav = document.getElementById('recargoLey')?.checked || false;
-    const _inteAlLav = (_diasMoraAlLav > 0 && _capParaInteBase > 0) ? calcularInteresSegmentado(_capParaInteBase, _fechaVencLav, _fechaPrimerLav, false, _aplicarRecargoLav).interes : 0;
-    const inteUTM = _inteAlLav / utmMes; // interés devengado hasta fecha del depósito LAV
-    let intAplicadoUTM  = 0;
-    let capAplicadoUTM  = 0;
-    // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
-    if (inteUTM > 0.0001 && poolRestante > 0) {
-      intAplicadoUTM = Math.min(poolRestante, inteUTM);
-      poolRestante  -= intAplicadoUTM;
+    const _cMes  = _mesesMap[_periodoPartes[0]] ?? 0;
+    const _cAnio = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
+    d._fechaVenc = new Date(_cAnio, _cMes, _diaVencLav);
+  }
+
+  // IMPORTANTE — orden de consumo verificado numéricamente contra la liquidación oficial
+  // PJUD (RIT Z-617-2024): el pool NO se re-escanea desde la primera cuota por cada
+  // depósito (eso deja "huecos" cuando un depósito rinde de más y salta a cubrir una
+  // cuota posterior ya con sobrante de otro depósito, produciendo remanentes en meses
+  // distintos a los oficiales). El PJUD avanza con un ÚNICO PUNTERO que nunca retrocede:
+  // cada depósito continúa cubriendo cuotas exactamente donde quedó el anterior. Esto
+  // coincide con reasignarPeriodosLav(), que ya pre-asocia cada depósito a "su" período
+  // de imputación en orden secuencial — el pool debe respetar ese mismo avance.
+  let _punteroCuota = 0;
+  for (const lav of _lavsOrdenados) {
+    let remanente = lav.amountUtm || 0;
+    if (remanente <= 0) continue;
+    const p = lav.date.split('-').map(Number);
+    const fechaLav = new Date(p[0], p[1] - 1, p[2]);
+    while (remanente > 0.0001 && _punteroCuota < _cuotasPool.length) {
+      const d = _cuotasPool[_punteroCuota];
+      // Solo cuotas ya vencidas a la fecha de ESTE depósito pueden recibir imputación.
+      if (d._fechaVenc > fechaLav) break;
+      const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
+      // Interés devengado por esta cuota HASTA LA FECHA DEL DEPÓSITO QUE LA TOCA POR
+      // PRIMERA VEZ (Art. 1595 CC) — se calcula UNA sola vez por cuota, no se
+      // recomputa en depósitos posteriores que la vuelvan a tocar (evita cobrar
+      // interés dos veces sobre el mismo tramo cuando un depósito solo alcanza a
+      // cubrir capital parcial y el siguiente depósito completa la cuota).
+      if (d._intPendUTM === null) {
+        const _capParaInteBase = d._capDisponUTM * utmMes;
+        const _seg = (_capParaInteBase > 0) ? calcularInteresSegmentado(_capParaInteBase, d._fechaVenc, fechaLav, false, _aplicarRecargoLav) : null;
+        d._intPendUTM = _seg ? Math.max(0, _seg.interes / utmMes) : 0;
+      }
+      // 1° intereses devengados hasta esta fecha
+      if (d._intPendUTM > 0.0001 && remanente > 0) {
+        const aplicado = Math.min(remanente, d._intPendUTM);
+        d._intAplicadoUTM += aplicado;
+        d._intPendUTM     -= aplicado;
+        remanente         -= aplicado;
+      }
+      // 2° capital pendiente
+      if (d._capDisponUTM > 0.0001 && remanente > 0) {
+        const aplicado = Math.min(remanente, d._capDisponUTM);
+        d._capAplicadoUTM += aplicado;
+        d._capDisponUTM   -= aplicado;
+        remanente         -= aplicado;
+      }
+      // Solo avanzar el puntero cuando la cuota queda totalmente saldada (cap e interés en 0);
+      // si el depósito se agotó antes de saldarla, el próximo depósito retoma la MISMA cuota.
+      if (d._capDisponUTM <= 0.0001 && d._intPendUTM <= 0.0001) {
+        _punteroCuota++;
+      } else {
+        break; // depósito agotado sin saldar la cuota actual
+      }
     }
-    if (capDisponUTM > 0.0001 && poolRestante > 0) {
-      capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
-      poolRestante  -= capAplicadoUTM;
-    }
-    // Aplicar al mes: lo que quedó sin cubrir
-    const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
-    const intePostLavCLP = Math.max(0, d.inte - intAplicadoUTM * utmMes);
+    // Remanente no imputado (excede toda la deuda pendiente) se pierde del pool aquí;
+    // el caso borde de saldo a favor íntegro no aplica a pensiones mensuales normales.
+  }
+
+  for (const d of _cuotasPool) {
+    const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
+    const capPostLavUTM  = Math.max(0, d._capBrutoUTM - d._capAplicadoUTM - d._parcialUTMMes);
+    const intePostLavCLP = Math.max(0, d.inte - d._intAplicadoUTM * utmMes);
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
     d.sub    = d.cap + d.inte;
-    d.esLav  = (capAplicadoUTM > 0.0001 || intAplicadoUTM > 0.0001);
-    d.lavAplicadoUTM    = capAplicadoUTM;
-    d.lavAplicadoCLP    = Math.round(capAplicadoUTM * utmMes);
-    d.lavIntAplicadoUTM = intAplicadoUTM;
-    d.lavIntAplicadoCLP = Math.round(intAplicadoUTM * utmMes);
+    d.esLav  = (d._capAplicadoUTM > 0.0001 || d._intAplicadoUTM > 0.0001);
+    d.lavAplicadoUTM    = d._capAplicadoUTM;
+    d.lavAplicadoCLP    = Math.round(d._capAplicadoUTM * utmMes);
+    d.lavIntAplicadoUTM = d._intAplicadoUTM;
+    d.lavIntAplicadoCLP = Math.round(d._intAplicadoUTM * utmMes);
+    // Limpiar campos de trabajo temporales
+    delete d._capBrutoUTM; delete d._parcialUTMMes; delete d._capDisponUTM;
+    delete d._intPendUTM; delete d._capAplicadoUTM; delete d._intAplicadoUTM; delete d._fechaVenc;
   }
 }
 
@@ -6981,7 +7018,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0810</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0955</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

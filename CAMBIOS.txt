@@ -56,6 +56,63 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0714.0955 · 2026-07-14]
+index.html
+
+Fix crítico — PASO 1 (pool LAV general): imputación incorrecta cuando
+existen depósitos "Otros Abonos" (Sección IV del PJUD) mezclados con
+depósitos LAV normales (Sección V) en pensiones mensuales ordinarias.
+
+Detectado comparando el caso "Test1" (RIT Z-617-2024, 2do Juzgado de
+Familia Talca) contra la liquidación oficial real del PJUD aportada
+por el usuario: la app mostraba Sep-2025 con capital remanente de
+$22.932 (0,331 UTM) mientras el PJUD calcula $12.822/$13.246 (0,18511
+UTM) para el mismo mes — una diferencia de 0,138 UTM (~$9.900) que se
+arrastraba hasta el total final (23,976 UTM app vs 23,837 UTM PJUD).
+
+Causa raíz: el pool LAV general calculaba el interés a cubrir de CADA
+cuota mensual usando SIEMPRE la fecha del PRIMER depósito LAV
+cronológico (variable única _fechaPrimerLav), en vez de la fecha del
+depósito que realmente alcanza a cubrir esa cuota específica. Esto
+trataba todo el pool como si hubiera llegado de una sola vez en la
+fecha más antigua, distorsionando qué interés se consideraba "ya
+devengado" al momento de cada imputación.
+
+Fix: se reemplaza el pool monolítico por CONSUMO DEPÓSITO A DEPÓSITO
+en orden cronológico estricto, con un único puntero de cuota que
+avanza secuencialmente sin retroceder ni reiniciar por cada depósito
+(coincide con el criterio ya aplicado por reasignarPeriodosLav(), que
+pre-asocia cada depósito a su período de imputación en secuencia). En
+cada paso: 1° se cubre el interés devengado por la cuota actual
+(calculado UNA sola vez, la primera vez que un depósito la toca — no
+se recomputa en depósitos posteriores que la vuelvan a tocar, evitando
+cobrar interés dos veces sobre el mismo tramo), 2° se cubre capital
+pendiente (Art. 1595 CC). El remanente de un depósito que no alcanza a
+saldar una cuota completa queda para el próximo depósito, que retoma
+exactamente esa misma cuota antes de avanzar.
+
+`origen: 'otros_abonos'` sigue siendo puramente una etiqueta de
+visualización (ver export.js línea ~2987) — el motor de cálculo nunca
+distinguió por origen; el bug estaba en el manejo de fechas del pool,
+no en un filtro que excluyera "Otros Abonos".
+
+Verificado numéricamente (script Python aislado, réplica exacta del
+algoritmo) contra el caso RIT Z-617-2024: con el fix, el remanente
+parcial cae en Sep-2025 = 0,18511 UTM, coincidiendo con el valor
+oficial del PJUD. Pendiente: regenerar el PDF de este caso con esta
+versión para confirmar visualmente que el total final baja de 23,976
+a 23,837 UTM y que Ago-2025 queda "Cubierto LAV" (como en el PJUD) en
+vez de mostrar remanente.
+
+No se modificó imputarAbonosArt1595() (PASO 2, abonos ordinarios) ni
+calculateConsolidada() (Deuda Histórica Consolidada) — ambos ya
+confirmados correctos por el usuario contra el caso "TEST BBVA" y
+liquidaciones RIT Z-3764-2023.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0714.0810 · 2026-07-14]
 index.html
 
