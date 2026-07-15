@@ -2764,30 +2764,41 @@ async function runOcrAnalysis() {
 
   // Construir prompt según tipo de documento
   const promptPjud = `Eres un asistente especializado en documentos judiciales chilenos de pensión alimenticia.
-Se te entrega una liquidación del Poder Judicial de Chile (PJUD).
+Se te entrega una liquidación del Poder Judicial de Chile (PJUD) — o una reimportación de un PDF de
+"liquidación referencial" generado por esta misma app (ambos formatos son posibles y debes reconocerlos).
 Debes extraer los abonos de DOS secciones:
-1. "IV. Otros abonos": tabla con columnas Fecha movimiento / Tipo movimiento / Referencia / Monto UTM. El monto está en UTM, NO en pesos. Usa monto_utm en lugar de monto_pesos para estas filas.
-2. "V. Abonos LAV": tabla con columnas Fecha movimiento / Tipo movimiento / Monto pesos / Monto UTM. El monto está en pesos.
+1. "IV. Otros abonos" (o equivalente): tabla con columnas Fecha / Referencia / Monto UTM.
+2. "V. Abonos LAV" (o "ABONOS LAV" en el formato de esta app): tabla con columnas Fecha / Monto pesos / Monto UTM (o "Equiv. UTM").
 Combina ambas secciones en un único array. Para cada movimiento indica de qué sección proviene.
-Además, busca la fila "Total" al final de CADA sección (IV y V) tal como aparece impresa en el documento, y repórtala aparte en "totales_documento" — esto se usa para verificar que no falte ni sobre ninguna fila.
+IMPORTANTE: extrae SIEMPRE el valor de la columna "Monto UTM" / "Equiv. UTM" para CADA fila (tanto de
+sección IV como V) — ambas columnas están presentes en ambos formatos de documento. Este valor en UTM
+es la unidad que se usa para validar que no falte ni sobre ninguna fila, independiente de si el
+documento separa los totales por sección o los presenta en una sola tabla combinada.
+Además, busca la(s) fila(s) "Total" o "TOTAL" tal como aparece(n) impresa(s) en el documento:
+- Si el documento trae DOS totales separados (uno para cada sección, formato oficial PJUD), repórtalos
+  en seccion_V_total_utm y seccion_IV_total_utm.
+- Si el documento trae UN SOLO total combinado para toda la tabla de abonos (formato de esta misma app,
+  donde LAV y Otros Abonos aparecen juntos en una tabla "ABONOS LAV"), repórtalo en total_combinado_utm
+  y deja seccion_V_total_utm / seccion_IV_total_utm como null.
 Devuelve SOLO un JSON object (sin texto adicional, sin markdown) con este formato exacto:
 {
   "movimientos": [
-    {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":null,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
+    {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":2.30125,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
     {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
   ],
   "totales_documento": {
-    "seccion_V_total_pesos": 2951000,
-    "seccion_V_total_utm": 43.93892,
-    "seccion_IV_total_utm": 2.31506
+    "seccion_V_total_utm": 41.76983,
+    "seccion_IV_total_utm": 2.31506,
+    "total_combinado_utm": null
   }
 }
 Reglas:
-- Si el monto está en pesos (sección V): pon monto_pesos como entero, monto_utm como null.
-- Si el monto está en UTM (sección IV): pon monto_utm como decimal, monto_pesos como null.
+- monto_utm es OBLIGATORIO en todas las filas (ambas secciones siempre traen esa columna).
+- monto_pesos: solo para filas de sección "LAV" que traigan columna de pesos; deja null si la fila es
+  de "otros_abonos" y el documento no muestra un monto en pesos para ella.
 - Si el monto en pesos viene con puntos de miles (ej: 150.000), conviértelo a entero (150000).
-- Si alguna sección está vacía o tiene Total 0, no incluyas sus filas, y reporta su total como 0 en totales_documento.
-- Si no encuentras la fila "Total" impresa de alguna sección, pon null en el campo correspondiente de totales_documento (no inventes un valor).
+- Si alguna sección está vacía, no incluyas sus filas, y reporta su total como 0.
+- Si no encuentras ninguna fila "Total" impresa, deja los tres campos de totales_documento en null (no inventes un valor).
 - Usa formato de fecha DD-MM-YYYY.
 - Si no hay movimientos en ninguna sección, devuelve {"movimientos":[],"totales_documento":{}}.`;
 
@@ -2915,60 +2926,76 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     // saber si el desplazamiento ya venía en la respuesta cruda del modelo de
     // OCR o si se introdujo después, en el procesamiento de la app.
     dbg('OCR RAW: ' + parsed.length + ' filas recibidas del modelo:');
-    let _sumaPesos = 0, _sumaUtm = 0;
+    let _sumaUtmLav = 0, _sumaUtmOtros = 0, _sumaPesosLav = 0;
     parsed.forEach((item, i) => {
-      const sec = item.seccion === 'otros_abonos' ? 'Otros Abonos' : 'LAV';
-      if (item.monto_pesos != null && item.monto_pesos > 0) {
-        _sumaPesos += item.monto_pesos;
-        dbg(`  [${i}] ${item.fecha} · $${item.monto_pesos.toLocaleString('es-CL')} · ${sec}`);
-      } else if (item.monto_utm != null && item.monto_utm > 0) {
-        _sumaUtm += item.monto_utm;
-        dbg(`  [${i}] ${item.fecha} · ${item.monto_utm.toFixed(5)} UTM · ${sec}`);
-      } else {
-        dbg(`  [${i}] ${item.fecha} · ⚠️ SIN MONTO VÁLIDO · ${sec}`);
+      const esOtros = item.seccion === 'otros_abonos';
+      const sec = esOtros ? 'Otros Abonos' : 'LAV';
+      const utmStr = (item.monto_utm != null) ? item.monto_utm.toFixed(5) + ' UTM' : '⚠️ sin UTM';
+      const pesosStr = (item.monto_pesos != null) ? '$' + item.monto_pesos.toLocaleString('es-CL') : '';
+      dbg(`  [${i}] ${item.fecha} · ${pesosStr}${pesosStr ? ' · ' : ''}${utmStr} · ${sec}`);
+      if (item.monto_utm != null && item.monto_utm > 0) {
+        if (esOtros) _sumaUtmOtros += item.monto_utm; else _sumaUtmLav += item.monto_utm;
+      }
+      if (!esOtros && item.monto_pesos != null && item.monto_pesos > 0) {
+        _sumaPesosLav += item.monto_pesos;
       }
     });
-    dbg(`OCR RAW: suma calculada = $${_sumaPesos.toLocaleString('es-CL')} (sección V) + ${_sumaUtm.toFixed(5)} UTM (sección IV, otros_abonos)`);
+    const _sumaUtmTotal = _sumaUtmLav + _sumaUtmOtros;
+    dbg(`OCR RAW: suma calculada = LAV ${_sumaUtmLav.toFixed(5)} UTM ($${_sumaPesosLav.toLocaleString('es-CL')}) + Otros Abonos ${_sumaUtmOtros.toFixed(5)} UTM = ${_sumaUtmTotal.toFixed(5)} UTM total`);
 
-    // VALIDACIÓN — comparar la suma de filas extraídas contra el "Total"
-    // impreso que el propio modelo reportó haber leído en el documento
-    // (totales_documento). Si no coinciden, es señal de que el modelo
-    // saltó, duplicó o desalineó alguna fila al leer la tabla — el mismo
-    // patrón que causó el bug de montos desplazados en el caso "Test1".
-    // Esto NO detecta a cuál fila específica le pasó algo, pero avisa ANTES
-    // de importar en vez de dejar el error pasar silenciosamente al cálculo.
+    // VALIDACIÓN — comparar la suma de filas extraídas (en UTM, unidad que
+    // SIEMPRE está impresa en ambas secciones del documento, sea cual sea su
+    // formato) contra el "Total" que el propio modelo reportó haber leído.
+    // Se usa UTM en vez de pesos porque el monto en pesos de "Otros Abonos"
+    // no siempre está impreso en el documento oficial PJUD (solo en el PDF
+    // que esta misma app genera, que junta ambas secciones en una tabla).
+    // Comparar por UTM evita falsos positivos al reimportar un PDF propio
+    // con formato de tabla combinada en vez del documento oficial PJUD.
     let _hayDiscrepancia = false;
+    let _detalleDiscrepancia = '';
     if (isPjud && totalesDoc) {
-      const _tolPesos = 1; // tolerancia por redondeo
-      const _tolUtm = 0.00005;
-      if (totalesDoc.seccion_V_total_pesos != null) {
-        const diff = Math.abs(_sumaPesos - totalesDoc.seccion_V_total_pesos);
-        if (diff > _tolPesos) {
-          _hayDiscrepancia = true;
-          dbg(`⚠️ DISCREPANCIA sección V: suma extraída $${_sumaPesos.toLocaleString('es-CL')} ≠ total del documento $${totalesDoc.seccion_V_total_pesos.toLocaleString('es-CL')} (diferencia: $${diff.toLocaleString('es-CL')})`);
+      const _tolUtm = 0.001; // tolerancia laxa — redondeo de UTM por fila puede acumular
+      if (totalesDoc.seccion_V_total_utm != null || totalesDoc.seccion_IV_total_utm != null) {
+        // Formato con secciones separadas (documento oficial PJUD)
+        if (totalesDoc.seccion_V_total_utm != null) {
+          const diff = Math.abs(_sumaUtmLav - totalesDoc.seccion_V_total_utm);
+          if (diff > _tolUtm) {
+            _hayDiscrepancia = true;
+            const linea = `⚠️ DISCREPANCIA sección V (LAV): suma extraída ${_sumaUtmLav.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_V_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+            dbg(linea); _detalleDiscrepancia += linea + '\n';
+          }
         }
-      }
-      if (totalesDoc.seccion_IV_total_utm != null) {
-        const diff = Math.abs(_sumaUtm - totalesDoc.seccion_IV_total_utm);
+        if (totalesDoc.seccion_IV_total_utm != null) {
+          const diff = Math.abs(_sumaUtmOtros - totalesDoc.seccion_IV_total_utm);
+          if (diff > _tolUtm) {
+            _hayDiscrepancia = true;
+            const linea = `⚠️ DISCREPANCIA sección IV (Otros Abonos): suma extraída ${_sumaUtmOtros.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_IV_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+            dbg(linea); _detalleDiscrepancia += linea + '\n';
+          }
+        }
+      } else if (totalesDoc.total_combinado_utm != null) {
+        // Formato con tabla combinada (PDF propio de la app, "ABONOS LAV" único)
+        const diff = Math.abs(_sumaUtmTotal - totalesDoc.total_combinado_utm);
         if (diff > _tolUtm) {
           _hayDiscrepancia = true;
-          dbg(`⚠️ DISCREPANCIA sección IV: suma extraída ${_sumaUtm.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_IV_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`);
+          const linea = `⚠️ DISCREPANCIA total combinado: suma extraída ${_sumaUtmTotal.toFixed(5)} UTM ≠ total del documento ${totalesDoc.total_combinado_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+          dbg(linea); _detalleDiscrepancia += linea + '\n';
         }
+      } else {
+        dbg('⚠️ El modelo no reportó ningún total (ni separado ni combinado) — no fue posible validar la suma automáticamente.');
       }
-      if (!_hayDiscrepancia) {
-        dbg('✅ Suma extraída coincide con el total impreso en el documento (dentro de tolerancia).');
+      if (!_hayDiscrepancia && (totalesDoc.seccion_V_total_utm != null || totalesDoc.seccion_IV_total_utm != null || totalesDoc.total_combinado_utm != null)) {
+        dbg('✅ Suma extraída (UTM) coincide con el total impreso en el documento (dentro de tolerancia).');
       }
     } else if (isPjud) {
       dbg('⚠️ El modelo no reportó totales_documento — no fue posible validar la suma automáticamente.');
     }
 
     if (_hayDiscrepancia) {
-      const _totPesosStr = totalesDoc.seccion_V_total_pesos != null ? '$' + totalesDoc.seccion_V_total_pesos.toLocaleString('es-CL') : '—';
-      const _sumaPesosStr = '$' + _sumaPesos.toLocaleString('es-CL');
       const _seguir = confirm(
         '⚠️ Posible error de lectura del OCR\n\n' +
-        'La suma de los montos extraídos (' + _sumaPesosStr + ') no coincide con el total ' +
-        'que el documento indica (' + _totPesosStr + ').\n\n' +
+        'La suma de los montos extraídos no coincide con el total que el documento indica:\n\n' +
+        _detalleDiscrepancia + '\n' +
         'Esto puede significar que alguna fila se leyó mal, se saltó o quedó desplazada ' +
         '(un problema real ya detectado antes en esta app).\n\n' +
         'Revisa cuidadosamente cada fila en la vista previa antes de confirmar.\n\n' +

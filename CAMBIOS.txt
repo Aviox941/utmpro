@@ -56,6 +56,57 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.2223 · 2026-07-15]
+export.js
+
+Fix — falso positivo en la validación de suma OCR (v2.0715.0920).
+
+El usuario probó la validación en vivo con el log de debug + botón
+COPIAR (ambos agregados en versiones anteriores) y encontró dos
+resultados:
+1. Intento 1: el OCR SÍ cometió el error real (fila 02-08-2024 leída
+   como $150.000 en vez de $155.000) — la validación lo detectó
+   correctamente con una diferencia enorme.
+2. Intento 2: el OCR leyó las 18 filas de la sección LAV correctamente
+   (coinciden con el PJUD real), pero la validación IGUAL marcó una
+   discrepancia de $140.000 — un FALSO POSITIVO.
+
+Causa del falso positivo: el prompt le pedía al modelo comparar contra
+"el Total de la sección V" asumiendo que el documento fuente siempre
+separa las secciones IV (Otros Abonos) y V (Abonos LAV) como lo hace
+el PDF oficial del PJUD. Pero cuando se reimporta un PDF que la propia
+app generó (formato "ABONOS LAV" con AMBAS secciones combinadas en
+una sola tabla con un único TOTAL en pesos), no existe un total de
+"solo sección V" para comparar — el modelo tuvo que adivinar cómo
+repartir el total combinado, y se equivocó.
+
+Fix: la validación ahora compara por UTM en vez de pesos. La columna
+UTM (o "Equiv. UTM") está SIEMPRE presente en ambas secciones,
+independiente del formato del documento (oficial PJUD con secciones
+separadas, o PDF propio de la app con tabla combinada). El prompt se
+actualizó para:
+- Pedir monto_utm en TODAS las filas (antes solo se pedía para
+  "otros_abonos"; ahora también para "LAV", ya que esa columna
+  también está impresa en ambos formatos).
+- Reportar totales_documento con seccion_V_total_utm /
+  seccion_IV_total_utm SI el documento las separa, O total_combinado_
+  utm SI el documento trae un único total para toda la tabla — nunca
+  ambos a la vez.
+La validación en JS ahora detecta cuál de los dos casos aplica y
+compara con la fórmula correcta en cada uno, evitando el falso
+positivo sin perder la detección real (verificado que el caso 1 —
+bug real — sigue siendo detectado con este cambio, ya que ambos
+formatos usan UTM y el error de $155k→$150k se refleja igual de
+claro en UTM: 2.35201 vs 2.27614).
+
+También se corrigió una duplicación accidental de dos líneas al final
+del prompt (introducida en el edit anterior) que rompía la sintaxis
+del archivo — detectada y corregida antes de empaquetar.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.0920 · 2026-07-15]
 export.js
 
