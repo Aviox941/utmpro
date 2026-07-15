@@ -2,6 +2,83 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0713.1530 · 2026-07-13]
+index.html, tests/test_imputacion_art1595.js
+
+Fix CRÍTICO — Metodología del pool LAV sobre deuda histórica no coincidía
+con la liquidación oficial de SITFA/PJUD (RIT Z-3764-2023, Juzgado de
+Familia San Miguel). Confirmado con el PDF oficial del tribunal y
+verificado con Pablo antes de aplicar: SITFA imputa el pool LAV 100% a
+CAPITAL primero en la fila de deuda histórica/arrastre — fórmula exacta
+del PDF: Adeudado = Total mes (31,04667 UTM) − Abonado (3,63896 UTM) =
+27,40771 UTM — y el interés (2,49163 UTM) se calcula por separado sobre
+el capital ya neto, sumándose al final del período (no se descuenta del
+pool). Esto es lo opuesto al criterio Art. 1595 CC ("interés devengado
+primero, luego capital") que el bloque "PASO 1: pool LAV" aplicaba de
+forma general desde v2.0713.0427.
+
+Dos bugs encadenados producían el desajuste, diagnosticados con la app
+real corriendo en navegador (no solo con los tests, que no cubrían el
+caso con interés pre-calculado vía el toggle "Intereses" de la tarjeta
+Deuda Histórica):
+
+  1. El pool recalculaba su propio interés interno (variable _inteAlLav,
+     usando d.tasa y los días de mora hasta la fecha del primer depósito
+     LAV) en vez de usar el interés YA CALCULADO por calculateConsolidada()
+     hasta la fecha de liquidación (d.intOriginal). Con el caso real
+     (deuda Nov-2022 $1.889.283, interés a corte $180.687, activado con
+     el toggle "Intereses" de la tarjeta), el recálculo interno solo daba
+     $77.716 (con tasa/días propios) en vez de los $180.687 reales.
+
+  2. Aun corrigiendo (1) para usar d.intOriginal, el criterio "interés
+     primero" seguía sin coincidir con SITFA: con $180.687 de interés
+     consumiendo primero el pool (2.9692 UTM a la UTM de nov-2022), solo
+     quedaban 0.6697 UTM para capital → resultado 30.37695 UTM, lejos de
+     los 27.40771 UTM oficiales.
+
+Fix: dentro del loop del PASO 1 (index.html, bloque "PASO 1: pool LAV"),
+se bifurca el orden de imputación según d.isDebt:
+  - d.isDebt === true (deuda histórica/consolidada): CAPITAL primero,
+    interés después — criterio SITFA, confirmado con la fórmula exacta
+    del PDF oficial.
+  - d.isDebt === false (cuotas mensuales normales): sin cambios, se
+    mantiene interés primero (Art. 1595 CC) — no hay evidencia en la
+    liquidación de SITFA de que ese criterio deba cambiar para pensiones
+    mensuales individuales; el único caso con abono visible en el PDF del
+    tribunal cae sobre la fila de arrastre consolidado, no sobre una
+    cuota mensual, así que el cambio se acota estrictamente a isDebt.
+Además, el interés a cubrir ahora se lee de d.intOriginal (el ya
+calculado hasta la fecha de liquidación) en vez de recalcularse con
+tasa/días propios hasta la fecha del depósito — mismo fix para ambas
+ramas (isDebt true/false), ya que el criterio "recalcular hasta la fecha
+del depósito" nunca coincidía con lo que se ve en pantalla ni en el PDF.
+
+Verificado con simulación aislada del bloque real (extraído como texto,
+no reimplementado) contra el caso exacto del PDF: resultado 27.40771 UTM
+de capital post-LAV, interés $180.687 conservado íntegro (no descontado
+del pool) — coincide exacto con la cifra oficial de SITFA.
+
+Se agregó tests/test_imputacion_art1595.js → Test 7, que reproduce el
+caso real completo (deuda histórica con interés pre-calculado + los 4
+LAV may-ago 2023) y verifica capUTM ≈ 27.40771 (tolerancia 0.001),
+interés conservado íntegro, y que el pool se aplica 100% a capital en la
+deuda histórica. Suite completa: 28/28 aserciones. Correr con
+`node tests/test_imputacion_art1595.js` tras cualquier cambio al bloque
+del pool LAV.
+
+PENDIENTE: no se validó si el criterio "capital primero" de SITFA
+también aplicaría a un abono que caiga sobre una cuota MENSUAL individual
+(isDebt=false) en vez de la fila de arrastre — no hay ningún ejemplo de
+esa situación en la liquidación oficial disponible. Si en el futuro
+aparece un caso así, revisar si el criterio debe extenderse más allá de
+isDebt=true. También queda pendiente confirmar visualmente en un PDF
+generado con esta versión que la fila "DEUDA HISTORICA CONSOLIDADA"
+refleja correctamente $180.687 de interés + $1.667.841 de capital
+remanente (27.40771 UTM), ya que export.js no se modificó en este fix —
+solo se verificó por lectura de código que ya lee d.inte/d.capUTM
+actualizados correctamente por el pool.
+
+
 [v2.0713.0427 · 2026-07-13]
 index.html, export.js, tests/test_imputacion_art1595.js
 

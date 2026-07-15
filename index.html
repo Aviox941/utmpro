@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.0427">
+ <meta name="app-version" content="v2.0713.1530">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5058,17 +5058,17 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // ══════════════════════════════════════════════════════════════════════════════
 if (abonosLav && abonosLav.length > 0) {
   const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
-  // CORRECCIÓN: el interés que el pool LAV debe cubrir (Art. 1595 CC) es el devengado
-  // hasta la fecha del depósito, NO hasta la fecha de liquidación (hoy).
-  // Un depósito del 02-09-2025 no puede imputarse a intereses que se devengarán
-  // en los 8 meses siguientes. Usamos la fecha del primer depósito LAV (orden cron.)
-  // como referencia, ya que el pool se suma y aplica cuota a cuota desde la más antigua.
-  const _lavsSorted = abonosLav.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const _fechaPrimerLav = (function() {
-    const p = _lavsSorted[0].date.split('-').map(Number);
-    return new Date(p[0], p[1] - 1, p[2]);
-  })();
-  const _diaVencLav = getDiaVencimiento();
+  // METODOLOGÍA SITFA/PJUD (confirmada con Pablo, caso RIT Z-3764-2023): el pool LAV
+  // se imputa contra el interés YA CALCULADO por calculatePensiones()/calculateConsolidada()
+  // hasta la fecha de liquidación (d.inte) — el mismo criterio que usa el tribunal, que
+  // primero determina el interés adeudado a la fecha de corte y luego aplica los abonos
+  // sobre ese saldo. Se abandona el criterio anterior (interés recalculado solo hasta la
+  // fecha del depósito, con tasa/días propios) porque no reproducía el resultado oficial:
+  // en el caso de prueba (deuda histórica Nov-2022 $1.889.283, interés a corte $180.687,
+  // 4 LAV may-ago 2023 por 3.63896 UTM) el criterio anterior solo imputaba 1.2771 UTM a
+  // interés (recalculado a la fecha del primer LAV) dejando capital residual de 28.68 UTM,
+  // mientras SITFA aplica el pool íntegro contra el saldo ya calculado a la fecha de corte,
+  // dejando 27.40771 UTM — la cifra oficial de la liquidación del tribunal.
   let poolRestante = poolLavUTM;
   // CORRECCIÓN Art. 1595 CC: cuando existe deuda histórica (isDebt), el pool LAV
   // debe consumirse PRIMERO contra ella —es la obligación más antigua— y solo
@@ -5106,28 +5106,39 @@ if (abonosLav && abonosLav.length > 0) {
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
     const parcialUTMMes = parcialCLPMes / utmMes;
     const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
-    // CORRECCIÓN Art. 1595: calcular interés devengado solo hasta la fecha del primer
-    // depósito LAV, no hasta hoy. Esto evita que el pool "consuma" intereses futuros
-    // aún no devengados al momento del depósito.
-    const _periodoPartes = (d.periodo || '').replace('HIST ', '').replace('CONS ', '').split(' ');
-    const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
-    const _cMesLav  = _mesesMap[_periodoPartes[0]] ?? 0;
-    const _cAnioLav = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
-    const _fechaVencLav = new Date(_cAnioLav, _cMesLav, _diaVencLav);
-    const _diasMoraAlLav = Math.max(0, Math.floor((_fechaPrimerLav - _fechaVencLav) / (1000*60*60*24)));
-    const _capParaInteBase = d.capParaInteres !== undefined ? d.capParaInteres : (d.capOriginalBruto > 0 ? d.capOriginalBruto : d.cap);
-    const _inteAlLav = (_diasMoraAlLav > 0 && _capParaInteBase > 0) ? calcularInteres(_capParaInteBase, d.tasa, _diasMoraAlLav) : 0;
-    const inteUTM = _inteAlLav / utmMes; // interés devengado hasta fecha del depósito LAV
+    // METODOLOGÍA SITFA (confirmada con Pablo, caso RIT Z-3764-2023): en la fila de
+    // deuda histórica/arrastre (isDebt=true), SITFA imputa el pool LAV 100% a CAPITAL
+    // primero — Adeudado = Total mes − Abonado — y el interés se calcula por separado
+    // sobre el capital ya neto, sumándose al final (no se descuenta del pool). Verificado
+    // con la fórmula exacta del PDF oficial: 31.04667 − 3.63896 = 27.40771 (Adeudado),
+    // + 2.49163 (Intereses) = 29.89934 (Total). Las cuotas mensuales normales (isDebt
+    // false) mantienen el criterio Art. 1595 CC (interés devengado primero, luego
+    // capital) — no hay evidencia en la liquidación de SITFA de que ese criterio deba
+    // cambiar para pensiones mensuales individuales, solo se confirmó para la fila de
+    // arrastre consolidado.
+    const inteUTM = (d.intOriginal || 0) / utmMes;
     let intAplicadoUTM  = 0;
     let capAplicadoUTM  = 0;
-    // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
-    if (inteUTM > 0.0001 && poolRestante > 0) {
-      intAplicadoUTM = Math.min(poolRestante, inteUTM);
-      poolRestante  -= intAplicadoUTM;
-    }
-    if (capDisponUTM > 0.0001 && poolRestante > 0) {
-      capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
-      poolRestante  -= capAplicadoUTM;
+    if (d.isDebt) {
+      // Deuda histórica: capital primero (criterio SITFA)
+      if (capDisponUTM > 0.0001 && poolRestante > 0) {
+        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+        poolRestante  -= capAplicadoUTM;
+      }
+      if (inteUTM > 0.0001 && poolRestante > 0) {
+        intAplicadoUTM = Math.min(poolRestante, inteUTM);
+        poolRestante  -= intAplicadoUTM;
+      }
+    } else {
+      // Cuotas mensuales: interés primero (Art. 1595 CC, criterio sin cambios)
+      if (inteUTM > 0.0001 && poolRestante > 0) {
+        intAplicadoUTM = Math.min(poolRestante, inteUTM);
+        poolRestante  -= intAplicadoUTM;
+      }
+      if (capDisponUTM > 0.0001 && poolRestante > 0) {
+        capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
+        poolRestante  -= capAplicadoUTM;
+      }
     }
     // Aplicar al mes: lo que quedó sin cubrir
     const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
