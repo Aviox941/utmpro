@@ -56,6 +56,62 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.0909 · 2026-07-15]
+index.html
+
+Mejora — panel de debug (dbg()): se agregó botón "📋 COPIAR" junto a
+los botones existentes (EXPORTAR DATOS, CERRAR, RESET COLA SYNC,
+ESTADO). Copia al portapapeles todas las líneas de log visibles en el
+panel, en el orden en que aparecen, separadas por salto de línea.
+
+Usa navigator.clipboard.writeText() con fallback a
+document.execCommand('copy') vía <textarea> oculto, para navegadores
+o webviews donde la Clipboard API no esté disponible. Da feedback
+visual breve en el propio botón ("✅ COPIADO" / "❌ ERROR") en vez de
+un alert().
+
+Motivo: al reportar bugs (ej. el caso de desalineación de abonos LAV
+importados por OCR), no había forma rápida de extraer el log de debug
+completo para compartirlo — había que transcribirlo a mano desde la
+pantalla. Con este botón, el flujo para reportar un problema es: abrir
+panel de debug → reproducir el bug → 📋 COPIAR → pegar el log donde
+se necesite.
+
+No afecta el motor de cálculo, PDF, ni ningún flujo de datos — cambio
+aislado a la UI del panel de debug.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0715.0856 · 2026-07-15]
+export.js
+
+Mejora — el PDF de liquidación ahora incluye la versión de la app que
+lo generó ("Pension UTM Pro vX.XXXX.XXXX"), leída del mismo
+<meta name="app-version"> que usa el resto de la app. Se muestra en
+dos lugares:
+1. Bajo la línea "Generado: ... | UTM ref: ..." en la cabecera de la
+   primera página.
+2. En el pie de página, junto a "Pension UTM Pro – Calculo
+   referencial", en TODAS las páginas del documento.
+
+Motivo: al comparar PDFs de un mismo caso generados en distintos
+momentos (ej. antes/después de un fix), no había forma de saber qué
+versión del motor de cálculo produjo cada documento. Esto complicó el
+diagnóstico del bug de desalineación de abonos LAV importados por OCR
+(caso "Test1" vs "Test") — no se podía distinguir a simple vista si
+la diferencia venía de datos de entrada distintos o de una versión
+distinta del cálculo. Con el sello de versión, futuras comparaciones
+entre PDFs permiten aislar esa variable de inmediato.
+
+No afecta el motor de cálculo ni la imputación LAV — cambio
+puramente de presentación en el PDF.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0714.1015 · 2026-07-14]
 index.html
 

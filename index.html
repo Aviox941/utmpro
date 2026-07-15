@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.1015">
+ <meta name="app-version" content="v2.0715.0909">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5372,7 +5372,23 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
   // Art. 1595 CC: 1° intereses devengados, 2° capital pendiente. El
   // remanente de un depósito que no alcanza a cubrir una cuota completa
   // fluye al siguiente depósito cronológico sobre la misma cuota.
-  const _lavsOrdenados = abonosLavParaPool.slice().sort((a, b) => a.date.localeCompare(b.date));
+  // FIX v2.0714.xxxx — la ordenación anterior usaba lav.date (fecha real del
+  // banco) para determinar tanto el orden de consumo como el "mes cubierto"
+  // de cada depósito. Pero reasignarPeriodosLav() ya reasigna lav.periodo
+  // para resolver colisiones cuando dos depósitos caen en el mismo mes
+  // calendario (ej. 2024-12-02 y 2024-12-30 → el segundo se desplaza a
+  // Ene-2025 en términos de imputación) — y esa es la fuente de verdad que
+  // usa el resto de la app para saber qué mes está "Cubierto LAV" (ver
+  // línea ~4183: `abonosLav.some(lav => lav.periodo === p.periodo)`). Al
+  // ordenar/filtrar el pool por lav.date en vez de lav.periodo, el pool
+  // quedaba desincronizado con las colisiones ya resueltas, generando
+  // remanentes incorrectos en casos con múltiples depósitos por año (caso
+  // Test1, 19 depósitos) aunque el motor funcionaba bien con un solo
+  // depósito (caso TEST BBVA). Ahora se ordena y agrupa por lav.periodo
+  // (ya sin colisiones); lav.date se sigue usando solo para el cálculo de
+  // interés devengado (cuánto tiempo pasó hasta el depósito), nunca para
+  // decidir el orden o la elegibilidad de una cuota.
+  const _lavsOrdenados = abonosLavParaPool.slice().sort((a, b) => (a.periodo || a.date).localeCompare(b.periodo || b.date));
   const _diaVencLav = getDiaVencimiento();
   const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
   const _aplicarRecargoLav = document.getElementById('recargoLey')?.checked || false;
@@ -5418,9 +5434,19 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
   for (const lav of _lavsOrdenados) {
     let remanente = lav.amountUtm || 0;
     if (remanente <= 0) continue;
+    // fechaLav = fecha REAL del depósito (para el cálculo de interés devengado).
     const p = lav.date.split('-').map(Number);
     const fechaLav = new Date(p[0], p[1] - 1, p[2]);
-    const _mesLavKey = p[0] * 12 + (p[1] - 1); // año*12+mes(0-idx) del depósito
+    // _mesLavKey = mes de IMPUTACIÓN ya reasignado (lav.periodo, formato "YYYY-MM"),
+    // NO la fecha real del banco — así queda sincronizado con reasignarPeriodosLav()
+    // y con la lógica de "Cubierto LAV" del resto de la app (línea ~4183).
+    let _mesLavKey;
+    if (lav.periodo && /^\d{4}-\d{2}$/.test(lav.periodo)) {
+      const [py, pm] = lav.periodo.split('-').map(Number);
+      _mesLavKey = py * 12 + (pm - 1);
+    } else {
+      _mesLavKey = p[0] * 12 + (p[1] - 1); // fallback si no hay período reasignado
+    }
     while (remanente > 0.0001 && _punteroCuota < _cuotasPool.length) {
       const d = _cuotasPool[_punteroCuota];
       const _mesCuotaKey = d._fechaVenc.getFullYear() * 12 + d._fechaVenc.getMonth();
@@ -7029,7 +7055,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.1015</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0715.0909</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -7114,6 +7140,37 @@ function dbg(msg) {
       });
     };
     p.appendChild(statusBtn);
+
+    // ── Botón COPIAR TODO EL LOG ──
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 COPIAR';
+    copyBtn.style.cssText = 'position:sticky;top:0;background:#7c3aed;color:#fff;font-size:9px;' +
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
+    copyBtn.onclick = () => {
+      // Recorrer solo las líneas de log (divs hijos sin ser botones), en orden.
+      const lineas = Array.from(p.querySelectorAll('div')).map(d => d.textContent).join('\n');
+      const _restoreLabel = copyBtn.textContent;
+      const _showFeedback = (ok) => {
+        copyBtn.textContent = ok ? '✅ COPIADO' : '❌ ERROR';
+        setTimeout(() => { copyBtn.textContent = _restoreLabel; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lineas).then(() => _showFeedback(true)).catch(() => _showFeedback(false));
+      } else {
+        // Fallback para navegadores/webviews sin Clipboard API
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = lineas;
+          ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          _showFeedback(true);
+        } catch(e) { _showFeedback(false); }
+      }
+    };
+    p.appendChild(copyBtn);
 
     document.body.appendChild(p);
     // Apertura controlada desde sidebar — ver toggleDebugPanel()

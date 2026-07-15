@@ -60,7 +60,10 @@ doc.setTextColor(107, 114, 142);
 doc.text('Calculo referencial — Pension UTM Pro | ' + tasaLabel, PAGE_W/2, 20, {align:'center'});
 doc.setTextColor(107, 114, 142);
 doc.text('Generado: ' + fechaDoc + ' | UTM ref: ' + fmt(utmLiq) + ' (' + (utmLiqMes?.m||'') + ' ' + (utmLiqMes?.y||'') + ')', PAGE_W/2, 26, {align:'center'});
-y = 34;
+doc.setFontSize(6); doc.setTextColor(148, 163, 184);
+const appVersionPdf = document.querySelector('meta[name="app-version"]')?.content || '—';
+doc.text('Pension UTM Pro ' + appVersionPdf, PAGE_W/2, 30, {align:'center'});
+y = 37;
 // ── Bloque Datos del Expediente ──────────────────────────────
 (function renderExpedientePDF() {
   if (!activeCasoId) return;
@@ -574,7 +577,7 @@ for (let i = 1; i <= totalPags; i++) {
 doc.setPage(i);
 doc.setFontSize(6); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
 doc.text('Pag. ' + i + ' / ' + totalPags, PAGE_W - MARGIN, 290, { align: 'right' });
-doc.text('Pension UTM Pro – Calculo referencial', MARGIN, 290);
+doc.text('Pension UTM Pro – Calculo referencial · ' + appVersionPdf, MARGIN, 290);
 }
 const pdfBase64 = doc.output('datauristring');
 const pdfLink = document.createElement('a');
