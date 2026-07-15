@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0713.0407">
+ <meta name="app-version" content="v2.0713.0427">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -4793,9 +4793,23 @@ function imputarAbonosArt1595(detalles, abonos) {
   // imputarse PRIMERO —es la más antigua cronológicamente y el corte consolidado
   // representa el saldo devengado hasta esa fecha— y solo después las cuotas
   // mensuales normales. Sin deuda histórica, el orden no cambia (ya es cronológico).
-  // No se reordena lastCalculationData (solo esta copia local) para no afectar
-  // tabs por año, tarjetas ni exportación, que dependen del orden original.
-  cuotas.sort((a, b) => {
+  //
+  // IMPORTANTE: `cuotas` (el array) NO se reordena, porque se retorna como
+  // `cuotasResultado` y el llamador (index.html ~línea 5126) lo empareja por
+  // ÍNDICE POSICIONAL con lastCalculationData para actualizar d.cap/d.inte:
+  //   imputacion.cuotasResultado.forEach((cuotaImputada, i) => {
+  //     const d = lastCalculationData[i]; d.cap = cuotaImputada.capPendiente; ... })
+  // Reordenar `cuotas` desalinearía esos índices y asignaría los saldos
+  // post-imputación a la cuota equivocada (bug detectado en export.js: el PDF
+  // seguía mostrando "Monto al corte" sin intereses en la deuda histórica
+  // porque tomaba d.capOriginal/d.inte de un objeto que nunca fue actualizado).
+  //
+  // En su lugar, se itera sobre `ordenImputacion`: mismas referencias de objeto
+  // que `cuotas`, solo reordenadas para decidir el ORDEN en que se aplican los
+  // abonos. Como los dos loops de abajo mutan `cuota.capPendiente`/`intPendiente`
+  // por referencia, el efecto es idéntico a imputar en ese orden, pero `cuotas`
+  // (y por ende `cuotasResultado`) conserva el orden de entrada.
+  const ordenImputacion = [...cuotas].sort((a, b) => {
     if (!!a.isDebt !== !!b.isDebt) return a.isDebt ? -1 : 1;
     return 0; // dentro de cada grupo se preserva el orden cronológico original
   });
@@ -4812,7 +4826,7 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diaAbono = partesDate[2] || 1; // día exacto si existe (parciales), 1 para abonos legacy
     const fechaAbono = new Date(anioAbono, mesAbono - 1, diaAbono);
     const imputThis = { fecha: abono.date, monto: abono.amount, porCuota: [], esParcial: abono.esParcial || false };
-    for (const cuota of cuotas) {
+    for (const cuota of ordenImputacion) {
       if (remanente <= 0) break;
       // Solo imputar a cuotas vencidas antes o en el mes del abono
       let cuotaAnio, cuotaMes;
@@ -4863,7 +4877,7 @@ function imputarAbonosArt1595(detalles, abonos) {
     // NOTA: los depósitos LAV se procesan en calculate() (PASO 1) antes de llegar
     // aquí. imputarAbonosArt1595 opera sobre el capital remanente post-LAV.
     if (remanente > 0) {
-      for (const cuota of cuotas) {
+      for (const cuota of ordenImputacion) {
         if (remanente <= 0) break;
         // El remanente solo se aplica al capital de cuotas futuras
         if (cuota.capPendiente > 0) {
@@ -5056,7 +5070,19 @@ if (abonosLav && abonosLav.length > 0) {
   })();
   const _diaVencLav = getDiaVencimiento();
   let poolRestante = poolLavUTM;
-  for (const d of lastCalculationData) {
+  // CORRECCIÓN Art. 1595 CC: cuando existe deuda histórica (isDebt), el pool LAV
+  // debe consumirse PRIMERO contra ella —es la obligación más antigua— y solo
+  // después contra las cuotas mensuales normales. Se itera sobre una copia
+  // ordenada de REFERENCIAS (mismos objetos que lastCalculationData), no sobre
+  // una copia de valores: la mutación de `d` dentro del loop sigue afectando
+  // directamente a lastCalculationData en su posición original, así que no hay
+  // riesgo de desalineación posicional (a diferencia de imputarAbonosArt1595,
+  // donde el resultado se reasigna después vía forEach por índice).
+  const _ordenLav = [...lastCalculationData].sort((a, b) => {
+    if (!!a.isDebt !== !!b.isDebt) return a.isDebt ? -1 : 1;
+    return 0; // dentro de cada grupo se preserva el orden cronológico original
+  });
+  for (const d of _ordenLav) {
     // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
     // del pool también inicialicen capOriginalBruto/intOriginal y marquen esLav=false.
     // El break previo dejaba esos meses sin inicializar, causando valores incorrectos en
@@ -6653,7 +6679,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.0407</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0713.0427</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

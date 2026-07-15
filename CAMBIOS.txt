@@ -2,6 +2,63 @@
 INSTRUCCIONES DE VERSIONADO — NUNCA ELIMINAR ESTE BLOQUE
 ================================================================================
 
+[v2.0713.0427 · 2026-07-13]
+index.html, export.js, tests/test_imputacion_art1595.js
+
+Fix — El fix anterior (v2.0713.0407) corrigió imputarAbonosArt1595()
+pero resultó INCOMPLETO: esa función es el PASO 2 ("abonos
+ordinarios"), y los depósitos LAV reales (categoría "LAV" del PDF)
+se procesan en un bloque ANTERIOR e independiente dentro de
+calculate() — el "PASO 1: pool LAV" — que seguía iterando
+`for (const d of lastCalculationData)` en el orden de entrada
+(cuotas mensuales primero, deuda histórica al final), sin el
+isDebt-primero que sí tiene imputarAbonosArt1595. Un PDF de prueba
+generado tras v2.0713.0407 seguía mostrando la deuda histórica con
+"Interes ($) $0 / Monto al corte" mientras Dic-2022 en adelante
+mostraba "LAV parcial · Rem: ...", confirmando que el pool LAV real
+seguía sin priorizar la deuda histórica.
+
+Corrección en index.html: mismo patrón que el fix anterior — se
+itera sobre `_ordenLav`, una copia de REFERENCIAS a los mismos
+objetos de lastCalculationData, ordenada con isDebt primero. Como el
+bloque muta `d` directamente dentro del loop (no hay reasignación
+posicional externa como en imputarAbonosArt1595), no hay riesgo de
+desalineación de índices — cada objeto se actualiza en su propia
+posición original en lastCalculationData.
+
+Corrección en export.js: la tabla "DEUDA HISTORICA CONSOLIDADA" del
+PDF no tenía forma de anotar un abono aplicado (a diferencia de la
+tabla de pensiones mensuales, que sí anota LAV/parciales con
+sub-línea bajo el período). Se agregó el mismo mecanismo, usando los
+indicadores d.esLav / d.lavAplicadoCLP / d.lavIntAplicadoCLP (los
+mismos que ya usa la tabla mensual) — NO d.capImputado/d.intImputado
+(seteados por imputarAbonosArt1595), que se descartaron por no ser
+confiables: comparan el interés de build contra el interés
+recalculado A HOY sobre el capital remanente — dos momentos
+distintos — y pueden dar valores negativos o engañosos.
+
+Se agregó tests/test_imputacion_art1595.js → Test 6, que extrae el
+bloque real "PASO 1: pool LAV" (código inline dentro de calculate(),
+no una función aislada — se extrae como texto delimitado por
+marcadores) y lo ejecuta con el caso real del PDF (deuda histórica
+Nov-2022 + 4 abonos LAV mayo-agosto 2023). Verificado con control
+negativo (revirtiendo el fix) que el test reproduce exactamente el
+patrón del PDF reportado: sin el fix, el pool cubre íntegro Dic-2022
+y Ene-2023 dejando la deuda histórica casi intacta; con el fix, la
+deuda histórica se cubre primero ($157.572 capital + $71.952 interés
+del pool de $230.200) sin tocar las cuotas mensuales. Suite completa:
+23/23 aserciones. Correr con
+`node tests/test_imputacion_art1595.js` tras cualquier cambio a
+calculate(), imputarAbonosArt1595, o al bloque del pool LAV.
+
+PENDIENTE: no se validó con navegador real (jsPDF/autoTable no
+corren en Node) — la corrección de export.js se verificó por lectura
+de código y consistencia con el patrón ya probado de la tabla
+mensual, no con un PDF generado end-to-end. Recomendado que Maria
+genere un PDF de prueba con este caso (deuda histórica + abonos LAV)
+antes de dar por cerrado el fix visualmente.
+
+
 [v2.0713.0407 · 2026-07-13]
 index.html, tests/test_imputacion_art1595.js (nuevo)
 
