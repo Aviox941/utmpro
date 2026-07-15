@@ -56,6 +56,47 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.0920 · 2026-07-15]
+export.js
+
+Feature — debug detallado + validación de suma en importación OCR de
+LAV (modo PJUD), en respuesta al bug de montos desalineados detectado
+en el caso "Test1" (ver entradas anteriores del changelog).
+
+1. LOG DETALLADO: cada fila que el modelo de OCR devuelve ahora se
+   registra en el panel de debug (dbg()) ANTES de cualquier
+   procesamiento — fecha, monto y sección tal como llegó del modelo.
+   Esto permite, la próxima vez que ocurra una desalineación, comparar
+   directamente el log contra el PDF fuente y determinar si el error
+   viene de la lectura del modelo o de un paso posterior de la app.
+   Usar el botón "📋 COPIAR" (v2.0715.0909) para extraer el log
+   completo y compararlo con calma.
+
+2. VALIDACIÓN DE SUMA: se modificó el prompt del modo PJUD para pedir
+   también el "Total" que el propio documento imprime al final de las
+   secciones IV y V (campo totales_documento en la respuesta). La app
+   ahora compara la suma de los montos extraídos contra ese total
+   reportado por el modelo; si no coinciden, se muestra un aviso claro
+   ANTES de continuar a la vista previa, con opción de cancelar y
+   revisar el documento manualmente. Esto no identifica CUÁL fila está
+   mal, pero evita que una desalineación pase desapercibida y
+   contamine el cálculo silenciosamente — que es exactamente lo que
+   ocurrió con "Test1".
+
+Cambio de formato de la respuesta del modelo en modo PJUD: pasó de un
+array plano a un objeto {movimientos, totales_documento}. Se actualizó
+el parseo para manejar ambos formatos (PJUD: objeto; cartola bancaria:
+sigue siendo array plano, sin total consolidado que validar). El resto
+del flujo (_ocrResultados, ocrConfirmar, etc.) no cambió — sigue
+operando sobre el array de movimientos como antes.
+
+No afecta el motor de cálculo ni la imputación LAV — cambio acotado al
+flujo de importación OCR.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.0909 · 2026-07-15]
 index.html
 

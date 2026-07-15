@@ -2769,18 +2769,27 @@ Debes extraer los abonos de DOS secciones:
 1. "IV. Otros abonos": tabla con columnas Fecha movimiento / Tipo movimiento / Referencia / Monto UTM. El monto está en UTM, NO en pesos. Usa monto_utm en lugar de monto_pesos para estas filas.
 2. "V. Abonos LAV": tabla con columnas Fecha movimiento / Tipo movimiento / Monto pesos / Monto UTM. El monto está en pesos.
 Combina ambas secciones en un único array. Para cada movimiento indica de qué sección proviene.
-Devuelve SOLO un JSON array (sin texto adicional, sin markdown) con este formato exacto:
-[
-  {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":null,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
-  {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
-]
+Además, busca la fila "Total" al final de CADA sección (IV y V) tal como aparece impresa en el documento, y repórtala aparte en "totales_documento" — esto se usa para verificar que no falte ni sobre ninguna fila.
+Devuelve SOLO un JSON object (sin texto adicional, sin markdown) con este formato exacto:
+{
+  "movimientos": [
+    {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":null,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
+    {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
+  ],
+  "totales_documento": {
+    "seccion_V_total_pesos": 2951000,
+    "seccion_V_total_utm": 43.93892,
+    "seccion_IV_total_utm": 2.31506
+  }
+}
 Reglas:
 - Si el monto está en pesos (sección V): pon monto_pesos como entero, monto_utm como null.
 - Si el monto está en UTM (sección IV): pon monto_utm como decimal, monto_pesos como null.
 - Si el monto en pesos viene con puntos de miles (ej: 150.000), conviértelo a entero (150000).
-- Si alguna sección está vacía o tiene Total 0, no incluyas sus filas.
+- Si alguna sección está vacía o tiene Total 0, no incluyas sus filas, y reporta su total como 0 en totales_documento.
+- Si no encuentras la fila "Total" impresa de alguna sección, pon null en el campo correspondiente de totales_documento (no inventes un valor).
 - Usa formato de fecha DD-MM-YYYY.
-- Si no hay movimientos en ninguna sección, devuelve [].`;
+- Si no hay movimientos en ninguna sección, devuelve {"movimientos":[],"totales_documento":{}}.`;
 
   const promptCartola = `Eres un asistente especializado en análisis de cartolas bancarias chilenas.
 Se te entrega una cartola bancaria.
@@ -2873,15 +2882,102 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
     // Limpiar posibles backticks
     const clean = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const parsedRaw = JSON.parse(clean);
 
-    if (!Array.isArray(parsed)) throw new Error('Respuesta inesperada del modelo');
+    // El modo PJUD devuelve {movimientos, totales_documento}; el modo cartola
+    // sigue devolviendo un array plano (sin totales, la cartola no trae un
+    // total consolidado de "pagos a esta persona" para verificar contra él).
+    let parsed, totalesDoc = null;
+    if (isPjud) {
+      if (!parsedRaw || typeof parsedRaw !== 'object' || Array.isArray(parsedRaw) || !Array.isArray(parsedRaw.movimientos)) {
+        throw new Error('Respuesta inesperada del modelo (se esperaba {movimientos, totales_documento})');
+      }
+      parsed = parsedRaw.movimientos;
+      totalesDoc = parsedRaw.totales_documento || null;
+    } else {
+      if (!Array.isArray(parsedRaw)) throw new Error('Respuesta inesperada del modelo');
+      parsed = parsedRaw;
+    }
+
     if (parsed.length === 0) {
       document.getElementById('ocrErrorMsg').textContent =
         isPjud ? 'No se encontraron abonos LAV en el documento.'
                 : 'No se encontraron movimientos del alimentante o alimentario en la cartola.';
       _ocrShowStep('ocrStepError');
       return;
+    }
+
+    // DEBUG DETALLADO — log fila por fila de lo que el modelo devolvió, ANTES
+    // de cualquier procesamiento posterior (normalización de fecha, cálculo
+    // UTM, reasignación de período). Si en algún momento futuro un caso vuelve
+    // a mostrar montos desalineados de sus fechas (como ocurrió con "Test1"),
+    // este log permite comparar directamente contra el documento fuente para
+    // saber si el desplazamiento ya venía en la respuesta cruda del modelo de
+    // OCR o si se introdujo después, en el procesamiento de la app.
+    dbg('OCR RAW: ' + parsed.length + ' filas recibidas del modelo:');
+    let _sumaPesos = 0, _sumaUtm = 0;
+    parsed.forEach((item, i) => {
+      const sec = item.seccion === 'otros_abonos' ? 'Otros Abonos' : 'LAV';
+      if (item.monto_pesos != null && item.monto_pesos > 0) {
+        _sumaPesos += item.monto_pesos;
+        dbg(`  [${i}] ${item.fecha} · $${item.monto_pesos.toLocaleString('es-CL')} · ${sec}`);
+      } else if (item.monto_utm != null && item.monto_utm > 0) {
+        _sumaUtm += item.monto_utm;
+        dbg(`  [${i}] ${item.fecha} · ${item.monto_utm.toFixed(5)} UTM · ${sec}`);
+      } else {
+        dbg(`  [${i}] ${item.fecha} · ⚠️ SIN MONTO VÁLIDO · ${sec}`);
+      }
+    });
+    dbg(`OCR RAW: suma calculada = $${_sumaPesos.toLocaleString('es-CL')} (sección V) + ${_sumaUtm.toFixed(5)} UTM (sección IV, otros_abonos)`);
+
+    // VALIDACIÓN — comparar la suma de filas extraídas contra el "Total"
+    // impreso que el propio modelo reportó haber leído en el documento
+    // (totales_documento). Si no coinciden, es señal de que el modelo
+    // saltó, duplicó o desalineó alguna fila al leer la tabla — el mismo
+    // patrón que causó el bug de montos desplazados en el caso "Test1".
+    // Esto NO detecta a cuál fila específica le pasó algo, pero avisa ANTES
+    // de importar en vez de dejar el error pasar silenciosamente al cálculo.
+    let _hayDiscrepancia = false;
+    if (isPjud && totalesDoc) {
+      const _tolPesos = 1; // tolerancia por redondeo
+      const _tolUtm = 0.00005;
+      if (totalesDoc.seccion_V_total_pesos != null) {
+        const diff = Math.abs(_sumaPesos - totalesDoc.seccion_V_total_pesos);
+        if (diff > _tolPesos) {
+          _hayDiscrepancia = true;
+          dbg(`⚠️ DISCREPANCIA sección V: suma extraída $${_sumaPesos.toLocaleString('es-CL')} ≠ total del documento $${totalesDoc.seccion_V_total_pesos.toLocaleString('es-CL')} (diferencia: $${diff.toLocaleString('es-CL')})`);
+        }
+      }
+      if (totalesDoc.seccion_IV_total_utm != null) {
+        const diff = Math.abs(_sumaUtm - totalesDoc.seccion_IV_total_utm);
+        if (diff > _tolUtm) {
+          _hayDiscrepancia = true;
+          dbg(`⚠️ DISCREPANCIA sección IV: suma extraída ${_sumaUtm.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_IV_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`);
+        }
+      }
+      if (!_hayDiscrepancia) {
+        dbg('✅ Suma extraída coincide con el total impreso en el documento (dentro de tolerancia).');
+      }
+    } else if (isPjud) {
+      dbg('⚠️ El modelo no reportó totales_documento — no fue posible validar la suma automáticamente.');
+    }
+
+    if (_hayDiscrepancia) {
+      const _totPesosStr = totalesDoc.seccion_V_total_pesos != null ? '$' + totalesDoc.seccion_V_total_pesos.toLocaleString('es-CL') : '—';
+      const _sumaPesosStr = '$' + _sumaPesos.toLocaleString('es-CL');
+      const _seguir = confirm(
+        '⚠️ Posible error de lectura del OCR\n\n' +
+        'La suma de los montos extraídos (' + _sumaPesosStr + ') no coincide con el total ' +
+        'que el documento indica (' + _totPesosStr + ').\n\n' +
+        'Esto puede significar que alguna fila se leyó mal, se saltó o quedó desplazada ' +
+        '(un problema real ya detectado antes en esta app).\n\n' +
+        'Revisa cuidadosamente cada fila en la vista previa antes de confirmar.\n\n' +
+        '¿Continuar de todas formas a la vista previa?'
+      );
+      if (!_seguir) {
+        _ocrShowStep('ocrStepUpload');
+        return;
+      }
     }
 
     _ocrResultados = parsed;
