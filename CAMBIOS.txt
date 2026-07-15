@@ -56,6 +56,54 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0714.1015 · 2026-07-14]
+index.html
+
+FIX DE REGRESIÓN — la versión v2.0714.0955 (fix del pool LAV general)
+introdujo un bug nuevo, más grave que el original, detectado por el
+usuario comparando dos PDFs:
+
+1. Caso "TEST BBVA" (antes correcto: $1.707.071 / 23,82547 UTM) pasó a
+   dar $1.866.068 / 26,04458 UTM, con una línea nueva alarmante: "LAV
+   remanente sin imputar (saldo a favor) +$148.566" — el único abono
+   del caso dejó de aplicarse por completo.
+
+2. Caso "Test1" empeoró de 23,976 UTM (ya desviado del PJUD) a 26,520
+   UTM — más lejos aún del valor oficial (23,837 UTM) — con un símbolo
+   "‡" nuevo en Ago-2025 señalando interés cubierto por "excedente
+   LAV", indicio de doble cómputo de interés.
+
+Causa: la condición `if (d._fechaVenc > fechaLav) break;` comparaba la
+fecha EXACTA de vencimiento de la cuota (día 5, por ejemplo) contra la
+fecha EXACTA del depósito. Un depósito que llega el día 2 del mes —
+antes del día 5 de vencimiento de la cuota de ESE MISMO MES— hacía
+que la condición se cumpliera y cortara el pool completo con `break`,
+dejando el abono entero sin imputar (caso TEST BBVA, depósito
+2025-09-02 vs. vencimiento 2025-09-05) y arrastrando remanentes
+artificiales a los meses siguientes con recómputo de interés (caso
+Test1).
+
+Fix: se reemplaza la comparación por fecha exacta por comparación de
+PERÍODO (año×12+mes de la cuota vs. año×12+mes del depósito). Un
+depósito de septiembre ahora sí puede cubrir la cuota de septiembre
+(o anteriores), independiente del día exacto dentro del mes. También
+se ajustó el cálculo de interés pendiente para que solo se compute
+cuando `fechaLav > fechaVenc` (evita interés negativo o espurio
+cuando el depósito llega antes del vencimiento formal).
+
+Verificado con arnés Node.js aislado (solo la lógica de puntero/gate,
+sin depender de tablas de tasas CMF): el caso TEST BBVA ahora deja el
+remanente correcto de 0,18511 UTM en su única cuota, en vez de 0
+aplicado. PENDIENTE: el usuario debe recalcular ambos PDFs con esta
+versión para confirmar visualmente los totales finales — no fue
+posible re-simular con las tasas CMF reales fuera del motor vivo de
+la app, así que esta validación es estructural (el gate), no
+numérica end-to-end.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0714.0955 · 2026-07-14]
 index.html
 

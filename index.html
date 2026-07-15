@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0714.0955">
+ <meta name="app-version" content="v2.0714.1015">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5399,24 +5399,34 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
     d._fechaVenc = new Date(_cAnio, _cMes, _diaVencLav);
   }
 
-  // IMPORTANTE — orden de consumo verificado numéricamente contra la liquidación oficial
-  // PJUD (RIT Z-617-2024): el pool NO se re-escanea desde la primera cuota por cada
-  // depósito (eso deja "huecos" cuando un depósito rinde de más y salta a cubrir una
-  // cuota posterior ya con sobrante de otro depósito, produciendo remanentes en meses
-  // distintos a los oficiales). El PJUD avanza con un ÚNICO PUNTERO que nunca retrocede:
-  // cada depósito continúa cubriendo cuotas exactamente donde quedó el anterior. Esto
-  // coincide con reasignarPeriodosLav(), que ya pre-asocia cada depósito a "su" período
-  // de imputación en orden secuencial — el pool debe respetar ese mismo avance.
+  // IMPORTANTE — orden de consumo verificado contra la liquidación oficial PJUD
+  // (RIT Z-617-2024): el pool avanza con un ÚNICO PUNTERO que nunca retrocede,
+  // coincidiendo con reasignarPeriodosLav() (cada depósito ya pre-asociado a su
+  // período de imputación en secuencia).
+  //
+  // FIX REGRESIÓN v2.0714.0955→v2.0714.xxxx: la versión anterior comparaba
+  // `d._fechaVenc > fechaLav` con `break` inmediato — esto cortaba el pool por
+  // completo cuando un depósito llegaba ANTES del día exacto de vencimiento de
+  // su propia cuota (ej. depósito el 02 del mes, vencimiento el día 5), dejando
+  // el abono entero como "saldo a favor sin imputar" (caso TEST BBVA) y forzando
+  // remanentes a arrastrarse a cuotas siguientes con doble cómputo de interés
+  // (caso Test1, símbolo ‡ en Ago-2025). Un depósito SIEMPRE puede cubrir la
+  // cuota de su propio mes o de meses anteriores; el corte correcto es por
+  // PERÍODO (mes/año de la cuota <= mes/año del depósito), no por día exacto
+  // de vencimiento.
   let _punteroCuota = 0;
   for (const lav of _lavsOrdenados) {
     let remanente = lav.amountUtm || 0;
     if (remanente <= 0) continue;
     const p = lav.date.split('-').map(Number);
     const fechaLav = new Date(p[0], p[1] - 1, p[2]);
+    const _mesLavKey = p[0] * 12 + (p[1] - 1); // año*12+mes(0-idx) del depósito
     while (remanente > 0.0001 && _punteroCuota < _cuotasPool.length) {
       const d = _cuotasPool[_punteroCuota];
-      // Solo cuotas ya vencidas a la fecha de ESTE depósito pueden recibir imputación.
-      if (d._fechaVenc > fechaLav) break;
+      const _mesCuotaKey = d._fechaVenc.getFullYear() * 12 + d._fechaVenc.getMonth();
+      // Solo cuotas cuyo MES sea <= mes del depósito pueden recibir imputación
+      // (un depósito de septiembre puede cubrir la cuota de septiembre o anteriores).
+      if (_mesCuotaKey > _mesLavKey) break;
       const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
       // Interés devengado por esta cuota HASTA LA FECHA DEL DEPÓSITO QUE LA TOCA POR
       // PRIMERA VEZ (Art. 1595 CC) — se calcula UNA sola vez por cuota, no se
@@ -5425,7 +5435,7 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
       // cubrir capital parcial y el siguiente depósito completa la cuota).
       if (d._intPendUTM === null) {
         const _capParaInteBase = d._capDisponUTM * utmMes;
-        const _seg = (_capParaInteBase > 0) ? calcularInteresSegmentado(_capParaInteBase, d._fechaVenc, fechaLav, false, _aplicarRecargoLav) : null;
+        const _seg = (_capParaInteBase > 0 && fechaLav > d._fechaVenc) ? calcularInteresSegmentado(_capParaInteBase, d._fechaVenc, fechaLav, false, _aplicarRecargoLav) : null;
         d._intPendUTM = _seg ? Math.max(0, _seg.interes / utmMes) : 0;
       }
       // 1° intereses devengados hasta esta fecha
@@ -5453,6 +5463,7 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
     // Remanente no imputado (excede toda la deuda pendiente) se pierde del pool aquí;
     // el caso borde de saldo a favor íntegro no aplica a pensiones mensuales normales.
   }
+
 
   for (const d of _cuotasPool) {
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
@@ -7018,7 +7029,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.0955</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0714.1015</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
