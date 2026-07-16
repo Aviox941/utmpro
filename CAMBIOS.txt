@@ -56,6 +56,26 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.2225 · 2026-07-15]
+export.js
+
+Fix visual — PDF de liquidación (generarPDF): se eliminó la línea
+duplicada "Pension UTM Pro vX.XX.XXXX" del ENCABEZADO (aparecía centrada
+debajo de "Generado: ... | UTM ref: ..."). El usuario reportó que el
+total ("TOTAL A PAGAR — LIQUIDACION FINAL") quedaba muy abajo en la
+página 2 tras agregar esa línea en una versión anterior.
+
+La versión de la app ya se muestra, una vez por página, en el PIE de
+página junto al disclaimer legal ("Pension UTM Pro – Calculo
+referencial · vX.XX.XXXX", esquina inferior izquierda, junto a "Pag. X
+/ Y") — esto NO se tocó, sigue funcionando igual. Solo se quitó la
+duplicación de arriba, liberando ~7mm de espacio vertical en cada
+página y bajando el punto de inicio del contenido (y=37 → y=30).
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.2224 · 2026-07-15]
 index.html, sw.js
 

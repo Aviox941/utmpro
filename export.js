@@ -60,10 +60,15 @@ doc.setTextColor(107, 114, 142);
 doc.text('Calculo referencial — Pension UTM Pro | ' + tasaLabel, PAGE_W/2, 20, {align:'center'});
 doc.setTextColor(107, 114, 142);
 doc.text('Generado: ' + fechaDoc + ' | UTM ref: ' + fmt(utmLiq) + ' (' + (utmLiqMes?.m||'') + ' ' + (utmLiqMes?.y||'') + ')', PAGE_W/2, 26, {align:'center'});
-doc.setFontSize(6); doc.setTextColor(148, 163, 184);
+// FIX: la línea de versión ("Pension UTM Pro vX.XX") se sacó del header —
+// ocupaba una línea completa arriba en CADA página, empujando el resto del
+// contenido (incluida la fila "TOTAL A PAGAR") más abajo de lo necesario.
+// La versión ya se sigue mostrando, una vez por página, en el footer junto
+// al disclaimer (ver más abajo, línea ~580: 'Pension UTM Pro – Calculo
+// referencial · ' + appVersionPdf, MARGIN, 290) — no se pierde información,
+// solo se elimina la duplicación arriba.
 const appVersionPdf = document.querySelector('meta[name="app-version"]')?.content || '—';
-doc.text('Pension UTM Pro ' + appVersionPdf, PAGE_W/2, 30, {align:'center'});
-y = 37;
+y = 30;
 // ── Bloque Datos del Expediente ──────────────────────────────
 (function renderExpedientePDF() {
   if (!activeCasoId) return;
