@@ -1086,20 +1086,8 @@
   .hero-total-card {
     flex: 1 1 0;
     min-width: 0;
-    border-radius: 22px;
-    background: #ffffff;
-    border: 1px solid #ececf5;
-    box-shadow: 0 10px 35px rgba(91, 79, 255, 0.08);
-    padding: 20px 16px 22px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
     position: relative;
-    overflow: hidden;
     isolation: isolate;
-    min-height: 168px;
   }
   .hero-total-card::after {
     content: "";
@@ -2963,17 +2951,9 @@
   }
 
   /* ── Tarjeta hero (Total Adeudado) — mobile ──────────────────── */
-  .hero-total-card {
-    padding: 22px 14px 20px !important;
-    box-shadow: 0 10px 30px rgba(91, 79, 255, 0.07) !important;
-    min-height: 148px !important;
-  }
-  .hero-total-card__amount {
-    font-size: clamp(30px, 10vw, 46px) !important;
-  }
-  .hero-total-card__utm {
-    font-size: 10px !important;
-  }
+  /* Ya no se fuerza padding/min-height propio: el layout viene de
+     .dup-summary-card (misma tarjeta que el overlay DUP), que ya es
+     responsive por sí sola. */
 
   /* ── Tarjeta derecha: Detalle del cálculo (ya no se usa en hero, queda inerte) ── */
   .hero-detail-card__title {
@@ -3128,7 +3108,6 @@
     .card-base    { padding: 14px 16px !important; border-radius: 16px !important; }
     #mainInputs   { gap: 10px !important; }
     #resultsCard  { gap: 10px !important; }
-    .hero-total-card { padding: 30px 18px 26px !important; min-height: 180px !important; }
     .hero-detail-row { padding: 0 10px !important; }
     .liq-total-amount { font-size: clamp(32px, 6vw, 54px) !important; }
   }

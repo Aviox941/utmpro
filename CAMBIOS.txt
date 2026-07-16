@@ -56,6 +56,85 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0901 · 2026-07-16]
+index.html, styles.css
+
+Cambio estético — la tarjeta hero "Total Adeudado" de la pantalla
+principal ahora reutiliza EXACTAMENTE el layout de la tarjeta de resumen
+del overlay "Desde el último pago" (.dup-summary-card): ícono circular
+violeta a la izquierda + título/monto/UTM a la derecha, línea divisoria,
+y filas "Capital" / "Intereses acumulados" debajo — sin el badge verde
+"Calculado hasta hoy" (removido a pedido del usuario). El título ya no
+dice "Total adeudado al día de hoy" sino que usa la fecha de liquidación
+real, formateada como "Total adeudado al 08 Jul 2026".
+
+1. index.html (markup hero, ~línea 1250): el div .hero-total-card ahora
+   también lleva la clase .dup-summary-card y su contenido interno se
+   reemplazó por la estructura .dup-summary-header (ícono + content) +
+   .dup-summary-divider + dos .dup-summary-row (Capital / Intereses
+   acumulados) — mismo HTML que ya usa dupSummarySection en el overlay.
+   Los antiguos elementos .hero-total-card__badge (badge verde),
+   __icon/__label/__amount-row/__sign/__amount/__utm/__meta fueron
+   removidos del DOM (las clases CSS correspondientes quedan sin uso,
+   no se borraron del styles.css por si se reutilizan). Los IDs
+   totalGrand/totalGrandUtm/totalCap/totalInt se conservan pero ahora
+   son los propios elementos .dup-summary-total/.dup-summary-utm/
+   strong dentro de .dup-summary-row (antes eran hijos de un layout
+   centrado distinto). totalCapUtm/totalIntUtm/heroMetaRow/heroUtmRef
+   se mantienen ocultos en el DOM (siguen recibiendo valores sin
+   guard null-check desde el JS de cálculo). heroFechaLiq ahora es el
+   <span class="dup-summary-title"> que muestra "Total adeudado al
+   DD Mmm AAAA" en vez de una línea de meta separada. El botón
+   hamburguesa se movió de la esquina superior izquierda a la superior
+   derecha para no superponerse con el nuevo ícono circular que ahora
+   ocupa esa esquina.
+
+2. index.html (JS dentro de calculate(), bloque que escribe
+   totalGrand/totalCap/totalInt/totalGrandUtm/heroFechaLiq): el monto
+   grande ahora se escribe con format() (incluye el signo "$" y
+   separador de miles) en vez de escribir solo el número y depender de
+   un <span> "$" hermano — ya no existe ese span en el nuevo layout, así
+   que se eliminó la función fitHeroAmount() (ajuste dinámico de
+   font-size) que dependía de grandEl.previousElementSibling; el tamaño
+   de fuente ahora lo controla el CSS fijo de .dup-summary-total (30px),
+   igual que en el overlay. totalGrandUtm pasó de "23.85000 UTM" a
+   "≈ 23,85 UTM" (mismo formato que dupSummaryUtm/befSummaryUtm). El
+   bloque que antes armaba heroMetaRow ("UTM ref: ... / Fecha liq: ...")
+   se reemplazó por un bloque que arma el string
+   "Total adeudado al DD Mmm AAAA" a partir de getFechaLiquidacion() y
+   lo asigna a #heroFechaLiq. El mismo bloque de fecha se replicó en la
+   rama "reset a cero" (sin período/cálculo activo) para que el título
+   siga mostrando la fecha en vez de quedar vacío.
+
+3. index.html (renderLavSummary(), rama "sin cálculo de pensiones"):
+   ajustada para escribir grandEl con format() (con "$") y
+   grandUtm con el formato "≈ X,XX UTM" en vez del formato viejo
+   "X.XXXXX UTM", consistente con el resto de la tarjeta.
+
+4. FIX colateral: dupPopulateSummary() y befPopulateSummary() (overlays
+   "Desde el último pago" y "Basado en cuota") concatenaban
+   '$' + grandEl.innerText para armar dupSummaryTotal/befSummaryTotal.
+   Como ahora grandEl (#totalGrand) YA incluye el signo "$" en su
+   innerText, esa concatenación habría producido "$$1.234.567" en
+   ambos overlays. Corregido para usar grandEl.innerText directamente
+   sin prefijo adicional.
+
+5. styles.css: la regla base .hero-total-card se redujo a solo
+   flex/position (ya no define background, border, padding, layout
+   flex centrado ni min-height) para que .dup-summary-card sea la
+   única fuente de esos estilos y no haya conflicto de cascada al
+   combinar ambas clases en el mismo div. Se eliminaron los overrides
+   responsive redundantes que forzaban padding/min-height propios de
+   .hero-total-card en mobile (@media ancho reducido) y tablet
+   (@media min-width:768px), ya que .dup-summary-card ya es responsive
+   por sí sola (es la misma tarjeta que usa el overlay DUP en todos los
+   tamaños de pantalla). Las clases .hero-total-card__* (badge, icon,
+   label, amount-row, sign, amount, utm, meta, lav-pill) NO se
+   eliminaron del archivo — quedan como CSS sin uso por si se
+   reutilizan en otro lugar más adelante.
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0900 · 2026-07-16]
 index.html, styles.css, export.js
 
