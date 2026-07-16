@@ -56,6 +56,75 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.2224 · 2026-07-15]
+index.html, sw.js
+
+Fix — bug crítico de interés "fantasma" en el pool LAV cuando hay huecos
+de meses sin depósitos (imputarAbonosArt1595 / bloque "DEPÓSITOS LAV" en
+calculate()). Detectado contra la liquidación oficial PJUD (RIT
+Z-617-2024, caso "Test1"): el remanente de Sep-2025 salía en 0,2260 UTM
+($15.652) en vez de los 0,1851 UTM ($12.821) oficiales — diferencia de
+~$2.900 que se arrastraba al total final ($1.710.309 vs $1.707.929
+oficial en la liquidación de referencia).
+
+CAUSA RAÍZ (confirmada por simulación matemática contra los 19 depósitos
+reales del caso, incluyendo el abono "Otros Abonos" del 05-03-2024):
+cuando un depósito LAV llega con varios meses de hueco desde el
+vencimiento de la cuota que finalmente alcanza a tocar (en este caso, el
+depósito de 06-02-2026 tocando la cuota remanente de Sep-2025, con 154
+días de diferencia), el pool calculaba interés de mora sobre esos 154
+días ANTES de aplicar capital — consumiendo parte del depósito en
+"interés fantasma" en vez de reducir el capital pendiente. El PJUD no
+cobra interés en cada paso intermedio del consumo: aplica los depósitos
+íntegros a capital en orden cronológico (Art. 1595 CC), y el interés
+real de lo que finalmente queda sin cubrir se calcula UNA SOLA VEZ, al
+final, desde el vencimiento de la cuota hasta la fecha de liquidación
+(no hasta la fecha del depósito parcial que la tocó).
+
+FIX (dos cambios en el mismo bloque, PASO 1 del pool LAV):
+1. El bucle de consumo cronológico del pool ya NO calcula ni descuenta
+   interés intermedio (`d._intPendUTM`) — solo aplica los depósitos a
+   capital pendiente (`d._capDisponUTM`), en el mismo orden de siempre.
+2. El post-proceso que arma `d.cap`/`d.inte` finales ya NO resta el
+   interés intermedio acumulado del interés original (que estaba
+   calculado hasta hoy sobre el capital BRUTO). En vez de eso, recalcula
+   el interés final directamente sobre `capPostLavUTM` (el capital real
+   que queda sin cubrir tras el pool), desde el vencimiento de la cuota
+   hasta la fecha de liquidación — igual metodología que ya usaba
+   correctamente el path "sin abonos ordinarios" más arriba en el mismo
+   archivo.
+
+VERIFICADO: simulación completa en Python replicando el algoritmo
+corregido contra los 19 depósitos del caso Test1 (18 LAV + 1 "Otros
+Abonos") reproduce EXACTO el capital remanente oficial en todos los
+períodos: Sep-2025 = 0,18511 UTM (306 días mora), Oct-2025 a Jul-2026 =
+2,33 UTM cada uno con sus días de mora correspondientes — coincide con
+la tabla "II. Detalle liquidación" de la liquidación oficial PJUD RIT
+Z-617-2024 punto por punto.
+
+NOTA: el "Total cuotas impagas" del PDF (bug #1 mencionado por el
+usuario, suma nominal histórica en vez de reajuste UTM por período) NO
+se tocó en esta entrega — sigue pendiente, es un bug distinto en
+export.js (ya parcialmente corregido en v2.0713.0237 según historial).
+
+--------------------------------------------------------------------------------
+
+index.html
+
+UI — Panel de debug (`dbg()` / `_dbgPanel`): se eliminaron los botones
+"📤 EXPORTAR DATOS", "✕ CERRAR", "🔄 RESET COLA SYNC" y "📊 ESTADO",
+dejando ÚNICAMENTE el botón "📋 COPIAR". Causa: en pantallas angostas de
+Android la fila de 5 botones sticky desbordaba horizontalmente sin
+scroll, empujando "COPIAR" fuera del área visible — el usuario reportó
+que el botón agregado en una versión anterior "no se ve". Con un solo
+botón, ya no hay desborde. El botón flotante "📋 Copiar log" (fijo en la
+esquina inferior derecha, independiente de la fila) se mantiene sin
+cambios como respaldo adicional.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.2223 · 2026-07-15]
 export.js
 

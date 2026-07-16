@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0715.2223">
+ <meta name="app-version" content="v2.0715.2224">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5463,34 +5463,27 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
       // Solo cuotas cuyo MES sea <= mes del depósito pueden recibir imputación
       // (un depósito de septiembre puede cubrir la cuota de septiembre o anteriores).
       if (_mesCuotaKey > _mesLavKey) break;
-      const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
-      // Interés devengado por esta cuota HASTA LA FECHA DEL DEPÓSITO QUE LA TOCA POR
-      // PRIMERA VEZ (Art. 1595 CC) — se calcula UNA sola vez por cuota, no se
-      // recomputa en depósitos posteriores que la vuelvan a tocar (evita cobrar
-      // interés dos veces sobre el mismo tramo cuando un depósito solo alcanza a
-      // cubrir capital parcial y el siguiente depósito completa la cuota).
-      if (d._intPendUTM === null) {
-        const _capParaInteBase = d._capDisponUTM * utmMes;
-        const _seg = (_capParaInteBase > 0 && fechaLav > d._fechaVenc) ? calcularInteresSegmentado(_capParaInteBase, d._fechaVenc, fechaLav, false, _aplicarRecargoLav) : null;
-        d._intPendUTM = _seg ? Math.max(0, _seg.interes / utmMes) : 0;
-      }
-      // 1° intereses devengados hasta esta fecha
-      if (d._intPendUTM > 0.0001 && remanente > 0) {
-        const aplicado = Math.min(remanente, d._intPendUTM);
-        d._intAplicadoUTM += aplicado;
-        d._intPendUTM     -= aplicado;
-        remanente         -= aplicado;
-      }
-      // 2° capital pendiente
+      // FIX v2.0715.xxxx — bug crítico detectado contra liquidación oficial PJUD
+      // (RIT Z-617-2024): el pool YA NO cobra interés "de paso" durante el
+      // consumo cronológico. Antes, cuando un depósito llegaba con varios
+      // meses de hueco desde el vencimiento de la cuota que finalmente toca
+      // (ej. depósito de Feb-2026 tocando la cuota Sep-2025, 154 días de
+      // diferencia), ese interés intermedio se descontaba del depósito ANTES
+      // de aplicar capital — consumiendo parte del pago en "interés fantasma"
+      // en vez de reducir el capital pendiente. El PJUD no calcula interés
+      // en cada paso del consumo: aplica los depósitos íntegros a capital, en
+      // orden cronológico, y el interés real se calcula UNA SOLA VEZ AL
+      // FINAL sobre lo que quede sin cubrir (ver post-proceso más abajo).
+      // Capital pendiente
       if (d._capDisponUTM > 0.0001 && remanente > 0) {
         const aplicado = Math.min(remanente, d._capDisponUTM);
         d._capAplicadoUTM += aplicado;
         d._capDisponUTM   -= aplicado;
         remanente         -= aplicado;
       }
-      // Solo avanzar el puntero cuando la cuota queda totalmente saldada (cap e interés en 0);
+      // Solo avanzar el puntero cuando la cuota queda totalmente saldada;
       // si el depósito se agotó antes de saldarla, el próximo depósito retoma la MISMA cuota.
-      if (d._capDisponUTM <= 0.0001 && d._intPendUTM <= 0.0001) {
+      if (d._capDisponUTM <= 0.0001) {
         _punteroCuota++;
       } else {
         break; // depósito agotado sin saldar la cuota actual
@@ -5512,7 +5505,27 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
   for (const d of _cuotasPool) {
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
     const capPostLavUTM  = Math.max(0, d._capBrutoUTM - d._capAplicadoUTM - d._parcialUTMMes);
-    const intePostLavCLP = Math.max(0, d.inte - d._intAplicadoUTM * utmMes);
+    // FIX v2.0715.xxxx — bug crítico detectado contra liquidación oficial PJUD
+    // (RIT Z-617-2024): cuando queda un hueco de varios meses sin depósitos LAV
+    // (ej. Ago-2025 → Feb-2026, 6 meses), el depósito que finalmente toca una
+    // cuota con capital remanente (Sep-2025) calculaba el interés devengado
+    // HASTA LA FECHA DE ESE DEPÓSITO (154 días), inflando artificialmente el
+    // interés de la cuota (0.03932 UTM en vez de los 0.00631 UTM oficiales).
+    // El PJUD, en cambio, calcula el interés de todo capital que quede
+    // remanente tras aplicar los depósitos DESDE EL VENCIMIENTO HASTA LA
+    // FECHA DE LIQUIDACIÓN final (306 días para Sep-2025), no hasta la fecha
+    // del depósito parcial que la tocó. El depósito solo determina CUÁNTO
+    // capital cubre (orden cronológico Art. 1595); el interés de lo que
+    // queda sin cubrir siempre se recalcula al final — igual que ya hace
+    // correctamente el path "sin abonos" más arriba (línea ~5065).
+    // Se recalcula directo sobre capPostLavUTM en vez de restar
+    // d._intAplicadoUTM del d.inte original (que fue calculado hasta hoy
+    // sobre el capital BRUTO, no sobre el remanente real).
+    const _aplicarRecargoPost = document.getElementById('recargoLey')?.checked || false;
+    const _segPost = (capPostLavUTM * utmMes > 0.01)
+      ? calcularInteresSegmentado(capPostLavUTM * utmMes, d._fechaVenc, hoy, false, _aplicarRecargoPost)
+      : null;
+    const intePostLavCLP = _segPost ? _segPost.interes : 0;
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
@@ -7073,7 +7086,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0715.2223</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0715.2224</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -7084,7 +7097,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0622.0200"></script>
+<script src="export.js?v=2.0715.2224"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
@@ -7103,71 +7116,14 @@ function dbg(msg) {
     p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
       'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
       'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
-    const expBtn = document.createElement('button');
-    expBtn.textContent = '📤 EXPORTAR DATOS';
-    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
-    expBtn.onclick = () => {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
-      const dump = {};
-      keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
-      const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
-    };
-    p.appendChild(expBtn);
-
-    // ── Botón CERRAR ──
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ CERRAR';
-    closeBtn.style.cssText = 'position:sticky;top:0;background:#374151;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    closeBtn.onclick = () => {
-      p.style.display = 'none';
-      const floatBtn = document.getElementById('_dbgFloatCopyBtn');
-      if (floatBtn) floatBtn.style.display = 'none';
-    };
-    p.appendChild(closeBtn);
-
-    // ── Botón RESET COLA DE SYNC ──
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = '🔄 RESET COLA SYNC';
-    resetBtn.style.cssText = 'position:sticky;top:0;background:#dc2626;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    resetBtn.onclick = () => {
-      const antes = _syncQueue.length;
-      _syncQueue.length = 0;
-      _syncRunning = false;
-      try { localStorage.removeItem('sync_queue'); } catch(e) {}
-      dbg('🔄 RESET MANUAL: cola vaciada (' + antes + ' ops). Reintentando...');
-      // Disparar SAVE del caso activo inmediatamente
-      if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
-        setTimeout(() => { queueSave(activeCasoId); }, 300);
-      }
-    };
-    p.appendChild(resetBtn);
-
-    // ── Botón ESTADO SYNC ──
-    const statusBtn = document.createElement('button');
-    statusBtn.textContent = '📊 ESTADO';
-    statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    statusBtn.onclick = () => {
-      dbg('📊 ESTADO — lastSaved: ' + (window._lastSavedId ? window._lastSavedId.slice(0,8) : 'none') +
-          ' | lastSavedAt: ' + (window._lastSavedAt ? new Date(window._lastSavedAt).toLocaleTimeString('es-CL') : 'nunca') +
-          ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
-          ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
-      _syncQueue.forEach((op, i) => {
-        dbg('  [' + i + '] ' + op.type + ' ' + op.id.slice(0,8) + ' retry=' + (op.retryCount||0));
-      });
-    };
-    p.appendChild(statusBtn);
-
-    // ── Botón COPIAR TODO EL LOG ──
+    // ── Botón COPIAR TODO EL LOG ── (único botón del panel; se
+    //    eliminaron EXPORTAR / CERRAR / RESET / ESTADO porque en
+    //    pantallas angostas de Android la fila de 5 botones desbordaba
+    //    y dejaba COPIAR fuera de la vista, sin scroll horizontal)
     const copyBtn = document.createElement('button');
     copyBtn.textContent = '📋 COPIAR';
     copyBtn.style.cssText = 'position:sticky;top:0;background:#7c3aed;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
+      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
     copyBtn.onclick = () => {
       // Recorrer solo las líneas de log (divs hijos sin ser botones), en orden.
       const lineas = Array.from(p.querySelectorAll('div')).map(d => d.textContent).join('\n');
