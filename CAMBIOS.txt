@@ -56,6 +56,157 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0700 · 2026-07-16]
+export.js
+
+Fix + Mejora — columna "Estado período" agregada en v2.0716.0600 a la
+tabla ABONOS LAV del PDF.
+
+FIX: faltaba el monto en pesos equivalente — solo mostraba el UTM
+("Parcial · Rem. 0.101 UTM"). Ahora muestra ambos: "Parcial · Rem.
+0.101 UTM ($6.800)" / "Excedente 0.048 UTM ($3.400)", igual que ya
+hacía la tarjeta "Depósitos LAV" y el Resumen web.
+
+ACLARACIÓN IMPORTANTE (a pedido del usuario, tras revisar el PDF
+generado): esta columna compara cada depósito de forma AISLADA contra
+la cuota de su mes reasignado — no es el resultado final por período.
+Como el pool de depósitos LAV es acumulado (el excedente de un mes se
+traspasa y cubre el faltante de otro), casi todos los meses aparecen
+"Parcial" o "Excedente" en esta columna aunque terminen 100% cubiertos
+en el resultado real (el único remanente real del caso de prueba
+"Test1" es Sep-2025, según la liquidación oficial PJUD).
+
+Se evaluó corregir el criterio para que reflejara el estado acumulado
+real, pero se optó por MANTENER la comparación aislada (útil para ver
+la cobertura de cada depósito individual) y en su lugar agregar una
+nota aclaratoria justo debajo de la tabla, tanto en el PDF como en el
+Resumen de Liquidación web, explicando que el resultado definitivo por
+período está en la tabla "Pensiones Mensuales Impagas" (PDF) / el
+detalle por período (Resumen web), no en esta columna.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0716.0600 · 2026-07-16]
+index.html, export.js
+
+Nueva función — Info de "Parcial · Rem." (cobertura/remanente) de cada
+depósito LAV agregada al Resumen de Liquidación (vista web) y al PDF.
+Hasta ahora ese dato solo existía en la tarjeta "Depósitos LAV" de la
+pantalla principal; en el Resumen y el PDF cada depósito solo mostraba
+fecha, monto y equivalencia UTM, sin indicar si ese mes quedó cubierto,
+parcial o con excedente.
+
+REFACTOR (index.html): se extrajo la lógica de cálculo de cobertura que
+ya vivía duplicada dentro de renderItem() de renderAbonosLav() a una
+función pura reutilizable, calcCoberturaLavDeposito(p). Recibe un abono
+de abonosLav y devuelve { estado: 'parcial'|'excedente'|'cubierto'|null,
+diffUTM, remanenteClp, excedenteClp, coberturaPct }, calculado sobre el
+período (p.periodo) al que quedó reasignado ese depósito, igual que
+antes. renderItem() ahora llama a esta función en vez de tener el
+cálculo duplicado — mismo comportamiento, cero cambios visuales en la
+tarjeta original.
+
+NUEVO (export.js):
+- buildResumenContent(): cada fila de depósito LAV ahora agrega, cuando
+  corresponde, una línea "⚠ Parcial · Rem. X UTM ≈ $Y" (ámbar) o "↪
+  Excedente X UTM ≈ $Y" (verde) debajo de fecha/monto. Si el mes queda
+  cubierto exacto, no se agrega texto extra — mismo criterio visual que
+  la tarjeta "Depósitos LAV".
+- generarPDF(): la tabla "ABONOS LAV" ganó una séptima columna "Estado
+  período" con el mismo dato ("Parcial · Rem. X UTM" / "Excedente X
+  UTM" / "Cubierto"), calculado con la misma función.
+
+Los tres lugares (tarjeta, Resumen, PDF) comparten ahora una única
+fuente de verdad para este cálculo — evita que diverjan entre sí en el
+futuro.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0716.0500 · 2026-07-16]
+export.js
+
+Nueva función — Edición manual inline en la vista previa de importación
+OCR de Abonos LAV (_ocrRenderPreview). Contexto: el motor de OCR (Groq)
+a veces lee mal un dígito de un monto (ej. $155.000 → $150.000,
+confusión visual 5↔0), y aunque la validación fila-por-fila agregada en
+v2.0715.2226 detecta la mayoría de estos casos marcándolos "⚠️
+Revisar", hasta ahora la única forma de corregirlos era borrar la fila
+y volver a ingresarla a mano en otro flujo distinto.
+
+Se agregó un botón "✎" junto al de borrar (✕) en cada fila de la vista
+previa. Al tocarlo, la fila se reemplaza por un mini-formulario inline
+con fecha, monto en pesos y sección (LAV / Otros Abonos). Al guardar:
+- El monto en UTM se recalcula automáticamente desde el monto en pesos
+  corregido y la UTM del mes de la fecha ingresada (misma fuente
+  utmData que usa el resto de la app) — el usuario nunca escribe el
+  valor UTM a mano, evitando errores de digitación ahí.
+- La fila deja de estar marcada "⚠️ Revisar" automáticamente (al
+  recalcularse monto_utm desde monto_pesos, ya no puede haber
+  inconsistencia interna entre ambos).
+- Queda logueada en el panel de debug: fecha, monto y sección final
+  tras la corrección.
+
+_ocrRemoveItem() ahora también reajusta/limpia el índice de edición
+activa (_ocrEditandoIndex) si se borra la fila que estaba siendo
+editada, para evitar que el formulario quede huérfano tras el borrado.
+
+Nueva variable de módulo _ocrEditandoIndex (null = ninguna fila en
+edición), reseteada en ocrReset().
+
+Compatibilidad: ocrConfirmar() no requirió cambios — ya consumía
+item.fecha / item.monto_pesos / item.monto_utm / item.seccion en el
+mismo formato que produce la edición manual.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0715.2226 · 2026-07-15]
+export.js
+
+Mejora — Blindaje adicional al importador OCR de Abonos LAV (runOcrAnalysis
+/ _ocrRenderPreview). Se detectó que, al procesar DOS VECES el mismo
+documento PJUD (caso "Test1", RIT Z-617-2024), el modelo de OCR (Groq/
+OpenRouter) leyó de forma distinta el monto en pesos de la fila del
+depósito 02-08-2024: $155.000 en una corrida, $150.000 en otra. La
+validación de suma total ya existente (comparar la suma de filas contra
+el total impreso del documento) no siempre detecta esto, porque si el
+modelo también reporta un total "coherente" con su propia lectura
+errónea, la suma cuadra igual aunque esté mal frente al documento real.
+
+FIX: nueva validación cruzada FILA POR FILA. Para cada movimiento que
+trae tanto monto_pesos como monto_utm, se recalcula monto_pesos ÷
+UTM-del-mes-de-la-fila y se compara contra el monto_utm que el propio
+modelo reportó para esa misma fila (tolerancia 1,5%, por posibles
+diferencias de redondeo del valor UTM impreso vs. tabla SII de la app).
+Si no coinciden, es señal de que el modelo se contradijo a sí mismo al
+leer esa fila — se marca como sospechosa.
+
+Efectos:
+- Se agrega un confirm() de advertencia adicional (independiente del ya
+  existente por discrepancia de suma total) listando las filas
+  sospechosas antes de pasar a la vista previa.
+- En la vista previa (_ocrRenderPreview), las filas marcadas se pintan
+  con borde/fondo rojo y un badge "⚠️ Revisar" junto al monto.
+- _ocrRemoveItem() reajusta los índices sospechosos al borrar una fila,
+  para que el badge no quede desalineado.
+- Nueva variable de módulo _ocrFilasSospechosas, reseteada en ocrReset().
+
+LIMITACIÓN CONOCIDA (documentada en el código): si el modelo lee mal UN
+monto y deriva el otro de esa misma lectura errónea (ambos "coherentes"
+entre sí pero incorrectos frente al documento), esta validación no lo
+detecta — solo atrapa contradicciones internas del propio modelo. Sigue
+siendo responsabilidad del usuario revisar visualmente cada fila contra
+el documento original antes de confirmar la importación.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.2225 · 2026-07-15]
 export.js
 

@@ -392,22 +392,51 @@ const lavOrdenadoPdf = abonosLav.slice().sort((a,b) => {
 });
 doc.autoTable({
   startY: y,
-  head: [['N°','Fecha depósito','Categoría','Monto ($)','UTM mes','Equiv. UTM']],
+  head: [['N°','Fecha depósito','Categoría','Monto ($)','UTM mes','Equiv. UTM','Estado período']],
   body: lavOrdenadoPdf.map((p,i) => {
     const utmP = p.utmVal || utmHoy;
     const amtUtm = p.amountUtm !== null && p.amountUtm !== undefined ? p.amountUtm : (p.amount / utmP);
     const categoria = p.origen === 'otros_abonos' ? 'Otros Abonos' : 'LAV';
-    return [i+1, p.date, categoria, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM'];
+    // Estado de cobertura del período al que quedó reasignado este depósito
+    // — misma fuente que la tarjeta "Depósitos LAV" y el Resumen de
+    // Liquidación (calcCoberturaLavDeposito, definida en index.html).
+    let estadoStr = '—';
+    if (typeof calcCoberturaLavDeposito === 'function') {
+      const cobertura = calcCoberturaLavDeposito(p);
+      if (cobertura.estado === 'parcial') {
+        estadoStr = `Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM (${fmt(cobertura.remanenteClp)})`;
+      } else if (cobertura.estado === 'excedente') {
+        estadoStr = `Excedente ${Math.abs(cobertura.diffUTM).toFixed(3)} UTM (${fmt(cobertura.excedenteClp)})`;
+      } else if (cobertura.estado === 'cubierto') {
+        estadoStr = 'Cubierto';
+      }
+    }
+    return [i+1, p.date, categoria, fmt(p.amount), p.utmVal ? `$${p.utmVal.toLocaleString('es-CL')}` : '—', amtUtm.toFixed(5)+' UTM', estadoStr];
   }),
-  foot: [['','','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM']],
+  foot: [['','','TOTAL', fmt(lavTotal), '', lavTotalUTM.toFixed(5)+' UTM', '']],
   theme:'grid',
-  headStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold'},
+  headStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:6.5,fontStyle:'bold'},
   footStyles:{fillColor:[5,150,105],textColor:[255,255,255],fontSize:7,fontStyle:'bold',halign:'right'},
-  styles:{fontSize:7,cellPadding:2,textColor:[15,23,42]},
-  columnStyles:{0:{halign:'center',cellWidth:8},1:{halign:'center',cellWidth:22},2:{halign:'center',cellWidth:20},3:{halign:'right',cellWidth:24},4:{halign:'center',cellWidth:18},5:{halign:'center',cellWidth:24}},
+  styles:{fontSize:6.5,cellPadding:2,textColor:[15,23,42]},
+  columnStyles:{0:{halign:'center',cellWidth:7},1:{halign:'center',cellWidth:20},2:{halign:'center',cellWidth:16},3:{halign:'right',cellWidth:20},4:{halign:'center',cellWidth:15},5:{halign:'center',cellWidth:20},6:{halign:'center',cellWidth:24}},
   margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
-y = doc.lastAutoTable.finalY + 8;
+y = doc.lastAutoTable.finalY + 3;
+// Nota aclaratoria: la columna "Estado período" de la tabla de arriba
+// compara CADA depósito, de forma AISLADA, contra la cuota del mes al que
+// quedó reasignado — por eso puede mostrar "Parcial" o "Excedente" en
+// meses que, al final, SÍ quedan cubiertos (el excedente de un depósito
+// se traspasa y cubre el faltante de otro mes dentro del mismo pool
+// acumulado). El resultado real y definitivo de cada período — el único
+// que importa para el cálculo final — es el que aparece en la tabla
+// "PENSIONES MENSUALES IMPAGAS" más arriba, no esta columna.
+checkPage(14);
+doc.setFontSize(6); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'italic');
+const notaEstadoLav = 'Nota: "Estado período" compara cada depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" aquí y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos (ver tabla "Pensiones Mensuales Impagas" para el resultado definitivo por período).';
+const lineasNotaLav = doc.splitTextToSize(notaEstadoLav, CONTENT_W);
+doc.text(lineasNotaLav, MARGIN, y + 3);
+y += lineasNotaLav.length * 3 + 5;
+doc.setFont('helvetica', 'normal');
 }
 checkPage(50);
 doc.setFillColor(18, 38, 71);
@@ -1995,14 +2024,29 @@ function buildResumenContent(targetContainer, inlineMode) {
         wrapLav.appendChild(subHeader);
       }
       const row = document.createElement('div');
-      row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
       const fechaStr = p.date ? (() => {
         const [yyyy, mm, dd] = p.date.split('-');
         return `${dd}-${mm}-${yyyy}`;
       })() : '—';
       const utmPeriodoStr = (p.utmVal != null) ? fmt(p.utmVal) : '—';
       const equivUtmStr = (p.amountUtm != null) ? p.amountUtm.toFixed(5) + ' UTM' : '—';
+      // Info de cobertura/remanente del período al que quedó reasignado este
+      // depósito — misma función que usa la tarjeta "Depósitos LAV" de la
+      // app, para que el dato coincida en los dos lugares. Solo se muestra
+      // cuando el mes queda parcial o con excedente; si el mes calza exacto
+      // no se agrega texto extra (mismo criterio visual que la tarjeta).
+      let coberturaHtml = '';
+      if (typeof calcCoberturaLavDeposito === 'function') {
+        const cobertura = calcCoberturaLavDeposito(p);
+        if (cobertura.estado === 'parcial') {
+          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#b45309;font-size:8px;font-weight:800;">⚠ Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.remanenteClp)}</span></div>`;
+        } else if (cobertura.estado === 'excedente') {
+          const excedenteUTM = Math.abs(cobertura.diffUTM);
+          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#059669;font-size:8px;font-weight:800;">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.excedenteClp)}</span></div>`;
+        }
+      }
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'};padding:8px 12px;display:grid;grid-template-columns:1fr auto;`;
+      row.className = 'text-[10px] font-bold';
       row.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:1px;line-height:1.3">
           <span style="color:#1e293b;font-weight:900">${fechaStr}</span>
@@ -2011,7 +2055,8 @@ function buildResumenContent(targetContainer, inlineMode) {
         <div style="text-align:right;display:flex;flex-direction:column;gap:1px;line-height:1.3">
           <span style="color:#0f172a;font-weight:900">${fmt(p.amount)}</span>
           <span style="color:#059669;font-size:9px;font-weight:700">${equivUtmStr}</span>
-        </div>`;
+        </div>
+        ${coberturaHtml}`;
       wrapLav.appendChild(row);
     });
     // Fila total
@@ -2021,6 +2066,17 @@ function buildResumenContent(targetContainer, inlineMode) {
     totRow.innerHTML = `<span style="color:#059669">TOTAL LAV</span><span style="color:#059669">${totalLavUTM.toFixed(5)} UTM</span><span style="color:#0f172a">${fmt(totalLavCLP)}</span>`;
     wrapLav.appendChild(totRow);
     container.appendChild(wrapLav);
+    // Nota aclaratoria (mismo texto que en el PDF): la línea "⚠ Parcial ·
+    // Rem." / "↪ Excedente" que aparece bajo cada depósito compara ese
+    // depósito de forma AISLADA contra la cuota de su mes — no es el
+    // resultado final. El pool de depósitos LAV es acumulado: el excedente
+    // de un mes se traspasa y cubre el faltante de otro, así que un mes
+    // puede figurar "Parcial" aquí y aun así quedar totalmente cubierto en
+    // el resultado real (ver más abajo el detalle por período).
+    const notaLavWeb = document.createElement('p');
+    notaLavWeb.style.cssText = 'font-size:8px;color:#94a3b8;font-style:italic;margin-top:6px;line-height:1.4;';
+    notaLavWeb.textContent = 'Nota: la cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.';
+    container.appendChild(notaLavWeb);
   }
 
   // ── 5. Resumen Final ──
@@ -2664,6 +2720,8 @@ let _ocrFile = null;          // File object
 let _ocrBase64 = null;        // base64 del archivo
 let _ocrMime = null;          // 'application/pdf' | 'image/jpeg' | 'image/png'
 let _ocrResultados = [];      // [{ date, amount, description }]
+let _ocrFilasSospechosas = []; // índices (dentro de _ocrResultados) marcados por la validación pesos↔UTM
+let _ocrEditandoIndex = null;  // índice de la fila actualmente en modo edición inline (null = ninguna)
 
 function openOcrLav() {
   ocrReset();
@@ -2737,7 +2795,7 @@ function _ocrShowStep(step) {
 }
 
 function ocrReset() {
-  _ocrFile = null; _ocrBase64 = null; _ocrMime = null; _ocrResultados = [];
+  _ocrFile = null; _ocrBase64 = null; _ocrMime = null; _ocrResultados = []; _ocrFilasSospechosas = []; _ocrEditandoIndex = null;
   document.getElementById('ocrFileInput').value = '';
   document.getElementById('ocrFileName').classList.add('hidden');
   const btn = document.getElementById('btnOcrAnalizar');
@@ -2932,6 +2990,18 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     // OCR o si se introdujo después, en el procesamiento de la app.
     dbg('OCR RAW: ' + parsed.length + ' filas recibidas del modelo:');
     let _sumaUtmLav = 0, _sumaUtmOtros = 0, _sumaPesosLav = 0;
+    // Validación cruzada FILA POR FILA — blindaje adicional a la validación de
+    // suma total (más abajo): el modelo puede leer mal UN dígito de una fila
+    // (ej. $150.000 en vez de $155.000) y aun así el total impreso del
+    // documento coincidir con la suma extraída, si el modelo también "lee"
+    // (o inventa) ese mismo total de forma consistente con su propio error.
+    // Esto ya ocurrió en el caso "Test1": la fila de 02-08-2024 salió
+    // $150.000 en una corrida y $155.000 en otra, para el MISMO documento
+    // fuente. Aquí se recalcula monto_pesos / UTM-del-mes de cada fila y se
+    // compara contra el monto_utm que el propio modelo reportó para esa
+    // misma fila — si no coinciden, el modelo se contradijo a sí mismo
+    // internamente, señal fuerte de mal-lectura de esa fila específica.
+    const _filasSospechosas = [];
     parsed.forEach((item, i) => {
       const esOtros = item.seccion === 'otros_abonos';
       const sec = esOtros ? 'Otros Abonos' : 'LAV';
@@ -2944,9 +3014,35 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       if (!esOtros && item.monto_pesos != null && item.monto_pesos > 0) {
         _sumaPesosLav += item.monto_pesos;
       }
+      // Chequeo interno pesos↔UTM de esta fila (requiere ambos valores y la UTM del mes)
+      if (item.monto_pesos != null && item.monto_pesos > 0 && item.monto_utm != null && item.monto_utm > 0) {
+        const fechaNorm = _ocrNormalizeFecha(item.fecha) || item.fecha;
+        const partsFecha = fechaNorm.split('-');
+        if (partsFecha.length === 3) {
+          const [, mmF, yyyyF] = partsFecha;
+          const mIdxF = parseInt(mmF, 10) - 1;
+          const yF = parseInt(yyyyF, 10);
+          const utmEntryF = utmData.find(d => d.y === yF && d.monthIdx === mIdxF);
+          if (utmEntryF && utmEntryF.v > 0) {
+            const utmCalculado = item.monto_pesos / utmEntryF.v;
+            const diffFila = Math.abs(utmCalculado - item.monto_utm);
+            // Tolerancia 1.5%: el UTM impreso en el documento a veces usa un
+            // valor de referencia con leve variación de redondeo respecto a
+            // la tabla SII que usa la app — un desfase mayor a eso indica
+            // que uno de los dos montos (pesos o UTM) viene mal leído.
+            const tolFila = item.monto_utm * 0.015;
+            if (diffFila > tolFila) {
+              _filasSospechosas.push({ i, fecha: item.fecha, pesosStr, utmStr,
+                utmEsperado: utmCalculado.toFixed(5) });
+              dbg(`  ⚠️ [${i}] fila sospechosa: ${pesosStr} ÷ UTM ${mmF}-${yyyyF} = ${utmCalculado.toFixed(5)} UTM, pero el modelo reportó ${item.monto_utm.toFixed(5)} UTM`);
+            }
+          }
+        }
+      }
     });
     const _sumaUtmTotal = _sumaUtmLav + _sumaUtmOtros;
     dbg(`OCR RAW: suma calculada = LAV ${_sumaUtmLav.toFixed(5)} UTM ($${_sumaPesosLav.toLocaleString('es-CL')}) + Otros Abonos ${_sumaUtmOtros.toFixed(5)} UTM = ${_sumaUtmTotal.toFixed(5)} UTM total`);
+
 
     // VALIDACIÓN — comparar la suma de filas extraídas (en UTM, unidad que
     // SIEMPRE está impresa en ambas secciones del documento, sea cual sea su
@@ -3012,9 +3108,35 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       }
     }
 
+    // Segundo blindaje: filas donde pesos↔UTM se contradicen ENTRE SÍ, aunque
+    // la suma total del documento haya cuadrado (ver detección más arriba).
+    // Se muestra aparte porque puede disparar incluso cuando _hayDiscrepancia
+    // es false — son chequeos independientes.
+    if (_filasSospechosas.length > 0) {
+      const _detalleFilas = _filasSospechosas.map(f =>
+        `Fila ${f.i} (${f.fecha}): ${f.pesosStr} → debería ser ≈${f.utmEsperado} UTM, pero el modelo reportó ${f.utmStr}`
+      ).join('\n');
+      const _seguirFilas = confirm(
+        '⚠️ Fila(s) con lectura inconsistente\n\n' +
+        'En ' + _filasSospechosas.length + ' fila(s), el monto en pesos y el monto en UTM que el ' +
+        'modelo extrajo de la MISMA fila no coinciden entre sí:\n\n' +
+        _detalleFilas + '\n\n' +
+        'Esto suele significar que el modelo leyó mal un dígito del monto en pesos o del ' +
+        'monto en UTM de esa fila específica (puede pasar aunque el total del documento haya cuadrado).\n\n' +
+        'Revisa esas filas cuidadosamente en la vista previa antes de confirmar.\n\n' +
+        '¿Continuar de todas formas a la vista previa?'
+      );
+      if (!_seguirFilas) {
+        _ocrShowStep('ocrStepUpload');
+        return;
+      }
+    }
+
     _ocrResultados = parsed;
+    _ocrFilasSospechosas = _filasSospechosas.map(f => f.i);
     _ocrRenderPreview(parsed);
     _ocrShowStep('ocrStepPreview');
+
 
   } catch(err) {
     dbg('OCR error: ' + err.message);
@@ -3046,11 +3168,48 @@ function _ocrRenderPreview(items) {
     const seccionBadge = item.seccion === 'otros_abonos'
       ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otros Abonos (LAV)</span>'
       : '';
-    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
+    // Fila marcada por la validación cruzada pesos↔UTM (ver _ocrProcesar):
+    // el modelo reportó un monto en pesos y un monto en UTM para esta misma
+    // fila que, al dividir uno por el otro, no cuadran — señal de lectura
+    // inconsistente que amerita revisión manual antes de confirmar.
+    const esSospechosa = _ocrFilasSospechosas.includes(i);
+    const sospechaBadge = esSospechosa
+      ? '<span style="background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">⚠️ Revisar</span>'
+      : '';
+    const filaEstilo = esSospechosa
+      ? 'background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.25);'
+      : 'background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);';
+
+    // Modo edición inline: reemplaza la fila por un mini-formulario. Se activa
+    // con el botón lápiz (✎) — útil sobre todo para filas marcadas ⚠️ Revisar,
+    // donde el usuario ya sabe (por el documento original) cuál es el monto
+    // correcto y solo necesita corregirlo sin salir del flujo OCR.
+    if (_ocrEditandoIndex === i) {
+      const seccionActual = item.seccion === 'otros_abonos' ? 'otros_abonos' : 'LAV';
+      return `<div class="rounded-lg px-3 py-2" style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.3);">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <input type="date" id="_ocrEditFecha_${i}" value="${yyyy}-${mm}-${dd}" class="text-[9px] rounded px-1.5 py-1 flex-shrink-0" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);width:118px;">
+          <input type="number" id="_ocrEditPesos_${i}" value="${item.monto_pesos ?? ''}" placeholder="Monto $" class="text-[9px] rounded px-1.5 py-1 flex-1 min-w-0" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);">
+        </div>
+        <div class="flex items-center gap-1.5">
+          <select id="_ocrEditSeccion_${i}" class="text-[9px] rounded px-1.5 py-1 flex-shrink-0" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.15);">
+            <option value="LAV" ${seccionActual === 'LAV' ? 'selected' : ''}>LAV</option>
+            <option value="otros_abonos" ${seccionActual === 'otros_abonos' ? 'selected' : ''}>Otros Abonos</option>
+          </select>
+          <button onclick="_ocrGuardarEdicion(${i})" class="text-[9px] font-black px-2.5 py-1 rounded flex-1" style="background:#10b981;color:#fff;">✓ Guardar</button>
+          <button onclick="_ocrCancelarEdicion()" class="text-[9px] font-black px-2.5 py-1 rounded" style="background:rgba(255,255,255,0.08);color:#cbd5e1;">Cancelar</button>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="${filaEstilo}">
       <div class="min-w-0 flex-1 mr-2">
-        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}</p>
+        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}${sospechaBadge}</p>
         <p class="text-[8px] text-slate-400 truncate">${item.descripcion || ''} · ${utmStr}</p>
       </div>
+      <button onclick="_ocrEditarItem(${i})" class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate-500 hover:text-blue-400 transition-colors mr-1" style="background:rgba(255,255,255,0.05);">
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+      </button>
       <button onclick="_ocrRemoveItem(${i})" class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors" style="background:rgba(255,255,255,0.05);">
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -3062,7 +3221,64 @@ function _ocrRemoveItem(i) {
   // FIX Bug3: guard against stale index (double-tap or async re-render race)
   if (i < 0 || i >= _ocrResultados.length) return;
   _ocrResultados.splice(i, 1);
+  // Reajustar índices sospechosos: quitar el borrado y correr hacia atrás
+  // en 1 los que estaban después de él, para que el badge ⚠️ siga apuntando
+  // a la fila correcta tras el splice.
+  _ocrFilasSospechosas = _ocrFilasSospechosas
+    .filter(idx => idx !== i)
+    .map(idx => idx > i ? idx - 1 : idx);
+  // Igual reajuste para el índice en edición, si corresponde.
+  if (_ocrEditandoIndex === i) _ocrEditandoIndex = null;
+  else if (_ocrEditandoIndex != null && _ocrEditandoIndex > i) _ocrEditandoIndex--;
   if (_ocrResultados.length === 0) { ocrReset(); return; }
+  _ocrRenderPreview(_ocrResultados);
+}
+
+// ── Edición manual inline de una fila de la vista previa OCR ──────────────
+// Complementa (no reemplaza) la validación automática pesos↔UTM: cuando el
+// modelo lee mal un monto y el usuario ya sabe, mirando el documento
+// original, cuál es el valor correcto, puede corregirlo aquí mismo sin
+// tener que borrar la fila y volver a escribirla desde cero en otro flujo.
+function _ocrEditarItem(i) {
+  if (i < 0 || i >= _ocrResultados.length) return;
+  _ocrEditandoIndex = i;
+  _ocrRenderPreview(_ocrResultados);
+  // Enfocar el campo de monto para que el usuario pueda corregir de inmediato
+  setTimeout(() => { document.getElementById('_ocrEditPesos_' + i)?.focus(); }, 50);
+}
+
+function _ocrCancelarEdicion() {
+  _ocrEditandoIndex = null;
+  _ocrRenderPreview(_ocrResultados);
+}
+
+function _ocrGuardarEdicion(i) {
+  if (i < 0 || i >= _ocrResultados.length) return;
+  const fechaInput = document.getElementById('_ocrEditFecha_' + i)?.value; // "YYYY-MM-DD"
+  const pesosInput = document.getElementById('_ocrEditPesos_' + i)?.value;
+  const seccionInput = document.getElementById('_ocrEditSeccion_' + i)?.value;
+  if (!fechaInput) { alert('Selecciona una fecha válida.'); return; }
+  const pesos = parseInt(pesosInput, 10);
+  if (!pesos || pesos <= 0) { alert('Ingresa un monto en pesos válido.'); return; }
+  const [yyyyE, mmE, ddE] = fechaInput.split('-');
+  const mIdxE = parseInt(mmE, 10) - 1;
+  const yE = parseInt(yyyyE, 10);
+  const utmEntryE = utmData.find(d => d.y === yE && d.monthIdx === mIdxE);
+  if (!utmEntryE || !(utmEntryE.v > 0)) {
+    alert('No hay valor UTM disponible para ' + mmE + '-' + yyyyE + '. Revisa la fecha ingresada.');
+    return;
+  }
+  const item = _ocrResultados[i];
+  item.fecha = `${ddE}-${mmE}-${yyyyE}`;
+  item.monto_pesos = pesos;
+  item.monto_utm = pesos / utmEntryE.v; // recalculado en base al monto en pesos corregido — ya no puede haber inconsistencia interna
+  item.seccion = seccionInput === 'otros_abonos' ? 'otros_abonos' : 'LAV';
+  // La fila ya no está en modo edición y, al haberse recalculado monto_utm
+  // desde el monto_pesos corregido, deja de ser "sospechosa" por definición
+  // (la validación pesos↔UTM que la marcó ya no puede fallar sobre sí misma).
+  _ocrFilasSospechosas = _ocrFilasSospechosas.filter(idx => idx !== i);
+  _ocrEditandoIndex = null;
+  dbg(`OCR EDICIÓN MANUAL: fila [${i}] corregida a ${item.fecha} · $${pesos.toLocaleString('es-CL')} · ${item.monto_utm.toFixed(5)} UTM · ${item.seccion}`);
   _ocrRenderPreview(_ocrResultados);
 }
 
