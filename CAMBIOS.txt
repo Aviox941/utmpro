@@ -56,6 +56,83 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0600 · 2026-07-16]
+index.html, export.js
+
+Nueva función — Info de "Parcial · Rem." (cobertura/remanente) de cada
+depósito LAV agregada al Resumen de Liquidación (vista web) y al PDF.
+Hasta ahora ese dato solo existía en la tarjeta "Depósitos LAV" de la
+pantalla principal; en el Resumen y el PDF cada depósito solo mostraba
+fecha, monto y equivalencia UTM, sin indicar si ese mes quedó cubierto,
+parcial o con excedente.
+
+REFACTOR (index.html): se extrajo la lógica de cálculo de cobertura que
+ya vivía duplicada dentro de renderItem() de renderAbonosLav() a una
+función pura reutilizable, calcCoberturaLavDeposito(p). Recibe un abono
+de abonosLav y devuelve { estado: 'parcial'|'excedente'|'cubierto'|null,
+diffUTM, remanenteClp, excedenteClp, coberturaPct }, calculado sobre el
+período (p.periodo) al que quedó reasignado ese depósito, igual que
+antes. renderItem() ahora llama a esta función en vez de tener el
+cálculo duplicado — mismo comportamiento, cero cambios visuales en la
+tarjeta original.
+
+NUEVO (export.js):
+- buildResumenContent(): cada fila de depósito LAV ahora agrega, cuando
+  corresponde, una línea "⚠ Parcial · Rem. X UTM ≈ $Y" (ámbar) o "↪
+  Excedente X UTM ≈ $Y" (verde) debajo de fecha/monto. Si el mes queda
+  cubierto exacto, no se agrega texto extra — mismo criterio visual que
+  la tarjeta "Depósitos LAV".
+- generarPDF(): la tabla "ABONOS LAV" ganó una séptima columna "Estado
+  período" con el mismo dato ("Parcial · Rem. X UTM" / "Excedente X
+  UTM" / "Cubierto"), calculado con la misma función.
+
+Los tres lugares (tarjeta, Resumen, PDF) comparten ahora una única
+fuente de verdad para este cálculo — evita que diverjan entre sí en el
+futuro.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0716.0500 · 2026-07-16]
+export.js
+
+Nueva función — Edición manual inline en la vista previa de importación
+OCR de Abonos LAV (_ocrRenderPreview). Contexto: el motor de OCR (Groq)
+a veces lee mal un dígito de un monto (ej. $155.000 → $150.000,
+confusión visual 5↔0), y aunque la validación fila-por-fila agregada en
+v2.0715.2226 detecta la mayoría de estos casos marcándolos "⚠️
+Revisar", hasta ahora la única forma de corregirlos era borrar la fila
+y volver a ingresarla a mano en otro flujo distinto.
+
+Se agregó un botón "✎" junto al de borrar (✕) en cada fila de la vista
+previa. Al tocarlo, la fila se reemplaza por un mini-formulario inline
+con fecha, monto en pesos y sección (LAV / Otros Abonos). Al guardar:
+- El monto en UTM se recalcula automáticamente desde el monto en pesos
+  corregido y la UTM del mes de la fecha ingresada (misma fuente
+  utmData que usa el resto de la app) — el usuario nunca escribe el
+  valor UTM a mano, evitando errores de digitación ahí.
+- La fila deja de estar marcada "⚠️ Revisar" automáticamente (al
+  recalcularse monto_utm desde monto_pesos, ya no puede haber
+  inconsistencia interna entre ambos).
+- Queda logueada en el panel de debug: fecha, monto y sección final
+  tras la corrección.
+
+_ocrRemoveItem() ahora también reajusta/limpia el índice de edición
+activa (_ocrEditandoIndex) si se borra la fila que estaba siendo
+editada, para evitar que el formulario quede huérfano tras el borrado.
+
+Nueva variable de módulo _ocrEditandoIndex (null = ninguna fila en
+edición), reseteada en ocrReset().
+
+Compatibilidad: ocrConfirmar() no requirió cambios — ya consumía
+item.fecha / item.monto_pesos / item.monto_utm / item.seccion en el
+mismo formato que produce la edición manual.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.2226 · 2026-07-15]
 export.js
 

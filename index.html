@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0715.2226">
+ <meta name="app-version" content="v2.0716.0600">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -3847,6 +3847,55 @@ function lavxUpdateHeaderSubtitle() {
   const fechaUltimo = ultimo && ultimo.date ? ultimo.date.split('-').reverse().join('/') : '—';
   subEl.textContent = `${lav.length} depósito${lav.length === 1 ? '' : 's'} registrado${lav.length === 1 ? '' : 's'} • Último: ${fechaUltimo}`;
 }
+// ── Cálculo de cobertura/remanente de UN depósito LAV, respecto a la cuota
+// del PERÍODO al que quedó reasignado ese depósito (p.periodo). Extraído de
+// renderItem() de renderAbonosLav() para poder reutilizarlo también en el
+// Resumen de Liquidación (buildResumenContent, export.js) y en el PDF
+// (generarPDF, export.js) — misma fuente de verdad en los tres lugares.
+// Recibe un abono `p` de abonosLav; devuelve:
+//   { estado: 'parcial'|'excedente'|'cubierto'|null, diffUTM, remanenteClp,
+//     excedenteClp, coberturaPct }
+// estado === null si no se pudo determinar (sin período válido o sin cuota).
+function calcCoberturaLavDeposito(p) {
+  const { cuotaMensualUTM: cuotaGlobal, modoEsPesos: modoGlobal } = getMonthlyValues();
+  let cuotaUTMPeriodo = cuotaGlobal;
+  const periodoStr = p.periodo || ''; // "YYYY-MM"
+  const [pAnioStr, pMesStr] = periodoStr.split('-');
+  const pAnio = parseInt(pAnioStr);
+  const pMesIdx = parseInt(pMesStr) - 1; // 0-based
+  if (isNaN(pAnio) || isNaN(pMesIdx)) return { estado: null };
+
+  const override = getPeriodoCuotaParaMes(pAnio, pMesIdx);
+  if (override) {
+    if (override.modoEsPesos) {
+      const utmMesP = p.utmVal || getUtmActualVal();
+      cuotaUTMPeriodo = override.cuotaCLP / utmMesP;
+    } else {
+      cuotaUTMPeriodo = override.cuotaUTM;
+    }
+  } else if (modoGlobal) {
+    const { cuotaMensualCLP } = getMonthlyValues();
+    const utmMesP = p.utmVal || getUtmActualVal();
+    cuotaUTMPeriodo = cuotaMensualCLP > 0 ? cuotaMensualCLP / utmMesP : cuotaGlobal;
+  }
+  if (!(cuotaUTMPeriodo > 0) || p.amountUtm == null) return { estado: null };
+
+  const totalLavMes = abonosLav
+    .filter(x => x.periodo === p.periodo)
+    .reduce((s, x) => s + (x.amountUtm || 0), 0);
+  const diff = cuotaUTMPeriodo - totalLavMes; // positivo = parcial; negativo/cero = cubierto/excedente
+  const utmMesUsado = p.utmVal || getUtmActualVal();
+  const coberturaPct = Math.min(999, (totalLavMes / cuotaUTMPeriodo) * 100);
+
+  if (diff > 0.0001) {
+    return { estado: 'parcial', diffUTM: diff, remanenteClp: Math.round(diff * utmMesUsado), coberturaPct };
+  } else if (diff < -0.0001) {
+    const excedenteUTM = Math.abs(diff);
+    return { estado: 'excedente', diffUTM: -excedenteUTM, excedenteClp: Math.round(excedenteUTM * utmMesUsado), coberturaPct };
+  }
+  return { estado: 'cubierto', diffUTM: 0, coberturaPct };
+}
+
 function renderAbonosLav() {
   const container = document.getElementById('lavListContainer');
   if (!container) return;
@@ -3870,65 +3919,25 @@ function renderAbonosLav() {
     const fechaCorta = (p.date || '').split('-').reverse().join('/'); // YYYY-MM-DD → DD/MM/YYYY
 
     // ── Detección automática de pago parcial LAV ──────────────────────────
-    // Obtener la cuota UTM efectiva del período de este depósito,
-    // respetando períodos variables (igual lógica que renderPagosParciales).
-    let cuotaUTMPeriodo = cuotaGlobal;
+    // Delegado en calcCoberturaLavDeposito() (misma función que usan el
+    // Resumen de Liquidación y el PDF) para que los tres lugares muestren
+    // siempre el mismo remanente/cobertura por depósito.
     let lavInfoHtml = '';
     let coberturaBadgeHtml = '';
-    const periodoStr = p.periodo || ''; // "YYYY-MM"
-    const [pAnioStr, pMesStr] = periodoStr.split('-');
-    const pAnio = parseInt(pAnioStr);
-    const pMesIdx = parseInt(pMesStr) - 1; // 0-based
-    if (!isNaN(pAnio) && !isNaN(pMesIdx)) {
-      const override = getPeriodoCuotaParaMes(pAnio, pMesIdx);
-      if (override) {
-        if (override.modoEsPesos) {
-          const utmMesP = p.utmVal || getUtmActualVal();
-          cuotaUTMPeriodo = override.cuotaCLP / utmMesP;
-        } else {
-          cuotaUTMPeriodo = override.cuotaUTM;
-        }
-      } else if (modoGlobal) {
-        // Cuota en pesos: convertir a UTM usando la UTM histórica del depósito
-        const { cuotaMensualCLP } = getMonthlyValues();
-        const utmMesP = p.utmVal || getUtmActualVal();
-        cuotaUTMPeriodo = cuotaMensualCLP > 0 ? cuotaMensualCLP / utmMesP : cuotaGlobal;
-      }
-      if (cuotaUTMPeriodo > 0 && p.amountUtm != null) {
-        // CORRECCIÓN: usar la suma acumulada de TODOS los depósitos LAV del mismo mes,
-        // no solo el depósito individual. El pool es acumulado → el estado del mes
-        // depende del total, no de cada depósito por separado.
-        const totalLavMes = abonosLav
-          .filter(x => x.periodo === p.periodo)
-          .reduce((s, x) => s + (x.amountUtm || 0), 0);
-        const diff = cuotaUTMPeriodo - totalLavMes; // positivo = parcial; negativo/cero = cubierto
-        const utmMesUsado = p.utmVal || getUtmActualVal();
-
-        // ── Badge "Cobertura X%" (visual, fiel al mockup) ───────────────────
-        // % de la cuota del mes ya cubierto por el total acumulado LAV de ese
-        // mes (no por este depósito individual) — mismo criterio que "diff"
-        // arriba. Si dos depósitos caen en el mismo mes, ambos muestran el
-        // mismo % (el del mes), porque la cobertura es del período, no del
-        // depósito aislado. Se acota a 999% por seguridad visual ante
-        // excedentes muy grandes.
-        const coberturaPct = Math.min(999, (totalLavMes / cuotaUTMPeriodo) * 100);
-        const coberturaClass = diff > 0.0001 ? 'lavx-coverage--parcial' : 'lavx-coverage--ok';
-        coberturaBadgeHtml = `<span class="lavx-coverage ${coberturaClass}">Cobertura ${coberturaPct.toFixed(1).replace('.', ',')}%</span>`;
-
-        if (diff > 0.0001) {
-          // Total LAV del mes menor que la cuota → mes parcialmente cubierto
-          const remanenteClp = Math.round(diff * utmMesUsado);
-          lavInfoHtml = `<span class="lavx-status lavx-status--parcial">⚠ Parcial · Rem. ${diff.toFixed(3)} UTM ≈ ${format(remanenteClp)}</span>`;
-        } else if (diff < -0.0001) {
-          // Total LAV del mes mayor que la cuota → excedente suma al pool del mes siguiente
-          const excedenteUTM = Math.abs(diff);
-          const excedenteClp = Math.round(excedenteUTM * utmMesUsado);
-          lavInfoHtml = `<span class="lavx-status lavx-status--excedente">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${format(excedenteClp)}</span>`;
-        } else {
-          // Cuota cubierta exactamente
-          lavInfoHtml = `<span class="lavx-status lavx-status--ok">✓ Cuota cubierta</span>`;
-        }
-      }
+    const cobertura = calcCoberturaLavDeposito(p);
+    if (cobertura.estado === 'parcial') {
+      const coberturaClass = 'lavx-coverage--parcial';
+      coberturaBadgeHtml = `<span class="lavx-coverage ${coberturaClass}">Cobertura ${cobertura.coberturaPct.toFixed(1).replace('.', ',')}%</span>`;
+      lavInfoHtml = `<span class="lavx-status lavx-status--parcial">⚠ Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM ≈ ${format(cobertura.remanenteClp)}</span>`;
+    } else if (cobertura.estado === 'excedente') {
+      const coberturaClass = 'lavx-coverage--ok';
+      coberturaBadgeHtml = `<span class="lavx-coverage ${coberturaClass}">Cobertura ${cobertura.coberturaPct.toFixed(1).replace('.', ',')}%</span>`;
+      const excedenteUTM = Math.abs(cobertura.diffUTM);
+      lavInfoHtml = `<span class="lavx-status lavx-status--excedente">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${format(cobertura.excedenteClp)}</span>`;
+    } else if (cobertura.estado === 'cubierto') {
+      const coberturaClass = 'lavx-coverage--ok';
+      coberturaBadgeHtml = `<span class="lavx-coverage ${coberturaClass}">Cobertura ${cobertura.coberturaPct.toFixed(1).replace('.', ',')}%</span>`;
+      lavInfoHtml = `<span class="lavx-status lavx-status--ok">✓ Cuota cubierta</span>`;
     }
 
     div.innerHTML = `
@@ -7086,7 +7095,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0715.2226</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0600</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -7097,7 +7106,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0715.2226"></script>
+<script src="export.js?v=2.0716.0600"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
