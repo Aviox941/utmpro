@@ -5431,13 +5431,14 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
   // PERÍODO (mes/año de la cuota <= mes/año del depósito), no por día exacto
   // de vencimiento.
   // [POOL-DEBUG] estado inicial de las cuotas antes de aplicar el pool LAV
-  console.log('[POOL-DEBUG] cuotas iniciales:', _cuotasPool.map(d => ({
-    periodo: d.periodo, capOriginalBruto: d.capOriginalBruto, cap: d.cap,
-    utmVal: d.utmVal, capBrutoUTM: d._capBrutoUTM, capDisponUTM: d._capDisponUTM
-  })));
-  console.log('[POOL-DEBUG] depósitos ordenados:', _lavsOrdenados.map(l => ({
-    date: l.date, periodo: l.periodo, amountUtm: l.amountUtm
-  })));
+  if (typeof dbg === 'function') {
+    dbg('[POOL-DEBUG] cuotas iniciales: ' + _cuotasPool.map(d =>
+      `${d.periodo}=bruto:${(d.capOriginalBruto||0).toFixed(0)}CLP/${(d._capBrutoUTM||0).toFixed(5)}UTM utm:${d.utmVal}`
+    ).join(' || '));
+    dbg('[POOL-DEBUG] depósitos ordenados: ' + _lavsOrdenados.map(l =>
+      `${l.date}(imput:${l.periodo})=${(l.amountUtm||0).toFixed(5)}UTM`
+    ).join(' || '));
+  }
 
   let _punteroCuota = 0;
   for (const lav of _lavsOrdenados) {
@@ -5497,15 +5498,16 @@ if (abonosLavParaPool && abonosLavParaPool.length > 0) {
     }
     // Remanente no imputado (excede toda la deuda pendiente) se pierde del pool aquí;
     // el caso borde de saldo a favor íntegro no aplica a pensiones mensuales normales.
-    if (remanente > 0.0001) {
-      console.log('[POOL-DEBUG] ⚠ depósito con remanente NO aplicado:', lav.date, lav.periodo, 'sobrante UTM:', remanente);
+    if (remanente > 0.0001 && typeof dbg === 'function') {
+      dbg(`[POOL-DEBUG] ⚠ depósito SIN aplicar del todo: ${lav.date} (imput:${lav.periodo}) sobrante:${remanente.toFixed(5)}UTM`);
     }
   }
 
-  console.log('[POOL-DEBUG] estado tras consumo LAV (por cuota):', _cuotasPool.map(d => ({
-    periodo: d.periodo, capBrutoUTM: d._capBrutoUTM, capAplicadoUTM: d._capAplicadoUTM,
-    capDisponUTM: d._capDisponUTM, intAplicadoUTM: d._intAplicadoUTM
-  })));
+  if (typeof dbg === 'function') {
+    dbg('[POOL-DEBUG] tras consumo LAV: ' + _cuotasPool.map(d =>
+      `${d.periodo}=aplic:${(d._capAplicadoUTM||0).toFixed(5)} pend:${(d._capDisponUTM||0).toFixed(5)} intAplic:${(d._intAplicadoUTM||0).toFixed(5)}`
+    ).join(' || '));
+  }
 
   for (const d of _cuotasPool) {
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
