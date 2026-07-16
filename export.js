@@ -2664,6 +2664,7 @@ let _ocrFile = null;          // File object
 let _ocrBase64 = null;        // base64 del archivo
 let _ocrMime = null;          // 'application/pdf' | 'image/jpeg' | 'image/png'
 let _ocrResultados = [];      // [{ date, amount, description }]
+let _ocrFilasSospechosas = []; // índices (dentro de _ocrResultados) marcados por la validación pesos↔UTM
 
 function openOcrLav() {
   ocrReset();
@@ -2737,7 +2738,7 @@ function _ocrShowStep(step) {
 }
 
 function ocrReset() {
-  _ocrFile = null; _ocrBase64 = null; _ocrMime = null; _ocrResultados = [];
+  _ocrFile = null; _ocrBase64 = null; _ocrMime = null; _ocrResultados = []; _ocrFilasSospechosas = [];
   document.getElementById('ocrFileInput').value = '';
   document.getElementById('ocrFileName').classList.add('hidden');
   const btn = document.getElementById('btnOcrAnalizar');
@@ -2932,6 +2933,18 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     // OCR o si se introdujo después, en el procesamiento de la app.
     dbg('OCR RAW: ' + parsed.length + ' filas recibidas del modelo:');
     let _sumaUtmLav = 0, _sumaUtmOtros = 0, _sumaPesosLav = 0;
+    // Validación cruzada FILA POR FILA — blindaje adicional a la validación de
+    // suma total (más abajo): el modelo puede leer mal UN dígito de una fila
+    // (ej. $150.000 en vez de $155.000) y aun así el total impreso del
+    // documento coincidir con la suma extraída, si el modelo también "lee"
+    // (o inventa) ese mismo total de forma consistente con su propio error.
+    // Esto ya ocurrió en el caso "Test1": la fila de 02-08-2024 salió
+    // $150.000 en una corrida y $155.000 en otra, para el MISMO documento
+    // fuente. Aquí se recalcula monto_pesos / UTM-del-mes de cada fila y se
+    // compara contra el monto_utm que el propio modelo reportó para esa
+    // misma fila — si no coinciden, el modelo se contradijo a sí mismo
+    // internamente, señal fuerte de mal-lectura de esa fila específica.
+    const _filasSospechosas = [];
     parsed.forEach((item, i) => {
       const esOtros = item.seccion === 'otros_abonos';
       const sec = esOtros ? 'Otros Abonos' : 'LAV';
@@ -2944,9 +2957,35 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       if (!esOtros && item.monto_pesos != null && item.monto_pesos > 0) {
         _sumaPesosLav += item.monto_pesos;
       }
+      // Chequeo interno pesos↔UTM de esta fila (requiere ambos valores y la UTM del mes)
+      if (item.monto_pesos != null && item.monto_pesos > 0 && item.monto_utm != null && item.monto_utm > 0) {
+        const fechaNorm = _ocrNormalizeFecha(item.fecha) || item.fecha;
+        const partsFecha = fechaNorm.split('-');
+        if (partsFecha.length === 3) {
+          const [, mmF, yyyyF] = partsFecha;
+          const mIdxF = parseInt(mmF, 10) - 1;
+          const yF = parseInt(yyyyF, 10);
+          const utmEntryF = utmData.find(d => d.y === yF && d.monthIdx === mIdxF);
+          if (utmEntryF && utmEntryF.v > 0) {
+            const utmCalculado = item.monto_pesos / utmEntryF.v;
+            const diffFila = Math.abs(utmCalculado - item.monto_utm);
+            // Tolerancia 1.5%: el UTM impreso en el documento a veces usa un
+            // valor de referencia con leve variación de redondeo respecto a
+            // la tabla SII que usa la app — un desfase mayor a eso indica
+            // que uno de los dos montos (pesos o UTM) viene mal leído.
+            const tolFila = item.monto_utm * 0.015;
+            if (diffFila > tolFila) {
+              _filasSospechosas.push({ i, fecha: item.fecha, pesosStr, utmStr,
+                utmEsperado: utmCalculado.toFixed(5) });
+              dbg(`  ⚠️ [${i}] fila sospechosa: ${pesosStr} ÷ UTM ${mmF}-${yyyyF} = ${utmCalculado.toFixed(5)} UTM, pero el modelo reportó ${item.monto_utm.toFixed(5)} UTM`);
+            }
+          }
+        }
+      }
     });
     const _sumaUtmTotal = _sumaUtmLav + _sumaUtmOtros;
     dbg(`OCR RAW: suma calculada = LAV ${_sumaUtmLav.toFixed(5)} UTM ($${_sumaPesosLav.toLocaleString('es-CL')}) + Otros Abonos ${_sumaUtmOtros.toFixed(5)} UTM = ${_sumaUtmTotal.toFixed(5)} UTM total`);
+
 
     // VALIDACIÓN — comparar la suma de filas extraídas (en UTM, unidad que
     // SIEMPRE está impresa en ambas secciones del documento, sea cual sea su
@@ -3012,9 +3051,35 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
       }
     }
 
+    // Segundo blindaje: filas donde pesos↔UTM se contradicen ENTRE SÍ, aunque
+    // la suma total del documento haya cuadrado (ver detección más arriba).
+    // Se muestra aparte porque puede disparar incluso cuando _hayDiscrepancia
+    // es false — son chequeos independientes.
+    if (_filasSospechosas.length > 0) {
+      const _detalleFilas = _filasSospechosas.map(f =>
+        `Fila ${f.i} (${f.fecha}): ${f.pesosStr} → debería ser ≈${f.utmEsperado} UTM, pero el modelo reportó ${f.utmStr}`
+      ).join('\n');
+      const _seguirFilas = confirm(
+        '⚠️ Fila(s) con lectura inconsistente\n\n' +
+        'En ' + _filasSospechosas.length + ' fila(s), el monto en pesos y el monto en UTM que el ' +
+        'modelo extrajo de la MISMA fila no coinciden entre sí:\n\n' +
+        _detalleFilas + '\n\n' +
+        'Esto suele significar que el modelo leyó mal un dígito del monto en pesos o del ' +
+        'monto en UTM de esa fila específica (puede pasar aunque el total del documento haya cuadrado).\n\n' +
+        'Revisa esas filas cuidadosamente en la vista previa antes de confirmar.\n\n' +
+        '¿Continuar de todas formas a la vista previa?'
+      );
+      if (!_seguirFilas) {
+        _ocrShowStep('ocrStepUpload');
+        return;
+      }
+    }
+
     _ocrResultados = parsed;
+    _ocrFilasSospechosas = _filasSospechosas.map(f => f.i);
     _ocrRenderPreview(parsed);
     _ocrShowStep('ocrStepPreview');
+
 
   } catch(err) {
     dbg('OCR error: ' + err.message);
@@ -3046,9 +3111,20 @@ function _ocrRenderPreview(items) {
     const seccionBadge = item.seccion === 'otros_abonos'
       ? '<span style="background:rgba(96,165,250,0.15);color:#60a5fa;border:1px solid rgba(96,165,250,0.25);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">Otros Abonos (LAV)</span>'
       : '';
-    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);">
+    // Fila marcada por la validación cruzada pesos↔UTM (ver _ocrProcesar):
+    // el modelo reportó un monto en pesos y un monto en UTM para esta misma
+    // fila que, al dividir uno por el otro, no cuadran — señal de lectura
+    // inconsistente que amerita revisión manual antes de confirmar.
+    const esSospechosa = _ocrFilasSospechosas.includes(i);
+    const sospechaBadge = esSospechosa
+      ? '<span style="background:rgba(248,113,113,0.15);color:#f87171;border:1px solid rgba(248,113,113,0.3);" class="text-[7px] font-black px-1.5 py-0.5 rounded-full ml-1">⚠️ Revisar</span>'
+      : '';
+    const filaEstilo = esSospechosa
+      ? 'background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.25);'
+      : 'background:rgba(16,185,129,0.05);border:1px solid rgba(16,185,129,0.12);';
+    return `<div class="flex items-center justify-between rounded-lg px-3 py-2" style="${filaEstilo}">
       <div class="min-w-0 flex-1 mr-2">
-        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}</p>
+        <p class="text-[9px] font-black text-white truncate flex items-center gap-1">${dd}/${mm}/${yyyy} · ${montoStr}${seccionBadge}${sospechaBadge}</p>
         <p class="text-[8px] text-slate-400 truncate">${item.descripcion || ''} · ${utmStr}</p>
       </div>
       <button onclick="_ocrRemoveItem(${i})" class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate-500 hover:text-red-400 transition-colors" style="background:rgba(255,255,255,0.05);">
@@ -3062,6 +3138,12 @@ function _ocrRemoveItem(i) {
   // FIX Bug3: guard against stale index (double-tap or async re-render race)
   if (i < 0 || i >= _ocrResultados.length) return;
   _ocrResultados.splice(i, 1);
+  // Reajustar índices sospechosos: quitar el borrado y correr hacia atrás
+  // en 1 los que estaban después de él, para que el badge ⚠️ siga apuntando
+  // a la fila correcta tras el splice.
+  _ocrFilasSospechosas = _ocrFilasSospechosas
+    .filter(idx => idx !== i)
+    .map(idx => idx > i ? idx - 1 : idx);
   if (_ocrResultados.length === 0) { ocrReset(); return; }
   _ocrRenderPreview(_ocrResultados);
 }

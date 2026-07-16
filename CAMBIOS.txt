@@ -56,6 +56,48 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0715.2226 · 2026-07-15]
+export.js
+
+Mejora — Blindaje adicional al importador OCR de Abonos LAV (runOcrAnalysis
+/ _ocrRenderPreview). Se detectó que, al procesar DOS VECES el mismo
+documento PJUD (caso "Test1", RIT Z-617-2024), el modelo de OCR (Groq/
+OpenRouter) leyó de forma distinta el monto en pesos de la fila del
+depósito 02-08-2024: $155.000 en una corrida, $150.000 en otra. La
+validación de suma total ya existente (comparar la suma de filas contra
+el total impreso del documento) no siempre detecta esto, porque si el
+modelo también reporta un total "coherente" con su propia lectura
+errónea, la suma cuadra igual aunque esté mal frente al documento real.
+
+FIX: nueva validación cruzada FILA POR FILA. Para cada movimiento que
+trae tanto monto_pesos como monto_utm, se recalcula monto_pesos ÷
+UTM-del-mes-de-la-fila y se compara contra el monto_utm que el propio
+modelo reportó para esa misma fila (tolerancia 1,5%, por posibles
+diferencias de redondeo del valor UTM impreso vs. tabla SII de la app).
+Si no coinciden, es señal de que el modelo se contradijo a sí mismo al
+leer esa fila — se marca como sospechosa.
+
+Efectos:
+- Se agrega un confirm() de advertencia adicional (independiente del ya
+  existente por discrepancia de suma total) listando las filas
+  sospechosas antes de pasar a la vista previa.
+- En la vista previa (_ocrRenderPreview), las filas marcadas se pintan
+  con borde/fondo rojo y un badge "⚠️ Revisar" junto al monto.
+- _ocrRemoveItem() reajusta los índices sospechosos al borrar una fila,
+  para que el badge no quede desalineado.
+- Nueva variable de módulo _ocrFilasSospechosas, reseteada en ocrReset().
+
+LIMITACIÓN CONOCIDA (documentada en el código): si el modelo lee mal UN
+monto y deriva el otro de esa misma lectura errónea (ambos "coherentes"
+entre sí pero incorrectos frente al documento), esta validación no lo
+detecta — solo atrapa contradicciones internas del propio modelo. Sigue
+siendo responsabilidad del usuario revisar visualmente cada fila contra
+el documento original antes de confirmar la importación.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0715.2225 · 2026-07-15]
 export.js
 
