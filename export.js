@@ -1738,7 +1738,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     const c = casos.find(x => x.id === activeCasoId);
     if (!c) return;
     const estadoLabels = { activo: 'Activo', suspendido: 'Suspendido', archivado: 'Archivado' };
-    const estadoColors = { activo: '#16a34a', suspendido: '#d97706', archivado: '#64748b' };
+    const estadoColors = { activo: '#1a9c56', suspendido: '#d97706', archivado: '#8e97b0' };
     const campos = [
       { label: 'Carátula',     val: c.nombre },
       { label: 'ROL',          val: c.rolCausa },
@@ -1754,18 +1754,18 @@ function buildResumenContent(targetContainer, inlineMode) {
 
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.cssText = 'border:1px solid rgba(37,99,235,0.18)';
+    wrap.style.cssText = 'border:1px solid #ECEFF5';
 
     // Header colapsable
     const header = document.createElement('button');
     header.className = 'w-full flex items-center justify-between px-3 py-2.5 transition-colors';
-    header.style.cssText = 'background:rgba(37,99,235,0.06);border:none;cursor:pointer;';
+    header.style.cssText = 'background:#f5f6ff;border:none;cursor:pointer;';
     header.innerHTML = `
       <div class="flex items-center gap-2">
-        <span style="font-size:10px;font-weight:900;color:#1e40af;text-transform:uppercase;letter-spacing:0.08em">Datos del Caso</span>
-        ${c.estado ? `<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:${estadoColors[c.estado] || '#64748b'}18;color:${estadoColors[c.estado] || '#64748b'};border:1px solid ${estadoColors[c.estado] || '#64748b'}30">${estadoLabels[c.estado] || c.estado}</span>` : ''}
+        <span style="font-size:10px;font-weight:900;color:#5b4fff;text-transform:uppercase;letter-spacing:0.08em">Datos del Caso</span>
+        ${c.estado ? `<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:999px;background:${estadoColors[c.estado] || '#8e97b0'}18;color:${estadoColors[c.estado] || '#8e97b0'};border:1px solid ${estadoColors[c.estado] || '#8e97b0'}30">${estadoLabels[c.estado] || c.estado}</span>` : ''}
       </div>
-      <svg id="casoResumenChevron" style="width:14px;height:14px;color:#3b82f6;transition:transform 0.25s ease;transform:rotate(0deg)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>`;
+      <svg id="casoResumenChevron" style="width:14px;height:14px;color:#5b4fff;transition:transform 0.25s ease;transform:rotate(0deg)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>`;
 
     // Cuerpo colapsable
     const body = document.createElement('div');
@@ -1777,11 +1777,11 @@ function buildResumenContent(targetContainer, inlineMode) {
     campos.forEach((f, i) => {
       const row = document.createElement('div');
       row.className = 'flex items-start gap-2 px-3 py-2';
-      row.style.cssText = `border-top:1px solid rgba(0,0,0,0.05);background:${i%2===0?'#ffffff':'#f8fafc'}`;
+      row.style.cssText = `border-top:1px solid #F3F4F7;background:${i%2===0?'#ffffff':'#FAFAFD'}`;
       row.innerHTML = `
         <div style="flex:1;min-width:0">
-          <p style="font-size:8.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1px">${f.label}</p>
-          <p style="font-size:10.5px;font-weight:700;color:#1e293b;word-break:break-word">${f.val}</p>
+          <p style="font-size:8.5px;font-weight:700;color:#9095A1;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1px">${f.label}</p>
+          <p style="font-size:10.5px;font-weight:700;color:#1a1d2e;word-break:break-word">${f.val}</p>
         </div>`;
       inner.appendChild(row);
     });
@@ -1803,13 +1803,22 @@ function buildResumenContent(targetContainer, inlineMode) {
     container.appendChild(wrap);
   })();
 
-  // ── Helper: sección con título de color (suprimida en modo inline) ──
+  // ── Helper: sección con título ──
+  // Antes: en inlineMode (tarjeta "Detalle del cálculo" de la página
+  // principal) esta función no hacía nada — por eso, por ejemplo, la tabla
+  // de "Deuda Histórica" aparecía sin ningún label que la identificara.
+  // Ahora el label sí se muestra en ambos modos, con un estilo limpio
+  // (texto uppercase + línea divisoria fina) en vez de la franja de fondo
+  // tintada de color por sección que se usaba antes — alineado a la
+  // estética del overlay DUP (fondo blanco, acentos violeta, sin bloques
+  // de color por sección).
   function seccion(titulo, colorHex, emoji) {
-    if (inlineMode) return; // sin franjas de sección en la tarjeta compacta
+    const esPrimera = container.children.length === 0;
     const div = document.createElement('div');
-    div.innerHTML = `<div class="flex items-center gap-2 px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-wide" style="background:${colorHex}14;border:1px solid ${colorHex}30">
-      <span>${emoji}</span><span style="color:${colorHex}">${titulo}</span>
-    </div>`;
+    div.style.cssText = esPrimera
+      ? 'padding:0 2px 8px;margin-top:0'
+      : 'padding:14px 2px 8px;border-top:1px solid #ECEFF5;margin-top:4px';
+    div.innerHTML = `<span style="font-size:11px;font-weight:800;color:#14161f;text-transform:uppercase;letter-spacing:0.03em">${titulo}</span>`;
     container.appendChild(div);
   }
 
@@ -1819,13 +1828,13 @@ function buildResumenContent(targetContainer, inlineMode) {
     const COLS = '2.2fr 1.2fr 2fr 1.2fr 1.8fr 2fr 2fr';
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.border = '1px solid #e2e8f0';
+    wrap.style.border = '1px solid #ECEFF5';
     wrap.style.background = '#ffffff';
 
     // Header único, neutro (estilo fintech minimalista)
     const head = document.createElement('div');
     head.className = 'grid px-3 py-2 text-[8px] font-bold uppercase tracking-wide';
-    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#94a3b8;border-bottom:1px solid #f1f5f9`;
+    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#9095A1;border-bottom:1px solid #F3F4F7`;
     head.innerHTML = '<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>';
     wrap.appendChild(head);
 
@@ -1843,14 +1852,14 @@ function buildResumenContent(targetContainer, inlineMode) {
       if (rowYear && rowYear !== lastYear) {
         lastYear = rowYear;
         const sep = document.createElement('div');
-        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #f1f5f9';
-        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:${colorHeader}">${rowYear}</span>`;
+        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #F3F4F7';
+        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:#5b4fff">${rowYear}</span>`;
         wrap.appendChild(sep);
       }
 
       const row = document.createElement('div');
       row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-slate-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #f1f5f9`;
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #F3F4F7`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
@@ -1877,15 +1886,15 @@ function buildResumenContent(targetContainer, inlineMode) {
       const _lavParcialChip = '';
       row.innerHTML = `
         <div style="min-width:0">
-          <span class="truncate" style="display:block;color:#1e293b;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}</span>
+          <span class="truncate" style="display:block;color:#1a1d2e;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}</span>
           ${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}
         </div>
-        <span style="color:#7c3aed;font-size:9px;font-weight:900">${capUTM}</span>
-        <span style="color:#334155">${fmt(capMostrado)}</span>
-        <span style="color:#64748b">${d.mora}</span>
-        <span class="text-center" style="color:#0284c7;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
-        <span class="text-right" style="color:#0369a1">${fmt(int0)}</span>
-        <span class="text-right font-black" style="color:#0f172a">${fmt(capMostrado+int0)}</span>`;
+        <span style="color:#5b4fff;font-size:9px;font-weight:900">${capUTM}</span>
+        <span style="color:#333645">${fmt(capMostrado)}</span>
+        <span style="color:#8e97b0">${d.mora}</span>
+        <span class="text-center" style="color:#38BDF8;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
+        <span class="text-right" style="color:#38BDF8">${fmt(int0)}</span>
+        <span class="text-right font-black" style="color:#14161f">${fmt(capMostrado+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
       wrap.appendChild(row);
     });
@@ -1894,9 +1903,9 @@ function buildResumenContent(targetContainer, inlineMode) {
     const totInt = datos.reduce((s,d) => s+d.inte,0);
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
-    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:${colorHeader}12;border-top:1px solid ${colorHeader}30;color:${colorHeader}`;
+    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#FAFAFD;border-top:1px solid #ECEFF5;color:#5b4fff`;
     const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
-    foot.innerHTML = `<span>TOTAL</span><span style="color:${colorHeader}">${totUTM.toFixed(2)}</span><span style="color:#0f172a">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#0f172a">${fmt(totInt)}</span><span class="text-right" style="color:#0f172a">${fmt(totCap+totInt)}</span>`;
+    foot.innerHTML = `<span>TOTAL</span><span style="color:#5b4fff">${totUTM.toFixed(2)}</span><span style="color:#14161f">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#14161f">${fmt(totInt)}</span><span class="text-right" style="color:#14161f">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
     container.appendChild(wrap);
   }
@@ -1918,24 +1927,24 @@ function buildResumenContent(targetContainer, inlineMode) {
     seccion('Abonos Realizados', '#0891b2', '');
     const wrapA = document.createElement('div');
     wrapA.className = 'rounded-xl overflow-hidden';
-    wrapA.style.border = '1px solid rgba(8,145,178,0.25)';
+    wrapA.style.border = '1px solid #ECEFF5';
     abonos.forEach((a, i) => {
       const [anio, mes, dia = '01'] = a.date.split('-');
       const label = dia + '/' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(mes)-1] + '/' + anio;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
-      row.innerHTML = `<span style="color:#475569">${label}</span><span class="font-black" style="color:#0f172a">${fmt(a.amount)}</span>`;
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'}`;
+      row.innerHTML = `<span style="color:#5a6380">${label}</span><span class="font-black" style="color:#14161f">${fmt(a.amount)}</span>`;
       wrapA.appendChild(row);
     });
     // nota imputación
     if (imputacion && (intImputado > 0 || capImputado > 0)) {
       const nota = document.createElement('div');
       nota.className = 'px-3 py-2.5 text-[9px] font-bold space-y-0.5';
-      nota.style.cssText = 'background:rgba(8,145,178,0.06);border-top:1px solid rgba(8,145,178,0.2)';
-      nota.innerHTML = `<p class="font-black uppercase" style="color:#0284c7">Imputación Art. 1595 CC</p>
-        ${intImputado>0?`<p style="color:#475569">→ A intereses: <span class="font-black" style="color:#0369a1">${fmt(intImputado)}</span></p>`:''}
-        ${capImputado>0?`<p style="color:#475569">→ A capital: <span class="font-black" style="color:#0369a1">${fmt(capImputado)}</span></p>`:''}`;
+      nota.style.cssText = 'background:#FAFAFD;border-top:1px solid #F3F4F7';
+      nota.innerHTML = `<p class="font-black uppercase" style="color:#5b4fff">Imputación Art. 1595 CC</p>
+        ${intImputado>0?`<p style="color:#5a6380">→ A intereses: <span class="font-black" style="color:#333645">${fmt(intImputado)}</span></p>`:''}
+        ${capImputado>0?`<p style="color:#5a6380">→ A capital: <span class="font-black" style="color:#333645">${fmt(capImputado)}</span></p>`:''}`;
       wrapA.appendChild(nota);
     }
     container.appendChild(wrapA);
@@ -1946,7 +1955,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     seccion('Pagos Parciales por Mes', '#7c3aed', '');
     const wrapP = document.createElement('div');
     wrapP.className = 'rounded-xl overflow-hidden';
-    wrapP.style.border = '1px solid rgba(124,58,237,0.2)';
+    wrapP.style.border = '1px solid #ECEFF5';
     // Agrupar por período (puede haber múltiples pagos en el mismo mes)
     const agrupados = [];
     const vistoPeriodos = {};
@@ -1963,14 +1972,14 @@ function buildResumenContent(targetContainer, inlineMode) {
       const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'}`;
-      row.innerHTML = `<span style="color:#475569">${p.periodoLabel}</span><span class="font-black" style="color:#0f172a">${fmt(p.amount)}</span>`;
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'}`;
+      row.innerHTML = `<span style="color:#5a6380">${p.periodoLabel}</span><span class="font-black" style="color:#14161f">${fmt(p.amount)}</span>`;
       wrapP.appendChild(row);
       // Sub-fila remanente
       if (cuotaRef) {
         const remRow = document.createElement('div');
         remRow.className = 'flex justify-between items-center px-3 py-1.5 text-[9px] font-bold';
-        remRow.style.cssText = `background:rgba(168,85,247,0.06);border-top:1px dashed rgba(168,85,247,0.25)`;
+        remRow.style.cssText = `background:#FAFAFD;border-top:1px dashed #ECEFF5`;
         const _remCap = cuotaRef.capParcialRemanente ?? cuotaRef.cap;
         const remUTM = cuotaRef.utmVal > 0 ? (_remCap / cuotaRef.utmVal).toFixed(4) + ' UTM' : '';
         remRow.innerHTML = `
@@ -1983,7 +1992,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     // Nota al pie si hay remanentes
     if (lastCalculationData && agrupados.some(p => lastCalculationData.find(d => d.periodo === p.periodoLabel))) {
       const nota = document.createElement('div');
-      nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:rgba(168,85,247,0.05);border-top:1px solid rgba(168,85,247,0.15)';
+      nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:#FAFAFD;border-top:1px solid #ECEFF5';
       nota.textContent = '* El interés se calcula sobre el remanente, no sobre la cuota completa (metodología SITFA/PJUD).';
       wrapP.appendChild(nota);
     }
@@ -1995,13 +2004,13 @@ function buildResumenContent(targetContainer, inlineMode) {
     seccion('Abonos LAV — Detalle', '#059669', '');
     const wrapLav = document.createElement('div');
     wrapLav.className = 'rounded-xl overflow-hidden';
-    wrapLav.style.border = '1px solid rgba(16,185,129,0.2)';
+    wrapLav.style.border = '1px solid #ECEFF5';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
     // Label con ícono minimalista de tarjeta de crédito
     const lavLabel = document.createElement('div');
-    lavLabel.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#059669;background:#ffffff;border-bottom:1px solid rgba(16,185,129,0.2)';
-    lavLabel.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
+    lavLabel.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#1a9c56;background:#ffffff;border-bottom:1px solid #ECEFF5';
+    lavLabel.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1a9c56" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
     wrapLav.appendChild(lavLabel);
     // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
     // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
@@ -2019,7 +2028,7 @@ function buildResumenContent(targetContainer, inlineMode) {
       if (p.origen === 'otros_abonos' && !otrosHeaderShown) {
         otrosHeaderShown = true;
         const subHeader = document.createElement('div');
-        subHeader.style.cssText = 'padding:4px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#2563eb;background:rgba(37,99,235,0.06);border-top:1px solid rgba(37,99,235,0.15)';
+        subHeader.style.cssText = 'padding:4px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#5b4fff;background:#FAFAFD;border-top:1px solid #ECEFF5';
         subHeader.textContent = 'Otros Abonos';
         wrapLav.appendChild(subHeader);
       }
@@ -2042,19 +2051,19 @@ function buildResumenContent(targetContainer, inlineMode) {
           coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#b45309;font-size:8px;font-weight:800;">⚠ Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.remanenteClp)}</span></div>`;
         } else if (cobertura.estado === 'excedente') {
           const excedenteUTM = Math.abs(cobertura.diffUTM);
-          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#059669;font-size:8px;font-weight:800;">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.excedenteClp)}</span></div>`;
+          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#1a9c56;font-size:8px;font-weight:800;">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.excedenteClp)}</span></div>`;
         }
       }
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#f8fafc'};border-top:${i>0?'1px solid #e2e8f0':'none'};padding:8px 12px;display:grid;grid-template-columns:1fr auto;`;
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'};padding:8px 12px;display:grid;grid-template-columns:1fr auto;`;
       row.className = 'text-[10px] font-bold';
       row.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:1px;line-height:1.3">
-          <span style="color:#1e293b;font-weight:900">${fechaStr}</span>
-          <span style="color:#94a3b8;font-size:9px;font-weight:700">UTM período: ${utmPeriodoStr}</span>
+          <span style="color:#1a1d2e;font-weight:900">${fechaStr}</span>
+          <span style="color:#9095A1;font-size:9px;font-weight:700">UTM período: ${utmPeriodoStr}</span>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;gap:1px;line-height:1.3">
-          <span style="color:#0f172a;font-weight:900">${fmt(p.amount)}</span>
-          <span style="color:#059669;font-size:9px;font-weight:700">${equivUtmStr}</span>
+          <span style="color:#14161f;font-weight:900">${fmt(p.amount)}</span>
+          <span style="color:#1a9c56;font-size:9px;font-weight:700">${equivUtmStr}</span>
         </div>
         ${coberturaHtml}`;
       wrapLav.appendChild(row);
@@ -2062,8 +2071,8 @@ function buildResumenContent(targetContainer, inlineMode) {
     // Fila total
     const totRow = document.createElement('div');
     totRow.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-black';
-    totRow.style.cssText = 'background:rgba(16,185,129,0.08);border-top:2px solid rgba(16,185,129,0.3)';
-    totRow.innerHTML = `<span style="color:#059669">TOTAL LAV</span><span style="color:#059669">${totalLavUTM.toFixed(5)} UTM</span><span style="color:#0f172a">${fmt(totalLavCLP)}</span>`;
+    totRow.style.cssText = 'background:#e8f9ee;border-top:1px solid #bcedd0';
+    totRow.innerHTML = `<span style="color:#1a9c56">TOTAL LAV</span><span style="color:#1a9c56">${totalLavUTM.toFixed(5)} UTM</span><span style="color:#14161f">${fmt(totalLavCLP)}</span>`;
     wrapLav.appendChild(totRow);
     container.appendChild(wrapLav);
     // Nota aclaratoria (mismo texto que en el PDF): la línea "⚠ Parcial ·
@@ -2074,7 +2083,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     // puede figurar "Parcial" aquí y aun así quedar totalmente cubierto en
     // el resultado real (ver más abajo el detalle por período).
     const notaLavWeb = document.createElement('p');
-    notaLavWeb.style.cssText = 'font-size:8px;color:#94a3b8;font-style:italic;margin-top:6px;line-height:1.4;';
+    notaLavWeb.style.cssText = 'font-size:8px;color:#9095A1;font-style:italic;margin-top:6px;line-height:1.4;';
     notaLavWeb.textContent = 'Nota: la cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.';
     container.appendChild(notaLavWeb);
   }
@@ -2085,15 +2094,15 @@ function buildResumenContent(targetContainer, inlineMode) {
   // totalCapPesos + totalIntPesos ya derivan de cuotasRes_h × utmLiq,
   // igual que totalFinalReal — no hay ajuste UTM necesario.
   const resumenRows = [
-    { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#334155', valColor: '#0f172a', bold: false },
-    { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#334155', valColor: '#0284c7', bold: false },
-    { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#0f172a', valColor: '#0f172a', bold: true, sep: true },
+    { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#333645', valColor: '#14161f', bold: false },
+    { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#333645', valColor: '#38BDF8', bold: false },
+    { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#14161f', valColor: '#14161f', bold: true, sep: true },
   ];
   // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
   const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
   const abonosOrdCLPmodal = abonos.reduce((s,a) => s + a.amount, 0);
   if (intImputado > 0) {
-    resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
+    resumenRows.push({ label: '(-) Abonos a intereses (Art. 1595 CC)', val: -intImputado, labelColor: '#38BDF8', valColor: '#38BDF8', bold: false });
   }
   if (lavTotalCLPmodal > 0 && lastCalculationData.length > 0) {
     // FIX precisión: sumar en UTM sin redondear y convertir a CLP al final (ver mismo fix en PDF),
@@ -2105,40 +2114,40 @@ function buildResumenContent(targetContainer, inlineMode) {
     const lavTotalImputado = lavIntCubiertoModal + lavCapCubiertoModal;
     const lavRemanenteCLP = lavTotalCLPmodal - lavTotalImputado;
     if (lavIntCubiertoModal > 0) {
-      resumenRows.push({ label: '(-) LAV — intereses cubiertos (Art. 1595 CC)', val: -lavIntCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false });
-      resumenRows.push({ label: '(-) LAV — capital cubierto (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+      resumenRows.push({ label: '(-) LAV — intereses cubiertos (Art. 1595 CC)', val: -lavIntCubiertoModal, labelColor: '#1a9c56', valColor: '#1a9c56', bold: false });
+      resumenRows.push({ label: '(-) LAV — capital cubierto (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#1a9c56', valColor: '#1a9c56', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
     } else {
-      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#059669', valColor: '#059669', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
+      resumenRows.push({ label: '(-) Abonos LAV (depósitos cuenta vista)', val: -lavCapCubiertoModal, labelColor: '#1a9c56', valColor: '#1a9c56', bold: false, utmStr: lavTotalUTM_h.toFixed(5) + ' UTM' });
     }
     // Si hay remanente LAV sin imputar (pool mayor que deuda total), mostrarlo informativo
     if (lavRemanenteCLP > 50) {
-      resumenRows.push({ label: 'LAV remanente sin imputar (saldo a favor)', val: lavRemanenteCLP, labelColor: '#059669', valColor: '#059669', bold: false, italic: true });
+      resumenRows.push({ label: 'LAV remanente sin imputar (saldo a favor)', val: lavRemanenteCLP, labelColor: '#1a9c56', valColor: '#1a9c56', bold: false, italic: true });
     }
   }
   if (abonosOrdCLPmodal > 0) {
-    resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -abonosOrdCLPmodal, labelColor: '#0891b2', valColor: '#0891b2', bold: false });
+    resumenRows.push({ label: '(-) Abonos a capital (Art. 1595 CC)', val: -abonosOrdCLPmodal, labelColor: '#38BDF8', valColor: '#38BDF8', bold: false });
   }
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
-  wrapR.style.border = '1px solid #e2e8f0';
+  wrapR.style.border = '1px solid #ECEFF5';
   wrapR.style.background = '#ffffff';
   // Header tipo fintech: ícono de gráfico de barras en cuadro redondeado + título
   const headerR = document.createElement('div');
   headerR.className = 'flex items-center justify-between px-3 py-3';
-  headerR.style.cssText = 'border-bottom:1px solid #f1f5f9';
+  headerR.style.cssText = 'border-bottom:1px solid #F3F4F7';
   headerR.innerHTML = `
     <div class="flex items-center gap-2.5">
-      <div style="width:28px;height:28px;border-radius:9px;background:#d1fae5;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"></line><line x1="12" y1="20" x2="12" y2="6"></line><line x1="18" y1="20" x2="18" y2="14"></line></svg>
+      <div style="width:28px;height:28px;border-radius:9px;background:#f2eeff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b4fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="12"></line><line x1="12" y1="20" x2="12" y2="6"></line><line x1="18" y1="20" x2="18" y2="14"></line></svg>
       </div>
-      <span class="font-black text-[11.5px]" style="color:#0f172a">Resumen final</span>
+      <span class="font-black text-[11.5px]" style="color:#14161f">Resumen final</span>
     </div>
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9095A1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
   wrapR.appendChild(headerR);
   resumenRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
-    row.style.cssText = `background:${r.sep?'#eff6ff':'#ffffff'};border-top:1px solid #f1f5f9`;
+    row.style.cssText = `background:${r.sep?'#FAFAFD':'#ffffff'};border-top:1px solid #F3F4F7`;
     const valDisplay = r.utmStr
       ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
       : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
@@ -2149,12 +2158,12 @@ function buildResumenContent(targetContainer, inlineMode) {
   if (!inlineMode) {
     const totalRow = document.createElement('div');
     totalRow.className = 'px-4 py-4 text-center';
-    totalRow.style.cssText = 'background:linear-gradient(135deg,#1e3a5f,#1e40af);border-top:2px solid #1d4ed8';
+    totalRow.style.cssText = 'background:#f5f6ff;border-top:1px solid #e7e9ff';
     totalRow.innerHTML = `
-    <p style="font-size:9px;font-weight:900;color:#93c5fd;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
-    <p class="font-black text-white" style="font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
-    <p style="font-size:10px;font-weight:700;margin-top:4px;color:#bfdbfe">${totalDeudaUTM_h.toFixed(5)} UTM</p>
-    <p style="font-size:8px;font-weight:600;color:#93c5fd;margin-top:2px;opacity:0.8">1 UTM = ${fmt(utmLiq)} (${utmLiqMes.m} ${utmLiqMes.y})</p>`;
+    <p style="font-size:9px;font-weight:900;color:#8e97b0;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Total a Pagar — Liquidación Final</p>
+    <p class="font-black" style="color:#5b4fff;font-size:clamp(28px,8vw,42px);line-height:1;letter-spacing:-1px">${fmt(totalFinalReal)}</p>
+    <p style="font-size:10px;font-weight:700;margin-top:4px;color:#8e97b0">${totalDeudaUTM_h.toFixed(5)} UTM</p>
+    <p style="font-size:8px;font-weight:600;color:#9095A1;margin-top:2px;opacity:0.9">1 UTM = ${fmt(utmLiq)} (${utmLiqMes.m} ${utmLiqMes.y})</p>`;
     wrapR.appendChild(totalRow);
   }
   container.appendChild(wrapR);
@@ -2163,8 +2172,8 @@ function buildResumenContent(targetContainer, inlineMode) {
   if (!inlineMode) {
     const nota = document.createElement('div');
     nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
-    nota.style.cssText = 'border:1px solid #e2e8f0;background:#f8fafc;color:#64748b';
-    nota.innerHTML = `<p class="font-black mb-1" style="color:#475569">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
+    nota.style.cssText = 'border:1px solid #ECEFF5;background:#FAFAFD;color:#8e97b0';
+    nota.innerHTML = `<p class="font-black mb-1" style="color:#5a6380">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
     container.appendChild(nota);
   }
 }

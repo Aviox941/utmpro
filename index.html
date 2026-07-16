@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0800">
+ <meta name="app-version" content="v2.0716.0900">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1247,14 +1247,24 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado (azul) -->
+        <!-- Tarjeta Total Adeudado (ahora blanca, estética alineada al overlay DUP) -->
         <div class="hero-total-card" style="position:relative;">
           <!-- Hamburguesa minimalista — abre sidebar -->
-          <button onclick="openSidebar()" style="position:absolute;top:12px;left:14px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.7;" title="Menú">
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+          <button onclick="openSidebar()" style="position:absolute;top:12px;left:14px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.55;" title="Menú">
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
           </button>
+          <div class="hero-total-card__badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="8.5 12.5 11 15 15.5 9.5"/></svg>
+            Calculado hasta hoy
+          </div>
+          <div class="hero-total-card__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
           <p class="hero-total-card__label">Total Adeudado</p>
           <div class="hero-total-card__amount-row">
             <span class="hero-total-card__sign">$</span>
@@ -1297,29 +1307,29 @@ window.addEventListener('popstate', function() {
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
       </div>
       <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
-      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
+      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:22px;border:1px solid #ececf5;box-shadow:0 10px 35px rgba(91,79,255,0.08);overflow:hidden;">
         <!-- Header colapsable -->
         <!-- Header colapsable: click en zona izquierda colapsa; íconos de acción a la derecha -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #f1f5f9;">
           <!-- Zona colapsable (izquierda) -->
           <button onclick="toggleCalcSummary()" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;padding:0;flex:1;text-align:left;">
-            <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <div style="width:28px;height:28px;border-radius:9px;background:#f2eeff;border:1px solid #e7e9ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b4fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
             <div>
-              <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
-              <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
+              <p style="font-size:11px;font-weight:800;color:#1a1d2e;">Detalle del cálculo</p>
+              <p style="font-size:9px;color:#8e97b0;font-weight:500;">Igual que el PDF</p>
             </div>
           </button>
           <!-- Íconos de acción (derecha) — reemplaza al chevron -->
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
             <!-- Ver resumen / PDF -->
-            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </button>
             <!-- Descargar -->
             <div style="position:relative;">
-              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               </button>
             </div>
@@ -7147,7 +7157,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0800</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0900</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

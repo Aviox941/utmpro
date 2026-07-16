@@ -56,6 +56,79 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0900 · 2026-07-16]
+index.html, styles.css, export.js
+
+Cambio estético — la tarjeta hero "Total Adeudado" y la tarjeta "Detalle
+del cálculo" de la pantalla principal adoptan la misma paleta visual que
+ya usaba el overlay "Desde el último pago" (fondo blanco, badge verde
+"Calculado hasta hoy", ícono circular violeta, tipografía DM Sans,
+acentos violeta/celeste) en vez del degradado azul oscuro que tenían
+antes. Cambio puramente visual — ningún ID, cálculo, ni estructura de
+datos fue tocado; todos los elementos siguen siendo alimentados por el
+mismo JS de siempre.
+
+1. HERO "Total Adeudado" (index.html + styles.css, clases
+.hero-total-card*): pasó de degradado azul con texto blanco a card
+blanco con borde/sombra suave violeta (mismo criterio que
+.dup-summary-card), badge verde "Calculado hasta hoy" nuevo, ícono
+circular violeta (mismo símbolo "$" del DUP) y el monto grande ahora en
+violeta (#5b4fff) en vez de blanco. El botón hamburguesa cambió de
+líneas blancas a oscuras (ahora el fondo es claro). Se agregó
+.hero-total-card::after con el mismo halo radial sutil que tiene
+.dup-summary-card::after. La píldora "Abonos LAV" (oculta por defecto,
+se conserva en el DOM) también se adaptó a fondo claro por consistencia,
+aunque no está visible actualmente.
+
+2. "DETALLE DEL CÁLCULO" (index.html): el contenedor exterior y su
+header colapsable pasaron de acento azul (#3b82f6) a violeta (#5b4fff),
+con bordes grises finos (#ececf5) y la misma sombra que el DUP en vez
+del borde/sombra genérica anterior.
+
+3. buildResumenContent() en export.js — usada tanto por esta tarjeta
+inline como por el modal "Resumen de Liquidación" y el PDF comparte
+código, así que el repintado benefició a ambos lugares:
+   a. FIX: la función seccion() (label de cada bloque: "Período Actual",
+      "Deuda Histórica", "Abonos Realizados", etc.) tenía
+      "if (inlineMode) return" — es decir, en la tarjeta de la página
+      principal NUNCA se mostraba ningún label de sección. Por eso,
+      como notó el usuario, la tabla de "Deuda Histórica" aparecía sin
+      ningún texto que la identificara. Ahora el label se muestra en
+      ambos modos, con un estilo limpio (texto uppercase + línea
+      divisoria fina gris) en vez de la franja de fondo tintada de
+      color por sección que tenía el modal antes.
+   b. Se reemplazaron los bordes/fondos tintados por color de cada
+      sección (azul para pensiones, naranja para deuda histórica,
+      celeste para abonos, violeta para pagos parciales, verde para
+      LAV) por un borde gris fino uniforme (#ECEFF5) en todas las
+      tablas y bloques — mismo criterio visual que usa el DUP. Los
+      acentos de color con significado semántico propio (violeta para
+      columna UTM, celeste para tasa/interés, verde para LAV, naranja
+      para marca "H" de histórico, violeta/verde para chips de
+      remanente/excedente) SE MANTUVIERON — no se tocó ningún dato ni
+      chip informativo, solo el color de fondo/borde de los
+      contenedores.
+   c. El bloque "Resumen final" (header + filas + total destacado)
+      cambió su ícono de verde a violeta y el total final destacado
+      (solo visible en el modal, no en la tarjeta inline) pasó del
+      degradado azul oscuro con texto blanco a fondo violeta claro
+      (#f5f6ff) con el monto en violeta (#5b4fff) — mismo lenguaje que
+      el resto.
+   d. El bloque colapsable "Datos del Caso" (solo modal) también
+      adoptó la paleta violeta/gris.
+
+Alcance: NO se reestructuraron las tablas (se mantuvo la columna UTM
+visible, separadores por año, chips de remanente/excedente y el
+click-to-detail de cada fila) ni se movió información a otra vista —
+a pedido explícito del usuario, este cambio es solo de "limpieza
+visual" (menos bordes/recuadros de colores distintos por sección,
+labels de sección donde faltaban) sobre la estructura de datos
+existente, no un rediseño.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0716.0800 · 2026-07-16]
 index.html
 
