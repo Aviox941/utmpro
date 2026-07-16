@@ -56,6 +56,42 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0800 · 2026-07-16]
+index.html
+
+Fix — botón "atrás" del sistema en Android cerraba la app completa (en vez
+de solo el overlay abierto) al presionarlo dentro de los overlays fullscreen
+"Entre fechas", "Desde el último pago" y "Conversor UTM y pesos". Causa: al
+ser overlays superpuestos (display:flex + z-index), no páginas reales, no
+empujaban ninguna entrada al historial del navegador — el botón de retroceso
+del sistema no encontraba historial dentro de la PWA y salía directo de la
+aplicación.
+
+Se agregó un gestor de historial (_histPush / _histPop, bloque nuevo
+"Gestor de historial para overlays fullscreen" cerca del inicio del
+archivo): cada open<X>Overlay() ahora empuja una entrada ficticia al
+historial vía history.pushState(); un listener de 'popstate' detecta
+cuándo el usuario presiona atrás con alguno de estos tres overlays abierto
+y lo cierra visualmente en vez de dejar que el navegador salga de la app.
+
+Para evitar un loop entre el cierre manual (botón "X" del overlay, que
+llama a history.back() para limpiar la entrada) y el cierre por popstate
+(que NO debe volver a llamar a history.back()), se separó en cada overlay
+la función de cierre en dos: closeXOverlay() (cierre manual, consume la
+entrada de historial) y _closeXOverlayVisual() (solo oculta el DOM,
+reutilizada por el handler de popstate). El comportamiento visual del
+cierre (animación, reset de formulario, etc.) es idéntico al de antes —
+no se tocó ninguna lógica de cálculo ni de UI dentro de los overlays.
+
+Alcance de este fix: los tres overlays fullscreen mencionados (dup, bef,
+conv). Otros modales de la app (detalle de período, casos, ayuda, etc.)
+no fueron tocados — quedan pendientes si se reporta el mismo problema en
+ellos.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0716.0700 · 2026-07-16]
 export.js
 
