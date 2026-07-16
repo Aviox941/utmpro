@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0700">
+ <meta name="app-version" content="v2.0716.0800">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -352,6 +352,58 @@ try {
 // causaba flash de pantalla en blanco cuando IDB tardaba más de 800ms en restaurar.
 // Ahora sbLoadCasos() agrega auth-ready cuando tiene certeza; este es solo el último recurso.
 setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
+</script>
+<script>
+// ── Gestor de historial para overlays fullscreen (botón "atrás" Android) ───
+// Problema: los overlays fullscreen (Entre fechas, Desde el último pago,
+// Conversor UTM) no son páginas reales — no empujan estado al historial del
+// navegador. En una PWA instalada en Android, el botón de retroceso del
+// sistema no encuentra historial dentro de la app y la cierra por completo
+// en vez de simplemente cerrar el overlay que está abierto encima.
+//
+// Solución: cada open<X>Overlay() empuja una entrada ficticia al historial
+// (_histPush). Si el usuario presiona atrás mientras el overlay está
+// abierto, el navegador dispara 'popstate' ANTES de salir de la app —
+// _histStack.pop() detecta qué overlay estaba abierto y lo cierra
+// visualmente (sin volver a llamar a history.back(), evitando un loop).
+// Si el usuario cierra el overlay con su botón "X" normal (closeXOverlay),
+// es la propia app la que llama a history.back() vía _histPop() para
+// consumir la entrada que ya no se necesita, dejando el historial limpio.
+//
+// _histStack guarda los nombres en el mismo orden en que se abrieron, para
+// soportar overlays anidados (ej. abrir Conversor UTM desde dentro de Entre
+// fechas, si eso llegara a existir) — siempre se cierra el más reciente.
+var _histStack = [];
+var _histPopstateBusy = false; // evita reentrancia si popstate dispara durante un cierre programático
+
+function _histPush(name) {
+  _histStack.push(name);
+  history.pushState({ _pensionOverlay: name }, '');
+}
+
+// Llamado desde closeXOverlay() (cierre manual, botón "X" o similar) —
+// consume la entrada de historial correspondiente. NO cierra el overlay
+// visualmente (eso lo sigue haciendo _closeXOverlayVisual()).
+function _histPop(name) {
+  var idx = _histStack.lastIndexOf(name);
+  if (idx === -1) return; // no estaba registrado (ej. abierto antes de este fix) — nada que consumir
+  _histStack.splice(idx, 1);
+  if (_histPopstateBusy) return; // ya estamos dentro de un popstate; no volver a disparar history.back()
+  history.back();
+}
+
+window.addEventListener('popstate', function() {
+  if (_histStack.length === 0) return; // no había overlay nuestro abierto — dejar que el back navegue/salga normal
+  var name = _histStack.pop();
+  _histPopstateBusy = true;
+  try {
+    if (name === 'dup' && typeof _closeDupOverlayVisual === 'function') _closeDupOverlayVisual();
+    else if (name === 'bef' && typeof _closeBefOverlayVisual === 'function') _closeBefOverlayVisual();
+    else if (name === 'conv' && typeof _closeConvOverlayVisual === 'function') _closeConvOverlayVisual();
+  } finally {
+    _histPopstateBusy = false;
+  }
+});
 </script>
 <script>
 // ── Panel de diagnóstico temprano — aparece con 5 taps en cualquier lugar ──
@@ -7095,7 +7147,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0700</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0800</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9050,6 +9102,7 @@ function _ayudaAbrirTema(t) {
 // ── Fullscreen overlay: Desde el último pago ─────────────────────────────────
 
 function openDupOverlay(skipSlideIn) {
+  _histPush('dup');
   const el = document.getElementById('dupOverlay');
   el.style.display = 'flex';
   if (skipSlideIn) {
@@ -9099,6 +9152,14 @@ function dupResetForm() {
 }
 
 function closeDupOverlay() {
+  _histPop('dup');
+  _closeDupOverlayVisual();
+}
+
+// Cierre puramente visual — separado de closeDupOverlay() para que el
+// handler de popstate (botón "atrás" del sistema/navegador) pueda cerrar el
+// overlay SIN volver a llamar a history.back() (evita loop). Ver _histPop.
+function _closeDupOverlayVisual() {
   const el = document.getElementById('dupOverlay');
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('dup-overlay--open');
@@ -9876,6 +9937,7 @@ function dupBuildDetalle() {
 // la app (ver befUpdateEquivChip, líneas ~8870-8900) y getUtmActualVal().
 
 function openConvOverlay(skipSlideIn) {
+  _histPush('conv');
   const el = document.getElementById('convOverlay');
   el.style.display = 'flex';
   if (skipSlideIn) {
@@ -9888,6 +9950,12 @@ function openConvOverlay(skipSlideIn) {
 }
 
 function closeConvOverlay() {
+  _histPop('conv');
+  _closeConvOverlayVisual();
+}
+
+// Cierre puramente visual — ver nota en _closeDupOverlayVisual().
+function _closeConvOverlayVisual() {
   const el = document.getElementById('convOverlay');
   el.style.transform = '';
   el.classList.remove('bef-overlay--open');
@@ -9989,6 +10057,7 @@ function convActualizarResultado() {
 // ── Fullscreen overlay: Entre fechas ──────────────────────────────────────
 
 function openBefOverlay(skipSlideIn) {
+  _histPush('bef');
   const el = document.getElementById('befOverlay');
   el.style.display = 'flex';
   if (skipSlideIn) {
@@ -10002,6 +10071,12 @@ function openBefOverlay(skipSlideIn) {
 }
 
 function closeBefOverlay() {
+  _histPop('bef');
+  _closeBefOverlayVisual();
+}
+
+// Cierre puramente visual — ver nota en _closeDupOverlayVisual().
+function _closeBefOverlayVisual() {
   const el = document.getElementById('befOverlay');
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('bef-overlay--open');
