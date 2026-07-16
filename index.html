@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0712.0722">
+ <meta name="app-version" content="v2.0715.2225">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1816,8 +1816,8 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
          consolidadaFechaAnio, consolidadaFechaPickerBtn, consolidadaFechaLabel,
          consolidadaAplicaIntereses, consolidadaUsaMaxima,
          tasaIndicador, tasaIndicadorText,
-         consolidadaPreview, consolidadaDiasMoraLabel,
-         consolidadaCapLabel, consolidadaIntLabel, consolidadaTotalLabel
+         consolidadaPreview,
+         consolidadaCapLabel, consolidadaTotalLabel, consolidadaTotalUtmLabel
     ══════════════════════════════════════════════════════════════ -->
     <div id="panelModoConsolidada" class="hidden space-y-0">
 
@@ -1903,23 +1903,14 @@ setTimeout(function(){ document.body.classList.add('auth-ready'); }, 4000);
               <p id="consolidadaCapLabel" style="font-size:12px;font-weight:700;color:#2a2f45;letter-spacing:-0.02em;line-height:1;">$0</p>
             </div>
 
-            <!-- símbolo + -->
-            <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">+</div>
-
-            <!-- Interés acumulado -->
-            <div style="text-align:center;flex:1;min-width:0;">
-              <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(90,99,128,0.50);margin-bottom:3px;white-space:nowrap;">Interés acum.</p>
-              <p id="consolidadaIntLabel" style="font-size:12px;font-weight:700;color:#c2410c;letter-spacing:-0.02em;line-height:1;">$0</p>
-              <span id="consolidadaDiasMoraLabel" style="font-size:6.5px;font-weight:700;color:rgba(194,65,12,0.50);">0 días</span>
-            </div>
-
             <!-- símbolo = -->
             <div style="flex-shrink:0;font-size:14px;font-weight:300;color:rgba(234,88,12,0.35);padding:0 2px;margin-top:6px;">=</div>
 
-            <!-- Total deuda — protagonista -->
-            <div style="text-align:center;flex:1.4;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
+            <!-- Total deuda — protagonista (UTM + CLP) -->
+            <div style="text-align:center;flex:1.6;min-width:0;background:rgba(234,88,12,0.05);border:1px solid rgba(234,88,12,0.12);border-radius:10px;padding:6px 8px;">
               <p style="font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:0.10em;color:rgba(194,65,12,0.55);margin-bottom:3px;white-space:nowrap;">Total deuda</p>
               <p id="consolidadaTotalLabel" style="font-family:'DM Sans',system-ui,sans-serif;font-size:clamp(16px,4.5vw,26px);font-weight:800;color:#c2410c;letter-spacing:-0.04em;line-height:1;word-break:break-all;">$0</p>
+              <p id="consolidadaTotalUtmLabel" style="font-size:8px;font-weight:700;color:rgba(194,65,12,0.55);letter-spacing:-0.01em;line-height:1;margin-top:2px;">0 UTM</p>
             </div>
 
           </div>
@@ -2288,6 +2279,52 @@ function calcularInteres(capital, tasaMensual, diasMora) {
 if (diasMora <= 0 || capital <= 0) return 0;
 return capital * (tasaMensual / 365) * diasMora;
 }
+// FUNDAMENTO LEGAL (v272): Art. 17 Ley 14.908 remite al interés corriente del
+// Art. 6 Ley 18.010, cuya tasa "se publicará... para tener vigencia hasta el
+// día anterior a la próxima publicación" — es decir, la tasa cambia MES A MES
+// y solo rige durante su ventana. calcularInteres() (arriba) aplica una única
+// tasa fija (la del mes de origen de la cuota) sobre TODOS los días de mora,
+// lo que se aparta de la ley cuando la mora cruza más de un mes calendario.
+// calcularInteresSegmentado() corrige esto: recorre tramo a tramo (mes
+// calendario por mes calendario) entre fechaVenc y fechaCorte, aplicando en
+// cada tramo la tasa CMF vigente de ESE mes. Capital se mantiene constante
+// dentro del tramo (el capital de la cuota ya viene resuelto por
+// imputarAbonosArt1595 / pagos parciales antes de llegar aquí).
+// Confirmado contra RIT Z-617-2024 (Juzgado de Familia Talca) — ver CAMBIOS.txt.
+function calcularInteresSegmentado(capital, fechaVenc, fechaCorte, usarMaxima, aplicarRecargo) {
+  if (!(capital > 0) || !fechaVenc || !fechaCorte || fechaCorte <= fechaVenc) {
+    return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
+  }
+  let interesTotal = 0;
+  let diasMoraTotal = 0;
+  let sumaPonderada = 0;
+  let hayTasaAproximada = false;
+  const diaCorte = fechaVenc.getDate(); // día de vencimiento (ej. 5) — cada tramo corta ese mismo día, no el día 1
+  let cur = new Date(fechaVenc.getFullYear(), fechaVenc.getMonth(), fechaVenc.getDate());
+  while (cur < fechaCorte) {
+    const curAnio = cur.getFullYear();
+    const curMes = cur.getMonth(); // 0-based
+    // Tramo va de diaCorte del mes actual a diaCorte del mes siguiente (no día 1),
+    // para que la tasa vigente de cada mes se aplique sobre la ventana real de
+    // vigencia de la cuota, consistente con el día de vencimiento judicial.
+    const finMes = new Date(curAnio, curMes + 1, diaCorte);
+    const finTramo = finMes < fechaCorte ? finMes : fechaCorte;
+    const diasTramo = Math.floor((finTramo - cur) / (1000 * 60 * 60 * 24));
+    if (diasTramo > 0) {
+      const tasaInfo = getTasaAnualInfo(curAnio, curMes, usarMaxima, false, capital, null, diasMoraTotal);
+      if (tasaInfo.esAproximada) hayTasaAproximada = true;
+      const recargoAplicaTramo = aplicarRecargo && diasMoraTotal >= 0;
+      const tasaEfectiva = recargoAplicaTramo ? tasaInfo.valor * 1.5 : tasaInfo.valor;
+      const intTramo = capital * (tasaEfectiva / 365) * diasTramo;
+      interesTotal += intTramo;
+      diasMoraTotal += diasTramo;
+      sumaPonderada += tasaEfectiva * diasTramo;
+    }
+    cur = finTramo;
+  }
+  const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
+  return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
+}
 function getDiaVencimiento() {
 const raw = parseInt(document.getElementById('diaVencimiento')?.value);
 if (!raw || isNaN(raw) || raw < 1) return 5;
@@ -2325,6 +2362,10 @@ function resetFechaLiquidacion() {
   const mm = String(nuevaFecha.getMonth() + 1).padStart(2, '0');
   const dd = String(nuevaFecha.getDate()).padStart(2, '0');
   input.value = `${yyyy}-${mm}-${dd}`;
+  // FIX AUDITORÍA: el input oculto se actualizaba pero el label visible del
+  // calendario (fechaLiquidacionLabel) no se refrescaba, dejando en pantalla
+  // la fecha anterior aunque el valor real ya había cambiado.
+  if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 }
 const CURRENT_YEAR = new Date().getFullYear();
 const monthsNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -2426,6 +2467,23 @@ return false;
 }
 function showSaveToast() {
 // Toast desactivado — notificación de guardado silenciosa
+}
+// FIX AUDITORÍA (persistencia de Deuda Histórica): guardado inmediato y
+// síncrono de la sesión legacy (sin caso activo, SESSION_KEY). El debounce
+// de 2s de saveSession() se perdía si el usuario cerraba/minimizaba la app
+// antes de que corriera, borrando registros recién ingresados (ej. deuda
+// histórica en UTM). saveCurrentCasoNow() ya resolvía esto para casos con
+// activeCasoId; esta función replica el mismo patrón para el modo sin caso.
+function saveLegacySessionNow() {
+if (activeCasoId) return; // los casos con id ya se guardan vía saveCurrentCasoNow()
+try {
+clearTimeout(saveTimeout);
+const session = buildSession();
+const now = new Date().toISOString();
+session.saved_at = now;
+session.updated_at = now;
+localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+} catch(e) { console.warn('No se pudo guardar sesión (legacy, inmediato)', e); }
 }
 function updateSaveIndicator(isoDate) {
 if (!isoDate) return;
@@ -3017,6 +3075,7 @@ function addHistoricalDebt() { /* legacy - no-op */ }
 let histMode = 'recalculable'; // 'recalculable' | 'consolidada'
 let consolidadaData = null; // { montoCLP, fechaMes, fechaAnio, aplicaIntereses, usaMaxima }
 let _savedHistoricalDebts = []; // guarda datos recalculable al cambiar a consolidada
+let _savedConsolidadaData = null; // guarda datos consolidada al cambiar a recalculable (FIX AUDITORÍA)
 function setHistMode(mode) {
   histMode = mode;
   const btnR = document.getElementById('btnModoRecalculable');
@@ -3031,6 +3090,10 @@ function setHistMode(mode) {
     btnR.classList.add('is-active'); btnC.classList.remove('is-active');
     panelR.classList.remove('hidden');
     panelC.classList.add('hidden');
+    // FIX AUDITORÍA: guardar consolidadaData antes de limpiar (igual que ya
+    // se hacía con historicalDebts en la rama contraria), para no perder el
+    // registro si el usuario vuelve a "Monto fijo" más tarde.
+    if (consolidadaData) _savedConsolidadaData = { ...consolidadaData };
     consolidadaData = null;
     document.getElementById('consolidadaPreview').classList.add('hidden');
     // Restaurar datos recalculable guardados
@@ -3064,17 +3127,99 @@ function setHistMode(mode) {
     historicalDebts = [];
     renderHistoricalList();
     document.getElementById('debtSummary').classList.add('hidden');
+    // FIX AUDITORÍA: restaurar consolidadaData guardado (monto, fecha, modo
+    // UTM/CLP, checkboxes) si el usuario había registrado uno antes de pasar
+    // a "Cuotas" y ahora vuelve a "Monto fijo".
+    if (_savedConsolidadaData) {
+      consolidadaData = { ..._savedConsolidadaData };
+      _savedConsolidadaData = null;
+      consModoMonto = consolidadaData.esUTM ? 'utm' : 'clp';
+      if (consolidadaData.esUTM) {
+        const utmEl = document.getElementById('consolidadaMontoUTM');
+        if (utmEl) utmEl.value = String(consolidadaData.montoUTM || '').replace('.', ',');
+      } else {
+        const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        const clpEl = document.getElementById('consolidadaMontoCLP');
+        if (clpEl) clpEl.value = fmt(consolidadaData.montoCLP);
+      }
+      const btnCLPr = document.getElementById('btnConsCLP');
+      const btnUTMr = document.getElementById('btnConsUTM');
+      const wCLPr   = document.getElementById('wrapConsCLP');
+      const wUTMr   = document.getElementById('wrapConsUTM');
+      if (btnCLPr && btnUTMr && wCLPr && wUTMr) {
+        if (consolidadaData.esUTM) {
+          btnCLPr.style.background = 'transparent'; btnCLPr.style.color = 'rgba(234,88,12,0.70)';
+          btnUTMr.style.background = 'rgba(234,88,12,0.90)'; btnUTMr.style.color = '#fff';
+          wCLPr.style.display = 'none'; wUTMr.style.display = '';
+        } else {
+          btnCLPr.style.background = 'rgba(234,88,12,0.90)'; btnCLPr.style.color = '#fff';
+          btnUTMr.style.background = 'transparent'; btnUTMr.style.color = 'rgba(234,88,12,0.70)';
+          wCLPr.style.display = ''; wUTMr.style.display = 'none';
+        }
+      }
+      const mNamesC = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const lblC = document.getElementById('consolidadaFechaLabel');
+      if (lblC && consolidadaData.fechaMes && consolidadaData.fechaAnio) {
+        lblC.innerText = `${mNamesC[consolidadaData.fechaMes-1]} ${consolidadaData.fechaAnio}`;
+        lblC.className = 'input-date__value text-[#fb923c]';
+        document.getElementById('consolidadaFechaMes').value = String(consolidadaData.fechaMes).padStart(2,'0');
+        document.getElementById('consolidadaFechaAnio').value = String(consolidadaData.fechaAnio);
+      }
+      const chkIntR = document.getElementById('consolidadaAplicaIntereses');
+      if (chkIntR) chkIntR.checked = consolidadaData.aplicaIntereses !== false;
+      const chkMaxR = document.getElementById('consolidadaUsaMaxima');
+      if (chkMaxR) chkMaxR.checked = consolidadaData.usaMaxima || false;
+      document.getElementById('consolidadaPreview').classList.remove('hidden');
+    }
   }
   calculate();
   saveSession();
 }
 let consModoMonto = 'clp'; // 'clp' | 'utm'
 function setConsModoMonto(modo) {
+  const modoAnterior = consModoMonto;
   consModoMonto = modo;
   const btnCLP = document.getElementById('btnConsCLP');
   const btnUTM = document.getElementById('btnConsUTM');
   const wCLP   = document.getElementById('wrapConsCLP');
   const wUTM   = document.getElementById('wrapConsUTM');
+  // FIX AUDITORÍA: al cambiar de modo (UTM↔CLP), el campo recién activado
+  // solía quedar vacío si el usuario nunca había escrito en él, lo que
+  // hacía que tryRegisterConsolidada() viera monto<=0 y BORRARA todo el
+  // registro (consolidadaData = null). Ahora se convierte el valor ya
+  // ingresado en el modo anterior y se rellena el campo nuevo, usando la
+  // UTM de la fecha de corte si ya está seleccionada (o la UTM actual).
+  if (modoAnterior !== modo) {
+    const utmParaConversion = (() => {
+      const fechaMes = document.getElementById('consolidadaFechaMes')?.value;
+      const fechaAnio = document.getElementById('consolidadaFechaAnio')?.value;
+      if (fechaMes && fechaAnio) {
+        let entry = utmData.find(d => d.y === parseInt(fechaAnio) && d.monthIdx === parseInt(fechaMes) - 1);
+        if (!entry || !entry.v) {
+          const targetAbs = parseInt(fechaAnio) * 12 + (parseInt(fechaMes) - 1);
+          const cands = utmData.filter(d => d.v > 0 && (d.y * 12 + d.monthIdx) <= targetAbs);
+          entry = cands.length > 0 ? cands[cands.length - 1] : utmData.find(d => d.v > 0);
+        }
+        if (entry && entry.v > 0) return entry.v;
+      }
+      return getUtmActualVal();
+    })();
+    if (modo === 'utm') {
+      const clpEl = document.getElementById('consolidadaMontoCLP');
+      const utmEl = document.getElementById('consolidadaMontoUTM');
+      const rawCLP = parseInt((clpEl?.value || '').replace(/\./g, '')) || 0;
+      if (rawCLP > 0 && utmEl && !utmEl.value && utmParaConversion > 0) {
+        utmEl.value = (rawCLP / utmParaConversion).toFixed(3).replace('.', ',');
+      }
+    } else {
+      const utmEl = document.getElementById('consolidadaMontoUTM');
+      const clpEl = document.getElementById('consolidadaMontoCLP');
+      const rawUTM = parseFloat((utmEl?.value || '').replace(',', '.')) || 0;
+      if (rawUTM > 0 && clpEl && !clpEl.value && utmParaConversion > 0) {
+        clpEl.value = String(Math.round(rawUTM * utmParaConversion)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      }
+    }
+  }
   if (modo === 'utm') {
     btnCLP.style.background = 'transparent';
     btnCLP.style.color = 'rgba(234,88,12,0.70)';
@@ -3135,7 +3280,7 @@ function tryRegisterConsolidada() {
     usaMaxima
   };
   // Preview: convertir a CLP al vuelo solo para mostrar
-  const hoy = new Date();
+  const hoy = getFechaLiquidacion();
   const aplicarRecargoPreview = document.getElementById('recargoLey')?.checked || false;
   let interes = 0;
   let diasMora = 0;
@@ -3165,9 +3310,9 @@ function tryRegisterConsolidada() {
   } else {
     document.getElementById('consolidadaCapLabel').textContent = fmt(capitalClpPreview);
   }
-  document.getElementById('consolidadaIntLabel').textContent = fmt(interes);
   document.getElementById('consolidadaTotalLabel').textContent = fmt(total);
-  document.getElementById('consolidadaDiasMoraLabel').textContent = diasMora + ' días de interés';
+  const _utmParaTotal = getUtmActualVal() || 1;
+  document.getElementById('consolidadaTotalUtmLabel').textContent = (total / _utmParaTotal).toFixed(3) + ' UTM';
   document.getElementById('consolidadaPreview').classList.remove('hidden');
   calculate();
   saveSession();
@@ -3186,14 +3331,24 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   let sumaPonderada = 0;
   let hayTasaAproximada = false;
   const esUTM = montoUTM != null && montoUTM > 0;
-  const fechaCorte = new Date(fechaAnio, fechaMes - 1, 1);
+  // CORRECCIÓN CONSISTENCIA: usar el mismo día de vencimiento configurado
+  // (getDiaVencimiento(), por defecto día 5) que usan calculatePensiones()
+  // y calculateHistoricalDebt() (modo Cuotas) vía calcularInteresSegmentado(),
+  // en vez del día 1 fijo que tenía esta función. Antes, la Deuda Histórica
+  // Consolidada (modo Monto Fijo) cortaba sus tramos mensuales el día 1 de
+  // cada mes, mientras el resto de la app corta el día D configurado —
+  // dos criterios de corte distintos para el mismo concepto de "mes de mora",
+  // que podían aplicar la tasa TIC/TMC de un mes distinto al del resto del
+  // cálculo y producir un interés total ligeramente distinto sin motivo legal.
+  const diaVenc = getDiaVencimiento();
+  const fechaCorte = new Date(fechaAnio, fechaMes - 1, diaVenc);
   if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
   let curAnio = fechaAnio;
   let curMes = fechaMes - 1;
   while (true) {
-    const inicioTramo = new Date(curAnio, curMes, 1);
+    const inicioTramo = new Date(curAnio, curMes, diaVenc);
     if (inicioTramo >= hoy) break;
-    const finTramo = new Date(curAnio, curMes + 1, 1);
+    const finTramo = new Date(curAnio, curMes + 1, diaVenc);
     const finEfectivo = finTramo < hoy ? finTramo : hoy;
     const diasTramo = Math.floor((finEfectivo - inicioTramo) / (1000 * 60 * 60 * 24));
     if (diasTramo > 0) {
@@ -3217,6 +3372,49 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   }
   const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
   return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
+}
+// ============================================================
+// INTERÉS CONSOLIDADA — netaeo simple del pool LAV (confirmado RIT Z-3764-2023)
+// ============================================================
+// Metodología real del tribunal (verificada contra liquidación oficial PJUD,
+// RIT Z-3764-2023, liquidador Luis Alfonso Molina Zárate, 09-02-2024):
+// el pool LAV completo se resta DE UNA SOLA VEZ del capital bruto de la
+// consolidada, sin importar la fecha de cada depósito individual. El interés
+// se calcula sobre ese capital ya neteado, por los días de mora completos
+// (vencimiento → liquidación), con tasa segmentada mes a mes — el mismo
+// calcularInteresSegmentado() que ya usa el resto de la app.
+//
+// Caso de verificación (fila "11-2022" del RIT Z-3764-2023):
+//   Capital bruto: 31,04667 UTM · Pool LAV: 3,63896 UTM
+//   Adeudado = 31,04667 − 3,63896 = 27,40771 UTM  → coincide EXACTO con el tribunal.
+//   Interés sobre ese neto, 461 días (05-11-2022 → 09-02-2024): 2,50871 UTM
+//   calculado vs. 2,49163 UTM real → diferencia de solo 0,017 UTM (~$1.100),
+//   consistente con redondeos menores acumulados en los 16 tramos mensuales.
+//
+// NOTA: se descarta el modelo event-driven (LAV aplicado en la fecha exacta
+// del depósito, cubriendo primero interés y luego capital) porque el tribunal
+// no lo usa para la consolidada — sólo neteo simple contra el capital.
+//
+// poolLavUTM: suma total de los depósitos LAV dentro del período de la consolidada.
+// Devuelve { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada,
+//            capitalUTMRestante, saldoAFavorUTM }
+// ============================================================
+function calcularInteresConsolidadaNeteada(capitalUTMInicial, fechaVenc, hoy, usaMaxima, aplicarRecargo, poolLavUTM) {
+  const capUTM = Math.max(0, capitalUTMInicial - poolLavUTM);
+  // Si el pool excede el capital, el sobrante es saldo a favor (no puede haber
+  // deuda y saldo a favor coexistiendo — Art. 1595 CC / criterio SITFA-PJUD).
+  const saldoAFavorUTM = Math.max(0, poolLavUTM - capitalUTMInicial);
+
+  let interes = 0, diasMora = 0, tasaPromedioPonderada = 0, hayTasaAproximada = false;
+  if (capUTM > 0.0001 && hoy > fechaVenc) {
+    const res = calcularInteresSegmentado(capUTM, fechaVenc, hoy, usaMaxima, aplicarRecargo);
+    interes = res.interes;
+    diasMora = res.diasMora;
+    tasaPromedioPonderada = res.tasaPromedioPonderada;
+    hayTasaAproximada = res.hayTasaAproximada;
+  }
+
+  return { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada, capitalUTMRestante: capUTM, saldoAFavorUTM };
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
@@ -3243,21 +3441,61 @@ function calculateConsolidada(hoy, aplicarRecargo) {
   let diasMora = 0;
   let tasaPromedio = 0;
   let tasaAproximada = false;
+
+  // ¿Hay depósitos LAV dentro del período de la consolidada (vencimiento → hoy)?
+  // Metodología confirmada RIT Z-3764-2023: el pool LAV completo se resta DE UNA
+  // SOLA VEZ del capital bruto (sin importar la fecha de cada depósito), y el
+  // interés se calcula sobre ese neto por los días de mora completos.
+  const diaVencCons = getDiaVencimiento();
+  const fechaVencCons = new Date(fechaAnio, fechaMes - 1, diaVencCons);
+  const _lavsDelPeriodoConsolidada = (typeof abonosLav !== 'undefined' ? abonosLav : [])
+    .filter(lav => {
+      const p = lav.date.split('-').map(Number);
+      const fLav = new Date(p[0], p[1] - 1, p[2]);
+      return fLav > fechaVencCons && fLav <= hoy;
+    })
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const _poolLavUTMConsolidada = _lavsDelPeriodoConsolidada.reduce((s, l) => s + (l.amountUtm || 0), 0);
+
+  let _resAmortizada = null;
   if (aplicaIntereses) {
-    // Modo UTM: pasa montoUTM → el loop reajusta capitalTramo mes a mes
-    // Modo CLP: pasa montoCLP fijo (montoUTM=null)
-    const res = calcularInteresConsolidadaMensual(
-      capitalClpCorte, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo,
-      esUTM ? montoUTM : null
-    );
-    interes = res.interes;
-    diasMora = res.diasMora;
-    tasaPromedio = res.tasaPromedioPonderada;
-    tasaAproximada = res.hayTasaAproximada;
+    if (_poolLavUTMConsolidada > 0.0001) {
+      _resAmortizada = calcularInteresConsolidadaNeteada(
+        capitalUTM, fechaVencCons, hoy, usaMaxima, aplicarRecargo, _poolLavUTMConsolidada
+      );
+      interes = _resAmortizada.interes * utmCorte;
+      diasMora = _resAmortizada.diasMora;
+      tasaPromedio = _resAmortizada.tasaPromedioPonderada;
+      tasaAproximada = _resAmortizada.hayTasaAproximada;
+    } else {
+      const res = calcularInteresConsolidadaMensual(
+        capitalClpCorte, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo,
+        esUTM ? montoUTM : null
+      );
+      interes = res.interes;
+      diasMora = res.diasMora;
+      tasaPromedio = res.tasaPromedioPonderada;
+      tasaAproximada = res.hayTasaAproximada;
+    }
   }
 
-  // Capital CLP hoy (para totales): si UTM, usar UTM actual
-  const capitalClpHoy = esUTM ? Math.round(montoUTM * utmHoy) : montoCLP;
+  // Capital CLP hoy (para totales): si hubo amortización, usa el capital UTM
+  // restante tras aplicar los LAV; si no, el monto original (sin abonos).
+  const capitalClpHoy = _resAmortizada
+    ? Math.round(_resAmortizada.capitalUTMRestante * utmHoy)
+    : (esUTM ? Math.round(montoUTM * utmHoy) : montoCLP);
+
+  const capUTMParaDetalle = _resAmortizada ? _resAmortizada.capitalUTMRestante : capitalUTM;
+  const capClpParaDetalle = _resAmortizada ? Math.round(capUTMParaDetalle * utmCorte) : capitalClpCorte;
+  // Modelo neteado (RIT Z-3764-2023): el pool LAV se resta íntegro del capital
+  // bruto, antes de recalcular el interés sobre el neto. No hay "interés cubierto
+  // por LAV" a mostrar por separado — el interés ya se calculó directamente sobre
+  // el capital reducido, así que intOriginal = interes (mismo valor, sin bruto/neto
+  // que reconciliar) y todo el pool consumido se atribuye a capital.
+  const lavConsumidoUTM = _resAmortizada ? Math.min(_poolLavUTMConsolidada, capitalUTM) : 0;
+  const lavAplicadoUTM    = lavConsumidoUTM;
+  const lavIntAplicadoUTM = 0;
 
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const periodoLabel = `CONS ${mNames[fechaMes-1]} ${fechaAnio}`;
@@ -3265,7 +3503,9 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     id: 'cons0',
     periodo: periodoLabel,
     utmVal: utmCorte,
-    cap: capitalClpCorte,
+    cap: capClpParaDetalle,
+    capOriginal: capitalClpCorte,
+    capOriginalBruto: capitalClpCorte,
     tasa: tasaPromedio,
     tasaBase: tasaPromedio,
     tasaHist: tasaPromedio,
@@ -3273,11 +3513,23 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     isConsolidadaTasaPromedio: true,
     mora: diasMora,
     inte: interes,
-    sub: capitalClpCorte + interes,
+    intOriginal: interes,
+    sub: capClpParaDetalle + interes,
     year: fechaAnio,
     isDebt: true,
     isConsolidada: true,
-    capUTM: capitalUTM,
+    consolidadaYaAmortizada: !!_resAmortizada,
+    lavIdsConsumidosPorConsolidada: _resAmortizada ? _lavsDelPeriodoConsolidada.map(l => l.date + '|' + l.periodo) : [],
+    saldoAFavorUTM: _resAmortizada ? _resAmortizada.saldoAFavorUTM : 0,
+    // Para que export.js (PDF y modal de resumen) sume correctamente el LAV
+    // aplicado a la consolidada junto con el resto de las cuotas, sin
+    // necesitar lógica especial: mismos nombres de campo que usa el PASO 1.
+    esLav: (lavAplicadoUTM > 0.0001),
+    lavAplicadoUTM,
+    lavAplicadoCLP: Math.round(lavAplicadoUTM * utmCorte),
+    lavIntAplicadoUTM,
+    lavIntAplicadoCLP: 0,
+    capUTM: capUTMParaDetalle,
     usarMaxima: usaMaxima
   };
   // debtSummary: mostrar en UTM cuando proceda
@@ -4533,6 +4785,20 @@ errorEl.classList.add('hidden');
 return true;
 }
 function calculatePensiones(aplicarRecargo, hoy) {
+function _mesesCubiertosPorDeudaHistorica() {
+  const set = new Set();
+  if (histMode === 'consolidada' && consolidadaData) {
+    const corteAbs = consolidadaData.fechaAnio * 12 + (consolidadaData.fechaMes - 1);
+    set.add(corteAbs);
+  } else if (historicalDebts && historicalDebts.length > 0) {
+    historicalDebts.forEach(debt => {
+      const startAbs = debt.startAnio * 12 + debt.startMes - 1;
+      for (let i = 0; i < debt.totalMonths; i++) set.add(startAbs + i);
+    });
+  }
+  return set;
+}
+const _mesesCubiertosHist = _mesesCubiertosPorDeudaHistorica();
 let capital = 0, intereses = 0, capitalUTM = 0, detalles = [];
 // Excedente de pagos parciales que superan la cuota — se resta del capital total al final.
 let excedenteParcialTotalUTM = 0;
@@ -4580,6 +4846,8 @@ for (let absM = startAbsMonth; absM <= endAbsMonth; absM++) {
   }
 }
 slice.forEach((item, idx) => {
+const _absMonthItem = item.y * 12 + item.monthIdx;
+if (_mesesCubiertosHist.has(_absMonthItem)) return;
 // Si el modo es pesos: usar los pesos fijos y la UTM histórica del mes
 const utmMesHistorico = item.v; // UTM del mes de la cuota
 // ── Períodos variables: sobreescribir cuota si hay un período registrado ──
@@ -4617,6 +4885,12 @@ const capNeto = montoPesosMes;
 // Si no hay cuota para este mes (ni manual ni por período), omitir
 if (capNeto === 0 && !periodoOverride && cuotaMensualUTM === 0 && cuotaMensualCLP === 0) return;
 const usarTicActual = document.getElementById('ticActual')?.checked || false;
+// NOTA (v272): tasaHistorica/tasaBase ya NO se usan para calcular el interés —
+// el interés real se segmenta tramo a tramo (calcularInteresSegmentado más
+// abajo), aplicando en cada mes calendario transcurrido la tasa CMF vigente
+// de ESE mes (Art. 17 Ley 14.908 + Art. 6 Ley 18.010: la tasa "tendrá vigencia
+// hasta el día anterior a la próxima publicación", o sea cambia mes a mes).
+// Se conservan solo como referencia informativa del mes de origen de la cuota.
 const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
 const tasaMes = usarTicActual ? hoy.getMonth() : item.monthIdx;
 const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, modoEsPesosEfectivo, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
@@ -4624,9 +4898,6 @@ const tasaHistorica = _tasaInfo.valor;
 const tasaEsAproximada = _tasaInfo.esAproximada;
 const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
 const tasaBase = tasaHistorica;
-// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
-const recargoAplica = aplicarRecargo && diasMora > 0;
-const tasaAnual = recargoAplica ? tasaBase * 1.5 : tasaBase;
 // CORRECCIÓN JUDICIAL (confirmada RIT Z-617-2024):
 // Si existe pago parcial para este mes, el interés se calcula SOLO sobre el remanente
 // (cuota UTM − pagado en UTM), no sobre la cuota completa.
@@ -4663,14 +4934,19 @@ const capEfectivoUTM = Math.max(0, cuotaUTMReal - totalPagadoUTMEfectivo);
 const capEfectivoCLP = capEfectivoUTM * item.v;
 // Las cuotas entran con su capital completo. El pool LAV se aplica en calculate()
 // después de buildear lastCalculationData, antes de imputarAbonosArt1595.
-const interesMes = calcularInteres(capParaInteres, tasaAnual, diasMora);
+// v272: interés segmentado tramo a tramo (tasa CMF vigente de cada mes
+// calendario transcurrido), en vez de tasa única fija del mes de origen.
+const _segInt = calcularInteresSegmentado(capParaInteres, fechaVenc, hoy, false, aplicarRecargo);
+const interesMes = _segInt.interes;
+const tasaAnual = _segInt.tasaPromedioPonderada; // solo informativo (promedio ponderado por días de cada tramo)
+const tasaEsAproximadaFinal = tasaEsAproximada || _segInt.hayTasaAproximada;
 capital += capEfectivoCLP;
 capitalUTM += capEfectivoUTM;
 intereses += interesMes;
 detalles.push({
 id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
 cap: capEfectivoCLP, capOriginal: montoPesosMes,
-tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada,
+tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximadaFinal,
 mora: diasMora, inte: interesMes,
 sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
 capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
@@ -4718,12 +4994,13 @@ const tasaMesH = usarTicActualH ? hoy.getMonth() : monthIdx;
 const modoEsPesosDeudaHist = false; // debt.utm existe siempre; no hay deuda histórica en pesos en este flujo
 const _tasaInfoH = getTasaAnualInfo(tasaAnioH, tasaMesH, false, modoEsPesosDeudaHist, capitalPesosMes, item.v, diasMora);
 const tasaHistorica = _tasaInfoH.valor;
-const tasaEsAproximada = _tasaInfoH.esAproximada;
+const tasaEsAproximadaBase = _tasaInfoH.esAproximada;
 const tasaBaseHist = tasaHistorica;
-// Ley 14.908 Art. 14: el recargo aplica desde el primer día de mora cuando el tribunal lo decretó.
-const recargoAplicaH = aplicarRecargo && diasMora > 0;
-const tasaAnual = recargoAplicaH ? tasaBaseHist * 1.5 : tasaBaseHist;
-const interesPesosMes = calcularInteres(capitalPesosMes, tasaAnual, diasMora);
+// v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado).
+const _segIntH = calcularInteresSegmentado(capitalPesosMes, fechaVenc, hoy, false, aplicarRecargo);
+const interesPesosMes = _segIntH.interes;
+const tasaAnual = _segIntH.tasaPromedioPonderada; // informativo
+const tasaEsAproximada = tasaEsAproximadaBase || _segIntH.hayTasaAproximada;
 capitalPesosTotal += capitalPesosMes;
 interesesPesosTotal += interesPesosMes;
 detalles.push({
@@ -4768,12 +5045,25 @@ function imputarAbonosArt1595(detalles, abonos) {
     const diaVencD = getDiaVencimiento();
     const mesesD = {Ene:0,Feb:1,Mar:2,Abr:3,May:4,Jun:5,Jul:6,Ago:7,Sep:8,Oct:9,Nov:10,Dic:11};
     const cuotasD = detalles.map(d => {
+      // La cuota de Deuda Histórica Consolidada ya trae su interés correcto,
+      // calculado por calculateConsolidada() respetando el toggle "Intereses"
+      // (consolidadaData.aplicaIntereses) y "Tasa máxima". No se recalcula
+      // aquí: este recálculo existe para reflejar abonos parciales sobre
+      // pensiones normales, escenario que no aplica a la consolidada (un
+      // único capital, sin cuotas mensuales independientes).
+      if (d.isConsolidada) {
+        return { ...d, capPendiente: d.cap, intPendiente: d.inte };
+      }
       const partesD = (d.periodo||'').replace('HIST ','').replace('CONS ','').split(' ');
       const cMesD   = mesesD[partesD[0]] ?? 0;
       const cAnioD  = parseInt(partesD[1]) || (d.year||2000);
       const fechaVencD = new Date(cAnioD, cMesD, diaVencD);
       const diasMoraD  = Math.max(0, Math.floor((hoyD - fechaVencD) / (1000*60*60*24)));
-      const intHoyD    = (d.cap > 0.01 && diasMoraD > 0) ? calcularInteres(d.cap, d.tasa, diasMoraD) : 0;
+      // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
+      // en vez de tasa única fija (d.tasa ahora es un promedio ponderado, no una tasa aplicable).
+      const _aplicarRecargoD = document.getElementById('recargoLey')?.checked || false;
+      const _segD = (d.cap > 0.01) ? calcularInteresSegmentado(d.cap, fechaVencD, hoyD, false, _aplicarRecargoD) : null;
+      const intHoyD = _segD ? _segD.interes : 0;
       return { ...d, capPendiente: d.cap, intPendiente: intHoyD };
     });
     const saldo = cuotasD.reduce((s, d) => s + d.capPendiente + d.intPendiente, 0);
@@ -4829,7 +5119,9 @@ function imputarAbonosArt1595(detalles, abonos) {
       // Si la cuota aún no venció a la fecha del abono, no imputar a intereses (no devengados)
       if (fechaVencReal > fechaAbono) continue;
       const diasMoraAlAbono = Math.max(0, Math.floor((fechaAbono - fechaVencReal) / (1000*60*60*24)));
-      const intAlAbono = calcularInteres(cuota.capPendiente, cuota.tasa, diasMoraAlAbono);
+      // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
+      const _aplicarRecargoImput = document.getElementById('recargoLey')?.checked || false;
+      const intAlAbono = calcularInteresSegmentado(cuota.capPendiente, fechaVencReal, fechaAbono, false, _aplicarRecargoImput).interes;
       // El interés pendiente a imputar es el devengado hasta el abono
       cuota.intPendiente = intAlAbono;
       if (cuota.intPendiente > 0 && remanente > 0) {
@@ -4878,7 +5170,14 @@ function imputarAbonosArt1595(detalles, abonos) {
     const cAnio = parseInt(partes[1]) || (c.year||2000);
     const fechaVencC = new Date(cAnio, cMes, diaVencFinal);
     const diasMoraHoy = Math.max(0, Math.floor((hoy - fechaVencC) / (1000*60*60*24)));
-    const intHoy = diasMoraHoy > 0 ? calcularInteres(c.capPendiente, c.tasa, diasMoraHoy) : 0;
+    // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
+    const _aplicarRecargoFinal = document.getElementById('recargoLey')?.checked || false;
+    // Igual que en el path sin abonos: si es la Deuda Histórica Consolidada y
+    // ningún abono tocó su capital (capPendiente === cap original), se respeta
+    // su interés ya calculado por calculateConsolidada() en vez de recalcularlo.
+    const intHoy = (c.isConsolidada && c.capPendiente === c.cap)
+      ? c.inte
+      : ((diasMoraHoy > 0 && c.capPendiente > 0) ? calcularInteresSegmentado(c.capPendiente, fechaVencC, hoy, false, _aplicarRecargoFinal).interes : 0);
     c.intPendiente = intHoy;
     saldoFinal += c.capPendiente + c.intPendiente;
   });
@@ -4921,8 +5220,10 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
     const tM = usarTicActual ? hoy.getMonth()    : mi;
     const _ti = getTasaAnualInfo(tY, tM, false, false, capCLP, item.v, diasMora);
     const tasaBase  = _ti.valor;
-    const tasaAnual = (aplicarRecargo && diasMora > 0) ? tasaBase * 1.5 : tasaBase;
-    const intCLP    = calcularInteres(capCLP, tasaAnual, diasMora);
+    // v272: interés segmentado tramo a tramo (ver nota junto a calcularInteresSegmentado)
+    const _segLm    = calcularInteresSegmentado(capCLP, fechaVenc, hoy, false, aplicarRecargo);
+    const intCLP    = _segLm.interes;
+    const tasaAnual = _segLm.tasaPromedioPonderada; // informativo
     capital    += capCLP;
     capitalUTM += cuotaUtmMes;
     intereses  += intCLP;
@@ -4933,7 +5234,7 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
       cap: capCLP, capOriginal: capCLP, capOriginalBruto: capCLP, capUTM: cuotaUtmMes,
       inte: intCLP, intOriginal: intCLP,
       tasa: tasaAnual, tasaBase, tasaHist: tasaBase,
-      tasaEsAproximada: _ti.esAproximada,
+      tasaEsAproximada: (_ti.esAproximada || _segLm.hayTasaAproximada),
       mora: diasMora, sub: capCLP + intCLP,
       year: y, monthIdx: mi, isDebt: false,
       usarMaxima: false, ticActual: usarTicActual,
@@ -4951,7 +5252,16 @@ if (!utmData || utmData.length === 0) { dbg('CALC: utmData vacío — abortando'
 // Guard: si ningún rango (formulario ni períodos guardados) está definido, salir sin ruido
 const _hayLav = abonosLav && abonosLav.length > 0;
 const _hayParciales = pagosParciales && pagosParciales.length > 0;
-const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales;
+// FIX AUDITORÍA: faltaba considerar la Deuda Histórica (consolidada o recalculable)
+// como razón válida para seguir calculando. Sin esto, si el usuario solo tenía
+// una deuda histórica registrada (sin período de pensión "actual" activo), esta
+// función salía aquí sin llegar a calculateConsolidada()/calculateHistoricalDebt(),
+// dejando lastCalculationData (y por tanto el resumen "Detalle del cálculo") con
+// datos de un cálculo anterior, mientras la tarjeta de Deuda Histórica sí se
+// actualizaba de forma independiente vía tryRegisterConsolidada() → desfase
+// visible entre el interés de la tarjeta y el interés del resumen.
+const _hayDeudaHistorica = (histMode === 'consolidada' && consolidadaData) || (historicalDebts && historicalDebts.length > 0);
+const _noRange = startIndex === -1 && endIndex === -1 && calcStartIndex === -1 && calcEndIndex === -1 && periodosPension.length === 0 && !_hayLav && !_hayParciales && !_hayDeudaHistorica;
 if (_noRange) {
   // Sin período definido: no hay pensiones/intereses que calcular, pero si existen
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
@@ -5032,79 +5342,202 @@ lastCalculationData = [...resPensiones.detalles, ...resHistorical.detalles];
 // Si el mes queda cap=0 e inte=0 tras el pool, inte=0 (sin mora por def.).
 // REGLA: parcialUTMMes se excluye del consumo del pool (ya descontado en d.cap).
 // ══════════════════════════════════════════════════════════════════════════════
-if (abonosLav && abonosLav.length > 0) {
-  const poolLavUTM = abonosLav.reduce((s, lav) => s + (lav.amountUtm || 0), 0);
-  // CORRECCIÓN: el interés que el pool LAV debe cubrir (Art. 1595 CC) es el devengado
-  // hasta la fecha del depósito, NO hasta la fecha de liquidación (hoy).
-  // Un depósito del 02-09-2025 no puede imputarse a intereses que se devengarán
-  // en los 8 meses siguientes. Usamos la fecha del primer depósito LAV (orden cron.)
-  // como referencia, ya que el pool se suma y aplica cuota a cuota desde la más antigua.
-  const _lavsSorted = abonosLav.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const _fechaPrimerLav = (function() {
-    const p = _lavsSorted[0].date.split('-').map(Number);
-    return new Date(p[0], p[1] - 1, p[2]);
-  })();
+// Si la Deuda Histórica Consolidada ya resolvió su propia amortización secuencial
+// (calculateConsolidada → calcularInteresConsolidadaAmortizada), sus depósitos LAV
+// ya fueron consumidos ahí y NO deben volver a entrar al pool general del PASO 1.
+const _consDetalleParaPool = lastCalculationData.find(d => d.isConsolidada);
+const _lavIdsYaConsumidosPorConsolidada = (_consDetalleParaPool && _consDetalleParaPool.consolidadaYaAmortizada)
+  ? new Set(_consDetalleParaPool.lavIdsConsumidosPorConsolidada || [])
+  : new Set();
+const abonosLavParaPool = (abonosLav || []).filter(lav =>
+  !_lavIdsYaConsumidosPorConsolidada.has(lav.date + '|' + lav.periodo)
+);
+
+if (abonosLavParaPool && abonosLavParaPool.length > 0) {
+  // FIX v2.0714.xxxx — bug crítico detectado contra liquidación oficial PJUD
+  // (RIT Z-617-2024, 2do Juzgado Familia Talca): el modelo anterior calculaba
+  // el interés a cubrir de TODAS las cuotas usando una única fecha fija (la
+  // del PRIMER depósito LAV cronológico), en vez de la fecha del depósito que
+  // realmente alcanza a cubrir cada cuota. Esto sub-computaba el interés
+  // devengado en cuotas más recientes (ej. Sep-2025 quedaba con capital
+  // remanente de $22.932 en vez de los $12.822/$13.246 que calcula el PJUD),
+  // generando una diferencia de ~0,138 UTM (~$9.900) en el total final.
+  //
+  // Corrección: se reemplaza el pool monolítico por CONSUMO DEPÓSITO A
+  // DEPÓSITO en orden cronológico (igual metodología que ya usa
+  // imputarAbonosArt1595() en el PASO 2 para abonos ordinarios). Cada
+  // depósito LAV recorre las cuotas pendientes en orden y, para cada una,
+  // recalcula el interés devengado HASTA LA FECHA DE ESE DEPÓSITO —no hasta
+  // la fecha del primer depósito ni hasta hoy—, aplicando siempre el orden
+  // Art. 1595 CC: 1° intereses devengados, 2° capital pendiente. El
+  // remanente de un depósito que no alcanza a cubrir una cuota completa
+  // fluye al siguiente depósito cronológico sobre la misma cuota.
+  // FIX v2.0714.xxxx — la ordenación anterior usaba lav.date (fecha real del
+  // banco) para determinar tanto el orden de consumo como el "mes cubierto"
+  // de cada depósito. Pero reasignarPeriodosLav() ya reasigna lav.periodo
+  // para resolver colisiones cuando dos depósitos caen en el mismo mes
+  // calendario (ej. 2024-12-02 y 2024-12-30 → el segundo se desplaza a
+  // Ene-2025 en términos de imputación) — y esa es la fuente de verdad que
+  // usa el resto de la app para saber qué mes está "Cubierto LAV" (ver
+  // línea ~4183: `abonosLav.some(lav => lav.periodo === p.periodo)`). Al
+  // ordenar/filtrar el pool por lav.date en vez de lav.periodo, el pool
+  // quedaba desincronizado con las colisiones ya resueltas, generando
+  // remanentes incorrectos en casos con múltiples depósitos por año (caso
+  // Test1, 19 depósitos) aunque el motor funcionaba bien con un solo
+  // depósito (caso TEST BBVA). Ahora se ordena y agrupa por lav.periodo
+  // (ya sin colisiones); lav.date se sigue usando solo para el cálculo de
+  // interés devengado (cuánto tiempo pasó hasta el depósito), nunca para
+  // decidir el orden o la elegibilidad de una cuota.
+  const _lavsOrdenados = abonosLavParaPool.slice().sort((a, b) => (a.periodo || a.date).localeCompare(b.periodo || b.date));
   const _diaVencLav = getDiaVencimiento();
-  let poolRestante = poolLavUTM;
-  for (const d of lastCalculationData) {
-    // CORRECCIÓN: usar continue (no break) para que los meses posteriores al agotamiento
-    // del pool también inicialicen capOriginalBruto/intOriginal y marquen esLav=false.
-    // El break previo dejaba esos meses sin inicializar, causando valores incorrectos en
-    // el hero y el PDF. Con continue, simplemente no se aplica LAV pero sí se inicializa.
-    if (poolRestante <= 0) {
-      d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
-      d.intOriginal      = d.intOriginal ?? d.inte;
-      d.esLav = false;
-      d.lavAplicadoUTM = 0; d.lavAplicadoCLP = 0;
-      d.lavIntAplicadoUTM = 0; d.lavIntAplicadoCLP = 0;
-      continue;
-    }
+  const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
+  const _aplicarRecargoLav = document.getElementById('recargoLey')?.checked || false;
+
+  // Cuotas elegibles al pool, en orden cronológico, con su estado inicial.
+  const _cuotasPool = lastCalculationData.filter(d => !(d.isConsolidada && d.consolidadaYaAmortizada));
+  for (const d of _cuotasPool) {
     const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
-    // Guardar originales ANTES de mutar (el PDF los necesita para mostrar cargos brutos)
     d.capOriginalBruto = d.capOriginalBruto ?? d.capOriginal ?? d.cap;
     d.intOriginal      = d.intOriginal      ?? d.inte;
     if (d.hayParcialConRemanente && d.capParcialRemanente === undefined) {
-      d.capParcialRemanente = d.cap; // remanente = cap ya reducido por pago parcial
+      d.capParcialRemanente = d.cap;
     }
-    const capBrutoUTM   = d.capOriginalBruto / utmMes; // cuota completa del mes en UTM
     const parcialCLPMes = Math.max(0, (d.capOriginal ?? d.capOriginalBruto) - (d.cap ?? 0));
-    const parcialUTMMes = parcialCLPMes / utmMes;
-    const capDisponUTM  = Math.max(0, capBrutoUTM - parcialUTMMes); // capital aún pendiente
-    // CORRECCIÓN Art. 1595: calcular interés devengado solo hasta la fecha del primer
-    // depósito LAV, no hasta hoy. Esto evita que el pool "consuma" intereses futuros
-    // aún no devengados al momento del depósito.
+    d._capBrutoUTM    = d.capOriginalBruto / utmMes;      // cuota completa del mes en UTM
+    d._parcialUTMMes  = parcialCLPMes / utmMes;            // ya cubierto por pago parcial directo
+    d._capDisponUTM   = Math.max(0, d._capBrutoUTM - d._parcialUTMMes); // capital aún pendiente de LAV
+    d._intPendUTM     = null; // se calcula perezosamente por depósito (depende de la fecha)
+    d._capAplicadoUTM = 0;
+    d._intAplicadoUTM = 0;
     const _periodoPartes = (d.periodo || '').replace('HIST ', '').replace('CONS ', '').split(' ');
-    const _mesesMap = { 'Ene':0,'Feb':1,'Mar':2,'Abr':3,'May':4,'Jun':5,'Jul':6,'Ago':7,'Sep':8,'Oct':9,'Nov':10,'Dic':11 };
-    const _cMesLav  = _mesesMap[_periodoPartes[0]] ?? 0;
-    const _cAnioLav = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
-    const _fechaVencLav = new Date(_cAnioLav, _cMesLav, _diaVencLav);
-    const _diasMoraAlLav = Math.max(0, Math.floor((_fechaPrimerLav - _fechaVencLav) / (1000*60*60*24)));
-    const _capParaInteBase = d.capParaInteres !== undefined ? d.capParaInteres : (d.capOriginalBruto > 0 ? d.capOriginalBruto : d.cap);
-    const _inteAlLav = (_diasMoraAlLav > 0 && _capParaInteBase > 0) ? calcularInteres(_capParaInteBase, d.tasa, _diasMoraAlLav) : 0;
-    const inteUTM = _inteAlLav / utmMes; // interés devengado hasta fecha del depósito LAV
-    let intAplicadoUTM  = 0;
-    let capAplicadoUTM  = 0;
-    // Art. 1595 CC — orden siempre: 1° intereses devengados, 2° capital pendiente
-    if (inteUTM > 0.0001 && poolRestante > 0) {
-      intAplicadoUTM = Math.min(poolRestante, inteUTM);
-      poolRestante  -= intAplicadoUTM;
+    const _cMes  = _mesesMap[_periodoPartes[0]] ?? 0;
+    const _cAnio = parseInt(_periodoPartes[1]) || (d.year ?? new Date().getFullYear());
+    d._fechaVenc = new Date(_cAnio, _cMes, _diaVencLav);
+  }
+
+  // IMPORTANTE — orden de consumo verificado contra la liquidación oficial PJUD
+  // (RIT Z-617-2024): el pool avanza con un ÚNICO PUNTERO que nunca retrocede,
+  // coincidiendo con reasignarPeriodosLav() (cada depósito ya pre-asociado a su
+  // período de imputación en secuencia).
+  //
+  // FIX REGRESIÓN v2.0714.0955→v2.0714.xxxx: la versión anterior comparaba
+  // `d._fechaVenc > fechaLav` con `break` inmediato — esto cortaba el pool por
+  // completo cuando un depósito llegaba ANTES del día exacto de vencimiento de
+  // su propia cuota (ej. depósito el 02 del mes, vencimiento el día 5), dejando
+  // el abono entero como "saldo a favor sin imputar" (caso TEST BBVA) y forzando
+  // remanentes a arrastrarse a cuotas siguientes con doble cómputo de interés
+  // (caso Test1, símbolo ‡ en Ago-2025). Un depósito SIEMPRE puede cubrir la
+  // cuota de su propio mes o de meses anteriores; el corte correcto es por
+  // PERÍODO (mes/año de la cuota <= mes/año del depósito), no por día exacto
+  // de vencimiento.
+  // [POOL-DEBUG] estado inicial de las cuotas antes de aplicar el pool LAV
+  if (typeof dbg === 'function') {
+    dbg('[POOL-DEBUG] cuotas iniciales: ' + _cuotasPool.map(d =>
+      `${d.periodo}=bruto:${(d.capOriginalBruto||0).toFixed(0)}CLP/${(d._capBrutoUTM||0).toFixed(5)}UTM utm:${d.utmVal}`
+    ).join(' || '));
+    dbg('[POOL-DEBUG] depósitos ordenados: ' + _lavsOrdenados.map(l =>
+      `${l.date}(imput:${l.periodo})=${(l.amountUtm||0).toFixed(5)}UTM`
+    ).join(' || '));
+  }
+
+  let _punteroCuota = 0;
+  for (const lav of _lavsOrdenados) {
+    let remanente = lav.amountUtm || 0;
+    if (remanente <= 0) continue;
+    // fechaLav = fecha REAL del depósito (para el cálculo de interés devengado).
+    const p = lav.date.split('-').map(Number);
+    const fechaLav = new Date(p[0], p[1] - 1, p[2]);
+    // _mesLavKey = mes de IMPUTACIÓN ya reasignado (lav.periodo, formato "YYYY-MM"),
+    // NO la fecha real del banco — así queda sincronizado con reasignarPeriodosLav()
+    // y con la lógica de "Cubierto LAV" del resto de la app (línea ~4183).
+    let _mesLavKey;
+    if (lav.periodo && /^\d{4}-\d{2}$/.test(lav.periodo)) {
+      const [py, pm] = lav.periodo.split('-').map(Number);
+      _mesLavKey = py * 12 + (pm - 1);
+    } else {
+      _mesLavKey = p[0] * 12 + (p[1] - 1); // fallback si no hay período reasignado
     }
-    if (capDisponUTM > 0.0001 && poolRestante > 0) {
-      capAplicadoUTM = Math.min(poolRestante, capDisponUTM);
-      poolRestante  -= capAplicadoUTM;
+    while (remanente > 0.0001 && _punteroCuota < _cuotasPool.length) {
+      const d = _cuotasPool[_punteroCuota];
+      const _mesCuotaKey = d._fechaVenc.getFullYear() * 12 + d._fechaVenc.getMonth();
+      // Solo cuotas cuyo MES sea <= mes del depósito pueden recibir imputación
+      // (un depósito de septiembre puede cubrir la cuota de septiembre o anteriores).
+      if (_mesCuotaKey > _mesLavKey) break;
+      // FIX v2.0715.xxxx — bug crítico detectado contra liquidación oficial PJUD
+      // (RIT Z-617-2024): el pool YA NO cobra interés "de paso" durante el
+      // consumo cronológico. Antes, cuando un depósito llegaba con varios
+      // meses de hueco desde el vencimiento de la cuota que finalmente toca
+      // (ej. depósito de Feb-2026 tocando la cuota Sep-2025, 154 días de
+      // diferencia), ese interés intermedio se descontaba del depósito ANTES
+      // de aplicar capital — consumiendo parte del pago en "interés fantasma"
+      // en vez de reducir el capital pendiente. El PJUD no calcula interés
+      // en cada paso del consumo: aplica los depósitos íntegros a capital, en
+      // orden cronológico, y el interés real se calcula UNA SOLA VEZ AL
+      // FINAL sobre lo que quede sin cubrir (ver post-proceso más abajo).
+      // Capital pendiente
+      if (d._capDisponUTM > 0.0001 && remanente > 0) {
+        const aplicado = Math.min(remanente, d._capDisponUTM);
+        d._capAplicadoUTM += aplicado;
+        d._capDisponUTM   -= aplicado;
+        remanente         -= aplicado;
+      }
+      // Solo avanzar el puntero cuando la cuota queda totalmente saldada;
+      // si el depósito se agotó antes de saldarla, el próximo depósito retoma la MISMA cuota.
+      if (d._capDisponUTM <= 0.0001) {
+        _punteroCuota++;
+      } else {
+        break; // depósito agotado sin saldar la cuota actual
+      }
     }
-    // Aplicar al mes: lo que quedó sin cubrir
-    const capPostLavUTM  = Math.max(0, capBrutoUTM - capAplicadoUTM - parcialUTMMes);
-    const intePostLavCLP = Math.max(0, d.inte - intAplicadoUTM * utmMes);
+    // Remanente no imputado (excede toda la deuda pendiente) se pierde del pool aquí;
+    // el caso borde de saldo a favor íntegro no aplica a pensiones mensuales normales.
+    if (remanente > 0.0001 && typeof dbg === 'function') {
+      dbg(`[POOL-DEBUG] ⚠ depósito SIN aplicar del todo: ${lav.date} (imput:${lav.periodo}) sobrante:${remanente.toFixed(5)}UTM`);
+    }
+  }
+
+  if (typeof dbg === 'function') {
+    dbg('[POOL-DEBUG] tras consumo LAV: ' + _cuotasPool.map(d =>
+      `${d.periodo}=aplic:${(d._capAplicadoUTM||0).toFixed(5)} pend:${(d._capDisponUTM||0).toFixed(5)} intAplic:${(d._intAplicadoUTM||0).toFixed(5)}`
+    ).join(' || '));
+  }
+
+  for (const d of _cuotasPool) {
+    const utmMes = d.utmVal && d.utmVal > 0 ? d.utmVal : 1;
+    const capPostLavUTM  = Math.max(0, d._capBrutoUTM - d._capAplicadoUTM - d._parcialUTMMes);
+    // FIX v2.0715.xxxx — bug crítico detectado contra liquidación oficial PJUD
+    // (RIT Z-617-2024): cuando queda un hueco de varios meses sin depósitos LAV
+    // (ej. Ago-2025 → Feb-2026, 6 meses), el depósito que finalmente toca una
+    // cuota con capital remanente (Sep-2025) calculaba el interés devengado
+    // HASTA LA FECHA DE ESE DEPÓSITO (154 días), inflando artificialmente el
+    // interés de la cuota (0.03932 UTM en vez de los 0.00631 UTM oficiales).
+    // El PJUD, en cambio, calcula el interés de todo capital que quede
+    // remanente tras aplicar los depósitos DESDE EL VENCIMIENTO HASTA LA
+    // FECHA DE LIQUIDACIÓN final (306 días para Sep-2025), no hasta la fecha
+    // del depósito parcial que la tocó. El depósito solo determina CUÁNTO
+    // capital cubre (orden cronológico Art. 1595); el interés de lo que
+    // queda sin cubrir siempre se recalcula al final — igual que ya hace
+    // correctamente el path "sin abonos" más arriba (línea ~5065).
+    // Se recalcula directo sobre capPostLavUTM en vez de restar
+    // d._intAplicadoUTM del d.inte original (que fue calculado hasta hoy
+    // sobre el capital BRUTO, no sobre el remanente real).
+    const _aplicarRecargoPost = document.getElementById('recargoLey')?.checked || false;
+    const _segPost = (capPostLavUTM * utmMes > 0.01)
+      ? calcularInteresSegmentado(capPostLavUTM * utmMes, d._fechaVenc, hoy, false, _aplicarRecargoPost)
+      : null;
+    const intePostLavCLP = _segPost ? _segPost.interes : 0;
     d.cap    = capPostLavUTM * utmMes;
     d.capUTM = capPostLavUTM;
     d.inte   = (d.cap <= 0.01 && intePostLavCLP <= 0.01) ? 0 : intePostLavCLP;
     d.sub    = d.cap + d.inte;
-    d.esLav  = (capAplicadoUTM > 0.0001 || intAplicadoUTM > 0.0001);
-    d.lavAplicadoUTM    = capAplicadoUTM;
-    d.lavAplicadoCLP    = Math.round(capAplicadoUTM * utmMes);
-    d.lavIntAplicadoUTM = intAplicadoUTM;
-    d.lavIntAplicadoCLP = Math.round(intAplicadoUTM * utmMes);
+    d.esLav  = (d._capAplicadoUTM > 0.0001 || d._intAplicadoUTM > 0.0001);
+    d.lavAplicadoUTM    = d._capAplicadoUTM;
+    d.lavAplicadoCLP    = Math.round(d._capAplicadoUTM * utmMes);
+    d.lavIntAplicadoUTM = d._intAplicadoUTM;
+    d.lavIntAplicadoCLP = Math.round(d._intAplicadoUTM * utmMes);
+    // Limpiar campos de trabajo temporales
+    delete d._capBrutoUTM; delete d._parcialUTMMes; delete d._capDisponUTM;
+    delete d._intPendUTM; delete d._capAplicadoUTM; delete d._intAplicadoUTM; delete d._fechaVenc;
   }
 }
 
@@ -6166,12 +6599,19 @@ renderCalendar();
 if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
+// FIX AUDITORÍA (Bug A): faltaba escribir histStartMes — solo se guardaba
+// el año, por lo que tryRegisterHistorical() (que exige mes Y año) nunca
+// registraba la cuota aunque el usuario confirmara la fecha.
+const mesValHS = String(i + 1).padStart(2, '0');
+document.getElementById('histStartMes').value = mesValHS;
 document.getElementById('histStartAnio').value = String(selectedYear);
 const lbl = document.getElementById('histStartLabel');
 lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd) si ya hay monto UTM cargado
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'histEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6182,6 +6622,8 @@ lbl.innerText = `${name} ${selectedYear}`;
 lbl.className = 'input-date__value text-[#bfdbfe]';
 updateCalendarActionBtn();
 renderCalendar();
+// Recalcular en tiempo real (mismo patrón que befEnd)
+tryRegisterHistorical();
 return;
 } else if (calendarMode === 'consolidadaFecha') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -6485,7 +6927,7 @@ if (window.innerWidth >= 1024) renderCasosList();
 };
 // Guardar el caso activo al salir/cerrar
 window.addEventListener('beforeunload', () => {
-if (!activeCasoId) return;
+if (!activeCasoId) { saveLegacySessionNow(); return; }
 if (typeof saveCurrentCasoNow === 'function') saveCurrentCasoNow();
 localStorage.setItem('pension_utm_last_caso', activeCasoId);
 // La cola (queueSave) maneja la sincronización con Supabase.
@@ -6528,7 +6970,8 @@ document.addEventListener('visibilitychange', async () => {
     return;
   }
   if (document.visibilityState !== 'hidden') return;
-  if (!activeCasoId || !sbCurrentUser) return;
+  if (!activeCasoId) { saveLegacySessionNow(); return; }
+  if (!sbCurrentUser) return;
   if (_deletedCasoIds.has(activeCasoId)) {
     dbg('VISIBILITY: caso ' + activeCasoId.slice(0,8) + ' eliminado — skip save');
     return;
@@ -6643,7 +7086,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0712.0722</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0715.2225</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -6654,7 +7097,7 @@ document.addEventListener('visibilitychange', async () => {
  </div>
 </div>
 
-<script src="export.js?v=2.0622.0200"></script>
+<script src="export.js?v=2.0715.2225"></script>
 <script>
 
 // ── Panel de debug (definido primero para que esté disponible desde el inicio) ──
@@ -6673,63 +7116,74 @@ function dbg(msg) {
     p.style.cssText = 'display:none;position:fixed;bottom:0;left:0;right:0;height:180px;' +
       'background:#0f172a;color:#a3e635;font-size:9px;font-family:monospace;overflow-y:auto;' +
       'z-index:99999;padding:6px;border-top:2px solid #22d3ee;';
-    const expBtn = document.createElement('button');
-    expBtn.textContent = '📤 EXPORTAR DATOS';
-    expBtn.style.cssText = 'position:sticky;top:0;background:#1d4ed8;color:#fff;font-size:9px;' +
+    // ── Botón COPIAR TODO EL LOG ── (único botón del panel; se
+    //    eliminaron EXPORTAR / CERRAR / RESET / ESTADO porque en
+    //    pantallas angostas de Android la fila de 5 botones desbordaba
+    //    y dejaba COPIAR fuera de la vista, sin scroll horizontal)
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '📋 COPIAR';
+    copyBtn.style.cssText = 'position:sticky;top:0;background:#7c3aed;color:#fff;font-size:9px;' +
       'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;';
-    expBtn.onclick = () => {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('pension_utm'));
-      const dump = {};
-      keys.forEach(k => { try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }});
-      const blob = new Blob([JSON.stringify(dump, null, 2)], {type: 'application/json'});
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = 'pension_utm_backup_' + Date.now() + '.json'; a.click();
-    };
-    p.appendChild(expBtn);
-
-    // ── Botón CERRAR ──
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ CERRAR';
-    closeBtn.style.cssText = 'position:sticky;top:0;background:#374151;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    closeBtn.onclick = () => { p.style.display = 'none'; };
-    p.appendChild(closeBtn);
-
-    // ── Botón RESET COLA DE SYNC ──
-    const resetBtn = document.createElement('button');
-    resetBtn.textContent = '🔄 RESET COLA SYNC';
-    resetBtn.style.cssText = 'position:sticky;top:0;background:#dc2626;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    resetBtn.onclick = () => {
-      const antes = _syncQueue.length;
-      _syncQueue.length = 0;
-      _syncRunning = false;
-      try { localStorage.removeItem('sync_queue'); } catch(e) {}
-      dbg('🔄 RESET MANUAL: cola vaciada (' + antes + ' ops). Reintentando...');
-      // Disparar SAVE del caso activo inmediatamente
-      if (sbCurrentUser && activeCasoId && typeof queueSave === 'function') {
-        setTimeout(() => { queueSave(activeCasoId); }, 300);
+    copyBtn.onclick = () => {
+      // Recorrer solo las líneas de log (divs hijos sin ser botones), en orden.
+      const lineas = Array.from(p.querySelectorAll('div')).map(d => d.textContent).join('\n');
+      const _restoreLabel = copyBtn.textContent;
+      const _showFeedback = (ok) => {
+        copyBtn.textContent = ok ? '✅ COPIADO' : '❌ ERROR';
+        setTimeout(() => { copyBtn.textContent = _restoreLabel; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(lineas).then(() => _showFeedback(true)).catch(() => _showFeedback(false));
+      } else {
+        // Fallback para navegadores/webviews sin Clipboard API
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = lineas;
+          ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          _showFeedback(true);
+        } catch(e) { _showFeedback(false); }
       }
     };
-    p.appendChild(resetBtn);
-
-    // ── Botón ESTADO SYNC ──
-    const statusBtn = document.createElement('button');
-    statusBtn.textContent = '📊 ESTADO';
-    statusBtn.style.cssText = 'position:sticky;top:0;background:#0f766e;color:#fff;font-size:9px;' +
-      'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    statusBtn.onclick = () => {
-      dbg('📊 ESTADO — lastSaved: ' + (window._lastSavedId ? window._lastSavedId.slice(0,8) : 'none') +
-          ' | lastSavedAt: ' + (window._lastSavedAt ? new Date(window._lastSavedAt).toLocaleTimeString('es-CL') : 'nunca') +
-          ' | user: ' + (sbCurrentUser ? sbCurrentUser.id.slice(0,8) : 'null') +
-          ' | caso: ' + (activeCasoId ? activeCasoId.slice(0,8) : 'null'));
-      _syncQueue.forEach((op, i) => {
-        dbg('  [' + i + '] ' + op.type + ' ' + op.id.slice(0,8) + ' retry=' + (op.retryCount||0));
-      });
-    };
-    p.appendChild(statusBtn);
+    p.appendChild(copyBtn);
 
     document.body.appendChild(p);
+
+    // ── Botón flotante SIEMPRE VISIBLE (independiente de la fila de botones,
+    //    que en pantallas angostas de Android puede desbordar y ocultar
+    //    "COPIAR"). Fixed en la esquina, fuera del flujo scrolleable de p. ──
+    if (!document.getElementById('_dbgFloatCopyBtn')) {
+      const floatBtn = document.createElement('button');
+      floatBtn.id = '_dbgFloatCopyBtn';
+      floatBtn.textContent = '📋 Copiar log';
+      floatBtn.style.cssText = 'position:fixed;bottom:186px;right:8px;background:#7c3aed;color:#fff;' +
+        'font-size:11px;font-weight:900;padding:6px 10px;border-radius:8px;border:2px solid #fff;' +
+        'cursor:pointer;z-index:100000;box-shadow:0 2px 8px rgba(0,0,0,.4);display:none;';
+      floatBtn.onclick = () => {
+        const panel = document.getElementById('_dbgPanel');
+        const lineas = panel ? Array.from(panel.querySelectorAll('div')).map(d => d.textContent).join('\n') : '';
+        const _restore = floatBtn.textContent;
+        const _feedback = (ok) => { floatBtn.textContent = ok ? '✅ Copiado' : '❌ Error'; setTimeout(() => { floatBtn.textContent = _restore; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(lineas).then(() => _feedback(true)).catch(() => _feedback(false));
+        } else {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = lineas;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _feedback(true);
+          } catch(e) { _feedback(false); }
+        }
+      };
+      document.body.appendChild(floatBtn);
+    }
     // Apertura controlada desde sidebar — ver toggleDebugPanel()
   }
   const line = document.createElement('div');
@@ -6746,6 +7200,8 @@ function toggleDebugPanel() {
   if (!p) { dbg('Panel listo'); return; }
   const isOpen = p.style.display === 'block';
   p.style.display = isOpen ? 'none' : 'block';
+  const floatBtn = document.getElementById('_dbgFloatCopyBtn');
+  if (floatBtn) floatBtn.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) {
     dbg('🛠 Panel de debug abierto');
     closeSidebar();
@@ -6756,6 +7212,13 @@ function toggleDebugPanel() {
 // Agregar marca de inicio para saber que el panel esta activo
 window.addEventListener('DOMContentLoaded', () => {
   dbg('=== DEBUG AUTO-SHOW ' + (document.querySelector('meta[name="app-version"]')?.content || '?') + ' — panel visible desde inicio ===');
+  // Sincronizar el botón flotante de copiar con el estado real del panel,
+  // sea cual sea el mecanismo que lo deje abierto por defecto.
+  setTimeout(() => {
+    const p = document.getElementById('_dbgPanel');
+    const floatBtn = document.getElementById('_dbgFloatCopyBtn');
+    if (p && floatBtn) floatBtn.style.display = (p.style.display === 'block') ? 'block' : 'none';
+  }, 500);
 });
 
 // ══════════════════════════════════════════════════════════

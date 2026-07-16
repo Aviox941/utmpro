@@ -60,7 +60,15 @@ doc.setTextColor(107, 114, 142);
 doc.text('Calculo referencial — Pension UTM Pro | ' + tasaLabel, PAGE_W/2, 20, {align:'center'});
 doc.setTextColor(107, 114, 142);
 doc.text('Generado: ' + fechaDoc + ' | UTM ref: ' + fmt(utmLiq) + ' (' + (utmLiqMes?.m||'') + ' ' + (utmLiqMes?.y||'') + ')', PAGE_W/2, 26, {align:'center'});
-y = 34;
+// FIX: la línea de versión ("Pension UTM Pro vX.XX") se sacó del header —
+// ocupaba una línea completa arriba en CADA página, empujando el resto del
+// contenido (incluida la fila "TOTAL A PAGAR") más abajo de lo necesario.
+// La versión ya se sigue mostrando, una vez por página, en el footer junto
+// al disclaimer (ver más abajo, línea ~580: 'Pension UTM Pro – Calculo
+// referencial · ' + appVersionPdf, MARGIN, 290) — no se pierde información,
+// solo se elimina la duplicación arriba.
+const appVersionPdf = document.querySelector('meta[name="app-version"]')?.content || '—';
+y = 30;
 // ── Bloque Datos del Expediente ──────────────────────────────
 (function renderExpedientePDF() {
   if (!activeCasoId) return;
@@ -574,7 +582,7 @@ for (let i = 1; i <= totalPags; i++) {
 doc.setPage(i);
 doc.setFontSize(6); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
 doc.text('Pag. ' + i + ' / ' + totalPags, PAGE_W - MARGIN, 290, { align: 'right' });
-doc.text('Pension UTM Pro – Calculo referencial', MARGIN, 290);
+doc.text('Pension UTM Pro – Calculo referencial · ' + appVersionPdf, MARGIN, 290);
 }
 const pdfBase64 = doc.output('datauristring');
 const pdfLink = document.createElement('a');
@@ -944,6 +952,7 @@ document.getElementById('recargoLey').checked = s.recargoLey || false;
 if (document.getElementById('ticActual')) document.getElementById('ticActual').checked = s.ticActual || false;
 if (document.getElementById('diaVencimiento')) document.getElementById('diaVencimiento').value = s.diaVencimiento || '5';
 if (document.getElementById('fechaLiquidacion')) document.getElementById('fechaLiquidacion').value = s.fechaLiquidacion || '';
+if (typeof dpUpdateFechaLiqLabel === 'function') dpUpdateFechaLiqLabel();
 // Restaurar indices de periodo: usar startPeriod/endPeriod (anio+mes) si existen,
 // con fallback a startIndex/endIndex legacy para sesiones guardadas anteriormente.
 if (s.startPeriod) {
@@ -978,7 +987,30 @@ consolidadaData = s.consolidadaData || null;
 if (histMode === 'consolidada' && consolidadaData) {
   setHistMode('consolidada');
   const fmt = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  document.getElementById('consolidadaMontoCLP').value = fmt(consolidadaData.montoCLP);
+  if (typeof consModoMonto !== 'undefined') consModoMonto = consolidadaData.esUTM ? 'utm' : 'clp';
+  if (consolidadaData.esUTM) {
+    const utmEl = document.getElementById('consolidadaMontoUTM');
+    if (utmEl) utmEl.value = String(consolidadaData.montoUTM || '').replace('.', ',');
+  } else {
+    document.getElementById('consolidadaMontoCLP').value = fmt(consolidadaData.montoCLP);
+  }
+  {
+    const btnCLP = document.getElementById('btnConsCLP');
+    const btnUTM = document.getElementById('btnConsUTM');
+    const wCLP   = document.getElementById('wrapConsCLP');
+    const wUTM   = document.getElementById('wrapConsUTM');
+    if (btnCLP && btnUTM && wCLP && wUTM) {
+      if (consolidadaData.esUTM) {
+        btnCLP.style.background = 'transparent'; btnCLP.style.color = 'rgba(234,88,12,0.70)';
+        btnUTM.style.background = 'rgba(234,88,12,0.90)'; btnUTM.style.color = '#fff';
+        wCLP.style.display = 'none'; wUTM.style.display = '';
+      } else {
+        btnCLP.style.background = 'rgba(234,88,12,0.90)'; btnCLP.style.color = '#fff';
+        btnUTM.style.background = 'transparent'; btnUTM.style.color = 'rgba(234,88,12,0.70)';
+        wCLP.style.display = ''; wUTM.style.display = 'none';
+      }
+    }
+  }
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const lbl = document.getElementById('consolidadaFechaLabel');
   if (lbl && consolidadaData.fechaMes && consolidadaData.fechaAnio) {
@@ -991,10 +1023,15 @@ if (histMode === 'consolidada' && consolidadaData) {
   if (chkInt) chkInt.checked = consolidadaData.aplicaIntereses !== false;
   const chkMax = document.getElementById('consolidadaUsaMaxima');
   if (chkMax) chkMax.checked = consolidadaData.usaMaxima || false;
+  // FIX: tryRegisterConsolidada() recalcula los labels de la card (capital/
+  // interés/total/días) y le quita la clase 'hidden' al panel. Sin esta
+  // llamada, la card quedaba oculta y sin datos al recargar sesión.
+  if (typeof tryRegisterConsolidada === 'function') tryRegisterConsolidada();
 } else {
   setHistMode('recalculable');
 }
 // Restaurar pickers deuda histórica
+if (histMode === 'recalculable') {
 if (historicalDebts.length > 0) {
 const d = historicalDebts[0];
 if (d.startMes && d.startAnio) {
@@ -1009,6 +1046,7 @@ const lblS = document.getElementById('histStartLabel');
 if (lblS) { lblS.innerText = 'Mes / Año'; lblS.className = 'input-date__value'; }
 const lblE = document.getElementById('histEndLabel');
 if (lblE) { lblE.innerText = 'Mes actual'; lblE.className = 'input-date__value'; }
+}
 }
 // Reset picker labels
 const lblA = document.getElementById('tempAbonoLabel');
@@ -2731,23 +2769,43 @@ async function runOcrAnalysis() {
 
   // Construir prompt según tipo de documento
   const promptPjud = `Eres un asistente especializado en documentos judiciales chilenos de pensión alimenticia.
-Se te entrega una liquidación del Poder Judicial de Chile (PJUD).
+Se te entrega una liquidación del Poder Judicial de Chile (PJUD) — o una reimportación de un PDF de
+"liquidación referencial" generado por esta misma app (ambos formatos son posibles y debes reconocerlos).
 Debes extraer los abonos de DOS secciones:
-1. "IV. Otros abonos": tabla con columnas Fecha movimiento / Tipo movimiento / Referencia / Monto UTM. El monto está en UTM, NO en pesos. Usa monto_utm en lugar de monto_pesos para estas filas.
-2. "V. Abonos LAV": tabla con columnas Fecha movimiento / Tipo movimiento / Monto pesos / Monto UTM. El monto está en pesos.
+1. "IV. Otros abonos" (o equivalente): tabla con columnas Fecha / Referencia / Monto UTM.
+2. "V. Abonos LAV" (o "ABONOS LAV" en el formato de esta app): tabla con columnas Fecha / Monto pesos / Monto UTM (o "Equiv. UTM").
 Combina ambas secciones en un único array. Para cada movimiento indica de qué sección proviene.
-Devuelve SOLO un JSON array (sin texto adicional, sin markdown) con este formato exacto:
-[
-  {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":null,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
-  {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
-]
+IMPORTANTE: extrae SIEMPRE el valor de la columna "Monto UTM" / "Equiv. UTM" para CADA fila (tanto de
+sección IV como V) — ambas columnas están presentes en ambos formatos de documento. Este valor en UTM
+es la unidad que se usa para validar que no falte ni sobre ninguna fila, independiente de si el
+documento separa los totales por sección o los presenta en una sola tabla combinada.
+Además, busca la(s) fila(s) "Total" o "TOTAL" tal como aparece(n) impresa(s) en el documento:
+- Si el documento trae DOS totales separados (uno para cada sección, formato oficial PJUD), repórtalos
+  en seccion_V_total_utm y seccion_IV_total_utm.
+- Si el documento trae UN SOLO total combinado para toda la tabla de abonos (formato de esta misma app,
+  donde LAV y Otros Abonos aparecen juntos en una tabla "ABONOS LAV"), repórtalo en total_combinado_utm
+  y deja seccion_V_total_utm / seccion_IV_total_utm como null.
+Devuelve SOLO un JSON object (sin texto adicional, sin markdown) con este formato exacto:
+{
+  "movimientos": [
+    {"fecha":"DD-MM-YYYY","monto_pesos":150000,"monto_utm":2.30125,"descripcion":"DEP. EN EFECTIVO SIN LIBRETA","seccion":"LAV"},
+    {"fecha":"DD-MM-YYYY","monto_pesos":null,"monto_utm":2.31506,"descripcion":"Abono Depósito 04.03.2024","seccion":"otros_abonos"}
+  ],
+  "totales_documento": {
+    "seccion_V_total_utm": 41.76983,
+    "seccion_IV_total_utm": 2.31506,
+    "total_combinado_utm": null
+  }
+}
 Reglas:
-- Si el monto está en pesos (sección V): pon monto_pesos como entero, monto_utm como null.
-- Si el monto está en UTM (sección IV): pon monto_utm como decimal, monto_pesos como null.
+- monto_utm es OBLIGATORIO en todas las filas (ambas secciones siempre traen esa columna).
+- monto_pesos: solo para filas de sección "LAV" que traigan columna de pesos; deja null si la fila es
+  de "otros_abonos" y el documento no muestra un monto en pesos para ella.
 - Si el monto en pesos viene con puntos de miles (ej: 150.000), conviértelo a entero (150000).
-- Si alguna sección está vacía o tiene Total 0, no incluyas sus filas.
+- Si alguna sección está vacía, no incluyas sus filas, y reporta su total como 0.
+- Si no encuentras ninguna fila "Total" impresa, deja los tres campos de totales_documento en null (no inventes un valor).
 - Usa formato de fecha DD-MM-YYYY.
-- Si no hay movimientos en ninguna sección, devuelve [].`;
+- Si no hay movimientos en ninguna sección, devuelve {"movimientos":[],"totales_documento":{}}.`;
 
   const promptCartola = `Eres un asistente especializado en análisis de cartolas bancarias chilenas.
 Se te entrega una cartola bancaria.
@@ -2840,15 +2898,118 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
 
     // Limpiar posibles backticks
     const clean = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
+    const parsedRaw = JSON.parse(clean);
 
-    if (!Array.isArray(parsed)) throw new Error('Respuesta inesperada del modelo');
+    // El modo PJUD devuelve {movimientos, totales_documento}; el modo cartola
+    // sigue devolviendo un array plano (sin totales, la cartola no trae un
+    // total consolidado de "pagos a esta persona" para verificar contra él).
+    let parsed, totalesDoc = null;
+    if (isPjud) {
+      if (!parsedRaw || typeof parsedRaw !== 'object' || Array.isArray(parsedRaw) || !Array.isArray(parsedRaw.movimientos)) {
+        throw new Error('Respuesta inesperada del modelo (se esperaba {movimientos, totales_documento})');
+      }
+      parsed = parsedRaw.movimientos;
+      totalesDoc = parsedRaw.totales_documento || null;
+    } else {
+      if (!Array.isArray(parsedRaw)) throw new Error('Respuesta inesperada del modelo');
+      parsed = parsedRaw;
+    }
+
     if (parsed.length === 0) {
       document.getElementById('ocrErrorMsg').textContent =
         isPjud ? 'No se encontraron abonos LAV en el documento.'
                 : 'No se encontraron movimientos del alimentante o alimentario en la cartola.';
       _ocrShowStep('ocrStepError');
       return;
+    }
+
+    // DEBUG DETALLADO — log fila por fila de lo que el modelo devolvió, ANTES
+    // de cualquier procesamiento posterior (normalización de fecha, cálculo
+    // UTM, reasignación de período). Si en algún momento futuro un caso vuelve
+    // a mostrar montos desalineados de sus fechas (como ocurrió con "Test1"),
+    // este log permite comparar directamente contra el documento fuente para
+    // saber si el desplazamiento ya venía en la respuesta cruda del modelo de
+    // OCR o si se introdujo después, en el procesamiento de la app.
+    dbg('OCR RAW: ' + parsed.length + ' filas recibidas del modelo:');
+    let _sumaUtmLav = 0, _sumaUtmOtros = 0, _sumaPesosLav = 0;
+    parsed.forEach((item, i) => {
+      const esOtros = item.seccion === 'otros_abonos';
+      const sec = esOtros ? 'Otros Abonos' : 'LAV';
+      const utmStr = (item.monto_utm != null) ? item.monto_utm.toFixed(5) + ' UTM' : '⚠️ sin UTM';
+      const pesosStr = (item.monto_pesos != null) ? '$' + item.monto_pesos.toLocaleString('es-CL') : '';
+      dbg(`  [${i}] ${item.fecha} · ${pesosStr}${pesosStr ? ' · ' : ''}${utmStr} · ${sec}`);
+      if (item.monto_utm != null && item.monto_utm > 0) {
+        if (esOtros) _sumaUtmOtros += item.monto_utm; else _sumaUtmLav += item.monto_utm;
+      }
+      if (!esOtros && item.monto_pesos != null && item.monto_pesos > 0) {
+        _sumaPesosLav += item.monto_pesos;
+      }
+    });
+    const _sumaUtmTotal = _sumaUtmLav + _sumaUtmOtros;
+    dbg(`OCR RAW: suma calculada = LAV ${_sumaUtmLav.toFixed(5)} UTM ($${_sumaPesosLav.toLocaleString('es-CL')}) + Otros Abonos ${_sumaUtmOtros.toFixed(5)} UTM = ${_sumaUtmTotal.toFixed(5)} UTM total`);
+
+    // VALIDACIÓN — comparar la suma de filas extraídas (en UTM, unidad que
+    // SIEMPRE está impresa en ambas secciones del documento, sea cual sea su
+    // formato) contra el "Total" que el propio modelo reportó haber leído.
+    // Se usa UTM en vez de pesos porque el monto en pesos de "Otros Abonos"
+    // no siempre está impreso en el documento oficial PJUD (solo en el PDF
+    // que esta misma app genera, que junta ambas secciones en una tabla).
+    // Comparar por UTM evita falsos positivos al reimportar un PDF propio
+    // con formato de tabla combinada en vez del documento oficial PJUD.
+    let _hayDiscrepancia = false;
+    let _detalleDiscrepancia = '';
+    if (isPjud && totalesDoc) {
+      const _tolUtm = 0.001; // tolerancia laxa — redondeo de UTM por fila puede acumular
+      if (totalesDoc.seccion_V_total_utm != null || totalesDoc.seccion_IV_total_utm != null) {
+        // Formato con secciones separadas (documento oficial PJUD)
+        if (totalesDoc.seccion_V_total_utm != null) {
+          const diff = Math.abs(_sumaUtmLav - totalesDoc.seccion_V_total_utm);
+          if (diff > _tolUtm) {
+            _hayDiscrepancia = true;
+            const linea = `⚠️ DISCREPANCIA sección V (LAV): suma extraída ${_sumaUtmLav.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_V_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+            dbg(linea); _detalleDiscrepancia += linea + '\n';
+          }
+        }
+        if (totalesDoc.seccion_IV_total_utm != null) {
+          const diff = Math.abs(_sumaUtmOtros - totalesDoc.seccion_IV_total_utm);
+          if (diff > _tolUtm) {
+            _hayDiscrepancia = true;
+            const linea = `⚠️ DISCREPANCIA sección IV (Otros Abonos): suma extraída ${_sumaUtmOtros.toFixed(5)} UTM ≠ total del documento ${totalesDoc.seccion_IV_total_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+            dbg(linea); _detalleDiscrepancia += linea + '\n';
+          }
+        }
+      } else if (totalesDoc.total_combinado_utm != null) {
+        // Formato con tabla combinada (PDF propio de la app, "ABONOS LAV" único)
+        const diff = Math.abs(_sumaUtmTotal - totalesDoc.total_combinado_utm);
+        if (diff > _tolUtm) {
+          _hayDiscrepancia = true;
+          const linea = `⚠️ DISCREPANCIA total combinado: suma extraída ${_sumaUtmTotal.toFixed(5)} UTM ≠ total del documento ${totalesDoc.total_combinado_utm.toFixed(5)} UTM (diferencia: ${diff.toFixed(5)})`;
+          dbg(linea); _detalleDiscrepancia += linea + '\n';
+        }
+      } else {
+        dbg('⚠️ El modelo no reportó ningún total (ni separado ni combinado) — no fue posible validar la suma automáticamente.');
+      }
+      if (!_hayDiscrepancia && (totalesDoc.seccion_V_total_utm != null || totalesDoc.seccion_IV_total_utm != null || totalesDoc.total_combinado_utm != null)) {
+        dbg('✅ Suma extraída (UTM) coincide con el total impreso en el documento (dentro de tolerancia).');
+      }
+    } else if (isPjud) {
+      dbg('⚠️ El modelo no reportó totales_documento — no fue posible validar la suma automáticamente.');
+    }
+
+    if (_hayDiscrepancia) {
+      const _seguir = confirm(
+        '⚠️ Posible error de lectura del OCR\n\n' +
+        'La suma de los montos extraídos no coincide con el total que el documento indica:\n\n' +
+        _detalleDiscrepancia + '\n' +
+        'Esto puede significar que alguna fila se leyó mal, se saltó o quedó desplazada ' +
+        '(un problema real ya detectado antes en esta app).\n\n' +
+        'Revisa cuidadosamente cada fila en la vista previa antes de confirmar.\n\n' +
+        '¿Continuar de todas formas a la vista previa?'
+      );
+      if (!_seguir) {
+        _ocrShowStep('ocrStepUpload');
+        return;
+      }
     }
 
     _ocrResultados = parsed;
