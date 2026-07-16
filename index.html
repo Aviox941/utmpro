@@ -7122,7 +7122,11 @@ function dbg(msg) {
     closeBtn.textContent = '✕ CERRAR';
     closeBtn.style.cssText = 'position:sticky;top:0;background:#374151;color:#fff;font-size:9px;' +
       'font-weight:900;padding:3px 8px;border-radius:6px;border:none;cursor:pointer;margin-bottom:4px;margin-left:6px;';
-    closeBtn.onclick = () => { p.style.display = 'none'; };
+    closeBtn.onclick = () => {
+      p.style.display = 'none';
+      const floatBtn = document.getElementById('_dbgFloatCopyBtn');
+      if (floatBtn) floatBtn.style.display = 'none';
+    };
     p.appendChild(closeBtn);
 
     // ── Botón RESET COLA DE SYNC ──
@@ -7191,6 +7195,39 @@ function dbg(msg) {
     p.appendChild(copyBtn);
 
     document.body.appendChild(p);
+
+    // ── Botón flotante SIEMPRE VISIBLE (independiente de la fila de botones,
+    //    que en pantallas angostas de Android puede desbordar y ocultar
+    //    "COPIAR"). Fixed en la esquina, fuera del flujo scrolleable de p. ──
+    if (!document.getElementById('_dbgFloatCopyBtn')) {
+      const floatBtn = document.createElement('button');
+      floatBtn.id = '_dbgFloatCopyBtn';
+      floatBtn.textContent = '📋 Copiar log';
+      floatBtn.style.cssText = 'position:fixed;bottom:186px;right:8px;background:#7c3aed;color:#fff;' +
+        'font-size:11px;font-weight:900;padding:6px 10px;border-radius:8px;border:2px solid #fff;' +
+        'cursor:pointer;z-index:100000;box-shadow:0 2px 8px rgba(0,0,0,.4);display:none;';
+      floatBtn.onclick = () => {
+        const panel = document.getElementById('_dbgPanel');
+        const lineas = panel ? Array.from(panel.querySelectorAll('div')).map(d => d.textContent).join('\n') : '';
+        const _restore = floatBtn.textContent;
+        const _feedback = (ok) => { floatBtn.textContent = ok ? '✅ Copiado' : '❌ Error'; setTimeout(() => { floatBtn.textContent = _restore; }, 1500); };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(lineas).then(() => _feedback(true)).catch(() => _feedback(false));
+        } else {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = lineas;
+            ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            _feedback(true);
+          } catch(e) { _feedback(false); }
+        }
+      };
+      document.body.appendChild(floatBtn);
+    }
     // Apertura controlada desde sidebar — ver toggleDebugPanel()
   }
   const line = document.createElement('div');
@@ -7207,6 +7244,8 @@ function toggleDebugPanel() {
   if (!p) { dbg('Panel listo'); return; }
   const isOpen = p.style.display === 'block';
   p.style.display = isOpen ? 'none' : 'block';
+  const floatBtn = document.getElementById('_dbgFloatCopyBtn');
+  if (floatBtn) floatBtn.style.display = isOpen ? 'none' : 'block';
   if (!isOpen) {
     dbg('🛠 Panel de debug abierto');
     closeSidebar();
@@ -7217,6 +7256,13 @@ function toggleDebugPanel() {
 // Agregar marca de inicio para saber que el panel esta activo
 window.addEventListener('DOMContentLoaded', () => {
   dbg('=== DEBUG AUTO-SHOW ' + (document.querySelector('meta[name="app-version"]')?.content || '?') + ' — panel visible desde inicio ===');
+  // Sincronizar el botón flotante de copiar con el estado real del panel,
+  // sea cual sea el mecanismo que lo deje abierto por defecto.
+  setTimeout(() => {
+    const p = document.getElementById('_dbgPanel');
+    const floatBtn = document.getElementById('_dbgFloatCopyBtn');
+    if (p && floatBtn) floatBtn.style.display = (p.style.display === 'block') ? 'block' : 'none';
+  }, 500);
 });
 
 // ══════════════════════════════════════════════════════════
