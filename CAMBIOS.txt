@@ -56,6 +56,38 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0700 · 2026-07-16]
+export.js
+
+Fix + Mejora — columna "Estado período" agregada en v2.0716.0600 a la
+tabla ABONOS LAV del PDF.
+
+FIX: faltaba el monto en pesos equivalente — solo mostraba el UTM
+("Parcial · Rem. 0.101 UTM"). Ahora muestra ambos: "Parcial · Rem.
+0.101 UTM ($6.800)" / "Excedente 0.048 UTM ($3.400)", igual que ya
+hacía la tarjeta "Depósitos LAV" y el Resumen web.
+
+ACLARACIÓN IMPORTANTE (a pedido del usuario, tras revisar el PDF
+generado): esta columna compara cada depósito de forma AISLADA contra
+la cuota de su mes reasignado — no es el resultado final por período.
+Como el pool de depósitos LAV es acumulado (el excedente de un mes se
+traspasa y cubre el faltante de otro), casi todos los meses aparecen
+"Parcial" o "Excedente" en esta columna aunque terminen 100% cubiertos
+en el resultado real (el único remanente real del caso de prueba
+"Test1" es Sep-2025, según la liquidación oficial PJUD).
+
+Se evaluó corregir el criterio para que reflejara el estado acumulado
+real, pero se optó por MANTENER la comparación aislada (útil para ver
+la cobertura de cada depósito individual) y en su lugar agregar una
+nota aclaratoria justo debajo de la tabla, tanto en el PDF como en el
+Resumen de Liquidación web, explicando que el resultado definitivo por
+período está en la tabla "Pensiones Mensuales Impagas" (PDF) / el
+detalle por período (Resumen web), no en esta columna.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0716.0600 · 2026-07-16]
 index.html, export.js
 

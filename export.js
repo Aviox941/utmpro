@@ -404,9 +404,9 @@ doc.autoTable({
     if (typeof calcCoberturaLavDeposito === 'function') {
       const cobertura = calcCoberturaLavDeposito(p);
       if (cobertura.estado === 'parcial') {
-        estadoStr = `Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM`;
+        estadoStr = `Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM (${fmt(cobertura.remanenteClp)})`;
       } else if (cobertura.estado === 'excedente') {
-        estadoStr = `Excedente ${Math.abs(cobertura.diffUTM).toFixed(3)} UTM`;
+        estadoStr = `Excedente ${Math.abs(cobertura.diffUTM).toFixed(3)} UTM (${fmt(cobertura.excedenteClp)})`;
       } else if (cobertura.estado === 'cubierto') {
         estadoStr = 'Cubierto';
       }
@@ -421,7 +421,22 @@ doc.autoTable({
   columnStyles:{0:{halign:'center',cellWidth:7},1:{halign:'center',cellWidth:20},2:{halign:'center',cellWidth:16},3:{halign:'right',cellWidth:20},4:{halign:'center',cellWidth:15},5:{halign:'center',cellWidth:20},6:{halign:'center',cellWidth:24}},
   margin:{left:MARGIN,right:MARGIN}, tableWidth:CONTENT_W
 });
-y = doc.lastAutoTable.finalY + 8;
+y = doc.lastAutoTable.finalY + 3;
+// Nota aclaratoria: la columna "Estado período" de la tabla de arriba
+// compara CADA depósito, de forma AISLADA, contra la cuota del mes al que
+// quedó reasignado — por eso puede mostrar "Parcial" o "Excedente" en
+// meses que, al final, SÍ quedan cubiertos (el excedente de un depósito
+// se traspasa y cubre el faltante de otro mes dentro del mismo pool
+// acumulado). El resultado real y definitivo de cada período — el único
+// que importa para el cálculo final — es el que aparece en la tabla
+// "PENSIONES MENSUALES IMPAGAS" más arriba, no esta columna.
+checkPage(14);
+doc.setFontSize(6); doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'italic');
+const notaEstadoLav = 'Nota: "Estado período" compara cada depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" aquí y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos (ver tabla "Pensiones Mensuales Impagas" para el resultado definitivo por período).';
+const lineasNotaLav = doc.splitTextToSize(notaEstadoLav, CONTENT_W);
+doc.text(lineasNotaLav, MARGIN, y + 3);
+y += lineasNotaLav.length * 3 + 5;
+doc.setFont('helvetica', 'normal');
 }
 checkPage(50);
 doc.setFillColor(18, 38, 71);
@@ -2051,6 +2066,17 @@ function buildResumenContent(targetContainer, inlineMode) {
     totRow.innerHTML = `<span style="color:#059669">TOTAL LAV</span><span style="color:#059669">${totalLavUTM.toFixed(5)} UTM</span><span style="color:#0f172a">${fmt(totalLavCLP)}</span>`;
     wrapLav.appendChild(totRow);
     container.appendChild(wrapLav);
+    // Nota aclaratoria (mismo texto que en el PDF): la línea "⚠ Parcial ·
+    // Rem." / "↪ Excedente" que aparece bajo cada depósito compara ese
+    // depósito de forma AISLADA contra la cuota de su mes — no es el
+    // resultado final. El pool de depósitos LAV es acumulado: el excedente
+    // de un mes se traspasa y cubre el faltante de otro, así que un mes
+    // puede figurar "Parcial" aquí y aun así quedar totalmente cubierto en
+    // el resultado real (ver más abajo el detalle por período).
+    const notaLavWeb = document.createElement('p');
+    notaLavWeb.style.cssText = 'font-size:8px;color:#94a3b8;font-style:italic;margin-top:6px;line-height:1.4;';
+    notaLavWeb.textContent = 'Nota: la cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.';
+    container.appendChild(notaLavWeb);
   }
 
   // ── 5. Resumen Final ──
