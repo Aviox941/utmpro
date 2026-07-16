@@ -56,6 +56,158 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0901 · 2026-07-16]
+index.html, styles.css
+
+Cambio estético — la tarjeta hero "Total Adeudado" de la pantalla
+principal ahora reutiliza EXACTAMENTE el layout de la tarjeta de resumen
+del overlay "Desde el último pago" (.dup-summary-card): ícono circular
+violeta a la izquierda + título/monto/UTM a la derecha, línea divisoria,
+y filas "Capital" / "Intereses acumulados" debajo — sin el badge verde
+"Calculado hasta hoy" (removido a pedido del usuario). El título ya no
+dice "Total adeudado al día de hoy" sino que usa la fecha de liquidación
+real, formateada como "Total adeudado al 08 Jul 2026".
+
+1. index.html (markup hero, ~línea 1250): el div .hero-total-card ahora
+   también lleva la clase .dup-summary-card y su contenido interno se
+   reemplazó por la estructura .dup-summary-header (ícono + content) +
+   .dup-summary-divider + dos .dup-summary-row (Capital / Intereses
+   acumulados) — mismo HTML que ya usa dupSummarySection en el overlay.
+   Los antiguos elementos .hero-total-card__badge (badge verde),
+   __icon/__label/__amount-row/__sign/__amount/__utm/__meta fueron
+   removidos del DOM (las clases CSS correspondientes quedan sin uso,
+   no se borraron del styles.css por si se reutilizan). Los IDs
+   totalGrand/totalGrandUtm/totalCap/totalInt se conservan pero ahora
+   son los propios elementos .dup-summary-total/.dup-summary-utm/
+   strong dentro de .dup-summary-row (antes eran hijos de un layout
+   centrado distinto). totalCapUtm/totalIntUtm/heroMetaRow/heroUtmRef
+   se mantienen ocultos en el DOM (siguen recibiendo valores sin
+   guard null-check desde el JS de cálculo). heroFechaLiq ahora es el
+   <span class="dup-summary-title"> que muestra "Total adeudado al
+   DD Mmm AAAA" en vez de una línea de meta separada. El botón
+   hamburguesa se movió de la esquina superior izquierda a la superior
+   derecha para no superponerse con el nuevo ícono circular que ahora
+   ocupa esa esquina.
+
+2. index.html (JS dentro de calculate(), bloque que escribe
+   totalGrand/totalCap/totalInt/totalGrandUtm/heroFechaLiq): el monto
+   grande ahora se escribe con format() (incluye el signo "$" y
+   separador de miles) en vez de escribir solo el número y depender de
+   un <span> "$" hermano — ya no existe ese span en el nuevo layout, así
+   que se eliminó la función fitHeroAmount() (ajuste dinámico de
+   font-size) que dependía de grandEl.previousElementSibling; el tamaño
+   de fuente ahora lo controla el CSS fijo de .dup-summary-total (30px),
+   igual que en el overlay. totalGrandUtm pasó de "23.85000 UTM" a
+   "≈ 23,85 UTM" (mismo formato que dupSummaryUtm/befSummaryUtm). El
+   bloque que antes armaba heroMetaRow ("UTM ref: ... / Fecha liq: ...")
+   se reemplazó por un bloque que arma el string
+   "Total adeudado al DD Mmm AAAA" a partir de getFechaLiquidacion() y
+   lo asigna a #heroFechaLiq. El mismo bloque de fecha se replicó en la
+   rama "reset a cero" (sin período/cálculo activo) para que el título
+   siga mostrando la fecha en vez de quedar vacío.
+
+3. index.html (renderLavSummary(), rama "sin cálculo de pensiones"):
+   ajustada para escribir grandEl con format() (con "$") y
+   grandUtm con el formato "≈ X,XX UTM" en vez del formato viejo
+   "X.XXXXX UTM", consistente con el resto de la tarjeta.
+
+4. FIX colateral: dupPopulateSummary() y befPopulateSummary() (overlays
+   "Desde el último pago" y "Basado en cuota") concatenaban
+   '$' + grandEl.innerText para armar dupSummaryTotal/befSummaryTotal.
+   Como ahora grandEl (#totalGrand) YA incluye el signo "$" en su
+   innerText, esa concatenación habría producido "$$1.234.567" en
+   ambos overlays. Corregido para usar grandEl.innerText directamente
+   sin prefijo adicional.
+
+5. styles.css: la regla base .hero-total-card se redujo a solo
+   flex/position (ya no define background, border, padding, layout
+   flex centrado ni min-height) para que .dup-summary-card sea la
+   única fuente de esos estilos y no haya conflicto de cascada al
+   combinar ambas clases en el mismo div. Se eliminaron los overrides
+   responsive redundantes que forzaban padding/min-height propios de
+   .hero-total-card en mobile (@media ancho reducido) y tablet
+   (@media min-width:768px), ya que .dup-summary-card ya es responsive
+   por sí sola (es la misma tarjeta que usa el overlay DUP en todos los
+   tamaños de pantalla). Las clases .hero-total-card__* (badge, icon,
+   label, amount-row, sign, amount, utm, meta, lav-pill) NO se
+   eliminaron del archivo — quedan como CSS sin uso por si se
+   reutilizan en otro lugar más adelante.
+
+--------------------------------------------------------------------------------
+
+[v2.0716.0900 · 2026-07-16]
+index.html, styles.css, export.js
+
+Cambio estético — la tarjeta hero "Total Adeudado" y la tarjeta "Detalle
+del cálculo" de la pantalla principal adoptan la misma paleta visual que
+ya usaba el overlay "Desde el último pago" (fondo blanco, badge verde
+"Calculado hasta hoy", ícono circular violeta, tipografía DM Sans,
+acentos violeta/celeste) en vez del degradado azul oscuro que tenían
+antes. Cambio puramente visual — ningún ID, cálculo, ni estructura de
+datos fue tocado; todos los elementos siguen siendo alimentados por el
+mismo JS de siempre.
+
+1. HERO "Total Adeudado" (index.html + styles.css, clases
+.hero-total-card*): pasó de degradado azul con texto blanco a card
+blanco con borde/sombra suave violeta (mismo criterio que
+.dup-summary-card), badge verde "Calculado hasta hoy" nuevo, ícono
+circular violeta (mismo símbolo "$" del DUP) y el monto grande ahora en
+violeta (#5b4fff) en vez de blanco. El botón hamburguesa cambió de
+líneas blancas a oscuras (ahora el fondo es claro). Se agregó
+.hero-total-card::after con el mismo halo radial sutil que tiene
+.dup-summary-card::after. La píldora "Abonos LAV" (oculta por defecto,
+se conserva en el DOM) también se adaptó a fondo claro por consistencia,
+aunque no está visible actualmente.
+
+2. "DETALLE DEL CÁLCULO" (index.html): el contenedor exterior y su
+header colapsable pasaron de acento azul (#3b82f6) a violeta (#5b4fff),
+con bordes grises finos (#ececf5) y la misma sombra que el DUP en vez
+del borde/sombra genérica anterior.
+
+3. buildResumenContent() en export.js — usada tanto por esta tarjeta
+inline como por el modal "Resumen de Liquidación" y el PDF comparte
+código, así que el repintado benefició a ambos lugares:
+   a. FIX: la función seccion() (label de cada bloque: "Período Actual",
+      "Deuda Histórica", "Abonos Realizados", etc.) tenía
+      "if (inlineMode) return" — es decir, en la tarjeta de la página
+      principal NUNCA se mostraba ningún label de sección. Por eso,
+      como notó el usuario, la tabla de "Deuda Histórica" aparecía sin
+      ningún texto que la identificara. Ahora el label se muestra en
+      ambos modos, con un estilo limpio (texto uppercase + línea
+      divisoria fina gris) en vez de la franja de fondo tintada de
+      color por sección que tenía el modal antes.
+   b. Se reemplazaron los bordes/fondos tintados por color de cada
+      sección (azul para pensiones, naranja para deuda histórica,
+      celeste para abonos, violeta para pagos parciales, verde para
+      LAV) por un borde gris fino uniforme (#ECEFF5) en todas las
+      tablas y bloques — mismo criterio visual que usa el DUP. Los
+      acentos de color con significado semántico propio (violeta para
+      columna UTM, celeste para tasa/interés, verde para LAV, naranja
+      para marca "H" de histórico, violeta/verde para chips de
+      remanente/excedente) SE MANTUVIERON — no se tocó ningún dato ni
+      chip informativo, solo el color de fondo/borde de los
+      contenedores.
+   c. El bloque "Resumen final" (header + filas + total destacado)
+      cambió su ícono de verde a violeta y el total final destacado
+      (solo visible en el modal, no en la tarjeta inline) pasó del
+      degradado azul oscuro con texto blanco a fondo violeta claro
+      (#f5f6ff) con el monto en violeta (#5b4fff) — mismo lenguaje que
+      el resto.
+   d. El bloque colapsable "Datos del Caso" (solo modal) también
+      adoptó la paleta violeta/gris.
+
+Alcance: NO se reestructuraron las tablas (se mantuvo la columna UTM
+visible, separadores por año, chips de remanente/excedente y el
+click-to-detail de cada fila) ni se movió información a otra vista —
+a pedido explícito del usuario, este cambio es solo de "limpieza
+visual" (menos bordes/recuadros de colores distintos por sección,
+labels de sección donde faltaban) sobre la estructura de datos
+existente, no un rediseño.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0716.0800 · 2026-07-16]
 index.html
 

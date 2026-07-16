@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0800">
+ <meta name="app-version" content="v2.0716.0901">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1247,32 +1247,52 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado (azul) -->
-        <div class="hero-total-card" style="position:relative;">
-          <!-- Hamburguesa minimalista — abre sidebar -->
-          <button onclick="openSidebar()" style="position:absolute;top:12px;left:14px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.7;" title="Menú">
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#fff;border-radius:2px;"></span>
+        <!-- Tarjeta Total Adeudado — mismo layout que .dup-summary-card del
+             overlay "Desde el último pago" (icono izq + total der, fila
+             Capital / Intereses acumulados debajo), sin el badge verde
+             "Calculado hasta hoy". El título usa la fecha de liquidación
+             en formato "Total adeudado al 08 Jul 2026". -->
+        <div class="hero-total-card dup-summary-card" style="position:relative;">
+          <!-- Hamburguesa minimalista — abre sidebar (esquina sup. derecha para no tapar el ícono/título) -->
+          <button onclick="openSidebar()" style="position:absolute;top:14px;right:16px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.55;" title="Menú">
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
+            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
           </button>
-          <p class="hero-total-card__label">Total Adeudado</p>
-          <div class="hero-total-card__amount-row">
-            <span class="hero-total-card__sign">$</span>
-            <h2 id="totalGrand" class="hero-total-card__amount">0</h2>
+
+          <div class="dup-summary-header" style="padding-top:6px;">
+            <div class="dup-summary-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div class="dup-summary-content">
+              <span id="heroFechaLiq" class="dup-summary-title">Total adeudado</span>
+              <div class="dup-summary-total" id="totalGrand">$0</div>
+              <div class="dup-summary-utm" id="totalGrandUtm">0,00 UTM</div>
+            </div>
           </div>
-          <p id="totalGrandUtm" class="hero-total-card__utm">0.00 UTM</p>
-          <div id="heroMetaRow" class="hero-total-card__meta hidden" style="display:none !important;">
-            <p id="heroUtmRef" class="hero-total-card__meta-line"></p>
-            <p id="heroFechaLiq" class="hero-total-card__meta-line"></p>
+
+          <div class="dup-summary-divider"></div>
+
+          <div class="dup-summary-row">
+            <span>Capital</span>
+            <strong id="totalCap">$0</strong>
+          </div>
+          <div class="dup-summary-row">
+            <span>Intereses acumulados</span>
+            <strong id="totalInt">$0</strong>
           </div>
         </div>
 
         <!-- IDs conservados ocultos (no se eliminan del DOM: el cálculo les escribe sin guard null-check) -->
         <div style="display:none !important;" aria-hidden="true">
-          <span id="totalCap"></span>
           <span id="totalCapUtm"></span>
-          <span id="totalInt"></span>
           <span id="totalIntUtm"></span>
+          <div id="heroMetaRow" class="hidden">
+            <p id="heroUtmRef"></p>
+          </div>
           <span id="heroParcialRow" class="hidden">
             <span id="heroParcialClp"></span>
             <span id="heroParcialUtm"></span>
@@ -1297,29 +1317,29 @@ window.addEventListener('popstate', function() {
         <p id="totalAbonoDisplay" class="liq-abono-row__value">-$0</p>
       </div>
       <!-- ── Detalle del cálculo (tarjeta colapsable inline) ── -->
-      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:16px;border:1px solid rgba(0,0,0,0.07);box-shadow:0 1px 6px rgba(0,0,0,0.05);overflow:hidden;">
+      <div id="calcSummaryCard" class="hidden" style="background:#fff;border-radius:22px;border:1px solid #ececf5;box-shadow:0 10px 35px rgba(91,79,255,0.08);overflow:hidden;">
         <!-- Header colapsable -->
         <!-- Header colapsable: click en zona izquierda colapsa; íconos de acción a la derecha -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid rgba(0,0,0,0.06);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #f1f5f9;">
           <!-- Zona colapsable (izquierda) -->
           <button onclick="toggleCalcSummary()" style="display:flex;align-items:center;gap:9px;background:none;border:none;cursor:pointer;padding:0;flex:1;text-align:left;">
-            <div style="width:28px;height:28px;border-radius:9px;background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <div style="width:28px;height:28px;border-radius:9px;background:#f2eeff;border:1px solid #e7e9ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5b4fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
             <div>
-              <p style="font-size:11px;font-weight:800;color:#1e293b;">Detalle del cálculo</p>
-              <p style="font-size:9px;color:#94a3b8;font-weight:500;">Igual que el PDF</p>
+              <p style="font-size:11px;font-weight:800;color:#1a1d2e;">Detalle del cálculo</p>
+              <p style="font-size:9px;color:#8e97b0;font-weight:500;">Igual que el PDF</p>
             </div>
           </button>
           <!-- Íconos de acción (derecha) — reemplaza al chevron -->
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
             <!-- Ver resumen / PDF -->
-            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+            <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </button>
             <!-- Descargar -->
             <div style="position:relative;">
-              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#64748b;" onmouseenter="this.style.background='#f1f5f9'" onmouseleave="this.style.background='none'">
+              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               </button>
             </div>
@@ -4060,9 +4080,9 @@ function renderLavSummary() {
     // que pudo haber sido escrito por un abono LAV previo (modo sin período).
     const hayCalculo = typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0;
     if (!hayCalculo) {
-      grandEl.innerText = '0';
+      grandEl.innerText = '$0';
       grandEl.style.fontFamily = '';
-      if (grandUtm) grandUtm.textContent = '0.00 UTM';
+      if (grandUtm) grandUtm.textContent = '≈ 0,00 UTM';
     }
     return;
   }
@@ -4072,9 +4092,9 @@ function renderLavSummary() {
 
   if (!hayCalculo) {
     // Sin período/cálculo: el número grande de la tarjeta azul muestra el total LAV
-    grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalClp));
+    grandEl.innerText = format(totalClp);
     grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
-    if (grandUtm) grandUtm.textContent = `${totalUtm.toFixed(5)} UTM`;
+    if (grandUtm) grandUtm.textContent = `≈ ${totalUtm.toFixed(2).replace('.', ',')} UTM`;
     heroRow.classList.add('hidden');
   } else {
     // Con cálculo: número grande = Total Adeudado (sin tocar).
@@ -5649,41 +5669,23 @@ const totalFinal = totalDeudaUTM * utmLiq; // UTM del mes de liquidación
 // Sub-totales en CLP para display (usando UTM del mes de liquidación como referencia)
 const totalIntPostImput = totalIntUTMPostImput * utmLiq;
 const grandEl = document.getElementById('totalGrand');
-grandEl.innerText = new Intl.NumberFormat('es-CL').format(Math.round(totalFinal));
+grandEl.innerText = format(totalFinal);
 grandEl.style.fontFamily = "'DM Sans',system-ui,sans-serif";
-// Ajuste dinámico: reducir font-size hasta que quepa en una sola línea
-(function fitHeroAmount() {
-  const container = grandEl.closest('.hero-total-card');
-  if (!container) return;
-  // Ancho disponible = tarjeta - padding - ancho del signo $
-  const signEl = grandEl.previousElementSibling;
-  const signW = signEl ? signEl.offsetWidth + 4 : 18;
-  const availW = container.clientWidth - 28 - signW; // 28 = padding h total (14px cada lado)
-  let fs = 56; // tamaño máximo
-  grandEl.style.fontSize = fs + 'px';
-  grandEl.style.whiteSpace = 'nowrap';
-  while (grandEl.scrollWidth > availW && fs > 16) {
-    fs -= 1;
-    grandEl.style.fontSize = fs + 'px';
-  }
-})();
 document.getElementById('totalCap').innerText = format(totalCapUTMPostImput * utmLiq);
 document.getElementById('totalInt').innerText = format(totalIntPostImput);
-document.getElementById('totalGrandUtm').innerText = `${totalDeudaUTM.toFixed(5)} UTM`;
+document.getElementById('totalGrandUtm').innerText = `≈ ${totalDeudaUTM.toFixed(2).replace('.', ',')} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
-// ── Hero: meta (utm ref + fecha liq) ──
+// ── Hero: título con fecha de liquidación, ej. "Total adeudado al 08 Jul 2026" ──
 (function() {
-  const metaRow = document.getElementById('heroMetaRow');
-  const utmRefEl = document.getElementById('heroUtmRef');
   const fechaEl = document.getElementById('heroFechaLiq');
-  if (!metaRow || !utmRefEl || !fechaEl) return;
+  if (!fechaEl) return;
   const _hoy = getFechaLiquidacion();
-  const _fechaStr = _hoy.toLocaleDateString('es-CL');
-  const _utmRef = format(utmLiq);
-  utmRefEl.textContent = `UTM ref: ${_utmRef}`;
-  fechaEl.textContent = `Fecha liq: ${_fechaStr}`;
-  metaRow.classList.remove('hidden');
+  const _dd = String(_hoy.getDate()).padStart(2, '0');
+  const _meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const _mmm = _meses[_hoy.getMonth()];
+  const _yyyy = _hoy.getFullYear();
+  fechaEl.textContent = `Total adeudado al ${_dd} ${_mmm} ${_yyyy}`;
 })();
 // ── Hero: pagos parciales ──
 (function() {
@@ -5747,12 +5749,22 @@ renderYearTabs();
 // ────────────────────────────────────────────────────────────────────────────
 } else {
 // reset totals to zero
-document.getElementById('totalGrand').innerText = '0';
-document.getElementById('totalGrandUtm').innerText = '0.00 UTM';
+document.getElementById('totalGrand').innerText = '$0';
+document.getElementById('totalGrandUtm').innerText = '≈ 0,00 UTM';
 document.getElementById('totalCap').innerText = '$0';
 document.getElementById('totalCapUtm').innerText = '0.00 UTM';
 document.getElementById('totalInt').innerText = '$0';
 document.getElementById('totalIntUtm').innerText = '0.00 UTM';
+(function() {
+  const fechaEl = document.getElementById('heroFechaLiq');
+  if (!fechaEl) return;
+  const _hoy = getFechaLiquidacion();
+  const _dd = String(_hoy.getDate()).padStart(2, '0');
+  const _meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const _mmm = _meses[_hoy.getMonth()];
+  const _yyyy = _hoy.getFullYear();
+  fechaEl.textContent = `Total adeudado al ${_dd} ${_mmm} ${_yyyy}`;
+})();
 const _hMeta = document.getElementById('heroMetaRow'); if (_hMeta) _hMeta.classList.add('hidden');
 const _hParc = document.getElementById('heroParcialRow'); if (_hParc) _hParc.classList.add('hidden');
 document.getElementById('yearTabsCard').classList.add('hidden');
@@ -7147,7 +7159,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0800</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0901</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9423,7 +9435,7 @@ function dupPopulateSummary() {
   const utmEl   = document.getElementById('totalGrandUtm');
   if (!grandEl) return;
 
-  const totalTxt = '$' + (grandEl.innerText || '0').trim();
+  const totalTxt = (grandEl.innerText || '$0').trim();
   const utmNum = parseFloat((utmEl?.innerText || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
 
   document.getElementById('dupSummaryTotal').textContent = totalTxt;
@@ -10303,7 +10315,7 @@ function befPopulateSummary() {
   const section = document.getElementById('befSummarySection');
   if (!grandEl || !section) return;
 
-  const totalTxt = '$' + (grandEl.innerText || '0').trim();
+  const totalTxt = (grandEl.innerText || '$0').trim();
   const utmNum = parseFloat((utmEl?.innerText || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
 
   document.getElementById('befSummaryTotal').textContent = totalTxt;
