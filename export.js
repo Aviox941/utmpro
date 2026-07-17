@@ -2180,15 +2180,38 @@ function buildResumenContent(targetContainer, inlineMode) {
     nota.style.cssText = 'border:1px solid #ECECF3;background:#FAFAFD;color:#8e97b0';
     nota.innerHTML = `<p class="font-black mb-1" style="color:#5a6380">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
     container.appendChild(nota);
+
+    // ── 7. Botón "Descargar PDF" — mismo estilo que el botón morado
+    // "Ver detalle del cálculo" de la card Total Adeudado (.hero-detail-btn),
+    // pero sin subtítulo. Vive al final del modal, a pedido del usuario
+    // (antes el ícono de descarga estaba en el header del panel colapsable
+    // "Detalle del cálculo", que ya no se muestra). Reutiliza
+    // toggleDownloadMenu(this) pasando el propio botón como referencia de
+    // posicionamiento, ya que el id "downloadBtn" original sigue existiendo
+    // en otro lugar del DOM (oculto) y no puede duplicarse.
+    const descargarBtn = document.createElement('button');
+    descargarBtn.type = 'button';
+    descargarBtn.id = 'downloadBtnResumen';
+    descargarBtn.style.cssText = 'width:100%;margin-top:4px;background:linear-gradient(90deg,#6F3DFF 0%,#5A2DFF 50%,#4A24E8 100%);border:none;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:10px;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 8px 24px rgba(90,45,255,0.18);';
+    descargarBtn.innerHTML = `
+      <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </span>
+      <span style="flex:1;font-size:14px;font-weight:600;color:#fff;">Descargar</span>
+      <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </span>`;
+    descargarBtn.onclick = () => toggleDownloadMenu(descargarBtn);
+    container.appendChild(descargarBtn);
   }
 }
 function closeDownloadMenu() {
   const menu = document.getElementById('downloadMenu');
   if (menu) menu.style.display = 'none';
 }
-function toggleDownloadMenu() {
+function toggleDownloadMenu(sourceBtn) {
   const menu = document.getElementById('downloadMenu');
-  const btn = document.getElementById('downloadBtn');
+  const btn = sourceBtn || document.getElementById('downloadBtn');
   if (!menu || !btn) return;
   const isOpen = menu.style.display !== 'none';
   if (isOpen) {

@@ -56,6 +56,75 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0906 · 2026-07-16]
+index.html, modals.html, export.js, styles.css
+
+Tres cambios a pedido del usuario sobre el flujo principal y el modal
+"Resumen de liquidación". Sin cambios a ninguna función de cálculo.
+
+1. Ocultas las dos barras que quedaban entre la card "Total Adeudado"
+   y la sección "¿Cómo deseas calcular?": el panel colapsable "Detalle
+   del cálculo" (id calcSummaryCard, con sus 3 íconos de acción) y la
+   fila de pills de año + "N meses" (id yearTabsCard). Restaban mucho
+   espacio vertical y su información ya es accesible por otra vía (el
+   botón morado "Ver detalle del cálculo" de la card Total Adeudado,
+   agregado en v2.0716.0905, abre el mismo contenido en el modal). No
+   se eliminó el HTML ni la lógica interna de ninguna de las dos —
+   renderCalcSummaryCard() sigue actualizando #calcSummaryContent y
+   renderYearTabs() sigue generando las pills — solo se quitó el
+   classList.remove('hidden')/se forzó classList.add('hidden') para
+   que ninguna vuelva a mostrarse, por si se reutilizan en otro lugar
+   de la UI más adelante.
+
+2. Botón "Descargar" agregado al FINAL del modal "Resumen de
+   liquidación" (buildResumenContent() en export.js, después de la
+   nota "Toca cualquier fila..."), con el mismo estilo que el botón
+   morado "Ver detalle del cálculo" (gradiente #6F3DFF→#5A2DFF→#4A24E8,
+   ícono + texto + chevron) pero sin subtítulo, ya que aquí no aplica
+   "Igual que el PDF". El ícono anterior de descarga que vivía en el
+   header del panel colapsable (ahora oculto, ver punto 1) sigue
+   existiendo ahí sin cambios — este es un botón nuevo y adicional,
+   más visible al final del recorrido del resumen. Técnicamente:
+   toggleDownloadMenu() se modificó para aceptar un parámetro opcional
+   (sourceBtn) en vez de leer siempre document.getElementById
+   ('downloadBtn') — así el nuevo botón (id downloadBtnResumen) puede
+   posicionar el mismo menú #downloadMenu sin duplicar el id
+   "downloadBtn" en el DOM. La llamada original sin argumento
+   (onclick="toggleDownloadMenu()" del botón del panel colapsable)
+   sigue funcionando exactamente igual que antes.
+
+3. Botón de "Eliminar / Limpiar cálculo" (antes ícono de basurero rojo
+   en el header del panel colapsable, ahora oculto) reemplazado por un
+   botón de "Reiniciar" (ícono de flechas circulares/refresh) ubicado
+   en el header del modal "Resumen de liquidación" (modals.html), a la
+   izquierda del botón de cerrar (X). Llama a la misma función
+   showResetConfirm() de siempre (sin cambio de comportamiento del
+   flujo de confirmación en sí). Cambios de soporte:
+   - showResetConfirm()/hideResetConfirm() (index.html): se agregó
+     manejo de z-index para que confirmResetModal (z-index base 110)
+     quede por encima de resumenModal (z-index 120) cuando se abre
+     desde dentro de él — mismo patrón que ya usa showResumenModal()
+     para subirse por encima de dupOverlay/befOverlay.
+   - resetAll(): si el modal de resumen estaba abierto al confirmar el
+     reset, ahora se cierra automáticamente al final (hideResumenModal())
+     para no dejar datos obsoletos visibles tras el reset.
+
+4. Grid "¿Cómo deseas calcular?": revertido el recorte de v2.0716.0905
+   — la descripción de cada tarjeta (ej. "Calcula desde tu último pago
+   registrado") vuelve a mostrarse, pero ahora en texto pequeño (10px,
+   gris #8e97b0, máximo 2 líneas con line-clamp) en vez de ocultarse
+   por completo. Las tarjetas crecieron ligeramente (min-height 76px
+   → 92px, padding 12px → 14px, ícono 34px → 38px) para acomodar la
+   descripción sin volver al tamaño excesivo de v2.0716.0904.
+
+Versión: index.html (meta app-version + appVersionLabel) y sw.js
+(CACHE_NAME) actualizados a v2.0716.0906.
+
+No se tocó: ninguna función de cálculo, los overlays DUP/BEF, ni el
+generador de PDF/Excel (generarPDF/exportarExcel).
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0905 · 2026-07-16]
 index.html, styles.css
 
