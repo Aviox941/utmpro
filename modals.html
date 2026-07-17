@@ -226,18 +226,21 @@
  <div id="resumenModal" class="fixed inset-0 z-[120] bg-white hidden" style="overflow:hidden;">
  <div class="bg-white w-full flex flex-col" style="height:100%;">
    <!-- Header -->
-   <div style="background:#f7f8fb;border-bottom:1px solid rgba(0,0,0,0.06);padding-top:env(safe-area-inset-top, 0px);" class="flex-shrink-0">
-     <div class="flex items-center justify-between px-5 py-4">
+   <div style="background:#FAFAFC;border-bottom:1px solid #ECECF3;padding-top:env(safe-area-inset-top, 0px);" class="flex-shrink-0">
+     <div class="flex items-center justify-between px-5 py-3">
        <div class="flex items-center gap-2.5">
-         <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.14)">
-           <svg class="w-4 h-4 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+         <div class="w-7 h-7 rounded-xl flex items-center justify-center" style="background:#EEF2FF;border:1px solid rgba(79,70,229,0.14)">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="#4F46E5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
          </div>
          <div>
-           <p class="text-[11px] font-black text-[#1a1d2e] uppercase tracking-wide">Resumen de Liquidación</p>
-           <p class="text-[9px] font-medium text-[#9aa3bb]">Detalle completo · Igual que el PDF</p>
+           <p class="text-[13px] font-bold text-[#111827]">Resumen de liquidación</p>
+           <p class="text-[9px] font-medium text-[#667085]">Detalle completo · Igual que el PDF</p>
          </div>
        </div>
-       <button onclick="hideResumenModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-[#8e97b0] hover:text-[#1a1d2e] hover:bg-black/05 transition-all active:scale-90">
+       <button onclick="showResetConfirm()" title="Reiniciar cálculo" class="w-9 h-9 rounded-full flex items-center justify-center text-[#667085] hover:text-[#111827] hover:bg-black/05 transition-all active:scale-90">
+         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+       </button>
+       <button onclick="hideResumenModal()" class="w-7 h-7 rounded-full flex items-center justify-center text-[#667085] hover:text-[#111827] hover:bg-black/05 transition-all active:scale-90">
          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
        </button>
      </div>
@@ -351,16 +354,55 @@
  </div>
 </div>
 
-<!-- Menú descarga flotante -->
-<div id="downloadMenu" style="display:none;position:fixed;background:white;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);border:1px solid rgba(0,0,0,0.08);overflow:hidden;min-width:140px;z-index:9999;">
-  <button onclick="generarPDF()" style="width:100%;padding:12px 16px;font-size:12px;font-weight:700;color:#1a1d2e;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(0,0,0,0.06);">
-    <svg width="14" height="14" fill="none" stroke="#dc2626" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-    PDF
-  </button>
-  <button onclick="exportarExcel()" style="width:100%;padding:12px 16px;font-size:12px;font-weight:700;color:#1a1d2e;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;">
-    <svg width="14" height="14" fill="none" stroke="#16a34a" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-    Excel
-  </button>
+<!-- Modal: metodología de imputación de Abonos LAV (remanente/excedente).
+     Se abre desde el botón (i) junto a "Total abonos LAV" en el modal
+     "Resumen de liquidación" (showLavCoberturaInfo() en export.js). -->
+<div id="lavCoberturaInfoModal" class="fixed inset-0 z-[430] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal" style="max-width:22rem;width:100%;display:flex;flex-direction:column;max-height:88vh;">
+    <div class="card-modal__header card-modal__header--purple" style="flex-shrink:0;">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(79,70,229,0.15);border:1.5px solid rgba(79,70,229,0.30);">
+          <svg class="w-4 h-4" fill="none" stroke="#4F46E5" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-black text-[#1a1d2e]">Cómo se calcula</p>
+          <p class="text-[9px] font-bold text-slate-500">Remanente y excedente por depósito</p>
+        </div>
+      </div>
+      <button onclick="hideLavCoberturaInfo()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-[#1a1d2e] hover:bg-black/6 transition-all active:scale-90">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div style="padding:14px 16px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;display:flex;flex-direction:column;gap:12px;">
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#4F46E5;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Remanente</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Es lo que falta para cubrir la cuota completa de ese mes. Si el depósito fue menor a la cuota, la diferencia (en UTM y en pesos) queda como remanente pendiente de ese período.</p>
+      </div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Excedente</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Es lo que sobró después de cubrir la cuota completa de ese mes. Si el depósito fue mayor a la cuota, la diferencia queda como excedente disponible.</p>
+      </div>
+
+      <div style="height:1px;background:#ECECF3;"></div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#1a1d2e;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Cómo se imputan mes a mes</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Los depósitos se ordenan por fecha y se imputan uno por uno, en orden cronológico (Art. 1595 CC): primero a los intereses devengados del período, luego al capital. El excedente que quede después de cubrir un mes no se pierde — pasa automáticamente a cubrir el mes siguiente que aún tenga saldo pendiente, y así sucesivamente hasta agotarse.</p>
+      </div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#1a1d2e;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Por qué el estado de un depósito puede no ser el resultado final</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">La etiqueta "Parcial" o "Excedente" que ves bajo cada depósito compara ese depósito de forma aislada contra la cuota de su propio mes. Pero como el excedente de un mes se traspasa a otros, un depósito puede figurar "Parcial" ahí y aun así — sumado al resto del pool de depósitos — terminar cubriendo su mes por completo. El resultado real y definitivo por período se ve en la tabla "Pensiones Mensuales Impagas".</p>
+      </div>
+
+      <div style="background:#F8FAFC;border:1px solid #ECECF3;border-radius:12px;padding:10px 12px;">
+        <p style="font-size:10.5px;color:#667085;line-height:1.5;margin:0;">Ejemplo: un depósito de octubre cubre solo el 60% de la cuota de octubre (queda "Parcial"). Pero si el depósito de noviembre alcanzó y sobró, ese excedente se usa para terminar de cubrir octubre. Al final, octubre puede quedar 100% cubierto aunque su propio depósito no alcanzara.</p>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <div id="ayudaModal" class="fixed inset-0 z-[420] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
