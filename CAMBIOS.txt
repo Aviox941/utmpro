@@ -56,6 +56,35 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0803 · 2026-07-17]
+export.js, modals.html
+
+Reemplazado el texto largo de la nota aclaratoria sobre cobertura de
+Abonos LAV (dentro del modal "Resumen de liquidación") por una versión
+breve, y agregado un botón (i) junto a "Total abonos LAV" que abre un
+modal nuevo con la metodología completa de imputación. Sin cambios a
+ninguna función de cálculo — es puramente informativo/UI.
+
+1. Nota breve (antes ocupaba un párrafo largo explicando en detalle la
+   diferencia entre cobertura aislada vs. resultado final): "La cobertura
+   de cada depósito se compara con su mes por separado. El resultado
+   final puede variar al sumar todos los depósitos, así que un mes
+   'Parcial' o 'Excedente' puede terminar totalmente cubierto."
+
+2. Botón (i) nuevo junto al título "Total abonos LAV" → showLavCoberturaInfo().
+   Abre #lavCoberturaInfoModal (nuevo, en modals.html) con: qué es el
+   remanente (lo que falta para cubrir la cuota completa del mes), qué es
+   el excedente (lo que sobró de la cuota), cómo se imputan los depósitos
+   mes a mes (orden cronológico, Art. 1595 CC: primero intereses, luego
+   capital, excedente se traspasa automáticamente al siguiente mes con
+   saldo pendiente), por qué el estado "Parcial"/"Excedente" de un
+   depósito individual no es necesariamente el resultado final, y un
+   ejemplo numérico ilustrativo.
+
+3. Nuevas funciones showLavCoberturaInfo()/hideLavCoberturaInfo() en
+   export.js — mismo patrón simple de mostrar/ocultar (classList.replace)
+   que usan otros modales informativos de la app (ej. ayudaModal).
+
 [v2.0717.0746 · 2026-07-17]
 index.html, modals.html, styles.css
 

@@ -2068,28 +2068,32 @@ function buildResumenContent(targetContainer, inlineMode) {
       wrapLav.appendChild(row);
     });
     container.appendChild(wrapLav);
-    // Tarjeta de total — simple, izquierda/derecha, CLP arriba (700) y UTM debajo (500)
+    // Tarjeta de total — simple, izquierda/derecha, CLP arriba (700) y UTM
+    // debajo (500). v2.0717: se agregó un botón (i) junto al título para
+    // abrir un modal con la metodología completa de imputación (antes esa
+    // explicación intentaba caber en una nota de texto larga debajo).
     const totRow = document.createElement('div');
     totRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:#F8FAFC;border:1px solid #ECECF3;border-radius:16px;padding:16px;margin-top:12px';
     totRow.innerHTML = `
-      <span style="font-size:12px;font-weight:600;color:#111827">Total abonos LAV</span>
+      <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#111827">
+        Total abonos LAV
+        <button type="button" onclick="showLavCoberturaInfo()" aria-label="Cómo se calcula el remanente y el excedente" title="Cómo se calcula" style="flex-shrink:0;display:flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#E0E7FF;border:none;cursor:pointer;padding:0;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+      </span>
       <div style="text-align:right;line-height:1.3">
         <div style="font-size:14px;font-weight:700;color:#111827">${fmt(totalLavCLP)}</div>
         <div style="font-size:11px;font-weight:500;color:#667085">${totalLavUTM.toFixed(5)} UTM</div>
       </div>`;
     container.appendChild(totRow);
-    // Nota aclaratoria (mismo texto que en el PDF): la línea "⚠ Parcial ·
-    // Rem." / "↪ Excedente" que aparece bajo cada depósito compara ese
-    // depósito de forma AISLADA contra la cuota de su mes — no es el
-    // resultado final. El pool de depósitos LAV es acumulado: el excedente
-    // de un mes se traspasa y cubre el faltante de otro, así que un mes
-    // puede figurar "Parcial" aquí y aun así quedar totalmente cubierto en
-    // el resultado real (ver más abajo el detalle por período).
+    // Nota aclaratoria — versión breve (antes era un párrafo largo). El
+    // detalle completo de la metodología de imputación ahora vive en el
+    // modal que abre el botón (i) de arriba (showLavCoberturaInfo()).
     const notaLavWeb = document.createElement('div');
     notaLavWeb.style.cssText = 'display:flex;gap:8px;align-items:flex-start;background:#F8FAFC;border:1px solid #EEF2F6;border-radius:14px;padding:12px 14px;margin-top:12px';
     notaLavWeb.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-      <p style="font-size:11px;color:#667085;line-height:1.5;margin:0">La cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.</p>`;
+      <p style="font-size:11px;color:#667085;line-height:1.5;margin:0">La cobertura de cada depósito se compara con su mes por separado. El resultado final puede variar al sumar todos los depósitos, así que un mes "Parcial" o "Excedente" puede terminar totalmente cubierto.</p>`;
     container.appendChild(notaLavWeb);
   }
 
@@ -2204,6 +2208,21 @@ function buildResumenContent(targetContainer, inlineMode) {
 // v2.0717: menú de descarga eliminado — el botón "Descargar" ahora llama
 // directamente a generarPDF(). closeDownloadMenu() se conserva como no-op
 // porque generarPDF() aún la invoca internamente al inicio.
+// v2.0717: modal de metodología de imputación de Abonos LAV (remanente/
+// excedente), abierto desde el botón (i) junto a "Total abonos LAV" en
+// el modal "Resumen de liquidación". Markup en modals.html
+// (#lavCoberturaInfoModal). Sigue el mismo patrón simple de
+// mostrar/ocultar que otros modales de ayuda de la app (sin lógica de
+// cálculo propia, es puramente informativo).
+function showLavCoberturaInfo() {
+  const modal = document.getElementById('lavCoberturaInfoModal');
+  if (modal) modal.classList.replace('hidden', 'flex');
+}
+function hideLavCoberturaInfo() {
+  const modal = document.getElementById('lavCoberturaInfoModal');
+  if (modal) modal.classList.replace('flex', 'hidden');
+}
+
 function closeDownloadMenu() {}
 
 // v2.0717: exportación a Excel desactivada a pedido del usuario (solo PDF).

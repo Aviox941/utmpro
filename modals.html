@@ -354,6 +354,57 @@
  </div>
 </div>
 
+<!-- Modal: metodología de imputación de Abonos LAV (remanente/excedente).
+     Se abre desde el botón (i) junto a "Total abonos LAV" en el modal
+     "Resumen de liquidación" (showLavCoberturaInfo() en export.js). -->
+<div id="lavCoberturaInfoModal" class="fixed inset-0 z-[430] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div class="card-modal" style="max-width:22rem;width:100%;display:flex;flex-direction:column;max-height:88vh;">
+    <div class="card-modal__header card-modal__header--purple" style="flex-shrink:0;">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:rgba(79,70,229,0.15);border:1.5px solid rgba(79,70,229,0.30);">
+          <svg class="w-4 h-4" fill="none" stroke="#4F46E5" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div>
+          <p class="text-[11px] font-black text-[#1a1d2e]">Cómo se calcula</p>
+          <p class="text-[9px] font-bold text-slate-500">Remanente y excedente por depósito</p>
+        </div>
+      </div>
+      <button onclick="hideLavCoberturaInfo()" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-500 hover:text-[#1a1d2e] hover:bg-black/6 transition-all active:scale-90">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div style="padding:14px 16px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1;display:flex;flex-direction:column;gap:12px;">
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#4F46E5;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Remanente</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Es lo que falta para cubrir la cuota completa de ese mes. Si el depósito fue menor a la cuota, la diferencia (en UTM y en pesos) queda como remanente pendiente de ese período.</p>
+      </div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#059669;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Excedente</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Es lo que sobró después de cubrir la cuota completa de ese mes. Si el depósito fue mayor a la cuota, la diferencia queda como excedente disponible.</p>
+      </div>
+
+      <div style="height:1px;background:#ECECF3;"></div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#1a1d2e;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Cómo se imputan mes a mes</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">Los depósitos se ordenan por fecha y se imputan uno por uno, en orden cronológico (Art. 1595 CC): primero a los intereses devengados del período, luego al capital. El excedente que quede después de cubrir un mes no se pierde — pasa automáticamente a cubrir el mes siguiente que aún tenga saldo pendiente, y así sucesivamente hasta agotarse.</p>
+      </div>
+
+      <div>
+        <p style="font-size:10px;font-weight:900;color:#1a1d2e;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px;">Por qué el estado de un depósito puede no ser el resultado final</p>
+        <p style="font-size:11.5px;color:#4a5568;line-height:1.55;">La etiqueta "Parcial" o "Excedente" que ves bajo cada depósito compara ese depósito de forma aislada contra la cuota de su propio mes. Pero como el excedente de un mes se traspasa a otros, un depósito puede figurar "Parcial" ahí y aun así — sumado al resto del pool de depósitos — terminar cubriendo su mes por completo. El resultado real y definitivo por período se ve en la tabla "Pensiones Mensuales Impagas".</p>
+      </div>
+
+      <div style="background:#F8FAFC;border:1px solid #ECECF3;border-radius:12px;padding:10px 12px;">
+        <p style="font-size:10.5px;color:#667085;line-height:1.5;margin:0;">Ejemplo: un depósito de octubre cubre solo el 60% de la cuota de octubre (queda "Parcial"). Pero si el depósito de noviembre alcanzó y sobró, ese excedente se usa para terminar de cubrir octubre. Al final, octubre puede quedar 100% cubierto aunque su propio depósito no alcanzara.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="ayudaModal" class="fixed inset-0 z-[420] bg-[#1a1d2e]/40 backdrop-blur-md hidden items-center justify-center p-4" style="overflow-y:auto;-webkit-overflow-scrolling:touch;">
   <div class="card-modal" style="max-width:22rem;width:100%;display:flex;flex-direction:column;max-height:90vh;">
     <!-- Header -->
