@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0906">
+ <meta name="app-version" content="v2.0717.0703">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -184,7 +184,6 @@ try {
  <script src="https://cdn.tailwindcss.com"></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
- <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
  <script>
  // ── Registrar versión actual (sin reload — el SW Network-First ya sirve la versión nueva) ──
@@ -1247,7 +1246,7 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado — rediseño v2.0716.0906 a partir de
+        <!-- Tarjeta Total Adeudado — rediseño v2.0717.0703 a partir de
              referencia HTML/CSS provista por el usuario: título pequeño
              en violeta + fecha debajo, monto grande, chip UTM, filas
              Capital/Intereses, y barra de estado "Actualizado hace X". -->
@@ -1266,8 +1265,10 @@ window.addEventListener('popstate', function() {
             </button>
           </div>
 
-          <div class="hero-total" id="totalGrand">$0</div>
-          <div class="hero-utm" id="totalGrandUtm">≈ 0,00 UTM</div>
+          <div class="hero-total-row">
+            <div class="hero-total" id="totalGrand">$0</div>
+            <div class="hero-utm" id="totalGrandUtm">≈ 0,00 UTM</div>
+          </div>
 
           <hr>
 
@@ -1349,15 +1350,13 @@ window.addEventListener('popstate', function() {
             <button onclick="showResumenModal()" title="Ver PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </button>
-            <!-- Descargar -->
-            <div style="position:relative;">
-              <button id="downloadBtn" onclick="toggleDownloadMenu()" title="Descargar" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-              </button>
-            </div>
-            <!-- Eliminar / reset -->
-            <button onclick="showResetConfirm()" title="Limpiar cálculo" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#ef4444;" onmouseenter="this.style.background='#fef2f2'" onmouseleave="this.style.background='none'">
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            <!-- Descargar PDF (directo, sin menú) -->
+            <button id="downloadBtn" onclick="generarPDF()" title="Descargar PDF" style="background:none;border:none;padding:5px;cursor:pointer;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#8e97b0;" onmouseenter="this.style.background='#f5f6ff'" onmouseleave="this.style.background='none'">
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </button>
+            <!-- Eliminar / reset — agrandado para mejor visibilidad/tap target -->
+            <button onclick="showResetConfirm()" title="Limpiar cálculo" style="background:#fef2f2;border:none;padding:8px;cursor:pointer;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#ef4444;" onmouseenter="this.style.background='#fee2e2'" onmouseleave="this.style.background='#fef2f2'">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </button>
           </div>
         </div>
@@ -4772,7 +4771,7 @@ function handleTicActualChange() {
 function showResetConfirm() {
   const modalEl = document.getElementById('confirmResetModal');
   // Si se abre desde dentro del modal "Resumen de liquidación" (z-index 120,
-  // botón de reset agregado en el header en v2.0716.0906), hay que subir
+  // botón de reset agregado en el header en v2.0717.0703), hay que subir
   // este modal por encima o queda tapado detrás — mismo patrón ya usado
   // para resumenModal dentro de dupOverlay/befOverlay en showResumenModal().
   const resumenOpen = document.getElementById('resumenModal')?.classList.contains('flex');
@@ -4797,7 +4796,7 @@ localStorage.removeItem(SESSION_KEY);
 }
 hideResetConfirm();
 // Si el reset se disparó desde el botón de reinicio dentro del modal
-// "Resumen de liquidación" (agregado en v2.0716.0906), cerrarlo también —
+// "Resumen de liquidación" (agregado en v2.0717.0703), cerrarlo también —
 // tras el reset ya no hay datos que mostrar en él.
 const resumenEl = document.getElementById('resumenModal');
 if (resumenEl && resumenEl.classList.contains('flex')) hideResumenModal();
@@ -5818,7 +5817,7 @@ document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
 renderYearTabs();
 // ── Detalle del cálculo (tarjeta inline) ────────────────────────────────────
-// v2.0716.0906: la tarjeta ya no se muestra en el flujo principal (a pedido
+// v2.0717.0703: la tarjeta ya no se muestra en el flujo principal (a pedido
 // del usuario — ahora se accede al mismo contenido vía el botón morado
 // "Ver detalle del cálculo" dentro de la card "Total Adeudado", que abre
 // el modal showResumenModal()). Se mantiene el build del contenido por si
@@ -5958,7 +5957,7 @@ if (years.length === 0) {
   if (cardEl) cardEl.classList.add('hidden');
   return;
 }
-// v2.0716.0906: yearTabsCard ya no se muestra en el flujo principal (a
+// v2.0717.0703: yearTabsCard ya no se muestra en el flujo principal (a
 // pedido del usuario — resta espacio y su información ya está disponible
 // dentro del modal de resumen). Se deja siempre oculta; el resto de la
 // lógica (pills, detailsList, drill-down por año) queda intacta por si se
@@ -6003,6 +6002,10 @@ card.style.background = 'linear-gradient(135deg, #fff8ee 0%, #ffecd0 50%, #ffe0b
 card.style.borderColor = '#fbc97a';
 card.style.color = '#5c2d00';
 } else {
+// v2.0717: rediseño fintech — fondo violeta sólido, acento calipso.
+// Ver bloque CSS ".detail-card" (color sólido, sin gradiente) más abajo
+// en styles.css para el resto de las reglas visuales de esta variante.
+card.classList.add('detail-card--purple');
 card.style.background = '';
 card.style.borderColor = '';
 card.style.color = '';
@@ -6020,20 +6023,25 @@ const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 <p class="text-[8px] font-black text-[#bfdbfe] uppercase">⚖️ Abono imputado: -${format((d.intImputado||0)+(d.capImputado||0))}</p>
 </div>`
 : '';
+const isDebt = d.isDebt;
 const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
-? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">⚖ +50% ley</p>`
-: (d.usarMaxima ? `<p class="text-[8px] font-black uppercase" style="color:${d.isDebt ? '#b45309' : '#1d4ed8'}">📊 Tasa máx.</p>` : '');
+? (isDebt
+    ? `<p class="text-[8px] font-black uppercase" style="color:#b45309">⚖ +50% ley</p>`
+    : `<span class="detail-card__badge">✦ +50% ley</span>`)
+: (d.usarMaxima
+    ? (isDebt
+        ? `<p class="text-[8px] font-black uppercase" style="color:#b45309">📊 Tasa máx.</p>`
+        : `<span class="detail-card__badge">📊 Tasa máx.</span>`)
+    : '');
 const lavBadge = '';
 const lavDetalle = '';
-const isDebt = d.isDebt;
 const labelColor = isDebt ? 'color:#7c3a00;font-weight:900' : '';
 const valueColor = isDebt ? 'color:#3b1a00' : '';
-const subColor   = isDebt ? 'color:#a05000' : 'opacity:0.6';
-const badgeColor = isDebt ? 'color:#7c3a00' : 'color:#bfdbfe';
-const borderColor = isDebt ? 'border-color:rgba(160,80,0,0.25)' : 'border-color:rgba(59,130,246,0.2)';
+const subColor   = isDebt ? 'color:#a05000' : '';
 // Meses LAV: mostrar $0 como capital efectivo (cubierto por depósito LAV)
 const capMostrado = d.capOriginalBruto ?? d.capOriginal ?? d.sub;
 const capUtmMostrado = d.utmVal > 0 ? capMostrado / d.utmVal : 0;
+if (isDebt) {
 card.innerHTML = `
 <p class="text-[9px] font-black uppercase mb-1.5" style="${labelColor}">${d.periodo}</p>
 <div class="flex items-start justify-between gap-2">
@@ -6043,7 +6051,7 @@ card.innerHTML = `
   </div>
   <div class="text-right flex-shrink-0">
     <p class="text-[8.5px] font-black uppercase" style="${subColor}">INT</p>
-    <p class="text-[11px] font-black" style="${isDebt ? 'color:#c05000' : 'color:#c2410c'}">${format(d.inte)}</p>
+    <p class="text-[11px] font-black" style="color:#c05000">${format(d.inte)}</p>
     <p class="text-[8px] font-bold" style="${subColor}">${(d.inte/d.utmVal).toFixed(2)} UTM</p>
   </div>
 </div>
@@ -6051,6 +6059,27 @@ card.innerHTML = `
   ${recargoBadge}${lavBadge}
 </div>
 ${parcialDetalle}${abonoDetalle}${lavDetalle}`;
+} else {
+// Estructura idéntica a la variante original (mismo layout/orden de
+// contenido); solo cambian clases/estilos para el nuevo look violeta.
+card.innerHTML = `
+<p class="detail-card__mes">${d.periodo}</p>
+<div class="detail-card__row">
+  <div class="detail-card__cap">
+    <p class="detail-card__total">${format(capMostrado)}</p>
+    <p class="detail-card__utm">${capUtmMostrado.toFixed(2)} UTM</p>
+  </div>
+  <div class="detail-card__int">
+    <p class="detail-card__int-label">interés</p>
+    <p class="detail-card__int-val">${format(d.inte)}</p>
+    <p class="detail-card__int-utm">${(d.inte/d.utmVal).toFixed(2)} UTM</p>
+  </div>
+</div>
+<div class="detail-card__badges">
+  ${recargoBadge}${lavBadge}
+</div>
+${parcialDetalle}${abonoDetalle}${lavDetalle}`;
+}
 list.appendChild(card);
 });
 }
@@ -7249,7 +7278,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0906</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0703</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

@@ -107,6 +107,103 @@
    box-shadow: var(--shadow-card);
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     detail-card--purple — v2.0717: rediseño de las tarjetas mensuales
+     del calendario de pagos (meses normales, no adeudo histórico).
+     Fondo violeta sólido + acento calipso, consistente con el Hero
+     Card. NO cambia layout/tamaño/contenido, solo estilo visual.
+     Los !important son necesarios para pisar los overrides de
+     min-height/padding/border-radius de .detail-card en los distintos
+     breakpoints más abajo en este mismo archivo.
+     ══════════════════════════════════════════════════════════════ */
+  .detail-card--purple {
+    background: #6844E8 !important;
+    border: none !important;
+    border-radius: 24px !important;
+    box-shadow: 0 8px 24px rgba(40,20,120,.18) !important;
+    padding: 20px !important;
+    font-family: 'Geist', system-ui, sans-serif;
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  .detail-card--purple:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(40,20,120,.24) !important;
+  }
+  .detail-card--purple:active {
+    transform: translateY(0);
+  }
+  .detail-card--purple .detail-card__mes {
+    font-size: 20px;
+    font-weight: 700;
+    color: #FFFFFF;
+    text-transform: none;
+    margin-bottom: 10px;
+    line-height: 1.1;
+  }
+  .detail-card--purple .detail-card__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .detail-card--purple .detail-card__cap { min-width: 0; flex: 1; }
+  .detail-card--purple .detail-card__total {
+    font-size: 34px;
+    font-weight: 800;
+    color: #FFFFFF;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    word-break: break-word;
+  }
+  .detail-card--purple .detail-card__utm {
+    font-size: 15px;
+    font-weight: 500;
+    color: #7DE7FF;
+    margin-top: 2px;
+  }
+  .detail-card--purple .detail-card__int {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .detail-card--purple .detail-card__int-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255,255,255,.75);
+    text-transform: none;
+  }
+  .detail-card--purple .detail-card__int-val {
+    font-size: 24px;
+    font-weight: 700;
+    color: #7DE7FF;
+    line-height: 1.1;
+  }
+  .detail-card--purple .detail-card__int-utm {
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255,255,255,.8);
+    margin-top: 2px;
+  }
+  .detail-card--purple .detail-card__badges {
+    margin-top: 14px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.12);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .detail-card--purple .detail-card__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,.12);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 6px 10px;
+    text-transform: none;
+  }
+
   /* --- Componente: Switch / Toggle (switch, slider) --- */
   /* Futuro: /components/ui/Toggle.js → <Toggle /> */
   .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
@@ -1095,7 +1192,7 @@
     min-width: 0;
     background: #ffffff;
     border-radius: 22px;
-    padding: 18px 18px 16px;
+    padding: 14px 16px 12px;
     box-shadow: 0 10px 35px rgba(0, 0, 0, 0.05);
     position: relative;
     isolation: isolate;
@@ -1113,7 +1210,7 @@
     text-transform: uppercase;
   }
   .hero-date {
-    margin-top: 4px;
+    margin-top: 3px;
     color: #8a8a8a;
     font-size: 12px;
   }
@@ -1126,9 +1223,15 @@
     line-height: 0;
     opacity: 0.75;
   }
+  .hero-total-row {
+    margin-top: 10px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
   .hero-total {
-    margin-top: 14px;
-    font-size: clamp(34px, 11vw, 46px);
+    font-size: clamp(30px, 9vw, 40px);
     font-weight: 800;
     line-height: 1;
     color: #5b43f4;
@@ -1138,25 +1241,25 @@
   }
   .hero-utm {
     display: inline-block;
-    margin-top: 12px;
-    padding: 6px 12px;
+    padding: 4px 10px;
     background: #f1ecff;
     color: #5b43f4;
-    border-radius: 10px;
-    font-size: 13px;
+    border-radius: 9px;
+    font-size: 12px;
     font-weight: 700;
+    white-space: nowrap;
   }
   .hero-card hr {
     border: none;
     height: 1px;
     background: #ececec;
-    margin: 14px 0;
+    margin: 10px 0;
   }
   .hero-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
+    padding: 5px 0;
     font-size: 13px;
   }
   .hero-row span {
@@ -1186,12 +1289,12 @@
   /* ── Botón "Ver detalle del cálculo" — reemplaza al banner
        "Actualizado hace X" (.hero-status), mismo tamaño/posición ── */
   .hero-detail-btn {
-    margin-top: 2px;
+    margin-top: 0;
     width: 100%;
     background: linear-gradient(90deg, #6F3DFF 0%, #5A2DFF 50%, #4A24E8 100%);
     border: none;
     border-radius: 12px;
-    padding: 10px 14px;
+    padding: 9px 14px;
     display: flex;
     align-items: center;
     gap: 8px;

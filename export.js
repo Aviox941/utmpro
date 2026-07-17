@@ -2197,41 +2197,24 @@ function buildResumenContent(targetContainer, inlineMode) {
       <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </span>
-      <span style="flex:1;font-size:14px;font-weight:600;color:#fff;">Descargar</span>
+      <span style="flex:1;font-size:14px;font-weight:600;color:#fff;">Descargar PDF</span>
       <span style="flex-shrink:0;display:flex;align-items:center;justify-content:center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </span>`;
-    descargarBtn.onclick = () => toggleDownloadMenu(descargarBtn);
+    descargarBtn.onclick = () => generarPDF();
     container.appendChild(descargarBtn);
   }
 }
-function closeDownloadMenu() {
-  const menu = document.getElementById('downloadMenu');
-  if (menu) menu.style.display = 'none';
-}
-function toggleDownloadMenu(sourceBtn) {
-  const menu = document.getElementById('downloadMenu');
-  const btn = sourceBtn || document.getElementById('downloadBtn');
-  if (!menu || !btn) return;
-  const isOpen = menu.style.display !== 'none';
-  if (isOpen) {
-    menu.style.display = 'none';
-    return;
-  }
-  const rect = btn.getBoundingClientRect();
-  menu.style.display = 'block';
-  menu.style.top = (rect.bottom + 6) + 'px';
-  menu.style.right = (window.innerWidth - rect.right) + 'px';
-  setTimeout(() => document.addEventListener('click', function closeMenu(e) {
-    if (!menu.contains(e.target) && e.target !== btn) {
-      menu.style.display = 'none';
-      document.removeEventListener('click', closeMenu);
-    }
-  }), 10);
-}
+// v2.0717: menú de descarga eliminado — el botón "Descargar" ahora llama
+// directamente a generarPDF(). closeDownloadMenu() se conserva como no-op
+// porque generarPDF() aún la invoca internamente al inicio.
+function closeDownloadMenu() {}
 
+// v2.0717: exportación a Excel desactivada a pedido del usuario (solo PDF).
+// La función se conserva sin uso por si se reactiva más adelante; ya no
+// hay ningún botón en la UI que la invoque, y la librería ExcelJS ya no
+// se carga desde index.html.
 async function exportarExcel() {
-  closeDownloadMenu();
   if (!lastCalculationData || lastCalculationData.length === 0) return;
 
   const utmHoy   = getUtmActualVal();

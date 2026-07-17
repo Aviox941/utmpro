@@ -56,6 +56,74 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0703 · 2026-07-17]
+index.html, styles.css
+
+Rediseño visual de las tarjetas mensuales del calendario de pagos
+(componente detail-card / renderDetailsList()), solo para meses normales
+(no adeudo histórico, que conserva su estilo naranja/gradiente sin cambios).
+Sin cambios de layout, tamaño ni contenido — mismo orden de información
+(mes → total+UTM → interés+UTM → badge). Sin cambios a ninguna función
+de cálculo.
+
+1. Nueva clase .detail-card--purple en styles.css: fondo violeta sólido
+   #6844E8 (sin gradiente; ~8% más claro que el morado del botón de año
+   activo #5B34E6, para que ambos pertenezcan a la misma familia visual
+   sin competir entre sí), border-radius 24px, sin borde, sombra suave
+   (0 8px 24px rgba(40,20,120,.18)), hover con translateY(-2px) y sombra
+   ligeramente mayor (200ms ease).
+
+2. Tipografía Geist en toda la tarjeta con la jerarquía pedida: mes 20px/700,
+   total 34px/800, "interés" 14px/500, monto interés 24px/700, UTM 15px/500,
+   badge 12px/600.
+
+3. Colores: texto principal y monto total en blanco puro; etiqueta "interés"
+   en blanco 75%; monto interés y UTM del capital en calipso #7DE7FF (único
+   acento de la tarjeta); UTM del interés en blanco 80%; línea divisoria
+   1px rgba(255,255,255,.12).
+
+4. Badge "+50% ley" / "Tasa máx." rediseñado como pill (border-radius 999px,
+   fondo rgba(255,255,255,.12), texto blanco, sin azul) solo para la
+   variante violeta; la variante de adeudo histórico (naranja) conserva su
+   badge de texto plano sin cambios.
+
+5. renderDetailsList() reestructurado: el HTML de las tarjetas de mes normal
+   ahora usa clases semánticas (.detail-card__mes, __row, __cap, __total,
+   __utm, __int, __int-label, __int-val, __int-utm, __badges, __badge) en
+   vez de utilidades Tailwind inline, para que el nuevo bloque CSS las
+   controle. La rama isDebt (adeudo histórico) no se tocó: mismo HTML/
+   estilos inline que antes.
+
+[v2.0717.0637 · 2026-07-17]
+index.html, modals.html, export.js, styles.css
+
+Tres ajustes de UI a pedido del usuario. Sin cambios a ninguna función de
+cálculo.
+
+1. Botón "Descargar" simplificado: eliminado el menú desplegable PDF/Excel.
+   Ahora el botón (tanto en el header de "Detalle del cálculo" como en el
+   modal "Resumen de liquidación") llama directo a generarPDF(). Exportación
+   a Excel desactivada: se quitó el <script> de ExcelJS de index.html y el
+   <div id="downloadMenu"> de modals.html; exportarExcel() se dejó definida
+   en export.js sin uso (por si se reactiva a futuro) y toggleDownloadMenu()
+   se redujo a una función vacía (closeDownloadMenu() sigue siendo llamada
+   desde dentro de generarPDF(), así que se conserva como no-op en vez de
+   borrarla).
+
+2. Botón de reset ("Limpiar cálculo") agrandado: de 16px de ícono/padding 5px
+   sin fondo, a 20px de ícono/padding 8px con fondo rojo claro permanente
+   (#fef2f2), para que sea visible sin pasar el mouse por encima y el área
+   de toque sea mayor en móvil.
+
+3. Card "Total Adeudado" compactada y el chip "≈ X UTM" movido al lado
+   derecho del monto en CLP (antes iba debajo, ocupando una línea propia).
+   Nuevo contenedor .hero-total-row (flex, align-items:baseline) envuelve
+   #totalGrand y #totalGrandUtm. Padding de .hero-card reducido de
+   18px/16px a 14px/12px, márgenes de .hero-date, hr y .hero-row también
+   reducidos, y tamaño de fuente de .hero-total bajado de clamp(34-46px) a
+   clamp(30-40px) para que quepa junto al chip UTM sin desbordar en pantallas
+   angostas.
+
 [v2.0716.0906 · 2026-07-16]
 index.html, modals.html, export.js, styles.css
 
