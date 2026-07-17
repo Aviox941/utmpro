@@ -56,6 +56,68 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0902 · 2026-07-16]
+index.html, styles.css
+
+Rediseño completo de la tarjeta "Total Adeudado" a partir de una
+referencia HTML/CSS provista por el usuario (screenshot + código): ya
+NO reutiliza el layout de .dup-summary-card del overlay DUP (eso era
+el diseño de la iteración anterior, v2.0716.0901); ahora tiene su
+propia clase .hero-card con estructura y estilos propios.
+
+Estructura nueva: título pequeño "TOTAL ADEUDADO" en violeta
+(uppercase, letter-spacing) arriba a la izquierda, con la fecha de
+liquidación debajo en gris ("Al 16 Jul 2026"); botón hamburguesa
+arriba a la derecha (ahora SVG de 3 líneas en vez del ícono circular
+de $ anterior, más fiel a la referencia — no se usó Font Awesome
+porque no está cargado en el proyecto). Debajo: monto grande en
+violeta (#5B43F4), chip UTM con fondo lila claro, línea divisoria,
+filas Capital / Intereses acumulados, otra línea divisoria, y una
+barra de estado verde "Actualizado hace X" con ícono de check.
+
+1. index.html (markup hero, ~línea 1250): estructura
+   .hero-card > .hero-header (.hero-title + .hero-date / .hero-menu),
+   .hero-total, .hero-utm, <hr>, dos .hero-row (Capital/Intereses),
+   <hr>, .hero-status. IDs reutilizados sin cambio de significado:
+   totalGrand, totalGrandUtm, totalCap, totalInt. heroFechaLiq pasó de
+   ser el título completo ("Total adeudado al...") a ser solo la
+   fecha bajo el título ("Al 16 Jul 2026"), ya que el título fijo
+   "TOTAL ADEUDADO" ahora vive en el HTML estático (.hero-title). Se
+   agregó el id heroUpdatedAgo (span dentro de .hero-status) para el
+   texto "Actualizado hace X minutos". Los ocultos totalCapUtm/
+   totalIntUtm/heroMetaRow/heroUtmRef/heroParcialRow/heroLavRow se
+   mantienen igual que en la versión anterior (siguen recibiendo
+   valores sin guard null-check desde el JS de cálculo).
+
+2. index.html (JS): los dos bloques que escriben heroFechaLiq (dentro
+   de calculate(), rama con datos y rama de reset a $0) cambiaron el
+   texto de "Total adeudado al DD Mmm AAAA" a "Al DD Mmm AAAA". Se
+   agregó heroMarkUpdated() / heroTickUpdatedLabel() (definidas junto
+   a getFechaLiquidacion()): heroMarkUpdated() guarda
+   Date.now() en _heroLastUpdate y refresca el label de inmediato;
+   heroTickUpdatedLabel() calcula el texto relativo ("hace un
+   momento" / "hace N minutos" / "hace N horas" / "hace N días") a
+   partir de ese timestamp. Un setInterval cada 30s mantiene el label
+   actualizado sin necesidad de un nuevo cálculo. heroMarkUpdated() se
+   invoca al final de ambas ramas de calculate() (con datos y con
+   reset a $0) para que el estado "Actualizado hace..." refleje el
+   momento del cálculo real, no un texto fijo como en la referencia
+   original del usuario.
+
+3. styles.css: se agregó el bloque .hero-card / .hero-header /
+   .hero-title / .hero-date / .hero-menu / .hero-total / .hero-utm /
+   .hero-row / .hero-status (y el selector .hero-card hr) justo
+   después de .hero-cards-row. Los tamaños de la referencia del
+   usuario (64px el monto, 26px de padding, etc.) estaban pensados
+   para escritorio; aquí se redujeron y el monto usa
+   clamp(34px, 11vw, 46px) para que se ajuste a una pantalla de
+   celular sin desbordar ni necesitar font-fit dinámico en JS. Las
+   reglas .hero-total-card / .dup-summary-* siguen existiendo en el
+   archivo (ya sin uso en el hero, pero .dup-summary-* SÍ sigue
+   siendo usada por el overlay "Desde el último pago" — no tocar).
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0901 · 2026-07-16]
 index.html, styles.css
 

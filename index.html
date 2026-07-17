@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0901">
+ <meta name="app-version" content="v2.0716.0902">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1247,42 +1247,47 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado — mismo layout que .dup-summary-card del
-             overlay "Desde el último pago" (icono izq + total der, fila
-             Capital / Intereses acumulados debajo), sin el badge verde
-             "Calculado hasta hoy". El título usa la fecha de liquidación
-             en formato "Total adeudado al 08 Jul 2026". -->
-        <div class="hero-total-card dup-summary-card" style="position:relative;">
-          <!-- Hamburguesa minimalista — abre sidebar (esquina sup. derecha para no tapar el ícono/título) -->
-          <button onclick="openSidebar()" style="position:absolute;top:14px;right:16px;background:none;border:none;padding:4px;cursor:pointer;display:flex;flex-direction:column;gap:4px;z-index:2;opacity:0.55;" title="Menú">
-            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
-            <span style="display:block;width:18px;height:1.5px;background:#1a1d2e;border-radius:2px;"></span>
-          </button>
-
-          <div class="dup-summary-header" style="padding-top:6px;">
-            <div class="dup-summary-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="1" x2="12" y2="23"/>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        <!-- Tarjeta Total Adeudado — rediseño v2.0716.0902 a partir de
+             referencia HTML/CSS provista por el usuario: título pequeño
+             en violeta + fecha debajo, monto grande, chip UTM, filas
+             Capital/Intereses, y barra de estado "Actualizado hace X". -->
+        <div class="hero-card">
+          <div class="hero-header">
+            <div>
+              <div class="hero-title">Total Adeudado</div>
+              <div class="hero-date" id="heroFechaLiq">Al 16 Jul 2026</div>
+            </div>
+            <button class="hero-menu" onclick="openSidebar()" title="Menú" aria-label="Menú">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
-            </div>
-            <div class="dup-summary-content">
-              <span id="heroFechaLiq" class="dup-summary-title">Total adeudado</span>
-              <div class="dup-summary-total" id="totalGrand">$0</div>
-              <div class="dup-summary-utm" id="totalGrandUtm">0,00 UTM</div>
-            </div>
+            </button>
           </div>
 
-          <div class="dup-summary-divider"></div>
+          <div class="hero-total" id="totalGrand">$0</div>
+          <div class="hero-utm" id="totalGrandUtm">≈ 0,00 UTM</div>
 
-          <div class="dup-summary-row">
+          <hr>
+
+          <div class="hero-row">
             <span>Capital</span>
             <strong id="totalCap">$0</strong>
           </div>
-          <div class="dup-summary-row">
+          <div class="hero-row">
             <span>Intereses acumulados</span>
             <strong id="totalInt">$0</strong>
+          </div>
+
+          <hr>
+
+          <div class="hero-status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+              <circle cx="12" cy="12" r="9"/>
+              <polyline points="8.5 12.5 11 15 15.5 9.5"/>
+            </svg>
+            <span id="heroUpdatedAgo">Actualizado hace un momento</span>
           </div>
         </div>
 
@@ -1308,6 +1313,7 @@ window.addEventListener('popstate', function() {
         </div>
       </div>
       <!-- Fila de abonos: eliminada de la vista. Se conserva en el DOM porque
+
            el script hace abonoRow.classList.remove('hidden') y escribe en
            totalAbonoDisplay sin validar que existan; .hidden de Tailwind no
            tiene !important, así que solo "abono-row-removed" (con !important
@@ -2415,6 +2421,36 @@ function getFechaLiquidacion() {
   hoy.setHours(0, 0, 0, 0);
   return hoy;
 }
+// ── Hero: "Actualizado hace X" — timestamp del último cálculo exitoso ──
+// heroMarkUpdated() se llama al final de cada calculate() que sí escribió
+// datos en la tarjeta (tanto la rama con datos como la rama de reset a $0);
+// heroTickUpdatedLabel() refresca el texto cada 30s para que "hace 2 minutos"
+// avance sin necesidad de un nuevo cálculo.
+let _heroLastUpdate = null;
+function heroMarkUpdated() {
+  _heroLastUpdate = Date.now();
+  heroTickUpdatedLabel();
+}
+function heroTickUpdatedLabel() {
+  const el = document.getElementById('heroUpdatedAgo');
+  if (!el || _heroLastUpdate === null) return;
+  const segs = Math.max(0, Math.floor((Date.now() - _heroLastUpdate) / 1000));
+  let texto;
+  if (segs < 45) {
+    texto = 'Actualizado hace un momento';
+  } else if (segs < 3600) {
+    const mins = Math.round(segs / 60);
+    texto = `Actualizado hace ${mins} minuto${mins === 1 ? '' : 's'}`;
+  } else if (segs < 86400) {
+    const hrs = Math.round(segs / 3600);
+    texto = `Actualizado hace ${hrs} hora${hrs === 1 ? '' : 's'}`;
+  } else {
+    const dias = Math.round(segs / 86400);
+    texto = `Actualizado hace ${dias} día${dias === 1 ? '' : 's'}`;
+  }
+  el.textContent = texto;
+}
+setInterval(heroTickUpdatedLabel, 30000);
 // Reset forzado y silencioso de fechaLiquidacion al cambiar el período final (endIndex).
 // B1: si el período final es el mes actual → hoy; si es un mes pasado → último día de ese mes.
 function resetFechaLiquidacion() {
@@ -5676,7 +5712,7 @@ document.getElementById('totalInt').innerText = format(totalIntPostImput);
 document.getElementById('totalGrandUtm').innerText = `≈ ${totalDeudaUTM.toFixed(2).replace('.', ',')} UTM`;
 document.getElementById('totalCapUtm').innerText = `${totalCapUTMPostImput.toFixed(5)} UTM`;
 document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFixed(5)} UTM`;
-// ── Hero: título con fecha de liquidación, ej. "Total adeudado al 08 Jul 2026" ──
+// ── Hero: fecha bajo el título, ej. "Al 08 Jul 2026" ──
 (function() {
   const fechaEl = document.getElementById('heroFechaLiq');
   if (!fechaEl) return;
@@ -5685,8 +5721,9 @@ document.getElementById('totalIntUtm').innerText = `${totalIntUTMPostImput.toFix
   const _meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const _mmm = _meses[_hoy.getMonth()];
   const _yyyy = _hoy.getFullYear();
-  fechaEl.textContent = `Total adeudado al ${_dd} ${_mmm} ${_yyyy}`;
+  fechaEl.textContent = `Al ${_dd} ${_mmm} ${_yyyy}`;
 })();
+heroMarkUpdated();
 // ── Hero: pagos parciales ──
 (function() {
   const parcialRow = document.getElementById('heroParcialRow');
@@ -5763,8 +5800,9 @@ document.getElementById('totalIntUtm').innerText = '0.00 UTM';
   const _meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const _mmm = _meses[_hoy.getMonth()];
   const _yyyy = _hoy.getFullYear();
-  fechaEl.textContent = `Total adeudado al ${_dd} ${_mmm} ${_yyyy}`;
+  fechaEl.textContent = `Al ${_dd} ${_mmm} ${_yyyy}`;
 })();
+heroMarkUpdated();
 const _hMeta = document.getElementById('heroMetaRow'); if (_hMeta) _hMeta.classList.add('hidden');
 const _hParc = document.getElementById('heroParcialRow'); if (_hParc) _hParc.classList.add('hidden');
 document.getElementById('yearTabsCard').classList.add('hidden');
@@ -7159,7 +7197,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0901</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0902</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
