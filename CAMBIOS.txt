@@ -56,6 +56,48 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0722 · 2026-07-17]
+index.html, styles.css, export.js
+
+Tres ajustes de UI a pedido del usuario. Sin cambios a ninguna función
+de cálculo.
+
+1. Chip "≈ X UTM" de la card Total Adeudado: estaba con align-items:
+   baseline dentro de .hero-total-row, lo que lo dejaba visualmente más
+   abajo que el monto grande (el baseline de un pill con padding no
+   coincide con el baseline del texto). Cambiado a align-items:center
+   para que quede centrado verticalmente respecto a la altura real del
+   monto en CLP, a la derecha, como se pidió.
+
+2. Título "TOTAL ADEUDADO" → "Total adeudado" (minúscula/sentence case)
+   en tipografía Geist. Se quitó text-transform:uppercase y letter-spacing
+   ancho de .hero-title, y se agregó font-family:'Geist'.
+
+3. Botón "Descargar PDF" del modal "Resumen de liquidación" (al final del
+   modal): antes ocupaba el ancho completo (width:100%) con texto+ícono
+   alineados a la izquierda. Ahora es un botón compacto (width:auto,
+   display:inline-flex, padding 10px 20px) envuelto en un contenedor con
+   justify-content:center, en la misma ubicación de siempre pero centrado
+   y del tamaño justo para el texto "Descargar PDF" + ícono.
+
+[v2.0717.0715 · 2026-07-17]
+styles.css
+
+Fix urgente sobre el rediseño violeta de v2.0717.0703: en pantallas
+angostas el monto total ($161.387, $162.033, etc.) se estaba partiendo
+en 4-5 líneas dentro de la tarjeta, tapando el resto del contenido.
+Causa: .detail-card__total tenía font-size fijo de 34px + word-break:
+break-word, que rompía el número letra por letra cuando la columna
+(grid de 2 tarjetas por fila) no tenía ancho suficiente.
+
+Fix: font-size de .detail-card__total y .detail-card__int-val ahora usan
+clamp() (20-34px y 15-24px respectivamente) en vez de tamaño fijo, y
+white-space:nowrap en vez de word-break — el número se achica para
+entrar en una sola línea en vez de partirse. También se acotó
+.detail-card__int a max-width:44% para que no le quite demasiado
+espacio horizontal a la columna del monto principal. Sin cambios de
+layout/estructura, solo de dimensionamiento tipográfico.
+
 [v2.0717.0703 · 2026-07-17]
 index.html, styles.css
 
