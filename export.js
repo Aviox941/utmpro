@@ -1754,7 +1754,7 @@ function buildResumenContent(targetContainer, inlineMode) {
 
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.cssText = 'border:1px solid #ECEFF5';
+    wrap.style.cssText = 'border:1px solid #ECECF3';
 
     // Header colapsable
     const header = document.createElement('button');
@@ -1777,7 +1777,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     campos.forEach((f, i) => {
       const row = document.createElement('div');
       row.className = 'flex items-start gap-2 px-3 py-2';
-      row.style.cssText = `border-top:1px solid #F3F4F7;background:${i%2===0?'#ffffff':'#FAFAFD'}`;
+      row.style.cssText = `border-top:1px solid #F3F4F6;background:${i%2===0?'#ffffff':'#FAFAFD'}`;
       row.innerHTML = `
         <div style="flex:1;min-width:0">
           <p style="font-size:8.5px;font-weight:700;color:#9095A1;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:1px">${f.label}</p>
@@ -1817,8 +1817,8 @@ function buildResumenContent(targetContainer, inlineMode) {
     const div = document.createElement('div');
     div.style.cssText = esPrimera
       ? 'padding:0 2px 8px;margin-top:0'
-      : 'padding:14px 2px 8px;border-top:1px solid #ECEFF5;margin-top:4px';
-    div.innerHTML = `<span style="font-size:11px;font-weight:800;color:#14161f;text-transform:uppercase;letter-spacing:0.03em">${titulo}</span>`;
+      : 'padding:14px 2px 8px;border-top:1px solid #ECECF3;margin-top:4px';
+    div.innerHTML = `<span style="font-size:13px;font-weight:700;color:#111827">${titulo}</span>`;
     container.appendChild(div);
   }
 
@@ -1828,13 +1828,13 @@ function buildResumenContent(targetContainer, inlineMode) {
     const COLS = '2.2fr 1.2fr 2fr 1.2fr 1.8fr 2fr 2fr';
     const wrap = document.createElement('div');
     wrap.className = 'rounded-xl overflow-hidden';
-    wrap.style.border = '1px solid #ECEFF5';
+    wrap.style.border = '1px solid #ECECF3';
     wrap.style.background = '#ffffff';
 
     // Header único, neutro (estilo fintech minimalista)
     const head = document.createElement('div');
     head.className = 'grid px-3 py-2 text-[8px] font-bold uppercase tracking-wide';
-    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#9095A1;border-bottom:1px solid #F3F4F7`;
+    head.style.cssText = `grid-template-columns:${COLS};column-gap:6px;color:#667085;background:#FAFAFC;border-bottom:1px solid #F3F4F6`;
     head.innerHTML = '<span>Período</span><span>UTM</span><span>Capital $</span><span>Días</span><span class="text-center">Tasa</span><span class="text-right">Interés</span><span class="text-right">Subtotal</span>';
     wrap.appendChild(head);
 
@@ -1852,14 +1852,14 @@ function buildResumenContent(targetContainer, inlineMode) {
       if (rowYear && rowYear !== lastYear) {
         lastYear = rowYear;
         const sep = document.createElement('div');
-        sep.style.cssText = 'background:#ffffff;padding:6px 12px 2px;border-top:1px solid #F3F4F7';
-        sep.innerHTML = `<span style="font-size:10px;font-weight:800;color:#5b4fff">${rowYear}</span>`;
+        sep.style.cssText = 'background:#ffffff;padding:10px 12px 6px';
+        sep.innerHTML = `<span style="display:inline-block;font-size:10px;font-weight:700;color:#4F46E5;background:#EEF2FF;padding:6px 12px;border-radius:999px">${rowYear}</span>`;
         wrap.appendChild(sep);
       }
 
       const row = document.createElement('div');
       row.className = 'grid px-3 py-2.5 text-[10px] font-bold cursor-pointer hover:bg-slate-50 active:opacity-70 transition-colors';
-      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #F3F4F7`;
+      row.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#ffffff;border-top:1px solid #F3F4F6`;
       const aproxTag = d.tasaEsAproximada ? `<span style="color:#d97706;font-size:7.5px">~</span>` : '';
       const capMostrado = cap0;
       const capUTM = (d.utmVal && d.utmVal > 0) ? (cap0 / d.utmVal).toFixed(2) : '—';
@@ -1889,12 +1889,12 @@ function buildResumenContent(targetContainer, inlineMode) {
           <span class="truncate" style="display:block;color:#1a1d2e;line-height:1.2">${periodoClean}${d.isDebt?'<span style="color:#ea580c;font-size:7.5px;font-weight:900"> H</span>':''}${lavTag}${parcialTag}</span>
           ${remChip}${excedenteChip}${_cubiertaLavChip}${_lavParcialChip}${lavIntChip}
         </div>
-        <span style="color:#5b4fff;font-size:9px;font-weight:900">${capUTM}</span>
-        <span style="color:#333645">${fmt(capMostrado)}</span>
-        <span style="color:#8e97b0">${d.mora}</span>
-        <span class="text-center" style="color:#38BDF8;white-space:nowrap">${fmtPct(d.tasa)}${aproxTag}</span>
-        <span class="text-right" style="color:#38BDF8">${fmt(int0)}</span>
-        <span class="text-right font-black" style="color:#14161f">${fmt(capMostrado+int0)}</span>`;
+        <span style="color:#4F46E5;font-size:9px;font-weight:900">${capUTM}</span>
+        <span style="color:#111827">${fmt(capMostrado)}</span>
+        <span style="color:#6B7280">${d.mora}</span>
+        <span class="text-center" style="white-space:nowrap"><span style="display:inline-block;background:#EFF6FF;color:#2563EB;font-size:8.5px;font-weight:700;padding:3px 8px;border-radius:999px">${fmtPct(d.tasa)}${aproxTag}</span></span>
+        <span class="text-right" style="color:#0EA5E9">${fmt(int0)}</span>
+        <span class="text-right font-black" style="color:#111827">${fmt(capMostrado+int0)}</span>`;
       row.onclick = () => { hideResumenModal(); openDetailModal(d.id); };
       wrap.appendChild(row);
     });
@@ -1903,7 +1903,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     const totInt = datos.reduce((s,d) => s+d.inte,0);
     const foot = document.createElement('div');
     foot.className = 'grid px-3 py-2.5 text-[10px] font-black';
-    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#FAFAFD;border-top:1px solid #ECEFF5;color:#5b4fff`;
+    foot.style.cssText = `grid-template-columns:${COLS};column-gap:6px;background:#FAFAFD;border-top:1px solid #ECECF3;color:#5b4fff`;
     const totUTM = datos.reduce((s,d) => s + ((d.utmVal && d.utmVal > 0) ? d.cap / d.utmVal : 0), 0);
     foot.innerHTML = `<span>TOTAL</span><span style="color:#5b4fff">${totUTM.toFixed(2)}</span><span style="color:#14161f">${fmt(totCap)}</span><span></span><span></span><span class="text-right" style="color:#14161f">${fmt(totInt)}</span><span class="text-right" style="color:#14161f">${fmt(totCap+totInt)}</span>`;
     wrap.appendChild(foot);
@@ -1912,28 +1912,28 @@ function buildResumenContent(targetContainer, inlineMode) {
 
   // ── 1. Pensiones ──
   if (pensiones.length > 0) {
-    seccion('Período Actual', '#0284c7', '');
+    seccion('Período actual', '#0284c7', '');
     tablaFilas(pensiones, '#0284c7');
   }
 
   // ── 2. Deuda Histórica ──
   if (historicas.length > 0) {
-    seccion('Deuda Histórica', '#d97706', '');
+    seccion('Deuda histórica', '#d97706', '');
     tablaFilas(historicas, '#d97706');
   }
 
   // ── 3. Abonos ──
   if (abonos.length > 0) {
-    seccion('Abonos Realizados', '#0891b2', '');
+    seccion('Abonos realizados', '#0891b2', '');
     const wrapA = document.createElement('div');
     wrapA.className = 'rounded-xl overflow-hidden';
-    wrapA.style.border = '1px solid #ECEFF5';
+    wrapA.style.border = '1px solid #ECECF3';
     abonos.forEach((a, i) => {
       const [anio, mes, dia = '01'] = a.date.split('-');
       const label = dia + '/' + ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(mes)-1] + '/' + anio;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'}`;
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F6':'none'}`;
       row.innerHTML = `<span style="color:#5a6380">${label}</span><span class="font-black" style="color:#14161f">${fmt(a.amount)}</span>`;
       wrapA.appendChild(row);
     });
@@ -1941,7 +1941,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     if (imputacion && (intImputado > 0 || capImputado > 0)) {
       const nota = document.createElement('div');
       nota.className = 'px-3 py-2.5 text-[9px] font-bold space-y-0.5';
-      nota.style.cssText = 'background:#FAFAFD;border-top:1px solid #F3F4F7';
+      nota.style.cssText = 'background:#FAFAFD;border-top:1px solid #F3F4F6';
       nota.innerHTML = `<p class="font-black uppercase" style="color:#5b4fff">Imputación Art. 1595 CC</p>
         ${intImputado>0?`<p style="color:#5a6380">→ A intereses: <span class="font-black" style="color:#333645">${fmt(intImputado)}</span></p>`:''}
         ${capImputado>0?`<p style="color:#5a6380">→ A capital: <span class="font-black" style="color:#333645">${fmt(capImputado)}</span></p>`:''}`;
@@ -1952,10 +1952,10 @@ function buildResumenContent(targetContainer, inlineMode) {
 
   // ── 4. Pagos Parciales ──
   if (pagosParciales.length > 0) {
-    seccion('Pagos Parciales por Mes', '#7c3aed', '');
+    seccion('Pagos parciales por mes', '#7c3aed', '');
     const wrapP = document.createElement('div');
     wrapP.className = 'rounded-xl overflow-hidden';
-    wrapP.style.border = '1px solid #ECEFF5';
+    wrapP.style.border = '1px solid #ECECF3';
     // Agrupar por período (puede haber múltiples pagos en el mismo mes)
     const agrupados = [];
     const vistoPeriodos = {};
@@ -1972,14 +1972,14 @@ function buildResumenContent(targetContainer, inlineMode) {
       const cuotaRef = lastCalculationData ? lastCalculationData.find(d => d.periodo === p.periodoLabel) : null;
       const row = document.createElement('div');
       row.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-bold';
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'}`;
+      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F6':'none'}`;
       row.innerHTML = `<span style="color:#5a6380">${p.periodoLabel}</span><span class="font-black" style="color:#14161f">${fmt(p.amount)}</span>`;
       wrapP.appendChild(row);
       // Sub-fila remanente
       if (cuotaRef) {
         const remRow = document.createElement('div');
         remRow.className = 'flex justify-between items-center px-3 py-1.5 text-[9px] font-bold';
-        remRow.style.cssText = `background:#FAFAFD;border-top:1px dashed #ECEFF5`;
+        remRow.style.cssText = `background:#FAFAFD;border-top:1px dashed #ECECF3`;
         const _remCap = cuotaRef.capParcialRemanente ?? cuotaRef.cap;
         const remUTM = cuotaRef.utmVal > 0 ? (_remCap / cuotaRef.utmVal).toFixed(4) + ' UTM' : '';
         remRow.innerHTML = `
@@ -1992,7 +1992,7 @@ function buildResumenContent(targetContainer, inlineMode) {
     // Nota al pie si hay remanentes
     if (lastCalculationData && agrupados.some(p => lastCalculationData.find(d => d.periodo === p.periodoLabel))) {
       const nota = document.createElement('div');
-      nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:#FAFAFD;border-top:1px solid #ECEFF5';
+      nota.style.cssText = 'padding:6px 12px;font-size:8.5px;font-weight:600;color:#a855f7;background:#FAFAFD;border-top:1px solid #ECECF3';
       nota.textContent = '* El interés se calcula sobre el remanente, no sobre la cuota completa (metodología SITFA/PJUD).';
       wrapP.appendChild(nota);
     }
@@ -2001,16 +2001,15 @@ function buildResumenContent(targetContainer, inlineMode) {
 
   // ── 4b. Abonos LAV ──
   if (typeof abonosLav !== 'undefined' && abonosLav.length > 0) {
-    seccion('Abonos LAV — Detalle', '#059669', '');
+    seccion('Abonos LAV', '#059669', '');
     const wrapLav = document.createElement('div');
-    wrapLav.className = 'rounded-xl overflow-hidden';
-    wrapLav.style.border = '1px solid #ECEFF5';
+    wrapLav.style.cssText = 'background:#FAFAFC;border:1px solid #ECECF3;border-radius:16px;padding-bottom:12px;overflow:hidden';
     const totalLavUTM = abonosLav.reduce((s,p) => s + (p.amountUtm||0), 0);
     const totalLavCLP = abonosLav.reduce((s,p) => s + p.amount, 0);
     // Label con ícono minimalista de tarjeta de crédito
     const lavLabel = document.createElement('div');
-    lavLabel.style.cssText = 'display:flex;align-items:center;gap:5px;padding:6px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#1a9c56;background:#ffffff;border-bottom:1px solid #ECEFF5';
-    lavLabel.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1a9c56" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
+    lavLabel.style.cssText = 'display:flex;align-items:center;gap:6px;padding:14px 16px 8px;font-size:11px;font-weight:700;color:#4F46E5;background:transparent';
+    lavLabel.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg><span>Depósitos</span>`;
     wrapLav.appendChild(lavLabel);
     // Agrupar visualmente: Abonos LAV "normales" primero (por fecha), y la
     // subcategoría "Otros Abonos" (Sección IV del PJUD, importados vía OCR)
@@ -2028,7 +2027,7 @@ function buildResumenContent(targetContainer, inlineMode) {
       if (p.origen === 'otros_abonos' && !otrosHeaderShown) {
         otrosHeaderShown = true;
         const subHeader = document.createElement('div');
-        subHeader.style.cssText = 'padding:4px 12px;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#5b4fff;background:#FAFAFD;border-top:1px solid #ECEFF5';
+        subHeader.style.cssText = 'padding:12px 12px 0;font-size:8px;font-weight:900;letter-spacing:0.05em;text-transform:uppercase;color:#4F46E5';
         subHeader.textContent = 'Otros Abonos';
         wrapLav.appendChild(subHeader);
       }
@@ -2048,33 +2047,37 @@ function buildResumenContent(targetContainer, inlineMode) {
       if (typeof calcCoberturaLavDeposito === 'function') {
         const cobertura = calcCoberturaLavDeposito(p);
         if (cobertura.estado === 'parcial') {
-          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#b45309;font-size:8px;font-weight:800;">⚠ Parcial · Rem. ${cobertura.diffUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.remanenteClp)}</span></div>`;
+          coberturaHtml = `<div style="grid-column:1/-1;margin-top:4px;"><span style="color:#4338CA;font-size:9px;font-weight:700;">Parcial: ${cobertura.diffUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.remanenteClp)}</span></div>`;
         } else if (cobertura.estado === 'excedente') {
           const excedenteUTM = Math.abs(cobertura.diffUTM);
-          coberturaHtml = `<div style="grid-column:1/-1;margin-top:2px;"><span style="color:#1a9c56;font-size:8px;font-weight:800;">↪ Excedente ${excedenteUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.excedenteClp)}</span></div>`;
+          coberturaHtml = `<div style="grid-column:1/-1;margin-top:4px;"><span style="color:#059669;font-size:9px;font-weight:700;">Excedente: ${excedenteUTM.toFixed(3)} UTM ≈ ${fmt(cobertura.excedenteClp)}</span></div>`;
         }
       }
-      row.style.cssText = `background:${i%2===0?'#ffffff':'#FAFAFD'};border-top:${i>0?'1px solid #F3F4F7':'none'};padding:8px 12px;display:grid;grid-template-columns:1fr auto;`;
+      row.style.cssText = `background:#ffffff;border:1px solid #EEF0F4;border-radius:14px;padding:16px;margin:${i>0?'12px':'0'} 12px 0;display:grid;grid-template-columns:1fr auto;`;
       row.className = 'text-[10px] font-bold';
       row.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:1px;line-height:1.3">
-          <span style="color:#1a1d2e;font-weight:900">${fechaStr}</span>
-          <span style="color:#9095A1;font-size:9px;font-weight:700">UTM período: ${utmPeriodoStr}</span>
+          <span style="color:#111827;font-weight:900">${fechaStr}</span>
+          <span style="color:#667085;font-size:9px;font-weight:600">UTM período: ${utmPeriodoStr}</span>
         </div>
         <div style="text-align:right;display:flex;flex-direction:column;gap:1px;line-height:1.3">
-          <span style="color:#14161f;font-weight:900">${fmt(p.amount)}</span>
-          <span style="color:#1a9c56;font-size:9px;font-weight:700">${equivUtmStr}</span>
+          <span style="color:#111827;font-weight:700">${fmt(p.amount)}</span>
+          <span style="color:#059669;font-size:9px;font-weight:500">${equivUtmStr}</span>
         </div>
         ${coberturaHtml}`;
       wrapLav.appendChild(row);
     });
-    // Fila total
-    const totRow = document.createElement('div');
-    totRow.className = 'flex justify-between items-center px-3 py-2 text-[10px] font-black';
-    totRow.style.cssText = 'background:#e8f9ee;border-top:1px solid #bcedd0';
-    totRow.innerHTML = `<span style="color:#1a9c56">TOTAL LAV</span><span style="color:#1a9c56">${totalLavUTM.toFixed(5)} UTM</span><span style="color:#14161f">${fmt(totalLavCLP)}</span>`;
-    wrapLav.appendChild(totRow);
     container.appendChild(wrapLav);
+    // Tarjeta de total — simple, izquierda/derecha, CLP arriba (700) y UTM debajo (500)
+    const totRow = document.createElement('div');
+    totRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;background:#F8FAFC;border:1px solid #ECECF3;border-radius:16px;padding:16px;margin-top:12px';
+    totRow.innerHTML = `
+      <span style="font-size:12px;font-weight:600;color:#111827">Total abonos LAV</span>
+      <div style="text-align:right;line-height:1.3">
+        <div style="font-size:14px;font-weight:700;color:#111827">${fmt(totalLavCLP)}</div>
+        <div style="font-size:11px;font-weight:500;color:#667085">${totalLavUTM.toFixed(5)} UTM</div>
+      </div>`;
+    container.appendChild(totRow);
     // Nota aclaratoria (mismo texto que en el PDF): la línea "⚠ Parcial ·
     // Rem." / "↪ Excedente" que aparece bajo cada depósito compara ese
     // depósito de forma AISLADA contra la cuota de su mes — no es el
@@ -2082,21 +2085,23 @@ function buildResumenContent(targetContainer, inlineMode) {
     // de un mes se traspasa y cubre el faltante de otro, así que un mes
     // puede figurar "Parcial" aquí y aun así quedar totalmente cubierto en
     // el resultado real (ver más abajo el detalle por período).
-    const notaLavWeb = document.createElement('p');
-    notaLavWeb.style.cssText = 'font-size:8px;color:#9095A1;font-style:italic;margin-top:6px;line-height:1.4;';
-    notaLavWeb.textContent = 'Nota: la cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.';
+    const notaLavWeb = document.createElement('div');
+    notaLavWeb.style.cssText = 'display:flex;gap:8px;align-items:flex-start;background:#F8FAFC;border:1px solid #EEF2F6;border-radius:14px;padding:12px 14px;margin-top:12px';
+    notaLavWeb.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      <p style="font-size:11px;color:#667085;line-height:1.5;margin:0">La cobertura mostrada bajo cada depósito compara ese depósito de forma aislada contra la cuota de su mes — no es el resultado final. Un mes puede figurar "Parcial" o "Excedente" y aun así quedar totalmente cubierto tras aplicar el pool acumulado de depósitos.</p>`;
     container.appendChild(notaLavWeb);
   }
 
   // ── 5. Resumen Final ──
-  seccion('Resumen Final', '#0369a1', '');
+  seccion('Resumen final', '#0369a1', '');
   const subtotalBruto = totalCapPesos + totalIntPesos;
   // totalCapPesos + totalIntPesos ya derivan de cuotasRes_h × utmLiq,
   // igual que totalFinalReal — no hay ajuste UTM necesario.
   const resumenRows = [
-    { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#333645', valColor: '#14161f', bold: false },
-    { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#333645', valColor: '#38BDF8', bold: false },
-    { label: 'SUBTOTAL HISTÓRICO', val: subtotalBruto, labelColor: '#14161f', valColor: '#14161f', bold: true, sep: true },
+    { label: 'Capital total (pensiones impagas)', val: totalCapPesos, labelColor: '#111827', valColor: '#111827', bold: false },
+    { label: 'Total intereses generados', val: totalIntPesos, labelColor: '#111827', valColor: '#0EA5E9', bold: false },
+    { label: 'Subtotal histórico', val: subtotalBruto, labelColor: '#111827', valColor: '#111827', bold: true, sep: true },
   ];
   // FIX: LAV ya están dentro de imputarAbonosArt1595. No restar lavTotalUTM_h por separado.
   const lavTotalCLPmodal = (typeof abonosLav !== 'undefined' ? abonosLav : []).reduce((s,p) => s + p.amount, 0);
@@ -2129,12 +2134,12 @@ function buildResumenContent(targetContainer, inlineMode) {
   }
   const wrapR = document.createElement('div');
   wrapR.className = 'rounded-xl overflow-hidden';
-  wrapR.style.border = '1px solid #ECEFF5';
+  wrapR.style.border = '1px solid #ECECF3';
   wrapR.style.background = '#ffffff';
   // Header tipo fintech: ícono de gráfico de barras en cuadro redondeado + título
   const headerR = document.createElement('div');
   headerR.className = 'flex items-center justify-between px-3 py-3';
-  headerR.style.cssText = 'border-bottom:1px solid #F3F4F7';
+  headerR.style.cssText = 'border-bottom:1px solid #F3F4F6';
   headerR.innerHTML = `
     <div class="flex items-center gap-2.5">
       <div style="width:28px;height:28px;border-radius:9px;background:#f2eeff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2147,7 +2152,7 @@ function buildResumenContent(targetContainer, inlineMode) {
   resumenRows.forEach((r, i) => {
     const row = document.createElement('div');
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
-    row.style.cssText = `background:${r.sep?'#FAFAFD':'#ffffff'};border-top:1px solid #F3F4F7`;
+    row.style.cssText = `background:${r.sep?'#FAFAFD':'#ffffff'};border-top:1px solid #F3F4F6`;
     const valDisplay = r.utmStr
       ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
       : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
@@ -2172,7 +2177,7 @@ function buildResumenContent(targetContainer, inlineMode) {
   if (!inlineMode) {
     const nota = document.createElement('div');
     nota.className = 'rounded-xl px-3 py-3 text-[9px] font-medium leading-relaxed';
-    nota.style.cssText = 'border:1px solid #ECEFF5;background:#FAFAFD;color:#8e97b0';
+    nota.style.cssText = 'border:1px solid #ECECF3;background:#FAFAFD;color:#8e97b0';
     nota.innerHTML = `<p class="font-black mb-1" style="color:#5a6380">Nota</p>Toca cualquier fila de cuota para ver su detalle completo. Los valores son referenciales. Para uso judicial, valide con un profesional habilitado.`;
     container.appendChild(nota);
   }

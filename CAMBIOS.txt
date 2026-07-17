@@ -56,6 +56,95 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0903 · 2026-07-16]
+export.js, modals.html
+
+Rediseño visual del modal "Resumen de liquidación" (buildResumenContent
+en export.js + header en modals.html), a partir de un brief de UX/UI
+provisto por el usuario inspirado en Vercel/Linear/Stripe Dashboard/
+Notion/Arc/Revolut. Cambio ÚNICAMENTE visual (colores, tipografía,
+espaciado, forma de los componentes) — NO se modificó ninguna variable,
+ID, función de cálculo, ni el orden/estructura de los datos mostrados.
+
+1. Header del modal (modals.html): quitado el uppercase del título
+   ("Resumen de liquidación" en vez de "RESUMEN DE LIQUIDACIÓN"), fondo
+   #FAFAFC, ícono más pequeño (7×7 en vez de 8×8) en violeta #EEF2FF/
+   #4F46E5, padding vertical reducido (py-3 en vez de py-4) para bajar
+   la altura del header.
+
+2. Tabla de período (tablaFilas): header de columnas ahora con fondo
+   #FAFAFC y texto #667085 (antes #9095A1 sin fondo). Colores de columna
+   alineados a la paleta del brief: UTM #4F46E5, Capital #111827, Días
+   #6B7280, Interés #0EA5E9, Subtotal #111827 en negrita. La Tasa ahora
+   se muestra dentro de una píldora (fondo #EFF6FF, texto #2563EB,
+   border-radius:999px) en vez de texto plano celeste.
+
+3. Separador de año: convertido en badge/píldora (fondo #EEF2FF, texto
+   #4F46E5, padding 6px 12px, border-radius 999px) en vez de solo texto
+   violeta sin fondo — ahora se distingue claramente como separador
+   visual, tal como pedía el brief ("cada año debe ser un pequeño
+   badge").
+
+4. Bordes: unificados globalmente en export.js de #ECEFF5 → #ECECF3 y
+   de #F3F4F7 → #F3F4F6 (los valores exactos del brief; visualmente
+   casi idénticos a los anteriores, así que el cambio no afecta ningún
+   otro flujo — Abonos Realizados, Pagos Parciales, tabla de reajustes,
+   etc. también heredan el tono correcto).
+
+5. Sección "Abonos LAV": rediseño completo de la presentación de cada
+   depósito. Ya no es una fila con separador de línea — ahora cada
+   depósito es una tarjeta individual (fondo blanco, borde 1px solid
+   #EEF0F4, border-radius 14px, padding 16px, con margen entre
+   tarjetas), dentro de un contenedor #FAFAFC con borde #ECECF3 y radio
+   16px. Se eliminó el ícono/label verde saturado (#1a9c56) del label
+   "Depósitos", ahora en violeta #4F46E5 sobre fondo transparente. El
+   texto "Rem." (naranja) del indicador de cobertura parcial se
+   reemplazó por "Parcial:" en índigo #4338CA; el indicador de
+   excedente ahora usa verde #059669 en vez del verde institucional
+   anterior.
+
+6. Tarjeta "Total abonos LAV": rediseñada como tarjeta simple
+   izquierda/derecha (antes era una franja de fondo verde con 3
+   columnas). Izquierda: "Total abonos LAV" en #111827. Derecha: monto
+   CLP grande (700, #111827) arriba y UTM debajo (500, #667085) — según
+   el brief, "la UTM debe ir debajo del monto, no al lado".
+
+7. Nota inferior de cobertura LAV: convertida en caja informativa
+   (fondo #F8FAFC, borde #EEF2F6, border-radius 14px) con ícono de
+   información azul (#2563EB) a la izquierda y texto en #667085 a 11px
+   — antes era un párrafo en cursiva sin caja ni ícono.
+
+8. Títulos de sección (función seccion(), usada por "Período actual",
+   "Deuda histórica", "Abonos realizados", "Pagos parciales por mes",
+   "Abonos LAV", "Resumen final"): eliminado el uppercase y el
+   letter-spacing; ahora usan sentence case, font-weight 700, color
+   #111827 — igual que pedía el brief para todos los títulos de la
+   interfaz. Los textos pasados a seccion() en las llamadas del modal
+   web también se normalizaron a sentence case (ej. "DEUDA HISTORICA
+   CONSOLIDADA" solo se cambió en el modal web; el bloque del generador
+   de PDF —líneas ~150-400 de export.js— no se tocó, ya que ese texto
+   alimenta el documento PDF, no la interfaz).
+
+9. Filas del bloque "Resumen final": colores de "Capital total" e
+   "Total intereses generados" alineados a #111827 / #0EA5E9; el label
+   "SUBTOTAL HISTÓRICO" pasó a "Subtotal histórico" en sentence case.
+
+Versión: index.html (meta app-version + appVersionLabel) y sw.js
+(CACHE_NAME) actualizados a v2.0716.0903.
+
+No se tocó: ninguna función de cálculo (calcularInteresSegmentado,
+calcularInteresConsolidadaNeteada, imputarAbonosArt1595, el pool LAV),
+ningún ID usado por JS para leer/escribir datos, el generador de PDF
+(generarPDF() y sus helpers en la primera mitad de export.js), ni el
+orden/estructura de las secciones del resumen.
+
+Pendiente: confirmar visualmente en el dispositivo real que el modal
+completo (con datos reales de un caso con Deuda Histórica Consolidada +
+Abonos LAV) refleja el diseño esperado, especialmente el espaciado de
+las nuevas tarjetas de depósito LAV en pantallas angostas.
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0902 · 2026-07-16]
 index.html, styles.css
 
