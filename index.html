@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0716.0904">
+ <meta name="app-version" content="v2.0716.0905">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1247,7 +1247,7 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado — rediseño v2.0716.0904 a partir de
+        <!-- Tarjeta Total Adeudado — rediseño v2.0716.0905 a partir de
              referencia HTML/CSS provista por el usuario: título pequeño
              en violeta + fecha debajo, monto grande, chip UTM, filas
              Capital/Intereses, y barra de estado "Actualizado hace X". -->
@@ -1282,17 +1282,23 @@ window.addEventListener('popstate', function() {
 
           <hr>
 
-          <div class="hero-status">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-              <circle cx="12" cy="12" r="9"/>
-              <polyline points="8.5 12.5 11 15 15.5 9.5"/>
-            </svg>
-            <span id="heroUpdatedAgo">Actualizado hace un momento</span>
-          </div>
+          <button type="button" class="hero-detail-btn" onclick="showResumenModal()" aria-label="Ver detalle del cálculo">
+            <span class="hero-detail-btn__icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            </span>
+            <span class="hero-detail-btn__text">
+              <span class="hero-detail-btn__title">Ver detalle del cálculo</span>
+              <span class="hero-detail-btn__subtitle">Igual que el PDF</span>
+            </span>
+            <span class="hero-detail-btn__arrow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </span>
+          </button>
         </div>
 
         <!-- IDs conservados ocultos (no se eliminan del DOM: el cálculo les escribe sin guard null-check) -->
         <div style="display:none !important;" aria-hidden="true">
+          <span id="heroUpdatedAgo"></span>
           <span id="totalCapUtm"></span>
           <span id="totalIntUtm"></span>
           <div id="heroMetaRow" class="hidden">
@@ -1381,19 +1387,6 @@ window.addEventListener('popstate', function() {
     <section class="calc-mode-section" aria-label="Cómo deseas calcular">
       <div class="calc-mode-section__inner">
 
-        <button type="button" class="calc-hero-card" onclick="showResumenModal()" aria-label="Ver detalle del cálculo">
-          <span class="calc-hero-card__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-          </span>
-          <span class="calc-hero-card__body">
-            <span class="calc-hero-card__title">Ver detalle del cálculo</span>
-            <span class="calc-hero-card__subtitle">Revisa el cálculo completo igual que el PDF</span>
-          </span>
-          <span class="calc-hero-card__arrow">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </span>
-        </button>
-
         <p class="calc-mode-section__title">¿Cómo deseas calcular?</p>
         <div class="calc-mode-row" role="list">
 
@@ -1402,7 +1395,6 @@ window.addEventListener('popstate', function() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
             <span class="calc-mode-card__title">Desde el último pago</span>
-            <p class="calc-mode-card__desc">Calcula desde tu último pago registrado</p>
             <span class="calc-mode-card__arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </span>
@@ -1413,7 +1405,6 @@ window.addEventListener('popstate', function() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
             <span class="calc-mode-card__title">Entre fechas</span>
-            <p class="calc-mode-card__desc">Calcula entre dos fechas específicas</p>
             <span class="calc-mode-card__arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </span>
@@ -1424,7 +1415,6 @@ window.addEventListener('popstate', function() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="6" r="1.3" fill="#fff" stroke="none"/><circle cx="5" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="#fff" stroke="none"/><circle cx="5" cy="18" r="1.3" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.3" fill="#fff" stroke="none"/><circle cx="19" cy="18" r="1.3" fill="#fff" stroke="none"/></svg>
             </div>
             <span class="calc-mode-card__title">Con lagunas</span>
-            <p class="calc-mode-card__desc">Considera períodos sin pago (lagunas)</p>
             <span class="calc-mode-card__arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </span>
@@ -1435,7 +1425,6 @@ window.addEventListener('popstate', function() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2v-1"/><path d="M21 12a1 1 0 00-1-1h-3a2 2 0 000 4h3a1 1 0 001-1z"/></svg>
             </div>
             <span class="calc-mode-card__title">Pagos parciales</span>
-            <p class="calc-mode-card__desc">Registra abonos parciales y su imputación</p>
             <span class="calc-mode-card__arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </span>
@@ -7227,7 +7216,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0904</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0716.0905</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

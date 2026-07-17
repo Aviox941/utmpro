@@ -1183,6 +1183,65 @@
     flex-shrink: 0;
   }
 
+  /* ── Botón "Ver detalle del cálculo" — reemplaza al banner
+       "Actualizado hace X" (.hero-status), mismo tamaño/posición ── */
+  .hero-detail-btn {
+    margin-top: 2px;
+    width: 100%;
+    background: linear-gradient(90deg, #6F3DFF 0%, #5A2DFF 50%, #4A24E8 100%);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+    text-align: left;
+    transition: transform 0.15s ease;
+  }
+  .hero-detail-btn:active {
+    transform: scale(0.98);
+  }
+  .hero-detail-btn__icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-detail-btn__icon svg { width: 16px; height: 16px; }
+  .hero-detail-btn__text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .hero-detail-btn__title {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+  }
+  .hero-detail-btn__subtitle {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #ffffff;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hero-detail-btn__arrow {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-detail-btn__arrow svg { width: 16px; height: 16px; }
+
   /* ── Tarjeta Total Adeudado (azul) — única, centrada ────────── */
   .hero-total-card {
     flex: 1 1 0;
@@ -3357,97 +3416,36 @@
   .calc-mode-section__inner { max-width: 860px; }
 }
 
-/* ── Card "Ver detalle del cálculo" — hero morado con gradiente ── */
-.calc-hero-card {
-  width: 100%;
-  min-height: 100px;
-  border-radius: 24px;
-  padding: 24px;
-  margin-bottom: 32px;
-  border: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  font-family: inherit;
-  background: linear-gradient(90deg, #6F3DFF 0%, #5A2DFF 50%, #4A24E8 100%);
-  box-shadow: 0 8px 24px rgba(90, 45, 255, 0.22);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  text-align: left;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-}
-
-.calc-hero-card:active {
-  transform: scale(0.98);
-  box-shadow: 0 4px 14px rgba(90, 45, 255, 0.2);
-}
-
-.calc-hero-card__icon {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.calc-hero-card__icon svg { width: 34px; height: 34px; }
-
-.calc-hero-card__body { flex: 1; min-width: 0; }
-
-.calc-hero-card__title {
-  font-size: 22px;
-  font-weight: 600;
-  color: #ffffff;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  margin: 0;
-}
-
-.calc-hero-card__subtitle {
-  font-size: 16px;
-  font-weight: 400;
-  color: #ffffff;
-  opacity: 0.75;
-  margin: 2px 0 0;
-  line-height: 1.3;
-}
-
-.calc-hero-card__arrow {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.calc-hero-card__arrow svg { width: 28px; height: 28px; }
+/* Nota: la card "Ver detalle del cálculo" ya no vive aquí — ahora es
+   .hero-detail-btn, dentro de .hero-card (reemplaza al banner verde
+   "Actualizado hace X" / .hero-status). Ver bloque .hero-card arriba. */
 
 .calc-mode-section__title {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: #2E3150;
   letter-spacing: -0.01em;
-  margin: 0 2px 20px 2px;
+  margin: 0 2px 12px 2px;
 }
 
 .calc-mode-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 10px;
 }
 
 .calc-mode-card {
   width: 100%;
-  min-height: 120px;
-  border-radius: 22px;
-  padding: 18px;
+  min-height: 76px;
+  border-radius: 16px;
+  padding: 12px;
   border: none;
   background: #ffffff;
-  box-shadow: 0 8px 30px rgba(34, 44, 79, 0.06);
+  box-shadow: 0 4px 16px rgba(34, 44, 79, 0.06);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: center;
   text-align: left;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -3462,49 +3460,41 @@
 }
 
 .calc-mode-card__icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .calc-mode-card__icon svg {
-  width: 26px;
-  height: 26px;
+  width: 17px;
+  height: 17px;
 }
 
 .calc-mode-card__title {
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
   color: #1a1d2e;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.01em;
-  margin: 0 0 8px;
-}
-
-.calc-mode-card__desc {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #8e97b0;
-  line-height: 1.35;
   margin: 0;
-  padding-bottom: 18px;
+  padding-right: 16px;
 }
 
 .calc-mode-card__arrow {
   position: absolute;
-  right: 16px;
-  top: 16px;
+  right: 10px;
+  top: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.calc-mode-card__arrow svg { width: 20px; height: 20px; }
+.calc-mode-card__arrow svg { width: 15px; height: 15px; }
 
 /* Variantes de color (bg blanco fijo + icono sólido + flecha a juego) */
 .calc-mode-card--blue   .calc-mode-card__icon { background: #1678FF; }

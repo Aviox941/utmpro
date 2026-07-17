@@ -56,6 +56,60 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0905 · 2026-07-16]
+index.html, styles.css
+
+Fix de tamaño — el rediseño anterior (v2.0716.0904) quedó desproporcionado
+en el dispositivo real: la card "Ver detalle del cálculo" ocupaba
+mucho más espacio del previsto (el diseño no consideraba que título +
+subtítulo podían quebrar en 2-3 líneas en pantallas angostas) y el
+grid "¿Cómo deseas calcular?" quedó demasiado alto por las
+descripciones de 2 líneas bajo cada título.
+
+1. Eliminado el banner verde "Actualizado hace X" (.hero-status,
+   id="heroUpdatedAgo") de la tarjeta "Total Adeudado" — a pedido
+   expreso del usuario. En su lugar, en el MISMO espacio y tamaño que
+   ocupaba ese banner (padding 10px 14px, border-radius 12px, dentro
+   de la card hero existente), ahora va el botón "Ver detalle del
+   cálculo" (.hero-detail-btn, nuevo): franja compacta de una sola
+   línea con gradiente violeta #6F3DFF→#5A2DFF→#4A24E8, ícono de
+   documento (16px), título+subtítulo en la misma línea (11.5px /
+   10.5px, con overflow:ellipsis si no cabe) y chevron a la derecha.
+   Conectado a showResumenModal() (mismo comportamiento que ya tenía
+   el botón "Ver PDF" del panel colapsable "Detalle del cálculo",
+   que sigue existiendo sin cambios más abajo).
+
+2. El id="heroUpdatedAgo" se conservó oculto (span vacío dentro del
+   bloque de "IDs conservados ocultos" que ya existía en el hero) para
+   no romper heroTickUpdatedLabel()/heroMarkUpdated() ni el
+   setInterval(heroTickUpdatedLabel, 30000) — esa función ya tenía
+   null-check (if (!el ...) return;), así que aunque el span esté
+   oculto no genera error; simplemente deja de mostrarse.
+
+3. Grid "¿Cómo deseas calcular?" (.calc-mode-card, agrandado en
+   v2.0716.0904 a min-height 120px con descripción de 2 líneas):
+   revertido a un formato compacto y rectangular — min-height 76px,
+   border-radius 16px, padding 12px, ícono 34px (antes 56px), solo
+   ícono + título (se eliminó el <p class="calc-mode-card__desc"> de
+   las 4 tarjetas y su regla CSS asociada, ya que no cabía sin
+   agrandar demasiado la tarjeta). El chevron de cada tarjeta se achicó
+   de 20px a 15px y el título de sección "¿Cómo deseas calcular?" bajó
+   de 22px a 16px con menos margen inferior (20px → 12px).
+
+4. Limpieza: se eliminó el CSS huérfano .calc-hero-card* (~9 reglas)
+   que había quedado sin uso en el HTML tras el cambio anterior — esa
+   card ya no vive como bloque aparte sobre el grid, ahora es
+   .hero-detail-btn dentro de la card "Total Adeudado".
+
+Versión: index.html (meta app-version + appVersionLabel) y sw.js
+(CACHE_NAME) actualizados a v2.0716.0905.
+
+No se tocó: ninguna función de cálculo, el panel colapsable "Detalle
+del cálculo" con sus botones de PDF/descargar/eliminar (sigue
+intacto más abajo en el flujo), ni los overlays fullscreen DUP/BEF.
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0904 · 2026-07-16]
 index.html, styles.css
 
