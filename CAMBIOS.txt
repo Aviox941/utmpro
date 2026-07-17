@@ -56,6 +56,78 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0716.0904 · 2026-07-16]
+index.html, styles.css
+
+Rediseño de la sección "¿Cómo deseas calcular?" (index.html, dentro de
+la sección <section class="calc-mode-section">, justo antes de la
+tarjeta "Datos de la Pensión") a partir de un brief de UX/UI provisto
+por el usuario (mockup + prompt tipo Claude Code, estilo iOS moderno,
+inspirado en Revolut/Nubank/Linear). Cambio ÚNICAMENTE visual —
+ninguna función JS, ID de estado, ni lógica de negocio fue modificada;
+los 4 botones del grid siguen sin acción funcional propia (ya lo
+indicaba el comentario original en el HTML), salvo la nueva card hero
+que sí quedó conectada.
+
+1. Nueva card "Ver detalle del cálculo" (.calc-hero-card, 100% nueva):
+   no existía en el proyecto — el único componente similar era el
+   panel colapsable "Detalle del cálculo" (violeta claro, más chico),
+   que es un elemento distinto y no se tocó. La card nueva es un botón
+   ancho con gradiente horizontal #6F3DFF → #5A2DFF → #4A24E8,
+   border-radius 24px, ícono de documento en outline blanco (34px),
+   título "Ver detalle del cálculo" (22px/600/blanco) y subtítulo
+   "Revisa el cálculo completo igual que el PDF" (16px/blanco al 75%
+   de opacidad), con chevron derecho blanco (28px). Al tocarla invoca
+   showResumenModal() (la misma función que ya usaba el botón "Ver PDF"
+   del panel colapsable), por lo que queda funcional desde el primer
+   momento sin necesidad de lógica nueva.
+
+2. Grid "¿Cómo deseas calcular?" (.calc-mode-card): agrandado de 84px
+   a min-height 120px, con padding 18px y border-radius 22px (antes
+   16px). Se agregó texto de descripción de 2 líneas bajo cada título
+   (antes solo había título) — "Calcula desde tu último pago
+   registrado", "Calcula entre dos fechas específicas", "Considera
+   períodos sin pago (lagunas)", "Registra abonos parciales y su
+   imputación" — y un chevron individual en la esquina superior
+   derecha de cada tarjeta, del mismo color que su ícono (antes las
+   flechas estaban ocultas con display:none en el formato compacto).
+
+3. Iconos del grid: agrandados de 32px a 56px (radio 16px), ahora con
+   fondo sólido en vez del gradiente diagonal anterior — azul #1678FF,
+   morado #6F3DFF, verde #10C98D, fucsia #F23BAE — según la paleta
+   exacta del brief.
+
+4. Contenedor de la sección: se quitó el fondo blanco + borde + sombra
+   que envolvía todo el bloque como una sola tarjeta grande (ya no
+   aplica: ahora la card hero y el grid son bloques visualmente
+   independientes sobre el fondo de la app), y el título "¿Cómo deseas
+   calcular?" pasó de 10px/uppercase/gris a 22px/700/#2E3150 en
+   sentence case, con 32px de espacio respecto a la card hero de
+   arriba y 20px de margen inferior antes del grid.
+
+5. Espaciado del grid: gap de 10px → 16px (horizontal y vertical),
+   como pedía el brief.
+
+Versión: index.html (meta app-version + appVersionLabel) y sw.js
+(CACHE_NAME) actualizados a v2.0716.0904.
+
+No se tocó: el panel colapsable "Detalle del cálculo" (con sus botones
+de PDF/descargar/eliminar), ningún overlay fullscreen (DUP "Desde el
+último pago", BEF "Entre fechas"), ni ninguna función de cálculo.
+Los 3 botones del grid sin handler ("Entre fechas", "Con lagunas",
+"Pagos parciales") mantienen el mismo comportamiento de antes (ninguno
+— eran decorativos ya en la versión previa); si se desea conectarlos a
+sus overlays/flujos correspondientes, es un cambio aparte de agregar
+handlers, no de este rediseño visual.
+
+Pendiente: confirmar en el dispositivo real que las 4 tarjetas del
+grid, ahora más altas (min-height 120px) con texto de descripción,
+no generan overflow o descuadre en pantallas muy angostas (<340px de
+ancho), y que la card hero morada se ve correctamente por encima del
+notch/safe-area en iOS.
+
+--------------------------------------------------------------------------------
+
 [v2.0716.0903 · 2026-07-16]
 export.js, modals.html
 
