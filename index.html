@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0717.0729">
+ <meta name="app-version" content="v2.0717.0746">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1246,7 +1246,7 @@ window.addEventListener('popstate', function() {
       <!-- ── Hero: tarjeta total única, centrada ── -->
       <div class="hero-cards-row">
 
-        <!-- Tarjeta Total Adeudado — rediseño v2.0717.0729 a partir de
+        <!-- Tarjeta Total Adeudado — rediseño v2.0717.0746 a partir de
              referencia HTML/CSS provista por el usuario: título pequeño
              en violeta + fecha debajo, monto grande, chip UTM, filas
              Capital/Intereses, y barra de estado "Actualizado hace X". -->
@@ -1288,8 +1288,7 @@ window.addEventListener('popstate', function() {
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
             </span>
             <span class="hero-detail-btn__text">
-              <span class="hero-detail-btn__title">Ver detalle del cálculo</span>
-              <span class="hero-detail-btn__subtitle">Igual que el PDF</span>
+              <span class="hero-detail-btn__title">Ver detalle mensual</span>
             </span>
             <span class="hero-detail-btn__arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -4771,7 +4770,7 @@ function handleTicActualChange() {
 function showResetConfirm() {
   const modalEl = document.getElementById('confirmResetModal');
   // Si se abre desde dentro del modal "Resumen de liquidación" (z-index 120,
-  // botón de reset agregado en el header en v2.0717.0729), hay que subir
+  // botón de reset agregado en el header en v2.0717.0746), hay que subir
   // este modal por encima o queda tapado detrás — mismo patrón ya usado
   // para resumenModal dentro de dupOverlay/befOverlay en showResumenModal().
   const resumenOpen = document.getElementById('resumenModal')?.classList.contains('flex');
@@ -4796,7 +4795,7 @@ localStorage.removeItem(SESSION_KEY);
 }
 hideResetConfirm();
 // Si el reset se disparó desde el botón de reinicio dentro del modal
-// "Resumen de liquidación" (agregado en v2.0717.0729), cerrarlo también —
+// "Resumen de liquidación" (agregado en v2.0717.0746), cerrarlo también —
 // tras el reset ya no hay datos que mostrar en él.
 const resumenEl = document.getElementById('resumenModal');
 if (resumenEl && resumenEl.classList.contains('flex')) hideResumenModal();
@@ -5817,7 +5816,7 @@ document.getElementById('detailsList').innerHTML = '';
 activeTabYear = null;
 renderYearTabs();
 // ── Detalle del cálculo (tarjeta inline) ────────────────────────────────────
-// v2.0717.0729: la tarjeta ya no se muestra en el flujo principal (a pedido
+// v2.0717.0746: la tarjeta ya no se muestra en el flujo principal (a pedido
 // del usuario — ahora se accede al mismo contenido vía el botón morado
 // "Ver detalle del cálculo" dentro de la card "Total Adeudado", que abre
 // el modal showResumenModal()). Se mantiene el build del contenido por si
@@ -5957,7 +5956,7 @@ if (years.length === 0) {
   if (cardEl) cardEl.classList.add('hidden');
   return;
 }
-// v2.0717.0729: yearTabsCard ya no se muestra en el flujo principal (a
+// v2.0717.0746: yearTabsCard ya no se muestra en el flujo principal (a
 // pedido del usuario — resta espacio y su información ya está disponible
 // dentro del modal de resumen). Se deja siempre oculta; el resto de la
 // lógica (pills, detailsList, drill-down por año) queda intacta por si se
@@ -7278,7 +7277,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0729</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0746</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

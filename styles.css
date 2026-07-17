@@ -158,7 +158,7 @@
   .detail-card--purple .detail-card__utm {
     font-size: 8px;
     font-weight: 600;
-    color: #7DE7FF;
+    color: #FFFFFF;
     text-transform: uppercase;
     margin-top: 2px;
   }
@@ -169,19 +169,19 @@
   .detail-card--purple .detail-card__int-label {
     font-size: 8px;
     font-weight: 700;
-    color: rgba(255,255,255,.75);
+    color: #FFFFFF;
     text-transform: uppercase;
   }
   .detail-card--purple .detail-card__int-val {
     font-size: 10.5px;
     font-weight: 700;
-    color: #7DE7FF;
+    color: #FFFFFF;
     line-height: 1.2;
   }
   .detail-card--purple .detail-card__int-utm {
     font-size: 8px;
     font-weight: 600;
-    color: rgba(255,255,255,.8);
+    color: #FFFFFF;
   }
   .detail-card--purple .detail-card__badges {
     margin-top: 5px;
@@ -1201,7 +1201,7 @@
     align-items: flex-start;
   }
   .hero-title {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 700;
     color: #6d4aff;
     letter-spacing: 0.01em;
@@ -1317,24 +1317,14 @@
     flex: 1;
     min-width: 0;
     display: flex;
-    align-items: baseline;
-    gap: 5px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
   }
   .hero-detail-btn__title {
-    font-size: 11.5px;
+    font-size: 12px;
     font-weight: 700;
     color: #ffffff;
     white-space: nowrap;
-  }
-  .hero-detail-btn__subtitle {
-    font-size: 10.5px;
-    font-weight: 500;
-    color: #ffffff;
-    opacity: 0.75;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .hero-detail-btn__arrow {
     flex-shrink: 0;

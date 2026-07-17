@@ -56,6 +56,31 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0746 · 2026-07-17]
+index.html, modals.html, styles.css
+
+Cuatro ajustes de UI a pedido del usuario. Sin cambios a ninguna función
+de cálculo.
+
+1. Botón "Ver detalle del cálculo" de la card Total Adeudado: se quitó
+   el subtítulo "Igual que el PDF" y el título cambió a "Ver detalle
+   mensual", ahora centrado (antes .hero-detail-btn__text usaba
+   align-items:baseline con el subtítulo al lado; ahora es un solo
+   renglón centrado con justify-content:center).
+
+2. Botón de reinicio ("Reiniciar cálculo") dentro del header del modal
+   "Resumen de liquidación" (ícono de flechas circulares, junto al X):
+   agrandado de w-7 h-7 (28px) a w-9 h-9 (36px), ícono de w-3.5 h-3.5 a
+   w-4 h-4, para mejor visibilidad y área de toque.
+
+3. Tarjetas mensuales (.detail-card--purple): todo el texto pasó a
+   blanco puro (#FFFFFF). Antes el monto de interés, su UTM y el UTM del
+   capital usaban el acento calipso (#7DE7FF); ahora ese acento se quitó
+   de la tarjeta a pedido del usuario y todo el texto es blanco.
+
+4. Título "Total adeudado" de la card principal: tamaño aumentado de
+   12px a 15px.
+
 [v2.0717.0729 · 2026-07-17]
 styles.css
 
