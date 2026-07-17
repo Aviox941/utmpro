@@ -56,6 +56,53 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0729 · 2026-07-17]
+styles.css
+
+Fix crítico: las tarjetas mensuales violeta habían quedado con tamaños
+de fuente inventados/adivinados (mes 20px, total 34px, etc.) que no
+correspondían a las dimensiones reales de la tarjeta original
+(.detail-card base: min-height ~78-96px, padding ~0.65-1rem según
+breakpoint). Resultado: texto solapado/desbordado (visible en captura
+del usuario — "interés" tapado por el monto, números pegados).
+
+Se reescribió .detail-card--purple para IGUALAR los tamaños de texto
+de la tarjeta original (antes del rediseño violeta), no adivinarlos:
+mes 9px/700 uppercase, total 13px/800, "interés" 8px/700 uppercase,
+monto interés 10.5px/700, UTM (ambas) 8px/600 uppercase, badge 8px/700.
+Se quitaron border-radius:24px y padding:20px forzados con !important
+— ahora la tarjeta hereda el border-radius y padding reales de
+.detail-card (que ya varían correctamente por breakpoint), igual que
+la tarjeta original. Se removió también el padding-top/border-top
+extra que se había agregado a .detail-card__badges (no existía en el
+diseño original) y que sumaba altura de más.
+
+Colores (fondo violeta, calipso, blanco) y comportamiento hover se
+mantienen sin cambios respecto a v2.0717.0703 — este fix es solo de
+dimensionamiento/tamaño de fuente.
+
+[v2.0717.0729 · 2026-07-17]
+styles.css
+
+Dos correcciones a pedido del usuario. Sin cambios a ninguna función de
+cálculo ni a la estructura HTML de renderDetailsList().
+
+1. FIX IMPORTANTE — tarjetas mensuales (.detail-card--purple) volvieron
+   a su tamaño original. El rediseño de v2.0717.0703 había inventado
+   tamaños de fuente grandes (mes 20px, total 34px, interés 24px) que
+   NUNCA cupieron en la tarjeta real (min-height ~78-96px, la misma de
+   antes del rediseño) y producían texto superpuesto/desbordado. Se
+   reemplazaron por los tamaños reales que ya tenía .detail-card antes
+   de tocar nada: mes 9px, total 13px, "interés" 8px, monto interés
+   10.5px, UTM 8px, badge 8px. También se quitaron el border-radius:24px
+   y padding:20px que había forzado con !important — ahora la tarjeta
+   vuelve a heredar el radius/padding real de .detail-card (y sus
+   overrides por breakpoint), en vez de un tamaño adivinado. Solo se
+   conserva el color violeta sólido + acento calipso + tipografía Geist.
+
+2. Chip "≈ X UTM" de la card Total Adeudado: estaba muy pegado al monto
+   en CLP. Se aumentó el gap de .hero-total-row de 10px a 18px.
+
 [v2.0717.0722 · 2026-07-17]
 index.html, styles.css, export.js
 

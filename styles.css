@@ -111,33 +111,34 @@
      detail-card--purple — v2.0717: rediseño de las tarjetas mensuales
      del calendario de pagos (meses normales, no adeudo histórico).
      Fondo violeta sólido + acento calipso, consistente con el Hero
-     Card. NO cambia layout/tamaño/contenido, solo estilo visual.
-     Los !important son necesarios para pisar los overrides de
-     min-height/padding/border-radius de .detail-card en los distintos
-     breakpoints más abajo en este mismo archivo.
+     Card. Tamaño y densidad de texto IGUALES a la tarjeta original
+     (.detail-card base: min-height ~78-96px según breakpoint, padding
+     ~0.65-1rem) — solo cambia color/tipografía, no las dimensiones.
+     No se adivinan tamaños: se replican los valores reales que ya
+     tenía .detail-card antes del rediseño (ver reglas base arriba y
+     los overrides en los breakpoints más abajo en este archivo).
      ══════════════════════════════════════════════════════════════ */
   .detail-card--purple {
     background: #6844E8 !important;
     border: none !important;
-    border-radius: 24px !important;
-    box-shadow: 0 8px 24px rgba(40,20,120,.18) !important;
-    padding: 20px !important;
+    box-shadow: 0 4px 14px rgba(40,20,120,.16) !important;
     font-family: 'Geist', system-ui, sans-serif;
     transition: transform 200ms ease, box-shadow 200ms ease;
   }
   .detail-card--purple:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(40,20,120,.24) !important;
+    box-shadow: 0 6px 18px rgba(40,20,120,.22) !important;
   }
   .detail-card--purple:active {
     transform: translateY(0);
   }
   .detail-card--purple .detail-card__mes {
-    font-size: 20px;
+    font-size: 9px;
     font-weight: 700;
     color: #FFFFFF;
-    text-transform: none;
-    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 6px;
     line-height: 1.1;
   }
   .detail-card--purple .detail-card__row {
@@ -148,62 +149,57 @@
   }
   .detail-card--purple .detail-card__cap { min-width: 0; flex: 1 1 auto; }
   .detail-card--purple .detail-card__total {
-    font-size: clamp(20px, 7.5vw, 34px);
+    font-size: 13px;
     font-weight: 800;
     color: #FFFFFF;
-    line-height: 1.05;
+    line-height: 1.15;
     letter-spacing: -0.01em;
-    white-space: nowrap;
   }
   .detail-card--purple .detail-card__utm {
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 8px;
+    font-weight: 600;
     color: #7DE7FF;
+    text-transform: uppercase;
     margin-top: 2px;
   }
   .detail-card--purple .detail-card__int {
     text-align: right;
     flex-shrink: 0;
-    max-width: 44%;
   }
   .detail-card--purple .detail-card__int-label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 8px;
+    font-weight: 700;
     color: rgba(255,255,255,.75);
-    text-transform: none;
+    text-transform: uppercase;
   }
   .detail-card--purple .detail-card__int-val {
-    font-size: clamp(15px, 5.5vw, 24px);
+    font-size: 10.5px;
     font-weight: 700;
     color: #7DE7FF;
-    line-height: 1.1;
-    white-space: nowrap;
+    line-height: 1.2;
   }
   .detail-card--purple .detail-card__int-utm {
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 8px;
+    font-weight: 600;
     color: rgba(255,255,255,.8);
-    margin-top: 2px;
   }
   .detail-card--purple .detail-card__badges {
-    margin-top: 14px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255,255,255,.12);
+    margin-top: 5px;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
   }
   .detail-card--purple .detail-card__badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(255,255,255,.12);
+    gap: 3px;
+    background: rgba(255,255,255,.14);
     color: #FFFFFF;
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
     border-radius: 999px;
-    padding: 6px 10px;
-    text-transform: none;
+    padding: 2px 7px;
   }
 
   /* --- Componente: Switch / Toggle (switch, slider) --- */
@@ -1230,7 +1226,7 @@
     margin-top: 10px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 18px;
     flex-wrap: wrap;
   }
   .hero-total {
