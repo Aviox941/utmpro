@@ -56,6 +56,419 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0345 · 2026-07-18]
+index.html, styles.css
+
+NUEVO: animación de deslizamiento horizontal ("pasar página") al
+alternar entre "Cuota actual" y "Próxima cuota" en la tarjeta, en vez
+del cambio instantáneo de texto/color que tenía antes.
+
+- HTML: se envolvió el ícono + body en un nuevo contenedor
+  .cuota-actual-card__inner (id cuotaActualInner), que es lo único que
+  se anima — el chevron queda fuera y no se mueve.
+- CSS: .cuota-actual-card ahora tiene overflow:hidden (para que el
+  contenido no se salga de la tarjeta durante la animación). 4 clases
+  de animación nuevas (slide-out-left/right, slide-in-left/right) con
+  sus @keyframes — 220-240ms, translateX ±32px + fade. Se respeta
+  prefers-reduced-motion (desactiva la animación sin romper el cambio
+  de contenido).
+- JS: onCurrentInstallmentClick() ahora, en vez de llamar
+  updateCuotaActualCard() directo, dispara la secuencia:
+  1) el inner sale deslizándose — hacia la izquierda si se avanza a
+     "Próxima cuota", hacia la derecha si se vuelve a "Cuota actual"
+     (misma lógica que decide _cuotaCardModoManual, sin duplicarla);
+  2) al terminar la salida (220ms), se llama updateCuotaActualCard()
+     como siempre (mismo dato, misma lógica de cálculo — no se tocó);
+  3) el inner entra deslizándose desde el lado opuesto al que salió,
+     completando el efecto de scroll continuo entre ambos estados.
+  Hay un guard simple contra doble-tap durante la animación (ignora
+  clicks mientras el inner está en clase slide-out-*).
+
+No se modificó ningún dato, cálculo ni la lógica de disponibilidad de
+UTM próxima — es puramente una animación sobre el toggle ya existente
+(corregido en v2.0718.0330).
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0330 · 2026-07-18]
+index.html
+
+DOS BUGS CORREGIDOS en el comportamiento de toggle de la tarjeta
+"Cuota actual / Próxima cuota":
+
+1. La app arrancaba mostrando "Próxima cuota" por defecto en vez de
+   "Cuota actual" apenas la UTM del mes siguiente estaba disponible
+   (que ahora es siempre, desde el hardcode de agosto en v2.0718.0300).
+   Causa: updateCuotaActualCard() usaba `proxDisponible` como fallback
+   de `usarProxima` cuando _cuotaCardModoManual era null (sin
+   preferencia del usuario) — es decir, el criterio automático
+   heredado del diseño original (antes de que existiera el toggle
+   manual) seguía activo. Fix: ahora usarProxima solo es true cuando
+   el usuario tocó la tarjeta y quedó en modo "próxima"
+   (_cuotaCardModoManual === true) — el estado inicial siempre es
+   "Cuota actual", sin excepciones.
+
+2. El toggle no volvía de "Próxima cuota" a "Cuota actual" al tocar
+   la tarjeta una segunda vez. Causa: onCurrentInstallmentClick()
+   comparaba el texto del label contra el string viejo 'Tu próxima
+   cuota es', que ya no existe desde que el label se simplificó a
+   'Próxima cuota' en v2.0718.0225 — la comparación siempre daba
+   false, por lo que _cuotaCardModoManual quedaba fijo en true tras
+   el primer toque. Fix: se actualizó la comparación al texto actual.
+
+Comportamiento resultante: la tarjeta siempre abre en "Cuota actual"
+(azul); tocarla conmuta a "Próxima cuota" (verde) si la UTM del mes
+siguiente ya está disponible; tocarla de nuevo vuelve a "Cuota
+actual". Si no hay UTM próxima disponible, el toque muestra el toast
+informativo y no conmuta (comportamiento sin cambios).
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0315 · 2026-07-18]
+index.html, styles.css
+
+NUEVO: la tarjeta "Cuota actual / Próxima cuota" ahora cambia de color
+cuando muestra "Próxima cuota", para diferenciarla de un vistazo del
+estado "Cuota actual" (antes ambos estados usaban el mismo azul
+#60A5FA, solo cambiaba el texto).
+
+- Nueva clase modificadora .cuota-actual-card--proxima en styles.css:
+  cambia borde a #DCFCE7 (verde suave), e ícono + título + monto a
+  #22C55E (verde). La línea meta (utm + vencimiento) y el chevron se
+  mantienen neutros a propósito, para no sobrecargar visualmente.
+  Mismos tamaños/layout de siempre — solo color.
+- updateCuotaActualCard() ahora hace
+  card.classList.toggle('cuota-actual-card--proxima', usarProxima)
+  junto con el cambio de texto del label, así ambos quedan siempre
+  sincronizados sin lógica duplicada.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0300 · 2026-07-18]
+index.html
+
+SEGUNDO BUG CRÍTICO CORREGIDO en fetchUTM() — sigue la misma familia
+del bug de v2.0718.0210 (ReferenceError silencioso en la invalidación
+de caché), pero en un lugar distinto: el caché CENTRALIZADO DE
+SUPABASE (paso 2, tabla cmf_cache, id fijo 'utm', COMPARTIDO por todos
+los usuarios de la app) no tenía ninguna verificación de "¿el mes
+siguiente ya está incluido?" — solo validaba el TTL de 28 días. Como
+ese paso hace `return` apenas encuentra un caché válido por TTL, si el
+caché de Supabase fue escrito ANTES de que la CMF/SII publicara agosto
+(por cualquier usuario, en cualquier momento), TODOS los usuarios
+quedaban bloqueados leyendo ese caché desactualizado — nunca llegaban
+al paso 3 (llamada real a la CMF) hasta que ese caché venciera a los
+28 días. Esto explica por qué, incluso después del fix de
+v2.0718.0210 (que solo cubría localStorage), el botón de la tarjeta
+seguía mostrando el toast "UTM del próximo mes aún no publicada".
+
+Fix: se replicó en el paso Supabase el mismo chequeo que ya tenía
+localStorage — si estamos a partir del día 10 del mes y el mes
+siguiente no viene con v>0 en el payload de Supabase, ese caché se
+descarta como "no definitivo" y el flujo continúa al paso 3 (CMF),
+en vez de retornar inmediatamente.
+
+DATO CONFIRMADO: la UTM de agosto 2026 es $71.649 — igual a julio,
+porque el IPC de junio 2026 fue 0,0% (la UTM se calcula con dos meses
+de desfase respecto al IPC). Confirmado por el usuario con fuente SII
+(circular N° 29). Se actualizó el hardcode UTM_2026 con este valor en
+la posición de agosto (antes en 0/pendiente), para que la app lo tenga
+disponible de inmediato sin depender de que el fetch a la CMF tenga
+éxito — sigue siendo compatible con fetchUTM(), que solo sobreescribe
+entradas en 0.
+
+Con ambos fixes (localStorage v2.0718.0210 + Supabase v2.0718.0300 +
+hardcode de agosto), la tarjeta "Cuota actual / Próxima cuota" debería
+conmutar correctamente a "Próxima cuota" con el valor $71.649 al
+recargar la app.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0240 · 2026-07-18]
+styles.css
+
+FIX de espaciado en la línea meta de la tarjeta "Cuota actual / Próxima
+cuota": "2,33 utm" y "Vence el 5 de agosto" aparecían pegados sin
+espacio ("2,33 utmVence el 5 de agosto"), porque el separador " • "
+estaba en un ::after de solo espacios que el navegador colapsaba.
+
+Fix: .cuota-actual-card__meta ahora es flex con align-items:center;
+el punto separador (#cuotaActualUtm::after) se mantiene como contenido
+generado pero con margin:0 6px explícito en vez de espacios dentro del
+content, y color #CBD5E1 (bullet sutil, no compite con el texto). No se
+tocó ningún tamaño de fuente ni el HTML/JS — es un fix puramente de
+CSS de espaciado.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0225 · 2026-07-18]
+index.html, styles.css
+
+REDISEÑO de la tarjeta "Cuota actual / Próxima cuota" hacia un estilo
+minimalista tipo banking app, siguiendo spec del usuario — SIN cambiar
+ninguna dimensión existente (se preservaron todos los tamaños que la
+tarjeta ya tenía: altura 86px, padding 14px/18px, ícono 22px, label
+14px, monto 20px, chevron 22px; se agregó la línea de meta a 13px,
+consistente con el __due anterior que reemplaza).
+
+Cambios de CONTENIDO/COLOR (no de tamaño):
+- Título: "Tu cuota actual es" / "Tu próxima cuota es" → "Cuota actual"
+  / "Próxima cuota". Color cambiado a #60A5FA.
+- Monto: ya no muestra "2,33 UTM = $166.942"; ahora solo el monto en
+  pesos ("$166.942"), sin "=" ni unidad UTM. Color #60A5FA (ya estaba
+  desde v2.0718.0155).
+- Nueva línea única debajo del monto, combinando lo que antes eran dos
+  elementos separados (utm + vencimiento): "2,33 utm • Vence el 5 de
+  agosto" — "utm" siempre en minúsculas, separador " • " vía CSS
+  ::after sobre #cuotaActualUtm. Reemplaza al antiguo <p
+  class="cuota-actual-card__due">; ahora es <p
+  class="cuota-actual-card__meta"> con dos <span> internos
+  (#cuotaActualUtm, #cuotaActualDue).
+- Ícono: mismo tamaño (22px), cambiado a un trazo tipo wallet (rect +
+  línea + círculo del "chip"), color #60A5FA.
+- Borde de la tarjeta: #E7EEF8 → #EAF2FF.
+- Chevron: color explícito #94A3B8 (antes heredaba currentColor).
+
+Ningún dato es hardcodeado: el monto sigue calculándose 100% desde
+getMonthlyValues() (cuota en UTM) y utmData/getUtmActualVal() (valor
+UTM correspondiente, actual o próxima), igual que antes. La detección
+de "próxima UTM disponible" sigue siendo la misma de fetchUTM()
+(corregida en v2.0718.0210) — no se duplicó ni se agregó ninguna
+consulta nueva a la CMF.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0210 · 2026-07-18]
+index.html
+
+BUG CRÍTICO CORREGIDO en fetchUTM(): la UTM del mes siguiente nunca se
+detectaba como publicada, aunque la CMF/SII ya la tuviera disponible
+(confirmado con fuentes externas: SII publica dentro de los primeros
+10 días de cada mes tanto el valor vigente como el del mes siguiente —
+agosto 2026 debía estar disponible desde inicios de julio).
+
+Causa raíz: las constantes _hoyParaFetch, _anioActual y _diaActual se
+usaban en el bloque "Invalidación anticipada de caché por publicación
+UTM mes siguiente" (que decide si hay que descartar el caché local y
+volver a consultar la CMF), pero se declaraban ~90 líneas más abajo en
+la misma función, en el bloque "Auto-fetch mes siguiente". Al ser
+`const`, cualquier acceso antes de su declaración cae en temporal dead
+zone y lanza ReferenceError — error que quedaba atrapado en silencio
+por el try/catch vacío que rodeaba el bloque de invalidación. Efecto
+práctico: la condición "si no tengo el mes siguiente en caché, forzar
+CMF" JAMÁS se ejecutaba, y la app dependía exclusivamente del TTL de
+28 días del caché de localStorage/Supabase para eventualmente refrescar
+— lo que podía demorar semanas en capturar un valor ya publicado, y
+explica por qué la tarjeta "Cuota actual / Próxima cuota" seguía
+mostrando "Tu cuota actual es" en vez de conmutar sola a "Tu próxima
+cuota es" pese a que la UTM de agosto ya estaba disponible.
+
+Fix: se movieron las 3 declaraciones (_hoyParaFetch, _anioActual,
+_diaActual) al inicio del bloque, antes de su primer uso, y se eliminó
+la declaración duplicada que quedaba más abajo. No se tocó ninguna otra
+lógica de fetchUTM() ni el hardcode de utmData — el fix es puramente de
+orden de declaración. Con esto, la próxima vez que se abra la app,
+fetchUTM() debería detectar correctamente que agosto no estaba en
+caché, invalidar localStorage, y volver a consultar la CMF — trayendo
+el valor real de agosto (a confirmar en pantalla una vez recargada la
+app; no se hardcodeó ningún valor de agosto en el código, ya que la
+única fuente confiable es la API en vivo).
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0155 · 2026-07-18]
+index.html, styles.css
+
+CORRECCIÓN de v2.0718.0126 — el pedido original era achicar y aclarar el
+color del MONTO ("2,33 UTM = $166.942"), no del label superior ("Tu
+cuota actual es"). Se revirtió el label a su tamaño/color original y se
+aplicó el cambio al monto:
+
+- .cuota-actual-card__label: vuelve a 14px / #2563EB (como en
+  v2.0717.1100).
+- .cuota-actual-card__amount: reducido de 24px a 20px, color cambiado
+  de #1E40AF a #60A5FA (azul más claro).
+
+FEEDBACK al tocar la tarjeta sin UTM próxima disponible: antes el toque
+no hacía nada visible cuando utmData todavía no tenía el mes siguiente
+cargado (ej. si la CMF aún no publica la UTM de agosto), lo cual podía
+parecer que el toggle estaba roto. Ahora onCurrentInstallmentClick()
+muestra un toast breve ("UTM del próximo mes aún no publicada")
+reutilizando showAuthToast() ya existente en la app — no se crea un
+componente de notificación nuevo. El comportamiento del toggle en sí
+(alternar cuota actual/próxima) no cambió: sigue sin hacer nada cuando
+no hay dato de la UTM próxima, solo que ahora se lo comunica al
+usuario.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0126 · 2026-07-18]
+index.html, styles.css
+
+AJUSTE VISUAL + NUEVA INTERACCIÓN en la tarjeta "Cuota actual / Próxima
+cuota" (introducida en v2.0717.1100):
+
+1. Texto "Tu cuota actual es" / "Tu próxima cuota es" (label superior):
+   - Tamaño reducido de 14px a 12px.
+   - Color cambiado de azul #2563EB a azul más claro #93C5FD.
+   (styles.css, .cuota-actual-card__label)
+
+2. La tarjeta ahora permite ALTERNAR manualmente entre "cuota actual" y
+   "próxima cuota" al tocarla, en vez de solo hacer scroll a "Datos de
+   la pensión" (comportamiento anterior). Se agregó el estado
+   _cuotaCardModoManual (null = sin preferencia, usa el criterio
+   automático existente de disponibilidad de UTM próxima; true/false =
+   forzado por el usuario al tocar la tarjeta). updateCuotaActualCard()
+   ahora respeta ese estado al decidir qué UTM y qué label mostrar.
+   onCurrentInstallmentClick() ya no hace scroll: ahora alterna el modo
+   y vuelve a renderizar la tarjeta. Si no hay UTM próxima cargada
+   todavía (proxDisponible = false), el toque no hace nada, ya que no
+   hay nada que conmutar.
+   (index.html, funciones updateCuotaActualCard() y
+   onCurrentInstallmentClick())
+
+Sin cambios en la lógica de cálculo de cuotas, UTM ni en ningún otro
+módulo de la app.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0717.1100 · 2026-07-17]
+index.html, styles.css, export.js
+
+NUEVA FUNCIÓN: tarjeta "Cuota actual / Próxima cuota", ubicada entre la
+sección "¿Cómo deseas calcular?" y la tarjeta "Datos de la pensión".
+100% datos dinámicos, sin valores hardcodeados — reutiliza lógica ya
+existente, no duplica nada:
+
+- Cuota en UTM: getMonthlyValues() (misma fuente que usa el resto de la
+  app para la cuota mensual configurada).
+- Valor UTM: utmData / getUtmActualVal(), con el mismo criterio
+  "actual vs. próxima" que ya usa renderUtmTicker() — si la UTM del mes
+  siguiente ya está publicada (utmData con v>0), la tarjeta cambia sola
+  el título a "Tu próxima cuota es" y muestra el monto con esa UTM.
+- Formato de pesos: format() (mismo separador de miles que el resto
+  de la app).
+- Día de vencimiento: se lee de la ficha del caso activo (diaPago,
+  guardado en getCasosIndex()); si no está configurado o no es un
+  número válido, usa 5 por defecto. Texto: "Vence el {día} de {mes}",
+  con el mes calculado según si el día ya pasó este mes o no.
+
+Actualización automática: nueva función updateCuotaActualCard(), llamada
+al final de calculate() (cubre cambios de cuota UTM, casos, sesión) y al
+final de renderUtmTicker() (cubre cambios de valor UTM, tanto al cargar
+localmente como al llegar datos nuevos de la CMF). También se llama tras
+guardarFichaEdicion() en export.js, para reflejar cambios de diaPago sin
+recargar. No se agregó ninguna consulta nueva a la CMF — la detección
+de "próxima UTM disponible" ya la hacía fetchUTM() (invalidación de
+caché desde el día 10 de cada mes, ver línea ~2702 de index.html).
+
+Comportamiento: la tarjeta se oculta automáticamente si no hay una
+cuota mensual configurada (cuotaMensualUTM = 0), en vez de mostrar
+"0,00 UTM = $0". Al tocarla, ejecuta onCurrentInstallmentClick(), que
+reutiliza el mismo toggleSection() de la tarjeta "Datos de la pensión"
+para abrirla (si está colapsada) y hace scroll hasta ella — es un
+supuesto razonable dado que la especificación no definía la acción de
+destino; fácil de cambiar si se requiere otro comportamiento.
+
+Estilos: nuevo bloque .cuota-actual-card en styles.css (86px alto,
+radio 18px, fondo blanco, borde 1px #E7EEF8, sombra var(--shadow-card)
+ya usada por el resto de las tarjetas). Sin margin horizontal propio:
+al vivir directo dentro de #mainInputs, hereda el mismo ancho/alineación
+que sus tarjetas hermanas (.calc-mode-section, .dp-card) automáticamente.
+Tampoco lleva margin vertical propio — el espaciado entre tarjetas ya lo
+da el gap/space-y de #mainInputs, agregar uno propio hubiera duplicado
+el espacio.
+
+[v2.0717.1000 · 2026-07-17]
+sw.js
+
+FIX OFFLINE: la app "no cargaba la interfaz" sin internet. Causa raíz —
+dos bugs en el service worker:
+
+1. BUG GRAVE: activate() borraba TODAS las cachés sin filtrar (incluida la
+   recién creada por install() con el mismo CACHE_NAME). Como el proyecto
+   sube versión nueva casi en cada sesión de trabajo, esto vaciaba la
+   caché offline en casi cada actualización — si el usuario abría la app
+   sin red poco después de un deploy, no había nada cacheado para servir.
+   Fix: activate() ahora solo borra cachés con nombre DISTINTO al
+   CACHE_NAME vigente (keys.filter(k => k !== CACHE_NAME)).
+
+2. Tailwind (cdn.tailwindcss.com), jsPDF/autotable (cdnjs.cloudflare.com)
+   y el cliente de Supabase (cdn.jsdelivr.net) estaban en NETWORK_ONLY —
+   nunca se cacheaban. Sin red, esos <script src> fallaban y
+   `supabase.createClient(...)` (línea ~7550 de index.html, sin try/catch)
+   tiraba una excepción no capturada que cortaba la ejecución del resto
+   del script inline, incluida la definición de funciones usadas en toda
+   la app. Fix: se sacaron esos 3 hosts de NETWORK_ONLY y se agregó
+   CDN_CACHE_HOSTS con cacheo de sus respuestas opacas (no-cors) — son
+   URLs versionadas/inmutables, cachearlas es seguro.
+
+3. Se agregó precache explícito en install() (index.html, export.js,
+   styles.css, manifest.json + los 4 scripts CDN) para que la app quede
+   lista offline apenas se instala la nueva versión, sin depender 100%
+   del cacheo reactivo de sesiones anteriores.
+
+NO SE TOCÓ: la lógica de casos ya era "local-first" (saveSession() escribe
+en localStorage como fuente de verdad; sbSaveCaso()/sbLoadCasos() sincronizan
+con Supabase en segundo plano con timeout de 6s y try/catch) — eso ya
+funcionaba bien offline y sincroniza solo al volver la conexión. El único
+problema real era que la interfaz ni siquiera lograba renderizarse.
+
+[v2.0717.0900 · 2026-07-17]
+index.html, styles.css
+
+Tres correcciones de bugs reportados por el usuario:
+
+1. BUG: Deuda Histórica se perdía al ingresar Cuota Mensual en la tarjeta
+   Depósitos LAV. En calculate(), cuando había depósitos LAV + cuota mensual
+   sin "período actual" seleccionado, se activaba "modo libre LAV"
+   (_modoLibreLAV), y esa rama pisaba resHistorical directamente con
+   { capital:0, intereses:0, capitalUTM:0, detalles:[] } sin importar si
+   había consolidadaData o historicalDebts registrados. Fix: resHistorical
+   ahora se calcula SIEMPRE de forma independiente al modo libre LAV
+   (calculateConsolidada()/calculateHistoricalDebt() ya devuelven ceros
+   seguros cuando no hay datos, así que llamarlas incondicionalmente es
+   seguro). Afecta ~línea 5452 de index.html.
+
+2. BUG: no se podía ingresar coma decimal en "Monto de la cuota (UTM)"
+   (#utmAmount) ni en "Monto mensual en UTM (cuota)" de Deuda Histórica
+   (#historicalDebtUtm) — el teclado numérico de tablet/móvil con
+   inputmode="decimal" solo ofrece el punto ".", no la coma ",". Fix:
+   nueva función saneaUtmDecimalInput() (mismo patrón que
+   dupFormatCuotaMensualInput() ya existente en la app) que convierte
+   punto → coma en tiempo real, aplicada en oninput de ambos campos.
+   Placeholder de #historicalDebtUtm corregido de "0.00" a "0,00" para
+   consistencia con el resto de los campos UTM de la app.
+
+3. BUG: overlay "Resumen de liquidación" se veía cortado/con la app de
+   fondo asomando, notorio en tablet. Causa: la regla CSS global
+   [id$="Modal"].fixed { background: rgba(26,29,46,0.45) !important; }
+   (pensada para modales tipo backdrop+tarjeta centrada) también
+   capturaba a #resumenModal, que es un panel de pantalla completa
+   (no backdrop). Su fondo blanco sólido quedaba reemplazado por uno
+   negro translúcido, dejando ver el contenido de la app detrás. Fix:
+   excluido #resumenModal de ese selector con :not(#resumenModal) y
+   agregada regla específica #resumenModal.fixed { background:#ffffff
+   !important; }.
+
 [v2.0717.0803 · 2026-07-17]
 export.js, modals.html
 

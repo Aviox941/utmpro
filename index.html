@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0717.0803">
+ <meta name="app-version" content="v2.0718.0345">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1437,6 +1437,31 @@ window.addEventListener('popstate', function() {
     </section>
     <!-- /Sección "¿Cómo deseas calcular?" -->
 
+    <!-- ══════════════════════════════════════════════════════════
+         Tarjeta "Cuota actual / Próxima cuota". 100% datos dinámicos:
+         reutiliza getMonthlyValues() (cuota UTM configurada) +
+         utmData/getUtmActualVal() (valor UTM vigente/próxima) + el
+         diaPago de la ficha del caso activo (getCasosIndex()). Se
+         actualiza vía updateCuotaActualCard(), llamada al final de
+         calculate() y de renderUtmTicker() — no agrega nueva lógica
+         de cálculo ni de consulta UTM, solo lee lo ya existente.
+         Ver JS: función updateCuotaActualCard().
+         ══════════════════════════════════════════════════════════ -->
+    <button type="button" id="cuotaActualCard" class="cuota-actual-card" style="display:none;" onclick="onCurrentInstallmentClick()" aria-label="Ver cuota actual o próxima cuota">
+      <div class="cuota-actual-card__inner" id="cuotaActualInner">
+        <div class="cuota-actual-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><circle cx="16.5" cy="15" r="1.4" fill="#60A5FA" stroke="none"/></svg>
+        </div>
+        <div class="cuota-actual-card__body">
+          <p class="cuota-actual-card__label" id="cuotaActualLabel">Cuota actual</p>
+          <p class="cuota-actual-card__amount" id="cuotaActualAmount">—</p>
+          <p class="cuota-actual-card__meta"><span id="cuotaActualUtm"></span><span id="cuotaActualDue"></span></p>
+        </div>
+      </div>
+      <svg class="cuota-actual-card__chevron" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <!-- /Tarjeta "Cuota actual / Próxima cuota" -->
+
  <div class="dh-card dp-card" style="position:relative;overflow:visible;">
 
   <!-- Hidden select keeps existing JS working -->
@@ -1791,8 +1816,8 @@ window.addEventListener('popstate', function() {
       <div class="dh-section">
         <div style="margin-bottom:10px">
           <label class="input-label input-label--plain">Monto mensual en UTM (cuota)</label>
-          <input type="text" id="historicalDebtUtm" placeholder="0.00" inputmode="decimal"
-            oninput="checkHistReady(); tryRegisterHistorical();" class="input-number">
+          <input type="text" id="historicalDebtUtm" placeholder="0,00" inputmode="decimal"
+            oninput="saneaUtmDecimalInput(this); checkHistReady(); tryRegisterHistorical();" class="input-number">
           <div id="histUtmPeriodChip" class="hidden items-center gap-1 mt-1 px-2 py-1 rounded-lg" style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.14);">
             <span style="font-size:9px;font-weight:700;color:#c2410c;" id="histUtmPeriodChipText">—</span>
           </div>
@@ -2668,7 +2693,11 @@ function cargarUTMLocal() {
 // Los ceros son omitidos por cargarUTMLocal y sobreescritos por fetchUTM.
 // NO reemplazar un 0 por un valor estimado: fetchUTM solo puede actualizar
 // entradas con v===0 o ausentes. Un valor positivo hardcodeado bloquea la API.
-const UTM_2026 = [69751, 69611, 69889, 69889, 70588, 71506, 71649, 0, 0, 0, 0, 0];
+// Agosto 2026 confirmado en $71.649 (igual a julio) — IPC de junio 2026
+// fue 0,0%, por lo que la UTM no varía mes a mes por el desfase legal
+// (UTM del mes N se calcula con el IPC de N-2). Fuente: SII, publicado
+// dentro de los primeros 10 días de julio 2026.
+const UTM_2026 = [69751, 69611, 69889, 69889, 70588, 71506, 71649, 71649, 0, 0, 0, 0];
 const UTM_2027 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const UTM_2028 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const UTM_2029 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -2704,6 +2733,15 @@ const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
 // datos pero el mes siguiente aún no está en utmData, lo invalidamos para
 // forzar un re-fetch a CMF — aunque el caché no haya vencido aún.
 // Así, el día que la CMF publica, la próxima apertura de la app lo captura.
+// FIX v2.0718: estas 3 constantes se declaraban ~90 líneas más abajo (antes
+// de aniosAConsultar) pero se usaban aquí arriba. Al ser `const`, el acceso
+// caía en temporal dead zone → ReferenceError silencioso, atrapado por el
+// try/catch vacío de abajo, que impedía SIEMPRE la invalidación del caché
+// aunque la CMF ya tuviera publicado el mes siguiente. Se movieron acá para
+// que existan antes de su primer uso.
+const _hoyParaFetch = new Date();
+const _anioActual = _hoyParaFetch.getFullYear();
+const _diaActual = _hoyParaFetch.getDate();
 try {
   if (_diaActual >= 10) {
     const _proxMesAbs = _anioActual * 12 + _hoyParaFetch.getMonth() + 1; // mes sig (0-based total)
@@ -2748,6 +2786,14 @@ try {
 
 // 2. Intentar caché centralizado de Supabase
 // (evita llamadas a CMF si otro usuario ya actualizó recientemente)
+// FIX v2.0718: este caché es GLOBAL/compartido entre todos los usuarios
+// (id fijo 'utm' en cmf_cache) y antes solo validaba TTL (28 días), sin
+// chequear si el mes siguiente ya estaba incluido. Como retornaba
+// (`return`) apenas encontraba CUALQUIER dato válido por TTL, un caché
+// de Supabase escrito antes de que la CMF publicara el mes siguiente
+// bloqueaba el fetch a la CMF indefinidamente (hasta que ese caché
+// venciera a los 28 días) — el mismo bug que ya se corrigió para
+// localStorage en v2.0718.0210, pero que faltaba replicar acá.
 dbg('UTM[5] intentando sbGetUtmCache...');
 if (typeof sbGetUtmCache === 'function') {
   try {
@@ -2764,13 +2810,25 @@ if (typeof sbGetUtmCache === 'function') {
         }
       });
       utmData.sort((a, b) => a.sortKey - b.sortKey);
-      try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: sbValores })); } catch(e) {}
-      renderUtmTicker();
-      dbg('UTM[7] _utmReady resuelto via Supabase — utmData.length=' + utmData.length);
-      _utmReadyResolve();
-      return;
+      // Mismo chequeo que la invalidación anticipada de localStorage:
+      // si el mes siguiente sigue sin dato (v>0) desde el día 10 en
+      // adelante, este caché de Supabase está desactualizado — no lo
+      // uses como definitivo, seguí a la CMF en el paso 3.
+      const _proxMesAbsSb = _anioActual * 12 + _hoyParaFetch.getMonth() + 1;
+      const _proxYSb = Math.floor(_proxMesAbsSb / 12);
+      const _proxMSb = _proxMesAbsSb % 12;
+      const _tieneProxMesSb = utmData.some(d => d.y === _proxYSb && d.monthIdx === _proxMSb && d.v > 0);
+      if (_diaActual >= 10 && !_tieneProxMesSb) {
+        dbg('UTM[6b] caché Supabase sin mes siguiente (' + monthsNames[_proxMSb] + ' ' + _proxYSb + ') — no se usa como definitivo, continuando a CMF');
+      } else {
+        try { localStorage.setItem(UTM_CACHE_KEY, JSON.stringify({ ts: Date.now(), valores: sbValores })); } catch(e) {}
+        renderUtmTicker();
+        dbg('UTM[7] _utmReady resuelto via Supabase — utmData.length=' + utmData.length);
+        _utmReadyResolve();
+        return;
+      }
     } else {
-      dbg('UTM[6b] sbGetUtmCache vacio — continuando a CMF');
+      dbg('UTM[6c] sbGetUtmCache vacio — continuando a CMF');
     }
   } catch(e) { dbg('UTM[6e] sbGetUtmCache ERROR: ' + e.message); }
 } else {
@@ -2788,9 +2846,8 @@ dbg('UTM[8] bloque CMF — todosLosAnios keys=' + Object.keys(todosLosAnios).joi
 // Si el caché localStorage/Supabase ya tiene el mes siguiente con v>0,
 // el paso 1/2 lo habrá resuelto antes de llegar acá; este código solo corre
 // cuando el caché está vacío o vencido, que es exactamente cuando queremos refrescar.
-const _hoyParaFetch = new Date();
-const _anioActual = _hoyParaFetch.getFullYear();
-const _diaActual = _hoyParaFetch.getDate();
+// (_hoyParaFetch/_anioActual/_diaActual ya declaradas más arriba, junto al
+// bloque de invalidación de caché — ver fix v2.0718)
 const _aniosExtra = new Set();
 // Siempre incluir el año actual para capturar meses recién publicados
 _aniosExtra.add(_anioActual);
@@ -4831,6 +4888,7 @@ document.getElementById('utmActualVal').innerText = format(actualEntry.v);
 // tarjeta Próximo Mes eliminada (visual)
 document.getElementById('utmTicker').classList.remove('hidden');
 document.getElementById('utmTicker').style.display = 'flex';
+if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
 }
 // ── Chip UTM período inicio (pensiones mensuales + deuda histórica) ──
 function updateUtmPeriodChips() {
@@ -4889,7 +4947,21 @@ calculate();
 function updateClpHistoricoChip() {
 // chip eliminado del diseño
 }
+// Saneo de campos UTM en formato chileno (coma decimal). El teclado numérico
+// de muchos dispositivos móviles/tablet solo ofrece el punto "." — este
+// saneo lo convierte a coma "," en tiempo real para que el usuario nunca
+// quede bloqueado sin poder ingresar el decimal. Mismo patrón que
+// dupFormatCuotaMensualInput()/dupFormatMontoInput().
+function saneaUtmDecimalInput(input) {
+  var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+  var partes = raw.split(',');
+  if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+  var p2 = raw.split(',');
+  if (p2[1] && p2[1].length > 3) raw = p2[0] + ',' + p2[1].slice(0, 3);
+  input.value = raw;
+}
 function updateFromUtm() {
+saneaUtmDecimalInput(document.getElementById('utmAmount'));
 const utm = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 const startItem = startIndex !== -1 ? utmData[startIndex] : null;
 const utmRef = (startItem && startItem.v > 0) ? startItem.v : getUtmActualVal();
@@ -4925,6 +4997,117 @@ cuotaMensualUTM = cuotaMensualCLP / utmActual;
 modoEsPesos = true; // % sueldo es monto en pesos, pero sigue usando TIC reajustable única
 }
 return { cuotaMensualCLP, cuotaMensualUTM, modoEsPesos };
+}
+
+// ── Tarjeta "Cuota actual / Próxima cuota" ──────────────────────────────────
+// No duplica lógica de cálculo: reutiliza getMonthlyValues() para la cuota en
+// UTM configurada, utmData/getUtmActualVal() para el valor UTM (mismo patrón
+// de "actual vs. próxima" que ya usa renderUtmTicker()), format() para el
+// formato de pesos con separador de miles chileno, y getCasosIndex() para
+// leer el diaPago de la ficha del caso activo. Se llama desde el final de
+// calculate() y de renderUtmTicker() — cualquier cambio en la cuota UTM, el
+// valor UTM (actual o próxima), el diaPago o la fecha del sistema dispara
+// automáticamente uno de esos dos y por lo tanto refresca esta tarjeta.
+const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+// Estado del toggle manual de la tarjeta "Cuota actual / Próxima cuota".
+// null = sin preferencia del usuario (usa el criterio automático de
+// disponibilidad de UTM próxima); true/false = forzado por el usuario
+// al tocar la tarjeta, hasta que vuelva a tocarla.
+let _cuotaCardModoManual = null;
+function updateCuotaActualCard() {
+  const card = document.getElementById('cuotaActualCard');
+  if (!card) return;
+  try {
+    const { cuotaMensualUTM } = getMonthlyValues();
+    if (!(cuotaMensualUTM > 0)) { card.style.display = 'none'; return; }
+
+    // Valor UTM: actual vs. próxima (mismo criterio que renderUtmTicker()).
+    const now = new Date();
+    const currentMonthKey = now.getFullYear() * 100 + now.getMonth();
+    const actualEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= currentMonthKey) || utmData[0];
+    const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
+    const proxDisponible = !!(proxEntry && proxEntry.v > 0);
+    // Por defecto SIEMPRE se muestra "Cuota actual" al cargar la app,
+    // sin importar si ya existe la UTM del mes siguiente. El único modo
+    // de ver "Próxima cuota" es tocando la tarjeta (toggle manual, ver
+    // onCurrentInstallmentClick()). _cuotaCardModoManual === null medio
+    // "sin preferencia todavía" → usarProxima = false; true/false una
+    // vez que el usuario tocó la tarjeta al menos una vez.
+    const usarProxima = (_cuotaCardModoManual === true) && proxDisponible;
+    const utmEntry = usarProxima ? proxEntry : actualEntry;
+    const utmVal = (utmEntry && utmEntry.v > 0) ? utmEntry.v : getUtmActualVal();
+
+    const montoCLP = Math.round(cuotaMensualUTM * utmVal);
+    const cuotaTexto = cuotaMensualUTM.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    document.getElementById('cuotaActualLabel').textContent = usarProxima ? 'Próxima cuota' : 'Cuota actual';
+    card.classList.toggle('cuota-actual-card--proxima', usarProxima);
+    document.getElementById('cuotaActualAmount').textContent = format(montoCLP);
+    document.getElementById('cuotaActualUtm').textContent = `${cuotaTexto} utm`;
+
+    // Día de vencimiento: desde la ficha del caso activo (Datos de la
+    // pensión → diaPago). Default 5 si no está configurado o no es numérico.
+    let diaPago = 5;
+    try {
+      if (typeof getCasosIndex === 'function' && typeof activeCasoId !== 'undefined' && activeCasoId) {
+        const casoActivo = getCasosIndex().find(c => c.id === activeCasoId);
+        const diaPagoNum = parseInt(casoActivo && casoActivo.diaPago, 10);
+        if (diaPagoNum >= 1 && diaPagoNum <= 31) diaPago = diaPagoNum;
+      }
+    } catch(e) {}
+
+    // Próximo vencimiento: este mes si el día aún no pasó, si no, el que viene.
+    const vence = (now.getDate() <= diaPago)
+      ? new Date(now.getFullYear(), now.getMonth(), diaPago)
+      : new Date(now.getFullYear(), now.getMonth() + 1, diaPago);
+    document.getElementById('cuotaActualDue').textContent = `Vence el ${diaPago} de ${MESES_LARGOS[vence.getMonth()]}`;
+
+    card.style.display = 'flex';
+  } catch(e) {
+    dbg && dbg('cuotaActualCard: error — ' + e.message);
+  }
+}
+// Al tocar la tarjeta, alterna entre "Tu cuota actual es" y
+// "Tu próxima cuota es". El estado se guarda en _cuotaCardModoManual y
+// se aplica en updateCuotaActualCard(). Si no hay UTM próxima cargada
+// todavía, no hay nada que alternar y se ignora el toque.
+function onCurrentInstallmentClick() {
+  const now = new Date();
+  const currentMonthKey = now.getFullYear() * 100 + now.getMonth();
+  const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
+  const proxDisponible = !!(proxEntry && proxEntry.v > 0);
+  if (!proxDisponible) {
+    if (typeof showAuthToast === 'function') {
+      showAuthToast('UTM del próximo mes aún no publicada');
+    }
+    return; // nada que conmutar
+  }
+
+  const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Próxima cuota';
+  const vaAProxima = !estaEnProxima; // dirección del cambio: false = volviendo a "actual"
+  _cuotaCardModoManual = vaAProxima;
+
+  const inner = document.getElementById('cuotaActualInner');
+  if (inner && !inner.classList.contains('cuota-actual-card__inner--slide-out-left') &&
+      !inner.classList.contains('cuota-actual-card__inner--slide-out-right')) {
+    // Salida: si avanzamos a "próxima", la tarjeta actual sale por la
+    // izquierda (como pasar de página hacia adelante); si volvemos a
+    // "actual", sale por la derecha (retrocediendo).
+    inner.classList.remove('cuota-actual-card__inner--slide-in-left', 'cuota-actual-card__inner--slide-in-right');
+    inner.classList.add(vaAProxima ? 'cuota-actual-card__inner--slide-out-left' : 'cuota-actual-card__inner--slide-out-right');
+    setTimeout(() => {
+      updateCuotaActualCard();
+      inner.classList.remove('cuota-actual-card__inner--slide-out-left', 'cuota-actual-card__inner--slide-out-right');
+      // Entrada: el nuevo contenido entra desde el lado opuesto al que
+      // salió el anterior, completando el efecto de "scroll" continuo.
+      inner.classList.add(vaAProxima ? 'cuota-actual-card__inner--slide-in-right' : 'cuota-actual-card__inner--slide-in-left');
+      setTimeout(() => {
+        inner.classList.remove('cuota-actual-card__inner--slide-in-left', 'cuota-actual-card__inner--slide-in-right');
+      }, 260);
+    }, 220);
+  } else {
+    updateCuotaActualCard();
+  }
 }
 function validateDates() {
 const errorEl = document.getElementById('dateError');
@@ -5452,14 +5635,18 @@ const _modoLibreLAV  = _hayLav && (_cuotaParaModoLibre > 0 || _cuotaClpFijaParaM
 let resPensiones, resHistorical;
 if (_modoLibreLAV) {
   resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo, _cuotaClpFijaParaModoLibre);
-  resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
   dbg('CALC: modo libre LAV — ' + (_cuotaClpFijaParaModoLibre > 0 ? 'CLP fijo=$' + _cuotaClpFijaParaModoLibre : 'UTM=' + _cuotaParaModoLibre) + ' (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
 } else {
   resPensiones  = calculatePensiones(aplicarRecargo, hoy);
-  resHistorical = histMode === 'consolidada'
-    ? calculateConsolidada(hoy, aplicarRecargo)
-    : calculateHistoricalDebt(aplicarRecargo, hoy);
 }
+// FIX BUG: la Deuda Histórica (consolidada o recalculable) se calcula SIEMPRE
+// de forma independiente al modo libre LAV. Antes, si _modoLibreLAV estaba
+// activo (LAV + cuota mensual sin período actual), resHistorical se pisaba
+// con ceros aunque el usuario tuviera una deuda histórica registrada, y esta
+// desaparecía del total sin aviso.
+resHistorical = histMode === 'consolidada'
+  ? calculateConsolidada(hoy, aplicarRecargo)
+  : calculateHistoricalDebt(aplicarRecargo, hoy);
 const totalCap    = resPensiones.capital    + resHistorical.capital;
 const totalInt    = resPensiones.intereses  + resHistorical.intereses;
 const totalCapUTM = (resPensiones.capitalUTM || 0) + (resHistorical.capitalUTM || 0);
@@ -5936,6 +6123,7 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
     }
 
   } catch(e) { /* silent */ }
+  updateCuotaActualCard();
 }
 }
 // ── Toggle detalle del cálculo (tarjeta inline) ─────────────────────────────
@@ -7277,7 +7465,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0803</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0345</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
