@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0717.1100">
+ <meta name="app-version" content="v2.0718.0126">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1447,7 +1447,7 @@ window.addEventListener('popstate', function() {
          de cálculo ni de consulta UTM, solo lee lo ya existente.
          Ver JS: función updateCuotaActualCard().
          ══════════════════════════════════════════════════════════ -->
-    <button type="button" id="cuotaActualCard" class="cuota-actual-card" style="display:none;" onclick="onCurrentInstallmentClick()" aria-label="Cuota actual">
+    <button type="button" id="cuotaActualCard" class="cuota-actual-card" style="display:none;" onclick="onCurrentInstallmentClick()" aria-label="Ver cuota actual o próxima cuota">
       <div class="cuota-actual-card__icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       </div>
@@ -4975,6 +4975,11 @@ return { cuotaMensualCLP, cuotaMensualUTM, modoEsPesos };
 // valor UTM (actual o próxima), el diaPago o la fecha del sistema dispara
 // automáticamente uno de esos dos y por lo tanto refresca esta tarjeta.
 const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+// Estado del toggle manual de la tarjeta "Cuota actual / Próxima cuota".
+// null = sin preferencia del usuario (usa el criterio automático de
+// disponibilidad de UTM próxima); true/false = forzado por el usuario
+// al tocar la tarjeta, hasta que vuelva a tocarla.
+let _cuotaCardModoManual = null;
 function updateCuotaActualCard() {
   const card = document.getElementById('cuotaActualCard');
   if (!card) return;
@@ -4987,7 +4992,12 @@ function updateCuotaActualCard() {
     const currentMonthKey = now.getFullYear() * 100 + now.getMonth();
     const actualEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= currentMonthKey) || utmData[0];
     const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
-    const usarProxima = !!(proxEntry && proxEntry.v > 0);
+    const proxDisponible = !!(proxEntry && proxEntry.v > 0);
+    // Si el usuario forzó un modo manualmente, se respeta (pero no se
+    // puede mostrar "próxima" si no hay UTM próxima disponible).
+    const usarProxima = (_cuotaCardModoManual !== null)
+      ? (_cuotaCardModoManual && proxDisponible)
+      : proxDisponible;
     const utmEntry = usarProxima ? proxEntry : actualEntry;
     const utmVal = (utmEntry && utmEntry.v > 0) ? utmEntry.v : getUtmActualVal();
 
@@ -5019,15 +5029,20 @@ function updateCuotaActualCard() {
     dbg && dbg('cuotaActualCard: error — ' + e.message);
   }
 }
-// Reutiliza el mismo toggle que ya usa la tarjeta "Datos de la pensión" —
-// no crea un estado de UI nuevo, solo la abre (si está colapsada) y hace
-// scroll hasta ella.
+// Al tocar la tarjeta, alterna entre "Tu cuota actual es" y
+// "Tu próxima cuota es". El estado se guarda en _cuotaCardModoManual y
+// se aplica en updateCuotaActualCard(). Si no hay UTM próxima cargada
+// todavía, no hay nada que alternar y se ignora el toque.
 function onCurrentInstallmentClick() {
-  const body = document.getElementById('dpCardBody');
-  if (body && body.classList.contains('is-collapsed')) {
-    toggleSection('dpCardBody', 'dpCardChevron');
-  }
-  document.querySelector('.dp-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const now = new Date();
+  const currentMonthKey = now.getFullYear() * 100 + now.getMonth();
+  const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
+  const proxDisponible = !!(proxEntry && proxEntry.v > 0);
+  if (!proxDisponible) return; // nada que conmutar
+
+  const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Tu próxima cuota es';
+  _cuotaCardModoManual = !estaEnProxima;
+  updateCuotaActualCard();
 }
 function validateDates() {
 const errorEl = document.getElementById('dateError');
@@ -7385,7 +7400,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.1100</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0126</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

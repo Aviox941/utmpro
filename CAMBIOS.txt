@@ -56,6 +56,38 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0126 · 2026-07-18]
+index.html, styles.css
+
+AJUSTE VISUAL + NUEVA INTERACCIÓN en la tarjeta "Cuota actual / Próxima
+cuota" (introducida en v2.0717.1100):
+
+1. Texto "Tu cuota actual es" / "Tu próxima cuota es" (label superior):
+   - Tamaño reducido de 14px a 12px.
+   - Color cambiado de azul #2563EB a azul más claro #93C5FD.
+   (styles.css, .cuota-actual-card__label)
+
+2. La tarjeta ahora permite ALTERNAR manualmente entre "cuota actual" y
+   "próxima cuota" al tocarla, en vez de solo hacer scroll a "Datos de
+   la pensión" (comportamiento anterior). Se agregó el estado
+   _cuotaCardModoManual (null = sin preferencia, usa el criterio
+   automático existente de disponibilidad de UTM próxima; true/false =
+   forzado por el usuario al tocar la tarjeta). updateCuotaActualCard()
+   ahora respeta ese estado al decidir qué UTM y qué label mostrar.
+   onCurrentInstallmentClick() ya no hace scroll: ahora alterna el modo
+   y vuelve a renderizar la tarjeta. Si no hay UTM próxima cargada
+   todavía (proxDisponible = false), el toque no hace nada, ya que no
+   hay nada que conmutar.
+   (index.html, funciones updateCuotaActualCard() y
+   onCurrentInstallmentClick())
+
+Sin cambios en la lógica de cálculo de cuotas, UTM ni en ningún otro
+módulo de la app.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0717.1100 · 2026-07-17]
 index.html, styles.css, export.js
 
