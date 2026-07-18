@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.0210">
+ <meta name="app-version" content="v2.0718.0240">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1449,14 +1449,14 @@ window.addEventListener('popstate', function() {
          ══════════════════════════════════════════════════════════ -->
     <button type="button" id="cuotaActualCard" class="cuota-actual-card" style="display:none;" onclick="onCurrentInstallmentClick()" aria-label="Ver cuota actual o próxima cuota">
       <div class="cuota-actual-card__icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><circle cx="16.5" cy="15" r="1.4" fill="#60A5FA" stroke="none"/></svg>
       </div>
       <div class="cuota-actual-card__body">
-        <p class="cuota-actual-card__label" id="cuotaActualLabel">Tu cuota actual es</p>
+        <p class="cuota-actual-card__label" id="cuotaActualLabel">Cuota actual</p>
         <p class="cuota-actual-card__amount" id="cuotaActualAmount">—</p>
-        <p class="cuota-actual-card__due" id="cuotaActualDue"></p>
+        <p class="cuota-actual-card__meta"><span id="cuotaActualUtm"></span><span id="cuotaActualDue"></span></p>
       </div>
-      <svg class="cuota-actual-card__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg class="cuota-actual-card__chevron" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     <!-- /Tarjeta "Cuota actual / Próxima cuota" -->
 
@@ -5012,8 +5012,9 @@ function updateCuotaActualCard() {
     const montoCLP = Math.round(cuotaMensualUTM * utmVal);
     const cuotaTexto = cuotaMensualUTM.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    document.getElementById('cuotaActualLabel').textContent = usarProxima ? 'Tu próxima cuota es' : 'Tu cuota actual es';
-    document.getElementById('cuotaActualAmount').textContent = `${cuotaTexto} UTM = ${format(montoCLP)}`;
+    document.getElementById('cuotaActualLabel').textContent = usarProxima ? 'Próxima cuota' : 'Cuota actual';
+    document.getElementById('cuotaActualAmount').textContent = format(montoCLP);
+    document.getElementById('cuotaActualUtm').textContent = `${cuotaTexto} utm`;
 
     // Día de vencimiento: desde la ficha del caso activo (Datos de la
     // pensión → diaPago). Default 5 si no está configurado o no es numérico.
@@ -7413,7 +7414,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0210</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0240</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

@@ -56,6 +56,64 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0240 · 2026-07-18]
+styles.css
+
+FIX de espaciado en la línea meta de la tarjeta "Cuota actual / Próxima
+cuota": "2,33 utm" y "Vence el 5 de agosto" aparecían pegados sin
+espacio ("2,33 utmVence el 5 de agosto"), porque el separador " • "
+estaba en un ::after de solo espacios que el navegador colapsaba.
+
+Fix: .cuota-actual-card__meta ahora es flex con align-items:center;
+el punto separador (#cuotaActualUtm::after) se mantiene como contenido
+generado pero con margin:0 6px explícito en vez de espacios dentro del
+content, y color #CBD5E1 (bullet sutil, no compite con el texto). No se
+tocó ningún tamaño de fuente ni el HTML/JS — es un fix puramente de
+CSS de espaciado.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0225 · 2026-07-18]
+index.html, styles.css
+
+REDISEÑO de la tarjeta "Cuota actual / Próxima cuota" hacia un estilo
+minimalista tipo banking app, siguiendo spec del usuario — SIN cambiar
+ninguna dimensión existente (se preservaron todos los tamaños que la
+tarjeta ya tenía: altura 86px, padding 14px/18px, ícono 22px, label
+14px, monto 20px, chevron 22px; se agregó la línea de meta a 13px,
+consistente con el __due anterior que reemplaza).
+
+Cambios de CONTENIDO/COLOR (no de tamaño):
+- Título: "Tu cuota actual es" / "Tu próxima cuota es" → "Cuota actual"
+  / "Próxima cuota". Color cambiado a #60A5FA.
+- Monto: ya no muestra "2,33 UTM = $166.942"; ahora solo el monto en
+  pesos ("$166.942"), sin "=" ni unidad UTM. Color #60A5FA (ya estaba
+  desde v2.0718.0155).
+- Nueva línea única debajo del monto, combinando lo que antes eran dos
+  elementos separados (utm + vencimiento): "2,33 utm • Vence el 5 de
+  agosto" — "utm" siempre en minúsculas, separador " • " vía CSS
+  ::after sobre #cuotaActualUtm. Reemplaza al antiguo <p
+  class="cuota-actual-card__due">; ahora es <p
+  class="cuota-actual-card__meta"> con dos <span> internos
+  (#cuotaActualUtm, #cuotaActualDue).
+- Ícono: mismo tamaño (22px), cambiado a un trazo tipo wallet (rect +
+  línea + círculo del "chip"), color #60A5FA.
+- Borde de la tarjeta: #E7EEF8 → #EAF2FF.
+- Chevron: color explícito #94A3B8 (antes heredaba currentColor).
+
+Ningún dato es hardcodeado: el monto sigue calculándose 100% desde
+getMonthlyValues() (cuota en UTM) y utmData/getUtmActualVal() (valor
+UTM correspondiente, actual o próxima), igual que antes. La detección
+de "próxima UTM disponible" sigue siendo la misma de fetchUTM()
+(corregida en v2.0718.0210) — no se duplicó ni se agregó ninguna
+consulta nueva a la CMF.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0718.0210 · 2026-07-18]
 index.html
 

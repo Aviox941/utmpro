@@ -3533,7 +3533,7 @@
   padding: 14px 18px;
   border-radius: 18px;
   background: #FFFFFF;
-  border: 1px solid #E7EEF8;
+  border: 1px solid #EAF2FF;
   box-shadow: var(--shadow-card);
   cursor: pointer;
   text-align: left;
@@ -3554,7 +3554,7 @@
 .cuota-actual-card__label {
   font-size: 14px;
   font-weight: 500;
-  color: #2563EB;
+  color: #60A5FA;
   margin: 0;
   line-height: 1.2;
 }
@@ -3568,11 +3568,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cuota-actual-card__due {
+.cuota-actual-card__meta {
+  display: flex;
+  align-items: center;
   font-size: 13px;
+  font-weight: 500;
   color: #64748B;
   margin: 2px 0 0;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cuota-actual-card__meta #cuotaActualUtm::after {
+  content: "•";
+  margin: 0 6px;
+  color: #CBD5E1;
 }
 .cuota-actual-card__chevron {
   flex: 0 0 auto;
