@@ -56,6 +56,88 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.1100 · 2026-07-17]
+index.html, styles.css, export.js
+
+NUEVA FUNCIÓN: tarjeta "Cuota actual / Próxima cuota", ubicada entre la
+sección "¿Cómo deseas calcular?" y la tarjeta "Datos de la pensión".
+100% datos dinámicos, sin valores hardcodeados — reutiliza lógica ya
+existente, no duplica nada:
+
+- Cuota en UTM: getMonthlyValues() (misma fuente que usa el resto de la
+  app para la cuota mensual configurada).
+- Valor UTM: utmData / getUtmActualVal(), con el mismo criterio
+  "actual vs. próxima" que ya usa renderUtmTicker() — si la UTM del mes
+  siguiente ya está publicada (utmData con v>0), la tarjeta cambia sola
+  el título a "Tu próxima cuota es" y muestra el monto con esa UTM.
+- Formato de pesos: format() (mismo separador de miles que el resto
+  de la app).
+- Día de vencimiento: se lee de la ficha del caso activo (diaPago,
+  guardado en getCasosIndex()); si no está configurado o no es un
+  número válido, usa 5 por defecto. Texto: "Vence el {día} de {mes}",
+  con el mes calculado según si el día ya pasó este mes o no.
+
+Actualización automática: nueva función updateCuotaActualCard(), llamada
+al final de calculate() (cubre cambios de cuota UTM, casos, sesión) y al
+final de renderUtmTicker() (cubre cambios de valor UTM, tanto al cargar
+localmente como al llegar datos nuevos de la CMF). También se llama tras
+guardarFichaEdicion() en export.js, para reflejar cambios de diaPago sin
+recargar. No se agregó ninguna consulta nueva a la CMF — la detección
+de "próxima UTM disponible" ya la hacía fetchUTM() (invalidación de
+caché desde el día 10 de cada mes, ver línea ~2702 de index.html).
+
+Comportamiento: la tarjeta se oculta automáticamente si no hay una
+cuota mensual configurada (cuotaMensualUTM = 0), en vez de mostrar
+"0,00 UTM = $0". Al tocarla, ejecuta onCurrentInstallmentClick(), que
+reutiliza el mismo toggleSection() de la tarjeta "Datos de la pensión"
+para abrirla (si está colapsada) y hace scroll hasta ella — es un
+supuesto razonable dado que la especificación no definía la acción de
+destino; fácil de cambiar si se requiere otro comportamiento.
+
+Estilos: nuevo bloque .cuota-actual-card en styles.css (86px alto,
+radio 18px, fondo blanco, borde 1px #E7EEF8, sombra var(--shadow-card)
+ya usada por el resto de las tarjetas). Sin margin horizontal propio:
+al vivir directo dentro de #mainInputs, hereda el mismo ancho/alineación
+que sus tarjetas hermanas (.calc-mode-section, .dp-card) automáticamente.
+Tampoco lleva margin vertical propio — el espaciado entre tarjetas ya lo
+da el gap/space-y de #mainInputs, agregar uno propio hubiera duplicado
+el espacio.
+
+[v2.0717.1000 · 2026-07-17]
+sw.js
+
+FIX OFFLINE: la app "no cargaba la interfaz" sin internet. Causa raíz —
+dos bugs en el service worker:
+
+1. BUG GRAVE: activate() borraba TODAS las cachés sin filtrar (incluida la
+   recién creada por install() con el mismo CACHE_NAME). Como el proyecto
+   sube versión nueva casi en cada sesión de trabajo, esto vaciaba la
+   caché offline en casi cada actualización — si el usuario abría la app
+   sin red poco después de un deploy, no había nada cacheado para servir.
+   Fix: activate() ahora solo borra cachés con nombre DISTINTO al
+   CACHE_NAME vigente (keys.filter(k => k !== CACHE_NAME)).
+
+2. Tailwind (cdn.tailwindcss.com), jsPDF/autotable (cdnjs.cloudflare.com)
+   y el cliente de Supabase (cdn.jsdelivr.net) estaban en NETWORK_ONLY —
+   nunca se cacheaban. Sin red, esos <script src> fallaban y
+   `supabase.createClient(...)` (línea ~7550 de index.html, sin try/catch)
+   tiraba una excepción no capturada que cortaba la ejecución del resto
+   del script inline, incluida la definición de funciones usadas en toda
+   la app. Fix: se sacaron esos 3 hosts de NETWORK_ONLY y se agregó
+   CDN_CACHE_HOSTS con cacheo de sus respuestas opacas (no-cors) — son
+   URLs versionadas/inmutables, cachearlas es seguro.
+
+3. Se agregó precache explícito en install() (index.html, export.js,
+   styles.css, manifest.json + los 4 scripts CDN) para que la app quede
+   lista offline apenas se instala la nueva versión, sin depender 100%
+   del cacheo reactivo de sesiones anteriores.
+
+NO SE TOCÓ: la lógica de casos ya era "local-first" (saveSession() escribe
+en localStorage como fuente de verdad; sbSaveCaso()/sbLoadCasos() sincronizan
+con Supabase en segundo plano con timeout de 6s y try/catch) — eso ya
+funcionaba bien offline y sincroniza solo al volver la conexión. El único
+problema real era que la interfaz ni siquiera lograba renderizarse.
+
 [v2.0717.0900 · 2026-07-17]
 index.html, styles.css
 

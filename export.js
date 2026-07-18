@@ -1431,6 +1431,7 @@ function guardarFichaEdicion() {
   saveCasosIndex(idx);
   updateActiveCasoBadge();
   renderCasosList();
+  if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
   // Reabrir en modo vista con datos actualizados
   openFichaModal(fichaActiveCasoId);
 }
