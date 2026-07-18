@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.0330">
+ <meta name="app-version" content="v2.0718.0345">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1448,13 +1448,15 @@ window.addEventListener('popstate', function() {
          Ver JS: función updateCuotaActualCard().
          ══════════════════════════════════════════════════════════ -->
     <button type="button" id="cuotaActualCard" class="cuota-actual-card" style="display:none;" onclick="onCurrentInstallmentClick()" aria-label="Ver cuota actual o próxima cuota">
-      <div class="cuota-actual-card__icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><circle cx="16.5" cy="15" r="1.4" fill="#60A5FA" stroke="none"/></svg>
-      </div>
-      <div class="cuota-actual-card__body">
-        <p class="cuota-actual-card__label" id="cuotaActualLabel">Cuota actual</p>
-        <p class="cuota-actual-card__amount" id="cuotaActualAmount">—</p>
-        <p class="cuota-actual-card__meta"><span id="cuotaActualUtm"></span><span id="cuotaActualDue"></span></p>
+      <div class="cuota-actual-card__inner" id="cuotaActualInner">
+        <div class="cuota-actual-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><circle cx="16.5" cy="15" r="1.4" fill="#60A5FA" stroke="none"/></svg>
+        </div>
+        <div class="cuota-actual-card__body">
+          <p class="cuota-actual-card__label" id="cuotaActualLabel">Cuota actual</p>
+          <p class="cuota-actual-card__amount" id="cuotaActualAmount">—</p>
+          <p class="cuota-actual-card__meta"><span id="cuotaActualUtm"></span><span id="cuotaActualDue"></span></p>
+        </div>
       </div>
       <svg class="cuota-actual-card__chevron" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
@@ -5082,8 +5084,30 @@ function onCurrentInstallmentClick() {
   }
 
   const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Próxima cuota';
-  _cuotaCardModoManual = !estaEnProxima;
-  updateCuotaActualCard();
+  const vaAProxima = !estaEnProxima; // dirección del cambio: false = volviendo a "actual"
+  _cuotaCardModoManual = vaAProxima;
+
+  const inner = document.getElementById('cuotaActualInner');
+  if (inner && !inner.classList.contains('cuota-actual-card__inner--slide-out-left') &&
+      !inner.classList.contains('cuota-actual-card__inner--slide-out-right')) {
+    // Salida: si avanzamos a "próxima", la tarjeta actual sale por la
+    // izquierda (como pasar de página hacia adelante); si volvemos a
+    // "actual", sale por la derecha (retrocediendo).
+    inner.classList.remove('cuota-actual-card__inner--slide-in-left', 'cuota-actual-card__inner--slide-in-right');
+    inner.classList.add(vaAProxima ? 'cuota-actual-card__inner--slide-out-left' : 'cuota-actual-card__inner--slide-out-right');
+    setTimeout(() => {
+      updateCuotaActualCard();
+      inner.classList.remove('cuota-actual-card__inner--slide-out-left', 'cuota-actual-card__inner--slide-out-right');
+      // Entrada: el nuevo contenido entra desde el lado opuesto al que
+      // salió el anterior, completando el efecto de "scroll" continuo.
+      inner.classList.add(vaAProxima ? 'cuota-actual-card__inner--slide-in-right' : 'cuota-actual-card__inner--slide-in-left');
+      setTimeout(() => {
+        inner.classList.remove('cuota-actual-card__inner--slide-in-left', 'cuota-actual-card__inner--slide-in-right');
+      }, 260);
+    }, 220);
+  } else {
+    updateCuotaActualCard();
+  }
 }
 function validateDates() {
 const errorEl = document.getElementById('dateError');
@@ -7441,7 +7465,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0330</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0345</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

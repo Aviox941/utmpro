@@ -3541,8 +3541,55 @@
   -webkit-tap-highlight-color: transparent;
   appearance: none;
   -webkit-appearance: none;
+  overflow: hidden;
 }
 .cuota-actual-card:active { background: #FAFBFF; }
+/* Contenedor animable (ícono + body) para el efecto de deslizamiento
+   horizontal al alternar entre "Cuota actual" y "Próxima cuota" — ver
+   onCurrentInstallmentClick() en index.html. El chevron queda fuera de
+   este contenedor, así no se mueve con la animación. */
+.cuota-actual-card__inner {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cuota-actual-card__inner--slide-out-left {
+  animation: cuotaSlideOutLeft 0.22s ease-in forwards;
+}
+.cuota-actual-card__inner--slide-out-right {
+  animation: cuotaSlideOutRight 0.22s ease-in forwards;
+}
+.cuota-actual-card__inner--slide-in-left {
+  animation: cuotaSlideInLeft 0.24s ease-out;
+}
+.cuota-actual-card__inner--slide-in-right {
+  animation: cuotaSlideInRight 0.24s ease-out;
+}
+@keyframes cuotaSlideOutLeft {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(-32px); opacity: 0; }
+}
+@keyframes cuotaSlideOutRight {
+  from { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(32px); opacity: 0; }
+}
+@keyframes cuotaSlideInLeft {
+  from { transform: translateX(32px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes cuotaSlideInRight {
+  from { transform: translateX(-32px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cuota-actual-card__inner--slide-out-left,
+  .cuota-actual-card__inner--slide-out-right,
+  .cuota-actual-card__inner--slide-in-left,
+  .cuota-actual-card__inner--slide-in-right {
+    animation: none;
+  }
+}
 .cuota-actual-card__icon {
   flex: 0 0 auto;
   width: 22px;

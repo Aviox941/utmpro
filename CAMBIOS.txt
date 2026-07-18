@@ -56,6 +56,42 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0345 · 2026-07-18]
+index.html, styles.css
+
+NUEVO: animación de deslizamiento horizontal ("pasar página") al
+alternar entre "Cuota actual" y "Próxima cuota" en la tarjeta, en vez
+del cambio instantáneo de texto/color que tenía antes.
+
+- HTML: se envolvió el ícono + body en un nuevo contenedor
+  .cuota-actual-card__inner (id cuotaActualInner), que es lo único que
+  se anima — el chevron queda fuera y no se mueve.
+- CSS: .cuota-actual-card ahora tiene overflow:hidden (para que el
+  contenido no se salga de la tarjeta durante la animación). 4 clases
+  de animación nuevas (slide-out-left/right, slide-in-left/right) con
+  sus @keyframes — 220-240ms, translateX ±32px + fade. Se respeta
+  prefers-reduced-motion (desactiva la animación sin romper el cambio
+  de contenido).
+- JS: onCurrentInstallmentClick() ahora, en vez de llamar
+  updateCuotaActualCard() directo, dispara la secuencia:
+  1) el inner sale deslizándose — hacia la izquierda si se avanza a
+     "Próxima cuota", hacia la derecha si se vuelve a "Cuota actual"
+     (misma lógica que decide _cuotaCardModoManual, sin duplicarla);
+  2) al terminar la salida (220ms), se llama updateCuotaActualCard()
+     como siempre (mismo dato, misma lógica de cálculo — no se tocó);
+  3) el inner entra deslizándose desde el lado opuesto al que salió,
+     completando el efecto de scroll continuo entre ambos estados.
+  Hay un guard simple contra doble-tap durante la animación (ignora
+  clicks mientras el inner está en clase slide-out-*).
+
+No se modificó ningún dato, cálculo ni la lógica de disponibilidad de
+UTM próxima — es puramente una animación sobre el toggle ya existente
+(corregido en v2.0718.0330).
+
+================================================================================
+================================================================================
+==========
+
 [v2.0718.0330 · 2026-07-18]
 index.html
 
