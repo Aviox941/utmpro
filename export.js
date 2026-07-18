@@ -2159,7 +2159,10 @@ function buildResumenContent(targetContainer, inlineMode) {
     row.className = 'flex justify-between items-center px-3 py-2.5 text-[10.5px]';
     row.style.cssText = `background:${r.sep?'#FAFAFD':'#ffffff'};border-top:1px solid #F3F4F6`;
     const valDisplay = r.utmStr
-      ? `<span class="font-bold" style="color:${r.valColor};font-size:9px">${r.utmStr}</span>`
+      ? `<div style="text-align:right;line-height:1.3">
+           <div class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</div>
+           <div style="font-size:9px;font-weight:500;color:${r.valColor};opacity:0.75">${r.utmStr}</div>
+         </div>`
       : `<span class="${r.bold?'font-black':'font-bold'}" style="color:${r.valColor};${r.italic?'font-style:italic':''}">${r.val<0?'-':''}${fmt(Math.abs(r.val))}</span>`;
     row.innerHTML = `<span class="${r.bold?'font-black':'font-semibold'}" style="color:${r.labelColor};${r.italic?'font-style:italic':''}">${r.label}</span>${valDisplay}`;
     wrapR.appendChild(row);
@@ -2990,8 +2993,11 @@ Usa el formato de fecha DD-MM-YYYY. El monto debe ser entero sin puntos.`;
     _ocrLog.push('5. respuesta OK');
     const raw = data?.choices?.[0]?.message?.content || '';
 
-    // Limpiar posibles backticks
-    const clean = raw.replace(/```json|```/g, '').trim();
+    // Limpiar posibles backticks y bloques <think>...</think> (modo razonamiento
+    // de qwen3.6-27b — se pide reasoning_effort:none en el proxy, pero por si
+    // igual llega, lo descartamos acá antes de parsear el JSON).
+    const noThink = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const clean = noThink.replace(/```json|```/g, '').trim();
     const parsedRaw = JSON.parse(clean);
 
     // El modo PJUD devuelve {movimientos, totales_documento}; el modo cartola
@@ -3320,26 +3326,42 @@ function _ocrGuardarEdicion(i) {
 
 function _ocrNormalizeFecha(fecha) {
   // FIX Bug6: el modelo puede devolver YYYY-MM-DD o DD-MM-YYYY — normalizar a DD-MM-YYYY
+  // FIX v2.0718.0349: el modelo a veces toma la fecha de un texto de referencia
+  // dentro de la fila (ej. "Depósito 04.03.2024 $150.000" en la sección "Otros
+  // abonos" de la liquidación PJUD) en vez de la columna "Fecha movimiento",
+  // devolviéndola con puntos o barras en vez de guión. Antes split('-') daba
+  // length 1 en ese caso y la función devolvía null — y ocrConfirmar() descarta
+  // en silencio cualquier fila cuya fecha no normalice, sin avisar al usuario.
+  // Ahora se aceptan '-', '.' y '/' como separador indistintamente.
   if (!fecha) return null;
-  const parts = fecha.split('-');
+  const parts = fecha.split(/[-./]/);
   if (parts.length !== 3) return null;
   if (parts[0].length === 4) {
     // YYYY-MM-DD → invertir
     return `${parts[2]}-${parts[1]}-${parts[0]}`;
   }
-  return fecha; // ya es DD-MM-YYYY
+  return `${parts[0]}-${parts[1]}-${parts[2]}`; // ya es DD-MM-YYYY (normaliza separador)
 }
 function ocrConfirmar() {
   const mNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   let added = 0;
+  let omitidas = 0;
   _ocrResultados.forEach(item => {
     const fechaNorm = _ocrNormalizeFecha(item.fecha);
-    if (!fechaNorm) return;
+    if (!fechaNorm) {
+      omitidas++;
+      dbg(`⚠️ OCR CONFIRMAR: fila descartada, fecha no parseable: "${item.fecha}"`);
+      return;
+    }
     const [dd, mm, yyyy] = fechaNorm.split('-');
     const mIdx = parseInt(mm) - 1;
     const dia = parseInt(dd);
     const anio = parseInt(yyyy);
-    if (!mm || !yyyy || dia < 1) return;
+    if (!mm || !yyyy || dia < 1) {
+      omitidas++;
+      dbg(`⚠️ OCR CONFIRMAR: fila descartada, fecha inválida tras normalizar: "${item.fecha}" → "${fechaNorm}"`);
+      return;
+    }
     const periodoLabel = mNames[mIdx] + ' ' + yyyy;
     const periodo = yyyy + '-' + mm;
     const date = `${yyyy}-${mm}-${String(dia).padStart(2,'0')}`;
@@ -3355,9 +3377,15 @@ function ocrConfirmar() {
       amountUtm = item.monto_utm;
       amount = utmVal ? Math.round(amountUtm * utmVal) : null;
     } else {
+      omitidas++;
+      dbg(`⚠️ OCR CONFIRMAR: fila descartada, sin monto válido (pesos ni UTM): "${item.fecha}"`);
       return; // sin monto válido
     }
-    if (!amount || amount <= 0) return;
+    if (!amount || amount <= 0) {
+      omitidas++;
+      dbg(`⚠️ OCR CONFIRMAR: fila descartada, no se encontró UTM del mes para convertir: "${item.fecha}" (periodo ${periodo})`);
+      return;
+    }
     // Ambas secciones del PJUD (V "Abonos LAV" y IV "Otros abonos") se
     // registran ahora como Abonos LAV: descuento directo del capital con
     // posible suspensión de intereses del mes — misma metodología, mismo
@@ -3377,7 +3405,14 @@ function ocrConfirmar() {
     renderAbonosList();
     calculate();
     saveSession();
-    dbg('OCR: ' + added + ' abonos LAV importados (incl. subcategoría Otros Abonos)');
+    dbg('OCR: ' + added + ' abonos LAV importados (incl. subcategoría Otros Abonos)' + (omitidas > 0 ? ` — ⚠️ ${omitidas} fila(s) NO importada(s), ver detalle arriba` : ''));
+  }
+  // FIX v2.0718.0349: antes, si una fila no se podía importar (fecha o monto
+  // no parseable), se descartaba en silencio — el usuario veía "18 abonos
+  // importados" sin saber que en realidad venían 19 y uno se perdió. Ahora
+  // se avisa explícitamente con un alert() al terminar.
+  if (omitidas > 0) {
+    alert(`⚠️ ${omitidas} fila(s) no se pudieron importar (fecha o monto no reconocible) y quedaron fuera del cálculo.\n\nRevisa el panel de debug para ver el detalle de cada fila descartada y agrégala manualmente si corresponde.`);
   }
   closeOcrLav();
 }
