@@ -3592,6 +3592,25 @@
   margin-left: 8px;
   color: #94A3B8;
 }
+/* Modificador: se aplica cuando la tarjeta muestra "Próxima cuota" en
+   vez de "Cuota actual" (ver updateCuotaActualCard() en index.html).
+   Mismo layout/tamaños — solo cambia la paleta a verde para que el
+   cambio de mes sea evidente de un vistazo, sin competir con el azul
+   del estado "actual". Icono, borde y ambos textos (label + amount)
+   cambian; meta/chevron se mantienen neutros a propósito. */
+.cuota-actual-card--proxima {
+  border-color: #DCFCE7;
+}
+.cuota-actual-card--proxima .cuota-actual-card__icon svg {
+  stroke: #22C55E;
+}
+.cuota-actual-card--proxima .cuota-actual-card__icon svg circle {
+  fill: #22C55E;
+}
+.cuota-actual-card--proxima .cuota-actual-card__label,
+.cuota-actual-card--proxima .cuota-actual-card__amount {
+  color: #22C55E;
+}
 
 /* Nota: la card "Ver detalle del cálculo" ya no vive aquí — ahora es
    .hero-detail-btn, dentro de .hero-card (reemplaza al banner verde

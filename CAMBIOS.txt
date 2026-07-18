@@ -56,6 +56,70 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0315 · 2026-07-18]
+index.html, styles.css
+
+NUEVO: la tarjeta "Cuota actual / Próxima cuota" ahora cambia de color
+cuando muestra "Próxima cuota", para diferenciarla de un vistazo del
+estado "Cuota actual" (antes ambos estados usaban el mismo azul
+#60A5FA, solo cambiaba el texto).
+
+- Nueva clase modificadora .cuota-actual-card--proxima en styles.css:
+  cambia borde a #DCFCE7 (verde suave), e ícono + título + monto a
+  #22C55E (verde). La línea meta (utm + vencimiento) y el chevron se
+  mantienen neutros a propósito, para no sobrecargar visualmente.
+  Mismos tamaños/layout de siempre — solo color.
+- updateCuotaActualCard() ahora hace
+  card.classList.toggle('cuota-actual-card--proxima', usarProxima)
+  junto con el cambio de texto del label, así ambos quedan siempre
+  sincronizados sin lógica duplicada.
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0300 · 2026-07-18]
+index.html
+
+SEGUNDO BUG CRÍTICO CORREGIDO en fetchUTM() — sigue la misma familia
+del bug de v2.0718.0210 (ReferenceError silencioso en la invalidación
+de caché), pero en un lugar distinto: el caché CENTRALIZADO DE
+SUPABASE (paso 2, tabla cmf_cache, id fijo 'utm', COMPARTIDO por todos
+los usuarios de la app) no tenía ninguna verificación de "¿el mes
+siguiente ya está incluido?" — solo validaba el TTL de 28 días. Como
+ese paso hace `return` apenas encuentra un caché válido por TTL, si el
+caché de Supabase fue escrito ANTES de que la CMF/SII publicara agosto
+(por cualquier usuario, en cualquier momento), TODOS los usuarios
+quedaban bloqueados leyendo ese caché desactualizado — nunca llegaban
+al paso 3 (llamada real a la CMF) hasta que ese caché venciera a los
+28 días. Esto explica por qué, incluso después del fix de
+v2.0718.0210 (que solo cubría localStorage), el botón de la tarjeta
+seguía mostrando el toast "UTM del próximo mes aún no publicada".
+
+Fix: se replicó en el paso Supabase el mismo chequeo que ya tenía
+localStorage — si estamos a partir del día 10 del mes y el mes
+siguiente no viene con v>0 en el payload de Supabase, ese caché se
+descarta como "no definitivo" y el flujo continúa al paso 3 (CMF),
+en vez de retornar inmediatamente.
+
+DATO CONFIRMADO: la UTM de agosto 2026 es $71.649 — igual a julio,
+porque el IPC de junio 2026 fue 0,0% (la UTM se calcula con dos meses
+de desfase respecto al IPC). Confirmado por el usuario con fuente SII
+(circular N° 29). Se actualizó el hardcode UTM_2026 con este valor en
+la posición de agosto (antes en 0/pendiente), para que la app lo tenga
+disponible de inmediato sin depender de que el fetch a la CMF tenga
+éxito — sigue siendo compatible con fetchUTM(), que solo sobreescribe
+entradas en 0.
+
+Con ambos fixes (localStorage v2.0718.0210 + Supabase v2.0718.0300 +
+hardcode de agosto), la tarjeta "Cuota actual / Próxima cuota" debería
+conmutar correctamente a "Próxima cuota" con el valor $71.649 al
+recargar la app.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0718.0240 · 2026-07-18]
 styles.css
 
