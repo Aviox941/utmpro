@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.0345">
+ <meta name="app-version" content="v2.0718.2339">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2417,7 +2417,7 @@ return capital * (tasaMensual / 365) * diasMora;
 // Confirmado contra RIT Z-617-2024 (Juzgado de Familia Talca) — ver CAMBIOS.txt.
 function calcularInteresSegmentado(capital, fechaVenc, fechaCorte, usarMaxima, aplicarRecargo) {
   if (!(capital > 0) || !fechaVenc || !fechaCorte || fechaCorte <= fechaVenc) {
-    return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
+    return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false, recargoAplicado: false };
   }
   let interesTotal = 0;
   let diasMoraTotal = 0;
@@ -2447,7 +2447,12 @@ function calcularInteresSegmentado(capital, fechaVenc, fechaCorte, usarMaxima, a
     cur = finTramo;
   }
   const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
-  return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
+  // FIX: se devuelve el estado REAL del recargo (flag de entrada, único para todos
+  // los tramos ya que viene de un solo checkbox global #recargoLey) en vez de dejar
+  // que el consumidor lo infiera comparando tasa vs tasaBase — esa comparación daba
+  // falsos positivos/negativos cuando la tasa CMF variaba mes a mes durante la
+  // ventana de mora (ver CAMBIOS.txt).
+  return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada, recargoAplicado: !!(aplicarRecargo && diasMoraTotal > 0) };
 }
 function getDiaVencimiento() {
 const raw = parseInt(document.getElementById('diaVencimiento')?.value);
@@ -3528,7 +3533,7 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
   // cálculo y producir un interés total ligeramente distinto sin motivo legal.
   const diaVenc = getDiaVencimiento();
   const fechaCorte = new Date(fechaAnio, fechaMes - 1, diaVenc);
-  if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false };
+  if (hoy <= fechaCorte) return { interes: 0, diasMora: 0, tasaPromedioPonderada: 0, hayTasaAproximada: false, recargoAplicado: false };
   let curAnio = fechaAnio;
   let curMes = fechaMes - 1;
   while (true) {
@@ -3557,7 +3562,9 @@ function calcularInteresConsolidadaMensual(montoCLP, fechaMes, fechaAnio, usaMax
     if (curMes > 11) { curMes = 0; curAnio++; }
   }
   const tasaPromedioPonderada = diasMoraTotal > 0 ? sumaPonderada / diasMoraTotal : 0;
-  return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada };
+  // FIX: mismo criterio que calcularInteresSegmentado — devolver el estado real
+  // del recargo en vez de inferirlo comparando tasas (ver CAMBIOS.txt).
+  return { interes: interesTotal, diasMora: diasMoraTotal, tasaPromedioPonderada, hayTasaAproximada, recargoAplicado: !!(aplicarRecargo && diasMoraTotal > 0) };
 }
 // ============================================================
 // INTERÉS CONSOLIDADA — netaeo simple del pool LAV (confirmado RIT Z-3764-2023)
@@ -3591,16 +3598,17 @@ function calcularInteresConsolidadaNeteada(capitalUTMInicial, fechaVenc, hoy, us
   // deuda y saldo a favor coexistiendo — Art. 1595 CC / criterio SITFA-PJUD).
   const saldoAFavorUTM = Math.max(0, poolLavUTM - capitalUTMInicial);
 
-  let interes = 0, diasMora = 0, tasaPromedioPonderada = 0, hayTasaAproximada = false;
+  let interes = 0, diasMora = 0, tasaPromedioPonderada = 0, hayTasaAproximada = false, recargoAplicado = false;
   if (capUTM > 0.0001 && hoy > fechaVenc) {
     const res = calcularInteresSegmentado(capUTM, fechaVenc, hoy, usaMaxima, aplicarRecargo);
     interes = res.interes;
     diasMora = res.diasMora;
     tasaPromedioPonderada = res.tasaPromedioPonderada;
     hayTasaAproximada = res.hayTasaAproximada;
+    recargoAplicado = res.recargoAplicado;
   }
 
-  return { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada, capitalUTMRestante: capUTM, saldoAFavorUTM };
+  return { interes, diasMora, tasaPromedioPonderada, hayTasaAproximada, recargoAplicado, capitalUTMRestante: capUTM, saldoAFavorUTM };
 }
 function calculateConsolidada(hoy, aplicarRecargo) {
   if (!consolidadaData) return { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
@@ -3645,6 +3653,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
   const _poolLavUTMConsolidada = _lavsDelPeriodoConsolidada.reduce((s, l) => s + (l.amountUtm || 0), 0);
 
   let _resAmortizada = null;
+  let recargoAplicadoCons = false;
   if (aplicaIntereses) {
     if (_poolLavUTMConsolidada > 0.0001) {
       _resAmortizada = calcularInteresConsolidadaNeteada(
@@ -3654,6 +3663,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
       diasMora = _resAmortizada.diasMora;
       tasaPromedio = _resAmortizada.tasaPromedioPonderada;
       tasaAproximada = _resAmortizada.hayTasaAproximada;
+      recargoAplicadoCons = _resAmortizada.recargoAplicado;
     } else {
       const res = calcularInteresConsolidadaMensual(
         capitalClpCorte, fechaMes, fechaAnio, usaMaxima, hoy, aplicarRecargo,
@@ -3663,6 +3673,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
       diasMora = res.diasMora;
       tasaPromedio = res.tasaPromedioPonderada;
       tasaAproximada = res.hayTasaAproximada;
+      recargoAplicadoCons = res.recargoAplicado;
     }
   }
 
@@ -3697,6 +3708,7 @@ function calculateConsolidada(hoy, aplicarRecargo) {
     tasaHist: tasaPromedio,
     tasaEsAproximada: tasaAproximada,
     isConsolidadaTasaPromedio: true,
+    recargoAplicado: recargoAplicadoCons,
     mora: diasMora,
     inte: interes,
     intOriginal: interes,
@@ -5287,6 +5299,7 @@ detalles.push({
 id: 'p' + idx, periodo: `${item.m} ${item.y}`, utmVal: item.v,
 cap: capEfectivoCLP, capOriginal: montoPesosMes,
 tasa: tasaAnual, tasaBase: tasaBase, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximadaFinal,
+recargoAplicado: _segInt.recargoAplicado,
 mora: diasMora, inte: interesMes,
 sub: capEfectivoCLP + interesMes, year: item.y, isDebt: false,
 capUTM: capEfectivoUTM, usarMaxima: false, ticActual: usarTicActual,
@@ -5346,6 +5359,7 @@ interesesPesosTotal += interesPesosMes;
 detalles.push({
 id: `h${hIdx}-${i}`, periodo: `HIST ${item.m} ${item.y}`, utmVal: item.v,
 cap: capitalPesosMes, tasa: tasaAnual, tasaBase: tasaBaseHist, tasaHist: tasaHistorica, tasaEsAproximada: tasaEsAproximada, mora: diasMora, inte: interesPesosMes,
+recargoAplicado: _segIntH.recargoAplicado,
 sub: capitalPesosMes + interesPesosMes, year: item.y, isDebt: true, usarMaxima: false
 });
 }
@@ -6211,7 +6225,7 @@ const abonoDetalle = (d.intImputado > 0 || d.capImputado > 0)
 </div>`
 : '';
 const isDebt = d.isDebt;
-const recargoBadge = d.tasaBase && d.tasa > d.tasaBase
+const recargoBadge = d.recargoAplicado
 ? (isDebt
     ? `<p class="text-[8px] font-black uppercase" style="color:#b45309">⚖ +50% ley</p>`
     : `<span class="detail-card__badge">✦ +50% ley</span>`)
@@ -6287,7 +6301,7 @@ ${d.isConsolidada ? `
 <div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px">(≈ aprox.)</span>' : ''} <span style="color:#94a3b8;font-size:9px">· Corriente</span></span><div class="text-right"><span class="font-bold block">${(d.tasa * 100).toFixed(2)}% anual</span><span class="text-[9px] font-bold">${(d.tasa * 100 / 365).toFixed(4)}% diaria</span></div></div>
 ` : `
 <div class="flex justify-between border-b pb-2 text-[#5b21b6]"><span>Tasa aplicada${d.tasaEsAproximada ? ' <span style="color:#f59e0b;font-size:9px" title="Tasa aproximada: no hay dato exacto para este mes. Se usa el valor más cercano disponible.">(≈ aprox.)</span>' : ''}${d.ticActual ? ' <span style="color:#93c5fd;font-size:9px">(TIC actual)</span>' : ' (TIC histórica)'}</span><div class="text-right"><span class="font-bold block">${(d.tasa * 100).toFixed(2)}% anual</span><span class="text-[9px] font-bold">${(d.tasa * 100 / 365).toFixed(4)}% diaria</span></div></div>
-${d.tasaBase && d.tasa > d.tasaBase ? `<p class="text-[9px] font-bold text-amber-600 -mt-2 pb-1">+50% de recargo aplicado (Ley 14.908, TIC base ${(d.tasaBase * 100).toFixed(2)}% anual)</p>` : ''}
+${d.recargoAplicado ? `<p class="text-[9px] font-bold text-amber-600 -mt-2 pb-1">+50% de recargo aplicado (Ley 14.908, TIC base ${(d.tasaBase * 100).toFixed(2)}% anual)</p>` : ''}
 `}
 <div class="flex justify-between border-b pb-2"><span>Días de Mora</span><span class="font-bold">${d.mora} días</span></div>
 <div class="flex justify-between ${hayAbono ? '' : 'border-b '}pb-2 text-[#6d28d9]"><span>Interés generado</span><div class="text-right"><span class="font-bold block">${format(intOriginalModal)}</span><span class="text-[9px] font-bold">${(intOriginalModal / utmHoy).toFixed(4)} UTM</span></div></div>
@@ -7465,7 +7479,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0345</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.2339</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

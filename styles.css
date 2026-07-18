@@ -1971,10 +1971,15 @@
     .card-modal--md { max-width: 34rem; }
 
     /* Modal de resumen y calendario más cómodos */
-    #resumenModal > div  { max-width: 44rem !important; }
-    #calendarModal > div { max-width: 28rem !important; }
-    #detailModal > div   { max-width: 32rem !important; }
-    #helpModal > div     { max-width: 34rem !important; }
+    /* FIX: al limitar el ancho del panel interno dentro del overlay fixed
+       (que es flex, justify-content por defecto = flex-start), el panel
+       quedaba pegado al borde izquierdo dejando el resto de la pantalla en
+       blanco. margin-left/right:auto lo centra horizontalmente (funciona
+       incluso como hijo flex, absorbe el espacio sobrante a ambos lados). */
+    #resumenModal > div  { max-width: 44rem !important; margin-left: auto !important; margin-right: auto !important; }
+    #calendarModal > div { max-width: 28rem !important; margin-left: auto !important; margin-right: auto !important; }
+    #detailModal > div   { max-width: 32rem !important; margin-left: auto !important; margin-right: auto !important; }
+    #helpModal > div     { max-width: 34rem !important; margin-left: auto !important; margin-right: auto !important; }
   }
 
   /* ── 12. resumenModal (v261: fullscreen, ya no necesita max-height
