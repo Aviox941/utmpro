@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0717.0803">
+ <meta name="app-version" content="v2.0717.0900">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1791,8 +1791,8 @@ window.addEventListener('popstate', function() {
       <div class="dh-section">
         <div style="margin-bottom:10px">
           <label class="input-label input-label--plain">Monto mensual en UTM (cuota)</label>
-          <input type="text" id="historicalDebtUtm" placeholder="0.00" inputmode="decimal"
-            oninput="checkHistReady(); tryRegisterHistorical();" class="input-number">
+          <input type="text" id="historicalDebtUtm" placeholder="0,00" inputmode="decimal"
+            oninput="saneaUtmDecimalInput(this); checkHistReady(); tryRegisterHistorical();" class="input-number">
           <div id="histUtmPeriodChip" class="hidden items-center gap-1 mt-1 px-2 py-1 rounded-lg" style="background:rgba(234,88,12,0.07);border:1px solid rgba(234,88,12,0.14);">
             <span style="font-size:9px;font-weight:700;color:#c2410c;" id="histUtmPeriodChipText">—</span>
           </div>
@@ -4889,7 +4889,21 @@ calculate();
 function updateClpHistoricoChip() {
 // chip eliminado del diseño
 }
+// Saneo de campos UTM en formato chileno (coma decimal). El teclado numérico
+// de muchos dispositivos móviles/tablet solo ofrece el punto "." — este
+// saneo lo convierte a coma "," en tiempo real para que el usuario nunca
+// quede bloqueado sin poder ingresar el decimal. Mismo patrón que
+// dupFormatCuotaMensualInput()/dupFormatMontoInput().
+function saneaUtmDecimalInput(input) {
+  var raw = input.value.replace(/[^\d.,]/g, '').replace(/\./g, ',');
+  var partes = raw.split(',');
+  if (partes.length > 2) raw = partes[0] + ',' + partes.slice(1).join('');
+  var p2 = raw.split(',');
+  if (p2[1] && p2[1].length > 3) raw = p2[0] + ',' + p2[1].slice(0, 3);
+  input.value = raw;
+}
 function updateFromUtm() {
+saneaUtmDecimalInput(document.getElementById('utmAmount'));
 const utm = parseFloat((document.getElementById('utmAmount').value || '').replace(',', '.')) || 0;
 const startItem = startIndex !== -1 ? utmData[startIndex] : null;
 const utmRef = (startItem && startItem.v > 0) ? startItem.v : getUtmActualVal();
@@ -5452,14 +5466,18 @@ const _modoLibreLAV  = _hayLav && (_cuotaParaModoLibre > 0 || _cuotaClpFijaParaM
 let resPensiones, resHistorical;
 if (_modoLibreLAV) {
   resPensiones  = buildModoLibreLAVData(_cuotaParaModoLibre, hoy, aplicarRecargo, _cuotaClpFijaParaModoLibre);
-  resHistorical = { capital: 0, intereses: 0, capitalUTM: 0, detalles: [] };
   dbg('CALC: modo libre LAV — ' + (_cuotaClpFijaParaModoLibre > 0 ? 'CLP fijo=$' + _cuotaClpFijaParaModoLibre : 'UTM=' + _cuotaParaModoLibre) + ' (src=' + (_lavCuotaUtm > 0 ? 'campo LAV' : 'período actual') + '), ' + resPensiones.detalles.length + ' meses generados');
 } else {
   resPensiones  = calculatePensiones(aplicarRecargo, hoy);
-  resHistorical = histMode === 'consolidada'
-    ? calculateConsolidada(hoy, aplicarRecargo)
-    : calculateHistoricalDebt(aplicarRecargo, hoy);
 }
+// FIX BUG: la Deuda Histórica (consolidada o recalculable) se calcula SIEMPRE
+// de forma independiente al modo libre LAV. Antes, si _modoLibreLAV estaba
+// activo (LAV + cuota mensual sin período actual), resHistorical se pisaba
+// con ceros aunque el usuario tuviera una deuda histórica registrada, y esta
+// desaparecía del total sin aviso.
+resHistorical = histMode === 'consolidada'
+  ? calculateConsolidada(hoy, aplicarRecargo)
+  : calculateHistoricalDebt(aplicarRecargo, hoy);
 const totalCap    = resPensiones.capital    + resHistorical.capital;
 const totalInt    = resPensiones.intereses  + resHistorical.intereses;
 const totalCapUTM = (resPensiones.capitalUTM || 0) + (resHistorical.capitalUTM || 0);
@@ -7277,7 +7295,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0803</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0717.0900</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

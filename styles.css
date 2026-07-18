@@ -2019,9 +2019,17 @@
   #abonosHelpModal,
   #parcialHelpModal,
   #histHelp,
-  [id$="Modal"].fixed,
-  [id$="modal"].fixed {
+  [id$="Modal"].fixed:not(#resumenModal),
+  [id$="modal"].fixed:not(#resumenModal) {
     background: rgba(26,29,46,0.45) !important;
+  }
+
+  /* #resumenModal es un panel de pantalla completa (no backdrop+tarjeta
+     centrada como el resto de los modales de arriba): su fondo debe ser
+     blanco sólido, no translúcido, o se ve "cortado"/con la app de fondo
+     asomando por detrás — especialmente notorio en tablet. */
+  #resumenModal.fixed {
+    background: #ffffff !important;
   }
 
   /* card-modal backgrounds */

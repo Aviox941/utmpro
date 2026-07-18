@@ -56,6 +56,43 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0717.0900 · 2026-07-17]
+index.html, styles.css
+
+Tres correcciones de bugs reportados por el usuario:
+
+1. BUG: Deuda Histórica se perdía al ingresar Cuota Mensual en la tarjeta
+   Depósitos LAV. En calculate(), cuando había depósitos LAV + cuota mensual
+   sin "período actual" seleccionado, se activaba "modo libre LAV"
+   (_modoLibreLAV), y esa rama pisaba resHistorical directamente con
+   { capital:0, intereses:0, capitalUTM:0, detalles:[] } sin importar si
+   había consolidadaData o historicalDebts registrados. Fix: resHistorical
+   ahora se calcula SIEMPRE de forma independiente al modo libre LAV
+   (calculateConsolidada()/calculateHistoricalDebt() ya devuelven ceros
+   seguros cuando no hay datos, así que llamarlas incondicionalmente es
+   seguro). Afecta ~línea 5452 de index.html.
+
+2. BUG: no se podía ingresar coma decimal en "Monto de la cuota (UTM)"
+   (#utmAmount) ni en "Monto mensual en UTM (cuota)" de Deuda Histórica
+   (#historicalDebtUtm) — el teclado numérico de tablet/móvil con
+   inputmode="decimal" solo ofrece el punto ".", no la coma ",". Fix:
+   nueva función saneaUtmDecimalInput() (mismo patrón que
+   dupFormatCuotaMensualInput() ya existente en la app) que convierte
+   punto → coma en tiempo real, aplicada en oninput de ambos campos.
+   Placeholder de #historicalDebtUtm corregido de "0.00" a "0,00" para
+   consistencia con el resto de los campos UTM de la app.
+
+3. BUG: overlay "Resumen de liquidación" se veía cortado/con la app de
+   fondo asomando, notorio en tablet. Causa: la regla CSS global
+   [id$="Modal"].fixed { background: rgba(26,29,46,0.45) !important; }
+   (pensada para modales tipo backdrop+tarjeta centrada) también
+   capturaba a #resumenModal, que es un panel de pantalla completa
+   (no backdrop). Su fondo blanco sólido quedaba reemplazado por uno
+   negro translúcido, dejando ver el contenido de la app detrás. Fix:
+   excluido #resumenModal de ese selector con :not(#resumenModal) y
+   agregada regla específica #resumenModal.fixed { background:#ffffff
+   !important; }.
+
 [v2.0717.0803 · 2026-07-17]
 export.js, modals.html
 
