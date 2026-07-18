@@ -56,6 +56,42 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0330 · 2026-07-18]
+index.html
+
+DOS BUGS CORREGIDOS en el comportamiento de toggle de la tarjeta
+"Cuota actual / Próxima cuota":
+
+1. La app arrancaba mostrando "Próxima cuota" por defecto en vez de
+   "Cuota actual" apenas la UTM del mes siguiente estaba disponible
+   (que ahora es siempre, desde el hardcode de agosto en v2.0718.0300).
+   Causa: updateCuotaActualCard() usaba `proxDisponible` como fallback
+   de `usarProxima` cuando _cuotaCardModoManual era null (sin
+   preferencia del usuario) — es decir, el criterio automático
+   heredado del diseño original (antes de que existiera el toggle
+   manual) seguía activo. Fix: ahora usarProxima solo es true cuando
+   el usuario tocó la tarjeta y quedó en modo "próxima"
+   (_cuotaCardModoManual === true) — el estado inicial siempre es
+   "Cuota actual", sin excepciones.
+
+2. El toggle no volvía de "Próxima cuota" a "Cuota actual" al tocar
+   la tarjeta una segunda vez. Causa: onCurrentInstallmentClick()
+   comparaba el texto del label contra el string viejo 'Tu próxima
+   cuota es', que ya no existe desde que el label se simplificó a
+   'Próxima cuota' en v2.0718.0225 — la comparación siempre daba
+   false, por lo que _cuotaCardModoManual quedaba fijo en true tras
+   el primer toque. Fix: se actualizó la comparación al texto actual.
+
+Comportamiento resultante: la tarjeta siempre abre en "Cuota actual"
+(azul); tocarla conmuta a "Próxima cuota" (verde) si la UTM del mes
+siguiente ya está disponible; tocarla de nuevo vuelve a "Cuota
+actual". Si no hay UTM próxima disponible, el toque muestra el toast
+informativo y no conmuta (comportamiento sin cambios).
+
+================================================================================
+================================================================================
+==========
+
 [v2.0718.0315 · 2026-07-18]
 index.html, styles.css
 

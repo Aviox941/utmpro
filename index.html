@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.0315">
+ <meta name="app-version" content="v2.0718.0330">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5025,11 +5025,13 @@ function updateCuotaActualCard() {
     const actualEntry = utmData.slice().reverse().find(d => (d.y * 100 + d.monthIdx) <= currentMonthKey) || utmData[0];
     const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
     const proxDisponible = !!(proxEntry && proxEntry.v > 0);
-    // Si el usuario forzó un modo manualmente, se respeta (pero no se
-    // puede mostrar "próxima" si no hay UTM próxima disponible).
-    const usarProxima = (_cuotaCardModoManual !== null)
-      ? (_cuotaCardModoManual && proxDisponible)
-      : proxDisponible;
+    // Por defecto SIEMPRE se muestra "Cuota actual" al cargar la app,
+    // sin importar si ya existe la UTM del mes siguiente. El único modo
+    // de ver "Próxima cuota" es tocando la tarjeta (toggle manual, ver
+    // onCurrentInstallmentClick()). _cuotaCardModoManual === null medio
+    // "sin preferencia todavía" → usarProxima = false; true/false una
+    // vez que el usuario tocó la tarjeta al menos una vez.
+    const usarProxima = (_cuotaCardModoManual === true) && proxDisponible;
     const utmEntry = usarProxima ? proxEntry : actualEntry;
     const utmVal = (utmEntry && utmEntry.v > 0) ? utmEntry.v : getUtmActualVal();
 
@@ -5079,7 +5081,7 @@ function onCurrentInstallmentClick() {
     return; // nada que conmutar
   }
 
-  const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Tu próxima cuota es';
+  const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Próxima cuota';
   _cuotaCardModoManual = !estaEnProxima;
   updateCuotaActualCard();
 }
@@ -7439,7 +7441,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0315</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0330</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
