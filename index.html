@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.0126">
+ <meta name="app-version" content="v2.0718.0210">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -2727,6 +2727,15 @@ const UTM_CACHE_TTL = 28 * 24 * 60 * 60 * 1000; // 28 días en ms
 // datos pero el mes siguiente aún no está en utmData, lo invalidamos para
 // forzar un re-fetch a CMF — aunque el caché no haya vencido aún.
 // Así, el día que la CMF publica, la próxima apertura de la app lo captura.
+// FIX v2.0718: estas 3 constantes se declaraban ~90 líneas más abajo (antes
+// de aniosAConsultar) pero se usaban aquí arriba. Al ser `const`, el acceso
+// caía en temporal dead zone → ReferenceError silencioso, atrapado por el
+// try/catch vacío de abajo, que impedía SIEMPRE la invalidación del caché
+// aunque la CMF ya tuviera publicado el mes siguiente. Se movieron acá para
+// que existan antes de su primer uso.
+const _hoyParaFetch = new Date();
+const _anioActual = _hoyParaFetch.getFullYear();
+const _diaActual = _hoyParaFetch.getDate();
 try {
   if (_diaActual >= 10) {
     const _proxMesAbs = _anioActual * 12 + _hoyParaFetch.getMonth() + 1; // mes sig (0-based total)
@@ -2811,9 +2820,8 @@ dbg('UTM[8] bloque CMF — todosLosAnios keys=' + Object.keys(todosLosAnios).joi
 // Si el caché localStorage/Supabase ya tiene el mes siguiente con v>0,
 // el paso 1/2 lo habrá resuelto antes de llegar acá; este código solo corre
 // cuando el caché está vacío o vencido, que es exactamente cuando queremos refrescar.
-const _hoyParaFetch = new Date();
-const _anioActual = _hoyParaFetch.getFullYear();
-const _diaActual = _hoyParaFetch.getDate();
+// (_hoyParaFetch/_anioActual/_diaActual ya declaradas más arriba, junto al
+// bloque de invalidación de caché — ver fix v2.0718)
 const _aniosExtra = new Set();
 // Siempre incluir el año actual para capturar meses recién publicados
 _aniosExtra.add(_anioActual);
@@ -5038,7 +5046,12 @@ function onCurrentInstallmentClick() {
   const currentMonthKey = now.getFullYear() * 100 + now.getMonth();
   const proxEntry = utmData.find(d => (d.y * 100 + d.monthIdx) > currentMonthKey) || null;
   const proxDisponible = !!(proxEntry && proxEntry.v > 0);
-  if (!proxDisponible) return; // nada que conmutar
+  if (!proxDisponible) {
+    if (typeof showAuthToast === 'function') {
+      showAuthToast('UTM del próximo mes aún no publicada');
+    }
+    return; // nada que conmutar
+  }
 
   const estaEnProxima = document.getElementById('cuotaActualLabel')?.textContent === 'Tu próxima cuota es';
   _cuotaCardModoManual = !estaEnProxima;
@@ -7400,7 +7413,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0126</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.0210</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

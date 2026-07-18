@@ -56,6 +56,74 @@ una entrada de changelog más.
 ================================================================================
 ==========
 
+[v2.0718.0210 · 2026-07-18]
+index.html
+
+BUG CRÍTICO CORREGIDO en fetchUTM(): la UTM del mes siguiente nunca se
+detectaba como publicada, aunque la CMF/SII ya la tuviera disponible
+(confirmado con fuentes externas: SII publica dentro de los primeros
+10 días de cada mes tanto el valor vigente como el del mes siguiente —
+agosto 2026 debía estar disponible desde inicios de julio).
+
+Causa raíz: las constantes _hoyParaFetch, _anioActual y _diaActual se
+usaban en el bloque "Invalidación anticipada de caché por publicación
+UTM mes siguiente" (que decide si hay que descartar el caché local y
+volver a consultar la CMF), pero se declaraban ~90 líneas más abajo en
+la misma función, en el bloque "Auto-fetch mes siguiente". Al ser
+`const`, cualquier acceso antes de su declaración cae en temporal dead
+zone y lanza ReferenceError — error que quedaba atrapado en silencio
+por el try/catch vacío que rodeaba el bloque de invalidación. Efecto
+práctico: la condición "si no tengo el mes siguiente en caché, forzar
+CMF" JAMÁS se ejecutaba, y la app dependía exclusivamente del TTL de
+28 días del caché de localStorage/Supabase para eventualmente refrescar
+— lo que podía demorar semanas en capturar un valor ya publicado, y
+explica por qué la tarjeta "Cuota actual / Próxima cuota" seguía
+mostrando "Tu cuota actual es" en vez de conmutar sola a "Tu próxima
+cuota es" pese a que la UTM de agosto ya estaba disponible.
+
+Fix: se movieron las 3 declaraciones (_hoyParaFetch, _anioActual,
+_diaActual) al inicio del bloque, antes de su primer uso, y se eliminó
+la declaración duplicada que quedaba más abajo. No se tocó ninguna otra
+lógica de fetchUTM() ni el hardcode de utmData — el fix es puramente de
+orden de declaración. Con esto, la próxima vez que se abra la app,
+fetchUTM() debería detectar correctamente que agosto no estaba en
+caché, invalidar localStorage, y volver a consultar la CMF — trayendo
+el valor real de agosto (a confirmar en pantalla una vez recargada la
+app; no se hardcodeó ningún valor de agosto en el código, ya que la
+única fuente confiable es la API en vivo).
+
+================================================================================
+================================================================================
+==========
+
+[v2.0718.0155 · 2026-07-18]
+index.html, styles.css
+
+CORRECCIÓN de v2.0718.0126 — el pedido original era achicar y aclarar el
+color del MONTO ("2,33 UTM = $166.942"), no del label superior ("Tu
+cuota actual es"). Se revirtió el label a su tamaño/color original y se
+aplicó el cambio al monto:
+
+- .cuota-actual-card__label: vuelve a 14px / #2563EB (como en
+  v2.0717.1100).
+- .cuota-actual-card__amount: reducido de 24px a 20px, color cambiado
+  de #1E40AF a #60A5FA (azul más claro).
+
+FEEDBACK al tocar la tarjeta sin UTM próxima disponible: antes el toque
+no hacía nada visible cuando utmData todavía no tenía el mes siguiente
+cargado (ej. si la CMF aún no publica la UTM de agosto), lo cual podía
+parecer que el toggle estaba roto. Ahora onCurrentInstallmentClick()
+muestra un toast breve ("UTM del próximo mes aún no publicada")
+reutilizando showAuthToast() ya existente en la app — no se crea un
+componente de notificación nuevo. El comportamiento del toggle en sí
+(alternar cuota actual/próxima) no cambió: sigue sin hacer nada cuando
+no hay dato de la UTM próxima, solo que ahora se lo comunica al
+usuario.
+
+================================================================================
+================================================================================
+==========
+
 [v2.0718.0126 · 2026-07-18]
 index.html, styles.css
 

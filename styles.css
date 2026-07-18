@@ -3552,16 +3552,16 @@
 .cuota-actual-card__icon svg { width: 22px; height: 22px; display: block; }
 .cuota-actual-card__body { flex: 1 1 auto; min-width: 0; }
 .cuota-actual-card__label {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
-  color: #93C5FD;
+  color: #2563EB;
   margin: 0;
   line-height: 1.2;
 }
 .cuota-actual-card__amount {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
-  color: #1E40AF;
+  color: #60A5FA;
   margin: 2px 0 0;
   line-height: 1.25;
   white-space: nowrap;
