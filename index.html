@@ -10475,22 +10475,11 @@ function openBefOverlay(skipSlideIn) {
   document.body.style.overflow = 'hidden';
 }
 
-// Limpia monto, unidad, ambas fechas (inicio/fin) y el resumen — mismo
-// patrón que dupResetForm(). Se llama al cerrar el overlay para que la
-// próxima vez que se abra (sin prefill) no queden fechas de una corrida
-// anterior pegadas en los campos.
+// Limpia ambas fechas (inicio/fin) y el resumen al cerrar el overlay, para
+// que la próxima vez que se abra no queden fechas de una corrida anterior
+// pegadas en los campos. El monto de cuota mensual (Paso 2) se preserva a
+// propósito — no se limpia al salir.
 function befResetForm() {
-  const montoEl = document.getElementById('befMontoCuota');
-  if (montoEl) montoEl.value = '';
-  _befUnidad = 'utm';
-  const btnUTM = document.getElementById('befRadioLabelUTM');
-  const btnCLP = document.getElementById('befRadioLabelCLP');
-  if (btnUTM) { btnUTM.classList.add('bef-radio--active'); btnUTM.setAttribute('aria-pressed', 'true'); }
-  if (btnCLP) { btnCLP.classList.remove('bef-radio--active'); btnCLP.setAttribute('aria-pressed', 'false'); }
-  const prefixLabel = document.getElementById('befPrefixLabel');
-  if (prefixLabel) prefixLabel.textContent = 'UTM';
-  if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
-
   ['befStart', 'befEnd'].forEach(prefix => {
     const dia = document.getElementById(prefix + 'Dia');
     const mes = document.getElementById(prefix + 'Mes');
@@ -10806,29 +10795,10 @@ function befPrefillFromPensionData() {
     }
   }
 
-  // Fechas — desde startIndex/endIndex (Período Actual) + diaVencimiento.
-  // Se escribe directamente en los hidden inputs día/mes/año (mismo patrón
-  // que el calendario custom usa para LAV/DUP) y se actualiza el <span> de
-  // display correspondiente con befSetFechaDisplay().
-  var dia = parseInt(document.getElementById('diaVencimiento')?.value || '5') || 5;
-  function fillFromUtmDataIndex(which, idx) {
-    var prefix = which === 'start' ? 'befStart' : 'befEnd';
-    if (idx === -1 || !utmData[idx]) {
-      document.getElementById(prefix + 'Dia').value  = '';
-      document.getElementById(prefix + 'Mes').value  = '';
-      document.getElementById(prefix + 'Anio').value = '';
-      befSetFechaDisplay(which, null, null);
-      return;
-    }
-    var entry = utmData[idx];
-    var diaCap = Math.min(dia, 28); // cap a 28 — evita fechas inválidas en meses cortos
-    document.getElementById(prefix + 'Dia').value  = String(diaCap);
-    document.getElementById(prefix + 'Mes').value  = String(entry.monthIdx + 1).padStart(2, '0');
-    document.getElementById(prefix + 'Anio').value = String(entry.y);
-    befSetFechaDisplay(which, entry.monthIdx + 1, entry.y);
-  }
-  fillFromUtmDataIndex('start', startIndex);
-  fillFromUtmDataIndex('end', endIndex);
+  // Fechas: a propósito NO se prellenan desde "Período Actual". El usuario
+  // debe reingresarlas cada vez que abre el overlay (befResetForm() ya las
+  // limpia al cerrar); prellenarlas aquí las repoblaba en cada apertura vía
+  // la tarjeta del dock, dando la impresión de que nunca se limpiaban.
   // NOTA: a propósito NO se dispara befCalcularPeriodo() aquí. Esa función
   // llama a resetAllExceptPensionData() (limpia abonos LAV/pagos parciales)
   // antes de aplicar el nuevo período — correcto cuando el usuario presiona
