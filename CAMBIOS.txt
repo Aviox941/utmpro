@@ -1,4 +1,108 @@
 ================================================================================
+v2.0720.1022
+================================================================================
+
+FIX: al presionar el botón "atrás" del sistema (dock de Android) mientras el
+overlay "Resumen de liquidación" estaba abierto, la app se cerraba por
+completo en vez de solo cerrar ese overlay.
+
+Causa: la app usa un mecanismo de historial ficticio (_histPush/_histPop,
+ver comentario en index.html ~línea 360) para que el botón atrás cierre
+overlays en vez de salir de la app — cada open<X>Overlay() empuja una
+entrada al historial y el listener de 'popstate' la detecta y cierra el
+overlay visualmente antes de que el navegador se quede sin historial propio
+y cierre la app. Ese mecanismo ya cubría los overlays 'dup' (Desde el
+último pago), 'bef' (Entre fechas) y 'conv' (Conversor UTM), pero
+showResumenModal()/hideResumenModal() nunca lo usaban — el overlay
+"Resumen de liquidación" quedaba fuera del historial, así que al presionar
+atrás el sistema no encontraba ninguna entrada que consumir y cerraba la
+app directamente.
+
+Fix: showResumenModal() ahora llama a _histPush('resumen') al abrir,
+hideResumenModal() llama a _histPop('resumen') al cerrar manualmente (botón
+"X"), y el listener de 'popstate' reconoce 'resumen' para cerrarlo
+visualmente cuando el cierre viene del botón atrás del sistema — mismo
+patrón que los otros tres overlays.
+
+Archivos modificados: export.js (showResumenModal() ~línea 1690,
+hideResumenModal() ~línea 1699), index.html (listener de popstate ~línea
+394-407).
+
+================================================================================
+v2.0720.1018
+================================================================================
+
+FIX 1: la tarjeta "Cuota actual / Próxima cuota" no desaparecía al limpiar el
+cálculo (botón "Limpiar cálculo" → "Sí, limpiar"), y quedaba mostrando el
+último valor calculado.
+
+Causa: resetAllSilent() (export.js) limpia correctamente todos los inputs,
+variables de estado y totales, pero nunca llamaba a updateCuotaActualCard()
+al final — nada disparaba el refresh de esa tarjeta en este flujo, así que
+se quedaba pegada con el contenido anterior hasta el próximo evento que la
+actualizara (ej. volver a escribir la cuota).
+
+Fix: se agregó la llamada a updateCuotaActualCard() al final de
+resetAllSilent(), igual que ya hacen calculate() y otros puntos de refresh
+de la app.
+
+FIX 2: la tarjeta mostraba el mismo mes de vencimiento para "Cuota actual" y
+"Próxima cuota" (ej. si la cuota actual vencía en agosto, "Próxima cuota"
+también mostraba agosto en vez de septiembre).
+
+Causa: en updateCuotaActualCard() (index.html), la fecha `vence` se
+calculaba una sola vez a partir de "hoy" vs. diaPago, sin considerar si la
+tarjeta estaba en modo "usarProxima" — por lo tanto ambos estados mostraban
+la misma fecha.
+
+Fix: se calcula primero `venceActual` (el vencimiento de la cuota actual,
+como antes), y si `usarProxima` es true, `vence` se fija un mes después de
+`venceActual`. Verificado por simulación: con diaPago=5 y fecha del sistema
+posterior al día 5, "Cuota actual" da agosto y "Próxima cuota" da septiembre.
+
+Archivos modificados: export.js (resetAllSilent(), ~línea 1254),
+index.html (updateCuotaActualCard(), ~línea 5071-5075).
+
+================================================================================
+v2.0720.1008
+================================================================================
+
+FIX (bug de cálculo importante): una cuota mensual ingresada en PESOS daba un
+capital total distinto al ingresar el "mismo" valor en UTM, aunque
+representaran el mismo monto al momento de ingresarlo.
+
+Causa: en calculatePensiones(), cuando la cuota se ingresaba en pesos,
+`cuotaUTMEfectiva = cuotaCLPEfectiva / utmMesHistorico` recalculaba el
+equivalente UTM usando la UTM HISTÓRICA de cada mes individual del período de
+mora — es decir, mantenía el peso fijo y dejaba flotar el equivalente UTM mes
+a mes. Esto es válido conceptualmente para una pensión fijada en pesos
+nominales (que no se reajusta), pero no es lo que el usuario espera al
+ingresar un monto en pesos que representa un valor UTM conocido al momento
+de ingresarlo (ej. "esto son 2.33 UTM hoy, ingreso $166.942").
+
+Fix: la cuota en pesos ahora se convierte UNA SOLA VEZ a UTM usando la UTM
+del día del cálculo (`utmHoy`, vía getUtmActualVal()), y desde ahí se trata
+exactamente igual que una cuota nativa en UTM: el valor UTM queda fijo y el
+monto en pesos de cada mes se recalcula según la UTM histórica de ese
+período (reajuste real, no capital fijo). Con esto, ingresar el mismo valor
+en pesos o en UTM da el mismo resultado mes a mes (confirmado por
+simulación).
+
+Se eliminó la variable `modoEsPesosEfectivo` (ya no es necesaria: tras la
+conversión inicial, todo se calcula en el mismo camino "UTM fijo"). El
+parámetro `modoEsPesos` de getTasaAnualInfo() no se usaba dentro de esa
+función (no afecta la tabla de tasas elegida), así que se pasa `false` de
+forma fija sin cambiar comportamiento.
+
+Archivo modificado: index.html, calculatePensiones() ~línea 5158 (declaración
+de utmHoy) y ~línea 5200-5227 (lógica de conversión cuotaUTMEfectiva /
+cuotaCLPEfectiva), y la llamada a getTasaAnualInfo() ~línea 5254.
+
+Nota: calculateHistoricalDebt() no comparte este bug — la deuda histórica
+consolidada ya se ingresa como UTM/mes fijo directamente (`debt.utm`), sin
+pasar por una conversión pesos→UTM por mes.
+
+================================================================================
 v2.0718.2339
 ================================================================================
 

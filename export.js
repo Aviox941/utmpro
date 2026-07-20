@@ -1252,6 +1252,10 @@ document.getElementById('saveIndicator').classList.add('hidden');
 const diaVencEl = document.getElementById('diaVencimiento');
 if (diaVencEl) diaVencEl.value = '5';
 handleCalculationModeChange();
+// FIX: sin esta llamada, la tarjeta "Cuota actual / Próxima cuota" se quedaba
+// pegada con el último valor visible tras limpiar el cálculo — nada disparaba
+// su refresh en este flujo hasta el próximo cambio de cuota (ver bug report).
+if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
 }
 // Formatea RUT chileno automáticamente mientras el usuario escribe
 function formatRutInput(input) {
@@ -1685,11 +1689,19 @@ function showResumenModal() {
   if (resumenEl) resumenEl.style.zIndex = (dupOpen || befOpen) ? '100001' : '';
   document.getElementById('resumenModal').classList.replace('hidden','flex');
   lockBody();
+  // FIX: sin esto, el botón "atrás" del sistema (Android) no encontraba
+  // ninguna entrada de historial propia de la app mientras este modal estaba
+  // abierto, y cerraba la app entera en vez de solo el overlay (ver bug
+  // report). Mismo mecanismo ya usado por dup/bef/conv — ver _histPush.
+  _histPush('resumen');
 }
 function hideResumenModal() {
   document.getElementById('resumenModal').classList.replace('flex','hidden');
   document.getElementById('resumenModal').style.zIndex = ''; // restaura el z-index base
   unlockBody();
+  // FIX: consume la entrada de historial empujada por _histPush('resumen')
+  // en showResumenModal() — mismo patrón que dup/bef/conv (ver _histPop).
+  if (typeof _histPop === 'function') _histPop('resumen');
 }
 function buildResumenContent(targetContainer, inlineMode) {
   const container = targetContainer || document.getElementById('resumenContent');

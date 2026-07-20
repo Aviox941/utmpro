@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0718.2339">
+ <meta name="app-version" content="v2.0720.1022">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -399,6 +399,14 @@ window.addEventListener('popstate', function() {
     if (name === 'dup' && typeof _closeDupOverlayVisual === 'function') _closeDupOverlayVisual();
     else if (name === 'bef' && typeof _closeBefOverlayVisual === 'function') _closeBefOverlayVisual();
     else if (name === 'conv' && typeof _closeConvOverlayVisual === 'function') _closeConvOverlayVisual();
+    else if (name === 'resumen') {
+      // Cierre visual del modal "Resumen de liquidación" sin volver a llamar
+      // history.back() (evita loop) — replica hideResumenModal() menos el
+      // _histPop, ya que la entrada de historial ya se está consumiendo aquí.
+      document.getElementById('resumenModal').classList.replace('flex','hidden');
+      document.getElementById('resumenModal').style.zIndex = '';
+      if (typeof unlockBody === 'function') unlockBody();
+    }
   } finally {
     _histPopstateBusy = false;
   }
@@ -5069,9 +5077,16 @@ function updateCuotaActualCard() {
     } catch(e) {}
 
     // Próximo vencimiento: este mes si el día aún no pasó, si no, el que viene.
-    const vence = (now.getDate() <= diaPago)
+    // FIX: cuando se muestra "Próxima cuota" (usarProxima), su vencimiento
+    // debe ser un mes después del de "Cuota actual" — antes se calculaba
+    // igual en ambos casos, así que "Cuota actual" y "Próxima cuota" mostraban
+    // el mismo mes de vencimiento (ver bug report).
+    const venceActual = (now.getDate() <= diaPago)
       ? new Date(now.getFullYear(), now.getMonth(), diaPago)
       : new Date(now.getFullYear(), now.getMonth() + 1, diaPago);
+    const vence = usarProxima
+      ? new Date(venceActual.getFullYear(), venceActual.getMonth() + 1, diaPago)
+      : venceActual;
     document.getElementById('cuotaActualDue').textContent = `Vence el ${diaPago} de ${MESES_LARGOS[vence.getMonth()]}`;
 
     card.style.display = 'flex';
@@ -5157,6 +5172,9 @@ let excedenteParcialTotalUTM = 0;
 let excedenteParcialTotalCLP = 0;
 const { cuotaMensualUTM, cuotaMensualCLP, modoEsPesos } = getMonthlyValues();
 const diaVenc = getDiaVencimiento();
+// FIX (bug UTM vs pesos): la UTM del día del cálculo, usada para convertir UNA
+// SOLA VEZ una cuota ingresada en pesos a su equivalente UTM fijo.
+const utmHoy = getUtmActualVal();
 // Permitir el cálculo si hay cuota manual O si hay períodos variables registrados
 const hayPeriodos = periodosPension.length > 0;
 // Rango efectivo = unión del rango del formulario activo + rango acumulado de períodos.
@@ -5204,24 +5222,27 @@ if (_mesesCubiertosHist.has(_absMonthItem)) return;
 const utmMesHistorico = item.v; // UTM del mes de la cuota
 // ── Períodos variables: sobreescribir cuota si hay un período registrado ──
 const periodoOverride = getPeriodoCuotaParaMes(item.y, item.monthIdx);
-let cuotaUTMEfectiva, cuotaCLPEfectiva, modoEsPesosEfectivo;
+let cuotaUTMEfectiva, cuotaCLPEfectiva;
+// FIX: una cuota ingresada en pesos se convierte UNA SOLA VEZ a UTM usando la
+// UTM del día del cálculo (utmHoy) — no la UTM de cada mes histórico. A partir
+// de ahí se trata igual que una cuota nativa en UTM: el valor UTM queda fijo y
+// el monto en pesos se reajusta mes a mes según la UTM histórica de cada
+// período. Antes, `cuotaUTMEfectiva = cuotaCLPEfectiva / utmMesHistorico` hacía
+// lo opuesto: fijaba el peso y dejaba flotar el equivalente UTM mes a mes,
+// lo que producía un capital distinto al ingresar el "mismo" monto en pesos
+// vs en UTM (ver conversación de bug report).
 if (periodoOverride) {
-  modoEsPesosEfectivo = periodoOverride.modoEsPesos;
-  if (modoEsPesosEfectivo) {
-    cuotaCLPEfectiva  = periodoOverride.cuotaCLP;
-    cuotaUTMEfectiva  = cuotaCLPEfectiva / utmMesHistorico;
+  if (periodoOverride.modoEsPesos) {
+    cuotaUTMEfectiva  = periodoOverride.cuotaCLP / utmHoy;
   } else {
     cuotaUTMEfectiva  = periodoOverride.cuotaUTM;
-    cuotaCLPEfectiva  = cuotaUTMEfectiva * utmMesHistorico;
-    modoEsPesosEfectivo = false;
   }
 } else {
-  modoEsPesosEfectivo = modoEsPesos;
-  cuotaUTMEfectiva    = modoEsPesos ? (cuotaMensualCLP / utmMesHistorico) : cuotaMensualUTM;
-  cuotaCLPEfectiva    = modoEsPesos ? cuotaMensualCLP : (cuotaMensualUTM * utmMesHistorico);
+  cuotaUTMEfectiva = modoEsPesos ? (cuotaMensualCLP / utmHoy) : cuotaMensualUTM;
 }
+cuotaCLPEfectiva = cuotaUTMEfectiva * utmMesHistorico;
 const cuotaUTMReal  = cuotaUTMEfectiva;
-const montoPesosMes = modoEsPesosEfectivo ? cuotaCLPEfectiva : (cuotaUTMEfectiva * utmMesHistorico);
+const montoPesosMes = cuotaUTMEfectiva * utmMesHistorico;
 // CORRECCIÓN JUDICIAL: la cuota del mes M vence el día D del MISMO mes M,
 // no del mes siguiente. Ej: cuota oct-2025 vence el 05-10-2025.
 // Confirmado por ingeniería inversa sobre liquidación oficial SITFA/PJUD.
@@ -5245,7 +5266,7 @@ const usarTicActual = document.getElementById('ticActual')?.checked || false;
 // Se conservan solo como referencia informativa del mes de origen de la cuota.
 const tasaAnio = usarTicActual ? hoy.getFullYear() : item.y;
 const tasaMes = usarTicActual ? hoy.getMonth() : item.monthIdx;
-const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, modoEsPesosEfectivo, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
+const _tasaInfo = getTasaAnualInfo(tasaAnio, tasaMes, false, false, montoPesosMes, item.v, diasMora); // categoría según capital original, no remanente
 const tasaHistorica = _tasaInfo.valor;
 const tasaEsAproximada = _tasaInfo.esAproximada;
 const categoriaDetectada = _tasaInfo.categoriaLabel; // interno — no se expone en UI
@@ -7479,7 +7500,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0718.2339</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0720.1022</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
