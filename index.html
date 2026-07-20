@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0720.1022">
+ <meta name="app-version" content="v2.0720.1047">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -5565,9 +5565,16 @@ function imputarAbonosArt1595(detalles, abonos) {
 // sintéticamente: un mes por cada mes desde el primer depósito hasta hoy.
 // La lógica del pool LAV que sigue en calculate() aplica igual que siempre.
 function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
-  // cuotaClpFija: cuando el modo es CLP, el monto en pesos es fijo y la UTM équivalente varía mes a mes.
-  // cuotaUtm: cuando el modo es UTM, la cuota en UTM es fija y el CLP equivalente varía mes a mes.
+  // cuotaClpFija: cuando el modo es CLP, se convierte UNA SOLA VEZ a UTM usando
+  // la UTM del día del cálculo (utmHoy) — luego se trata igual que una cuota
+  // nativa en UTM (fija en UTM, el CLP equivalente reajusta mes a mes según la
+  // UTM histórica de cada período). Antes se mantenía el CLP fijo y se
+  // recalculaba `cuotaClpFija / item.v` cada mes, lo que daba un resultado
+  // distinto entre ingresar la misma cuota en UTM vs. en CLP (mismo bug ya
+  // corregido en calculatePensiones(), ver CAMBIOS.txt v2.0720.1008).
+  const utmHoyModoLibre = getUtmActualVal();
   const modoEsClpFijo = cuotaClpFija > 0;
+  const cuotaUtmFija = modoEsClpFijo ? (cuotaClpFija / utmHoyModoLibre) : cuotaUtm;
   const diaVenc = getDiaVencimiento();
   const sorted  = [...abonosLav].sort((a,b) => a.date.localeCompare(b.date));
   if (!sorted.length) return { capital:0, intereses:0, capitalUTM:0, detalles:[] };
@@ -5584,10 +5591,10 @@ function buildModoLibreLAVData(cuotaUtm, hoy, aplicarRecargo, cuotaClpFija) {
   while (y < endY || (y === endY && mi <= endM)) {
     const item = utmData.find(d => d.y === y && d.monthIdx === mi);
     if (!item) { mi++; if (mi > 11) { mi = 0; y++; } idx++; continue; }
-    // Modo CLP fijo: el monto en pesos es constante, la UTM equivalente varía mes a mes.
-    // Modo UTM fijo: la cuota en UTM es constante, el CLP equivalente varía mes a mes.
-    const cuotaUtmMes = modoEsClpFijo ? (item.v > 0 ? cuotaClpFija / item.v : 0) : cuotaUtm;
-    const capCLP = modoEsClpFijo ? cuotaClpFija : cuotaUtm * item.v;
+    // Cuota fija en UTM (nativa o convertida desde CLP arriba): el CLP
+    // equivalente de cada mes se reajusta según la UTM histórica del período.
+    const cuotaUtmMes = cuotaUtmFija;
+    const capCLP = cuotaUtmFija * item.v;
     const fechaVenc = new Date(y, mi, diaVenc);
     const diasMora  = calcularDiasMora(fechaVenc, hoy);
     const usarTicActual = document.getElementById('ticActual')?.checked || false;
@@ -5642,6 +5649,13 @@ if (_noRange) {
   // abonos LAV ingresados, igual deben reflejarse en la tarjeta azul de totales
   // y en el resumen de liquidación (totales + detalle por depósito).
   renderLavSummary();
+  // FIX: la tarjeta "Cuota actual / Próxima cuota" depende solo del monto de
+  // cuota (UTM o CLP) ingresado en Datos de Pensión / Welcome Screen / campo
+  // LAV — no de que exista un período/rango calculable. Sin esta llamada, si
+  // el usuario ingresaba la cuota pero aún no un período, calculate() salía
+  // aquí y nunca llegaba a la llamada que está al final de la función,
+  // dejando la tarjeta sin aparecer hasta agregar un período (ver bug report).
+  if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
   dbg('CALC: sin rango definido — abortando sin error (LAV summary actualizado)');
   return;
 }
@@ -7500,7 +7514,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0720.1022</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0720.1047</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');

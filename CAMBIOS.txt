@@ -1,4 +1,46 @@
 ================================================================================
+v2.0720.1047
+================================================================================
+
+FIX 1: el bug de conversión CLP→UTM (corregido en v2.0720.1008 para el flujo
+normal de "cuota mensual con período") seguía sin corregirse en el modo
+"libre LAV" — el que se usa cuando el caso tiene abonos LAV pero NO tiene un
+período/rango de fechas registrado (ej. caso "Anonos Lav").
+
+Causa: buildModoLibreLAVData() tiene su propia lógica de conversión,
+independiente de calculatePensiones(), y no se tocó en el fix anterior.
+Mantenía el CLP fijo y recalculaba `cuotaClpFija / item.v` cada mes con la
+UTM histórica de cada período — el mismo problema, en otra función.
+
+Fix: se aplicó el mismo criterio que en calculatePensiones() — la cuota en
+pesos se convierte UNA SOLA VEZ a UTM usando la UTM del día del cálculo
+(utmHoy), y desde ahí se trata como una cuota fija en UTM (el CLP
+equivalente reajusta mes a mes). Verificado por simulación: ingresar la
+misma cuota en UTM o en pesos ahora da el mismo capital mes a mes en este
+modo también.
+
+FIX 2: la tarjeta "Cuota actual / Próxima cuota" solo aparecía después de
+registrar un período — no apenas se ingresaba el monto de cuota (UTM o CLP)
+en Datos de Pensión, Welcome Screen (Paso 1: monto inicial), o el campo de
+cuota mensual dentro de Abonos LAV.
+
+Causa: calculate() tiene un early-exit (_noRange) que corta la ejecución
+temprano cuando no hay período/rango/LAV/deuda histórica registrados. La
+llamada a updateCuotaActualCard() vivía solo al final de calculate() — un
+punto que nunca se alcanzaba si el usuario había ingresado la cuota pero
+aún no un período. Los tres orígenes mencionados (Datos de Pensión vía
+updateFromUtm()/updateFromClp(), Quota Screen vía confirmQuotaScreen(), y
+el campo LAV) disparan calculate(), así que todos quedaban afectados por el
+mismo corte temprano.
+
+Fix: se agregó la llamada a updateCuotaActualCard() también dentro del
+early-exit _noRange de calculate(), antes del return — la tarjeta ahora se
+actualiza sin importar si existe o no un período calculable.
+
+Archivo modificado: index.html — buildModoLibreLAVData() ~línea 5567,
+calculate() early-exit ~línea 5647.
+
+================================================================================
 v2.0720.1022
 ================================================================================
 
