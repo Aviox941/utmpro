@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
  <meta charset="UTF-8">
- <meta name="app-version" content="v2.0720.1047">
+ <meta name="app-version" content="v2.0720.1710">
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
  <title>Pensión UTM Pro v17 · Fix descuento pago parcial v87</title>
  <link rel="manifest" href="/utmpro/manifest.json">
@@ -1291,7 +1291,7 @@ window.addEventListener('popstate', function() {
 
           <hr>
 
-          <button type="button" class="hero-detail-btn" onclick="showResumenModal()" aria-label="Ver detalle del cálculo">
+          <button type="button" id="verDetalleMensualBtn" class="hero-detail-btn" onclick="showResumenModal()" aria-label="Ver detalle del cálculo" style="display:none;">
             <span class="hero-detail-btn__icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
             </span>
@@ -4908,7 +4908,7 @@ document.getElementById('utmActualVal').innerText = format(actualEntry.v);
 // tarjeta Próximo Mes eliminada (visual)
 document.getElementById('utmTicker').classList.remove('hidden');
 document.getElementById('utmTicker').style.display = 'flex';
-if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
+if (typeof refreshCuotaUI === 'function') refreshCuotaUI();
 }
 // ── Chip UTM período inicio (pensiones mensuales + deuda histórica) ──
 function updateUtmPeriodChips() {
@@ -5028,12 +5028,38 @@ return { cuotaMensualCLP, cuotaMensualUTM, modoEsPesos };
 // calculate() y de renderUtmTicker() — cualquier cambio en la cuota UTM, el
 // valor UTM (actual o próxima), el diaPago o la fecha del sistema dispara
 // automáticamente uno de esos dos y por lo tanto refresca esta tarjeta.
+// ── Visibilidad del botón "Ver detalle mensual" ─────────────────────────────
+// El botón solo tiene sentido si hay algo que mostrar en el Resumen de
+// liquidación — mismo criterio que ya usa el guard de showResumenModal()
+// (export.js): datos calculados (lastCalculationData) o abonos LAV
+// registrados. Antes el botón estaba siempre visible, incluso sin ningún
+// cálculo, y al tocarlo mostraba una alerta "No hay datos calculados"
+// (ver bug report).
+function updateDetalleMensualBtn() {
+  const btn = document.getElementById('verDetalleMensualBtn');
+  if (!btn) return;
+  const hayCalculo = typeof lastCalculationData !== 'undefined' && lastCalculationData && lastCalculationData.length > 0;
+  const hayLav = typeof abonosLav !== 'undefined' && abonosLav && abonosLav.length > 0;
+  btn.style.display = (hayCalculo || hayLav) ? 'flex' : 'none';
+}
 const MESES_LARGOS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 // Estado del toggle manual de la tarjeta "Cuota actual / Próxima cuota".
 // null = sin preferencia del usuario (usa el criterio automático de
 // disponibilidad de UTM próxima); true/false = forzado por el usuario
 // al tocar la tarjeta, hasta que vuelva a tocarla.
 let _cuotaCardModoManual = null;
+// ── Refresco combinado de la UI que depende del estado de cálculo ──────────
+// Wrapper que agrupa updateCuotaActualCard() y updateDetalleMensualBtn() —
+// ambas deben refrescarse juntas en cada punto donde cambian los datos de
+// cálculo, pero con criterios de visibilidad independientes entre sí (la
+// tarjeta depende de la cuota mensual ingresada; el botón depende de si hay
+// datos calculados o abonos LAV). Se agrupan en un wrapper en vez de anidar
+// una llamada dentro de la otra para que los early-return de una función no
+// afecten a la otra.
+function refreshCuotaUI() {
+  if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
+  if (typeof updateDetalleMensualBtn === 'function') updateDetalleMensualBtn();
+}
 function updateCuotaActualCard() {
   const card = document.getElementById('cuotaActualCard');
   if (!card) return;
@@ -5655,7 +5681,7 @@ if (_noRange) {
   // el usuario ingresaba la cuota pero aún no un período, calculate() salía
   // aquí y nunca llegaba a la llamada que está al final de la función,
   // dejando la tarjeta sin aparecer hasta agregar un período (ver bug report).
-  if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
+  if (typeof refreshCuotaUI === 'function') refreshCuotaUI();
   dbg('CALC: sin rango definido — abortando sin error (LAV summary actualizado)');
   return;
 }
@@ -6172,7 +6198,7 @@ if (typeof lastCalculationData !== 'undefined' && lastCalculationData.length > 0
     }
 
   } catch(e) { /* silent */ }
-  updateCuotaActualCard();
+  refreshCuotaUI();
 }
 }
 // ── Toggle detalle del cálculo (tarjeta inline) ─────────────────────────────
@@ -7011,8 +7037,6 @@ updateCalendarActionBtn();
 renderCalendar();
 // Actualizar chip de equivalencia UTM si hay monto CLP ingresado
 if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
-// Recalcular en tiempo real (sin esperar a que se cierre el calendario)
-if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'befEnd') {
 const mesVal = String(i + 1).padStart(2, '0');
@@ -7023,8 +7047,6 @@ document.getElementById('befEndAnio').value = String(selectedYear);
 befSetFechaDisplay('end', i + 1, selectedYear);
 updateCalendarActionBtn();
 renderCalendar();
-// Recalcular en tiempo real (sin esperar a que se cierre el calendario)
-if (typeof befActualizarResumen === 'function') befActualizarResumen();
 return;
 } else if (calendarMode === 'histStart') {
 // FIX AUDITORÍA (Bug A): faltaba escribir histStartMes — solo se guardaba
@@ -7514,7 +7536,7 @@ document.addEventListener('visibilitychange', async () => {
     </div>
    </div>
    <p style="text-align:center;font-size:9px;color:#b0bac8;font-weight:700;margin-top:20px;">Tus datos son privados y solo tú puedes verlos</p>
-  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0720.1047</p>
+  <p id="appVersionLabel" style="text-align:center;font-size:8px;color:#cbd5e1;font-weight:600;margin-top:6px;letter-spacing:.04em;">v2.0720.1704</p>
   <script>
    (function(){
      var v = document.querySelector('meta[name="app-version"]');
@@ -9689,6 +9711,15 @@ function dupCalcularDeuda() {
   const mes  = document.getElementById('dupMes').value;
   const anio = document.getElementById('dupAnio').value;
 
+  // Fix v2_0720b: los pasos 1 y 2 (dupCuotaMensual/dupMontoCuota) no deben
+  // quedar en blanco tras calcular — solo dupResetForm() (cierre del
+  // overlay) debe limpiarlos. Se guarda el texto tal cual está en pantalla
+  // para restaurarlo explícitamente al final de esta función, sin depender
+  // de que otro código (addAbonoLav, calculate, re-render de LAV, etc.)
+  // dispare un reflow que los deje vacíos.
+  const _dupCuotaMensualDisplay = document.getElementById('dupCuotaMensual').value;
+  const _dupMontoCuotaDisplay   = document.getElementById('dupMontoCuota').value;
+
   if (!monto || monto <= 0) {
     alert('Ingresa un monto de cuota válido.');
     return;
@@ -9772,6 +9803,13 @@ function dupCalcularDeuda() {
   //    llamada los elementos totalGrand/totalCap/totalInt/totalGrandUtm de
   //    la tarjeta principal ya están actualizados y podemos leerlos.
   addAbonoLav();
+
+  // 3.b) Fix v2_0720b: restaurar los pasos 1 y 2 con lo que el usuario tenía
+  // escrito (ver captura al inicio de la función). Deben permanecer visibles
+  // hasta que el usuario cierre el overlay (dupResetForm) o toque
+  // explícitamente "Recalcular" desde cero.
+  document.getElementById('dupCuotaMensual').value = _dupCuotaMensualDisplay;
+  document.getElementById('dupMontoCuota').value   = _dupMontoCuotaDisplay;
 
   // 4) Mostrar el resumen DENTRO del overlay (en vez de cerrar y navegar a
   //    la pantalla principal). El usuario revisa el total sin perder de
@@ -10026,7 +10064,7 @@ function dupBuildDetalle() {
             placeholder="0,00"
             inputmode="decimal"
             aria-label="Monto de la cuota mensual"
-            oninput="befFormatMontoInput(this); befUpdateEquivChip(); befActualizarResumen();"
+            oninput="befFormatMontoInput(this); befUpdateEquivChip();"
           >
         </div>
         <!-- Chip de equivalencia: visible solo en modo CLP cuando hay monto y fecha de inicio -->
@@ -10153,11 +10191,11 @@ function dupBuildDetalle() {
     <div style="height: 100px;"></div>
   </div><!-- /bef-overlay__body -->
 
-  <!-- CTA fijo en el fondo — ya no "calcula": el cálculo ocurre en tiempo
-       real a medida que se completan los datos. Solo cierra el overlay. -->
+  <!-- CTA fijo en el fondo — dispara el cálculo explícito (mismo patrón
+       que dupCtaBtn: "Calcular período" → "Recalcular" tras el primer cálculo). -->
   <div class="bef-overlay__footer">
-    <button type="button" class="bef-cta-btn" onclick="closeBefOverlay()">
-      Listo
+    <button type="button" class="bef-cta-btn" id="befCtaBtn" onclick="befCalcularPeriodo()">
+      Calcular período
     </button>
   </div>
 
@@ -10437,6 +10475,39 @@ function openBefOverlay(skipSlideIn) {
   document.body.style.overflow = 'hidden';
 }
 
+// Limpia monto, unidad, ambas fechas (inicio/fin) y el resumen — mismo
+// patrón que dupResetForm(). Se llama al cerrar el overlay para que la
+// próxima vez que se abra (sin prefill) no queden fechas de una corrida
+// anterior pegadas en los campos.
+function befResetForm() {
+  const montoEl = document.getElementById('befMontoCuota');
+  if (montoEl) montoEl.value = '';
+  _befUnidad = 'utm';
+  const btnUTM = document.getElementById('befRadioLabelUTM');
+  const btnCLP = document.getElementById('befRadioLabelCLP');
+  if (btnUTM) { btnUTM.classList.add('bef-radio--active'); btnUTM.setAttribute('aria-pressed', 'true'); }
+  if (btnCLP) { btnCLP.classList.remove('bef-radio--active'); btnCLP.setAttribute('aria-pressed', 'false'); }
+  const prefixLabel = document.getElementById('befPrefixLabel');
+  if (prefixLabel) prefixLabel.textContent = 'UTM';
+  if (typeof befUpdateEquivChip === 'function') befUpdateEquivChip();
+
+  ['befStart', 'befEnd'].forEach(prefix => {
+    const dia = document.getElementById(prefix + 'Dia');
+    const mes = document.getElementById(prefix + 'Mes');
+    const anio = document.getElementById(prefix + 'Anio');
+    if (dia) dia.value = '';
+    if (mes) mes.value = '';
+    if (anio) anio.value = '';
+  });
+  befSetFechaDisplay('start', null, null);
+  befSetFechaDisplay('end', null, null);
+
+  const section = document.getElementById('befSummarySection');
+  if (section) section.style.display = 'none';
+  const ctaBtn = document.getElementById('befCtaBtn');
+  if (ctaBtn) ctaBtn.textContent = 'Calcular período';
+}
+
 function closeBefOverlay() {
   _histPop('bef');
   _closeBefOverlayVisual();
@@ -10448,6 +10519,7 @@ function _closeBefOverlayVisual() {
   el.style.transform = ''; // limpia el translateY(0) inline usado por la apertura sin slide-in
   el.classList.remove('bef-overlay--open');
   el.classList.add('bef-overlay--closing');
+  befResetForm();
   el.addEventListener('animationend', function handler() {
     el.style.display = 'none';
     el.classList.remove('bef-overlay--closing');
@@ -10473,8 +10545,12 @@ function befSelectUnidad(val) {
   btnCLP.setAttribute('aria-pressed', isUTM ? 'false' : 'true');
   // Al cambiar a UTM ocultar el chip; al cambiar a CLP limpiar y esperar input
   befUpdateEquivChip();
-  // El monto se limpió arriba: ocultar el resumen hasta que se reingrese
-  if (typeof befActualizarResumen === 'function') befActualizarResumen();
+  // El monto se limpió arriba: ocultar el resumen hasta que el usuario
+  // vuelva a presionar "Calcular período" / "Recalcular"
+  const section = document.getElementById('befSummarySection');
+  if (section) section.style.display = 'none';
+  const ctaBtn = document.getElementById('befCtaBtn');
+  if (ctaBtn) ctaBtn.textContent = 'Calcular período';
 }
 
 // Actualiza el chip de equivalencia UTM bajo el campo de monto.
@@ -10588,22 +10664,31 @@ function befGetFechaISO(which) {
 // real. Así el resultado queda igual que si el usuario hubiera elegido esas
 // fechas/monto directamente en "Período Actual".
 //
-// A diferencia de la versión anterior (botón "Calcular deuda actual"), esta
-// función se llama en TIEMPO REAL cada vez que cambia la unidad, el monto o
-// alguna de las dos fechas (ver oninput de befMontoCuota, befSelectUnidad()
-// y el manejador de clic de mes para calendarMode 'befStart'/'befEnd'). Por
-// eso es silenciosa: si falta algún dato o es inválido, simplemente oculta
-// el resumen en vez de mostrar alert() — el usuario puede estar a mitad de
-// completar el formulario.
-function befActualizarResumen() {
+// Cálculo EXPLÍCITO disparado por el botón "Calcular período" / "Recalcular"
+// (befCtaBtn) — mismo patrón que dupCalcularDeuda(): valida con alert() en
+// vez de fallar silenciosamente, y al terminar cambia el texto del botón a
+// "Recalcular".
+function befCalcularPeriodo() {
   const section = document.getElementById('befSummarySection');
   const unidad  = _befUnidad; // 'utm' | 'clp'
   const monto   = befGetMontoValue();
   const inicio  = befGetFechaISO('start');
   const fin     = befGetFechaISO('end');
 
-  if (!monto || monto <= 0 || !inicio || !fin || new Date(fin) < new Date(inicio)) {
-    if (section) section.style.display = 'none';
+  if (!monto || monto <= 0) {
+    alert('Ingresa un monto de cuota válido.');
+    return;
+  }
+  if (!inicio) {
+    alert('Selecciona la fecha de inicio del período.');
+    return;
+  }
+  if (!fin) {
+    alert('Selecciona la fecha de fin del período.');
+    return;
+  }
+  if (new Date(fin) < new Date(inicio)) {
+    alert('La fecha de fin no puede ser anterior a la fecha de inicio.');
     return;
   }
 
@@ -10616,7 +10701,7 @@ function befActualizarResumen() {
   const newStartIndex = utmData.findIndex(d => d.y === befStartAnio && d.monthIdx === (befStartMes - 1));
   const newEndIndex   = utmData.findIndex(d => d.y === befEndAnio   && d.monthIdx === (befEndMes - 1));
   if (newStartIndex === -1 || newEndIndex === -1) {
-    if (section) section.style.display = 'none';
+    alert('No se encontraron datos UTM para el período seleccionado.');
     return;
   }
 
@@ -10642,7 +10727,7 @@ function befActualizarResumen() {
     })();
     const montoEnUTM = _utmInicio > 0 ? monto / _utmInicio : 0;
     if (montoEnUTM <= 0) {
-      if (section) section.style.display = 'none';
+      alert('No se pudo obtener el valor UTM del mes de inicio para convertir la cuota.');
       return;
     }
     setCalcMode('utm');
@@ -10656,6 +10741,9 @@ function befActualizarResumen() {
   saveSession();
 
   befPopulateSummary();
+
+  const ctaBtn = document.getElementById('befCtaBtn');
+  if (ctaBtn) ctaBtn.textContent = 'Recalcular';
 }
 
 // Lee los totales ya calculados (recién actualizados por calculate() vía
@@ -10679,6 +10767,10 @@ function befPopulateSummary() {
   document.getElementById('befSummaryIntereses').textContent = intEl?.innerText || '$0';
 
   section.style.display = 'block';
+
+  requestAnimationFrame(() => {
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 // ── Prefill: monto y fechas desde "Datos de Pensión" ───────────────────────
@@ -10737,13 +10829,13 @@ function befPrefillFromPensionData() {
   }
   fillFromUtmDataIndex('start', startIndex);
   fillFromUtmDataIndex('end', endIndex);
-  // NOTA: a propósito NO se dispara befActualizarResumen() aquí. Esa función
+  // NOTA: a propósito NO se dispara befCalcularPeriodo() aquí. Esa función
   // llama a resetAllExceptPensionData() (limpia abonos LAV/pagos parciales)
-  // antes de aplicar el nuevo período — correcto cuando el usuario decide
-  // activamente editar algo dentro de "Entre fechas", pero destructivo si
+  // antes de aplicar el nuevo período — correcto cuando el usuario presiona
+  // "Calcular período" / "Recalcular" activamente, pero destructivo si
   // ocurriera solo por abrir el overlay a mirar, sin haber tocado nada
-  // todavía. El resumen se muestra recién con la primera interacción real
-  // (cambiar unidad, escribir el monto, o elegir una fecha).
+  // todavía. El resumen se muestra recién cuando el usuario presiona el
+  // botón CTA con los datos completos.
 }
 
 // Conectar la tarjeta "Entre fechas" al overlay

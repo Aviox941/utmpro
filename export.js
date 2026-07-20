@@ -1252,10 +1252,11 @@ document.getElementById('saveIndicator').classList.add('hidden');
 const diaVencEl = document.getElementById('diaVencimiento');
 if (diaVencEl) diaVencEl.value = '5';
 handleCalculationModeChange();
-// FIX: sin esta llamada, la tarjeta "Cuota actual / Próxima cuota" se quedaba
-// pegada con el último valor visible tras limpiar el cálculo — nada disparaba
-// su refresh en este flujo hasta el próximo cambio de cuota (ver bug report).
-if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
+// FIX: sin esta llamada, la tarjeta "Cuota actual / Próxima cuota" y el botón
+// "Ver detalle mensual" se quedaban visibles tras limpiar el cálculo — nada
+// disparaba su refresh en este flujo hasta el próximo cambio de cuota (ver
+// bug report).
+if (typeof refreshCuotaUI === 'function') refreshCuotaUI();
 }
 // Formatea RUT chileno automáticamente mientras el usuario escribe
 function formatRutInput(input) {
@@ -1435,7 +1436,7 @@ function guardarFichaEdicion() {
   saveCasosIndex(idx);
   updateActiveCasoBadge();
   renderCasosList();
-  if (typeof updateCuotaActualCard === 'function') updateCuotaActualCard();
+  if (typeof refreshCuotaUI === 'function') refreshCuotaUI();
   // Reabrir en modo vista con datos actualizados
   openFichaModal(fichaActiveCasoId);
 }

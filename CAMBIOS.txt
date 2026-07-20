@@ -1,4 +1,95 @@
 ================================================================================
+v2.0720.1710
+================================================================================
+
+FIX: en el overlay "Entre fechas" (befOverlay), las casillas de fecha de
+inicio y fin (befStart/befEnd) no se limpiaban al cerrar el overlay y
+volver a abrirlo, quedando "pegadas" de la corrida anterior. No existía un
+befResetForm() equivalente a dupResetForm().
+
+CAMBIO DE COMPORTAMIENTO: el overlay volvió al modelo de botón explícito,
+igual que "Desde el último pago" (dupOverlay). El CTA inferior ahora dice
+"Calcular período" (antes "Listo", que solo cerraba el overlay sin calcular)
+y cambia a "Recalcular" después del primer cálculo exitoso, mismo patrón
+visual y de validación (alert()) que dupCtaBtn. Se eliminó el cálculo
+automático en tiempo real que se disparaba en cada oninput del monto, cada
+cambio de unidad UTM/CLP, y cada selección de mes en el calendario de
+inicio/fin.
+
+Implementación:
+- Nueva función befResetForm() (mismo patrón que dupResetForm): limpia
+  monto, unidad (vuelve a UTM), ambas fechas (befStart/befEnd, hidden
+  inputs + displays) y oculta el resumen. Se invoca desde
+  _closeBefOverlayVisual(), igual que dupResetForm() se invoca desde
+  _closeDupOverlayVisual().
+- befActualizarResumen() renombrada a befCalcularPeriodo(): ahora valida
+  con alert() (monto vacío, fecha de inicio/fin vacía, fin anterior a
+  inicio, sin datos UTM del período) en vez de ocultar el resumen en
+  silencio, y al terminar cambia befCtaBtn a "Recalcular".
+- Quitadas las llamadas a befActualizarResumen() desde oninput de
+  befMontoCuota y desde el manejador de clic de mes de calendarMode
+  'befStart'/'befEnd'.
+- befSelectUnidad() ahora oculta el resumen y resetea el CTA a "Calcular
+  período" al cambiar de unidad, en vez de recalcular en el acto.
+- befPopulateSummary() ahora hace scroll a la vista del resumen tras
+  calcular (mismo patrón que dupPopulateSummary()).
+
+Archivos modificados: index.html (befCalcularPeriodo ~línea 10671,
+befResetForm ~línea 10482, befSelectUnidad ~línea 10504, footer del
+overlay ~línea 10197, manejador de calendario ~línea 7029), sw.js
+(CACHE_NAME), meta app-version.
+
+================================================================================
+v2.0720.1704
+================================================================================
+
+FIX: en el overlay "Desde el último pago" (dupOverlay), al pulsar
+"Recalcular", los campos del paso 1 "Monto de la cuota mensual"
+(dupCuotaMensual) y paso 2 "Monto de la última cuota pagada" (dupMontoCuota)
+quedaban visualmente vacíos justo después de calcular, aunque el cálculo en
+sí fuera correcto. Deben limpiarse solo al salir del overlay (dupResetForm,
+disparado por closeDupOverlay) o al iniciar un nuevo cálculo desde cero —
+nunca como efecto colateral de un Recalcular exitoso.
+
+Implementación: dupCalcularDeuda() ahora guarda el texto visible de ambos
+campos al inicio (antes de convertirlos a los campos internos que usa
+addAbonoLav()/calculate()) y lo restaura explícitamente justo antes de
+dupPopulateSummary(), en vez de depender de que ningún otro punto del flujo
+(addAbonoLav, calculate, renderAbonosLav) los deje intactos por accidente.
+
+Archivos modificados: index.html (dupCalcularDeuda ~línea 9710).
+
+================================================================================
+v2.0720.1643
+================================================================================
+
+MEJORA: el botón "Ver detalle mensual" (en la tarjeta "Total adeudado") ahora
+solo es visible cuando existe algún cálculo o abono LAV registrado — antes
+estaba siempre visible, y al tocarlo sin datos mostraba una alerta "No hay
+datos calculados. Ingresa los datos y el cálculo se actualizará
+automáticamente." (guard que ya existía en showResumenModal(), pero solo
+como mensaje reactivo, no como control de visibilidad del botón).
+
+Implementación: el botón parte oculto por defecto (atributo style en el
+HTML, para cubrir el estado inicial de la app antes de que corra cualquier
+JS), y una función nueva updateDetalleMensualBtn() lo muestra/oculta usando
+el mismo criterio que ya usaba el guard de showResumenModal(): datos en
+lastCalculationData, o abonos LAV registrados.
+
+Se agrupó esta función junto con updateCuotaActualCard() (la tarjeta "Cuota
+actual / Próxima cuota", que tiene el mismo patrón de "solo visible si hay
+datos relevantes") en un wrapper nuevo, refreshCuotaUI(), y se reemplazaron
+los 4 puntos donde antes se llamaba updateCuotaActualCard() directamente
+(renderUtmTicker, el early-exit de calculate(), el final de calculate(), y
+resetAllSilent() en export.js) para que ambos elementos de UI se mantengan
+sincronizados en cada refresh, sin depender de que las dos funciones se
+llamen por separado en cada punto nuevo que se agregue a futuro.
+
+Archivos modificados: index.html (botón ~línea 1294, updateDetalleMensualBtn
+y refreshCuotaUI ~línea 5051, call sites ~línea 4911, ~5684, ~6201),
+export.js (resetAllSilent ~línea 1258, guardarFichaEdicion ~línea 1439).
+
+================================================================================
 v2.0720.1047
 ================================================================================
 
